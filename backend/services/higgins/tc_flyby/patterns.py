@@ -22,10 +22,10 @@ import re
 from dataclasses import dataclass
 
 from core.db import db
-from services.higgins.teddy.triage import NEGATION
+from services.higgins.tc_flyby.triage import NEGATION
 from services.kb_sources import TIER_1
 
-log = logging.getLogger("apollo.teddy.patterns")
+log = logging.getLogger("apollo.tc_flyby.patterns")
 
 KIND = "scam_pattern"
 SCAMWATCH = "Scamwatch (ACCC)"

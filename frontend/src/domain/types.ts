@@ -221,8 +221,8 @@ export interface PatrolEvent {
    *  the device holds the result, so only it can say the investigation has finished. While this is
    *  absent the case is genuinely still being investigated. */
   investigation_completed_at?: string | null;
-  /** Who settled that investigation: "magnum_di" or a TC FlyBy route ("teddy_official", "teddy_kb",
-   *  "teddy_search"). Device-local, copied from the committed result; absent when not recorded. */
+  /** Who settled that investigation: "magnum_di" or a TC FlyBy route ("tc_flyby_official", "tc_flyby_kb",
+   *  "tc_flyby_search"). Device-local, copied from the committed result; absent when not recorded. */
   investigation_answered_by?: string | null;
   /** An outside source behind that investigation was simulated in the preview (copied from the committed result).
    *  Device-local. Everything else ran exactly as in production; this only tags the case. */

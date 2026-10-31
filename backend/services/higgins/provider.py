@@ -7,8 +7,15 @@ model ApolloSG Settings selected (services/higgins/ai_settings.py). The gateway 
 Every check runs here, whatever the provider: the model is approved and can do what the call needs (fixed answer shape,
 images, web search), images go only with an authorised purpose, credentials are stripped and the privacy boundary is
 applied to every text part, usage is recorded, and the DI transaction record is written. No prompt/response logging,
-no hidden-reasoning display, no implicit model or provider switch, no SDK retries. A Magnum DI investigation makes
-exactly one call through this gateway, plus at most one retry that jobs.py decides on (see coordinator.py).
+no hidden-reasoning display, no implicit model or provider switch, no SDK retries. A Magnum DI investigation makes at
+most one call through this gateway for the whole correlated case (see coordinator.py), and there is no retry.
+
+SPENDING LIMITS (services/ai_budget.py): before a live call is sent its estimated cost is reserved against ApolloSG's
+daily limits in one atomic update — the total limit, and for automatic checks their share of it. A call that would go
+over is refused with `budget_limit` and nothing is sent. After the call the reservation is settled to the cost of the
+usage the provider reported; when the billing outcome isn't known (a timeout, a dropped connection, no usage) the
+estimate stays held. Each call's usage record carries its model, purpose, time, device, case, job, input / candidate /
+thinking / cached tokens, web searches and estimated cost (services/gemini_usage.py).
 
 NO-FALLBACK CONTRACT:
     In production every provider failure is reported exactly as-is — the error code, the HTTP status, the finish
@@ -38,10 +45,12 @@ from dataclasses import replace
 from typing import Any
 from urllib.parse import urlparse
 
+from services import ai_budget
+from services.gemini_usage import call_cost
 from services.gemini_usage import record_usage as _record_usage
 from services.higgins import adapters, ai_settings
 from services.higgins.ai_request import AIResult, Message, Part, ProviderFailure, _sanitise_diagnostic  # noqa: F401
-from services.higgins.capacity import CALL_SECONDS
+from services.higgins.capacity import CALL_SECONDS, OUTPUT
 from services.higgins.llm_boundary import Purpose, enforce_boundary, strip_credentials
 
 _gateway_log = _logging.getLogger("apollo.gateway")
@@ -176,13 +185,24 @@ def _owner_for(correlation_id: str | None) -> str | None:
     return _DI_OWNERS.get(correlation_id or "")
 
 
+# Refusals the provider doesn't bill: the request was turned away before any answer was produced.
+_NOT_BILLED_HTTP = frozenset({400, 401, 403, 404, 413, 422, 429})
+_NOT_BILLED_CODES = frozenset({"rate_limited", "provider_configuration", "privacy_violation"})
+
+
+def _billed_unknown(exc: ProviderFailure) -> bool:
+    return not (exc.code in _NOT_BILLED_CODES or (exc.http_status or 0) in _NOT_BILLED_HTTP)
+
+
 async def generate(system: str, contents: Any, *, model: str,
                    capability: str = "text", json_output: bool = False,
                    web_search: bool = False, timeout: float = CALL_SECONDS,
                    response_schema: dict | None = None,
                    purpose: Purpose,
                    correlation_id: str | None = None,
-                   trigger_source: str | None = None) -> AIResult:
+                   trigger_source: str | None = None,
+                   device_id: str | None = None,
+                   job_id: str | None = None) -> AIResult:
     """Single authoritative AI gateway. Every AI inference request MUST use this function.
 
     `model` is the one ApolloSG Settings selected (pinned on the investigation's job); it is called exactly as given.
@@ -209,6 +229,10 @@ async def generate(system: str, contents: Any, *, model: str,
     # ── Payload composition audit ──────────────────────────────────────
     # Captures what is being sent so per-call costs can be attributed to system prompt, evidence, rounds, etc.
     payload_audit = _audit_payload(system, contents, web_search)
+    purpose_name = purpose.value if hasattr(purpose, "value") else str(purpose)
+    device_id = device_id or _owner_for(correlation_id)
+    case_id = (correlation_id or "").removeprefix("case-") if (correlation_id or "").startswith("case-") else None
+    reservation: ai_budget.Reservation | None = None
 
     async def _track(success: bool, usage: dict | None = None, failure_code: str | None = None, search_queries: int | None = None):
         extra_data: dict = {"payload_audit": payload_audit, "search_tool": web_search}
@@ -218,9 +242,11 @@ async def generate(system: str, contents: Any, *, model: str,
             extra_data["trigger_source"] = trigger_source
         try:
             await _record_usage(record_id=call_id, correlation_id=correlation_id, model=model, provider=provider_id,
-                                purpose=purpose.value if hasattr(purpose, "value") else str(purpose), call_type=call_type,
+                                purpose=purpose_name, call_type=call_type,
                                 success=success, failure_code=failure_code, usage_metadata=usage,
-                                duration_ms=int((time.monotonic() - t0) * 1000), extra=extra_data)
+                                duration_ms=int((time.monotonic() - t0) * 1000), extra=extra_data,
+                                device_id=device_id, case_id=case_id, job_id=job_id,
+                                reservation_id=reservation.reservation_id if reservation else None)
         except Exception:
             _gateway_log.warning("ai_usage: failed to persist usage record %s", call_id, exc_info=True)
 
@@ -245,24 +271,46 @@ async def generate(system: str, contents: Any, *, model: str,
     if os.getenv("APOLLO_FORBID_PROVIDER_CALLS") == "1":
         raise AssertionError("Live provider calls are prohibited in bounded tests")
 
+    # Reserve the call's estimated cost against today's limits, atomically, before anything is sent.
+    try:
+        reservation = await ai_budget.reserve(
+            ai_budget.estimate_call_usd(model, provider_id, payload_audit, web_search=web_search, max_output_tokens=OUTPUT.value),
+            automated=ai_budget.automated(trigger_source), purpose=purpose_name, model=model, provider=provider_id,
+            correlation_id=correlation_id, device_id=device_id, case_id=case_id, job_id=job_id)
+    except ai_budget.BudgetExceeded as exc:
+        await _track(False, failure_code="budget_limit")
+        raise ProviderFailure("budget_limit", retryable=False, operation="spending_limit", original_message=str(exc)) from None
+
     adapter = adapters.ADAPTERS[provider_id]
     try:
         result = await asyncio.wait_for(adapter.invoke(model=model, system=system, contents=contents, json_output=json_output,
                                                        response_schema=response_schema, web_search=web_search), timeout=timeout)
     except asyncio.TimeoutError as exc:
+        await ai_budget.unknown(reservation)
         await _track(False, failure_code="timeout")
         raise ProviderFailure("provider_unavailable", retryable=True, operation="response_generation",
                               original_message=f"{ai_settings.label(provider_id)} API call timed out after {timeout}s") from exc
     except ProviderFailure as exc:
+        if _billed_unknown(exc):
+            await ai_budget.unknown(reservation)
+        else:
+            await ai_budget.settle(reservation, 0.0)
         await _track(False, failure_code=f"http_{exc.http_status}" if exc.code == "provider_configuration" and exc.http_status else exc.code)
         raise
     except Exception as exc:  # an adapter bug is still reported as the provider failing, never hidden
+        await ai_budget.unknown(reservation)
         await _track(False, failure_code="provider_unavailable")
         raise ProviderFailure("provider_unavailable", retryable=True, original_message=str(exc)[:300] or None,
                               exception_type=type(exc).__name__) from exc
 
-    # Track successful usage, with the number of web searches the model ran (each one is billed).
-    await _track(True, usage=result.usage, search_queries=search_query_count(result.grounding) if web_search else None)
+    # Track successful usage, with the number of web searches the model ran (each one is billed), and settle the
+    # reservation to what the provider reported. No usage reported: the billing isn't known, so the estimate stays held.
+    searches = search_query_count(result.grounding) if web_search else None
+    if result.usage:
+        await ai_budget.settle(reservation, call_cost(model, provider_id, result.usage, searches or 0))
+    else:
+        await ai_budget.unknown(reservation)
+    await _track(True, usage=result.usage, search_queries=searches)
 
     # DI transaction record for the real call (production as well as preview).
     try:

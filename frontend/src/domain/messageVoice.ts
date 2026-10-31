@@ -158,9 +158,11 @@ export function scrubMessage(text: string | null | undefined): string {
 }
 
 // --- Investigation status history (History Everywhere) -----------------------------------------------
-/** TC FlyBy settled the result (the case's `answeredBy` is "teddy_*"): the one place this is decided on this device. */
+/** TC FlyBy settled the result (the case's `answeredBy` is "tc_flyby_*"): the one place this is decided on this device.
+ *  Results saved on a phone before TC FlyBy's rename carry its old prefix, "teddy_*", and still count as TC FlyBy's. */
+const FLYBY_PREFIXES = ["tc_flyby", "teddy"];
 export function settledByFlyby(answeredBy: string | null | undefined): boolean {
-  return (answeredBy ?? "").startsWith("teddy");
+  return FLYBY_PREFIXES.some((prefix) => (answeredBy ?? "").startsWith(prefix));
 }
 
 /** Who settled an investigation result, by name (the case's `answeredBy`). Results recorded before

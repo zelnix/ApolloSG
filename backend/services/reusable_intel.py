@@ -16,12 +16,16 @@ STALE_KEPT_FOR after it expires.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from pymongo.errors import DuplicateKeyError
 
 from core.db import db, now_utc
 
@@ -40,9 +44,12 @@ STALE_KEPT_FOR = timedelta(days=90)
 
 # Providers and source types (who produced it, by which Apollo process).
 GEMINI = "gemini"
-GEMINI_SEARCH = "gemini_google_search"
+GEMINI_SEARCH = "gemini_google_search"   # TC FlyBy's old AI-grounded lookups: no longer read or written
+BRAVE_SEARCH = "brave_search"            # TC FlyBy's web search results, read deterministically
 GENERAL_ANSWER = "higgins_general_answer"
 TC_FLYBY_LOOKUP = "tc_flyby_lookup"
+# How long an in-progress claim on a public lookup holds before another request may take it over (a crashed holder).
+INFLIGHT_SECONDS = 30
 
 # Aggregate counters (no content). One document per day and call site.
 EVENTS = ("kb_hit", "cache_hit", "cache_expired", "sufficiency_known", "sufficiency_partial", "sufficiency_unknown",
@@ -58,6 +65,8 @@ async def ensure_indexes() -> None:
     await db.reusable_intelligence.create_index("purge_at", expireAfterSeconds=0)
     await db.reusable_intelligence.create_index([("question", "text")], name="intel_question_text", default_language="english")
     await db.intel_reuse_metrics.create_index([("day", 1), ("site", 1)], unique=True)
+    await db.intel_inflight.create_index("lookup_id", unique=True)
+    await db.intel_inflight.create_index("purge_at", expireAfterSeconds=0)
     _indexed = True
 
 
@@ -169,7 +178,47 @@ async def put(key: str, provider: str, source_type: str, info_type: str, payload
 
 
 async def used(record: dict) -> None:
-    await db.reusable_intelligence.update_one({"cache_id": record["cache_id"]}, {"$inc": {"hits": 1}, "$set": {"last_hit_at": now_utc()}})
+    if record.get("cache_id"):
+        await db.reusable_intelligence.update_one({"cache_id": record["cache_id"]}, {"$inc": {"hits": 1}, "$set": {"last_hit_at": now_utc()}})
+
+
+# ── One request at a time for the same public lookup ──────────────────────────
+async def _claim(lookup_id: str) -> str | None:
+    """An atomic in-progress claim, or None while another request holds it. Holds the lookup's fingerprint only —
+    no device, case or content — so a waiting device learns nothing about who else asked."""
+    await _ready()
+    token, now = uuid.uuid4().hex, now_utc()
+    fields = {"token": token, "until": now + timedelta(seconds=INFLIGHT_SECONDS), "purge_at": now + timedelta(seconds=INFLIGHT_SECONDS * 10)}
+    try:
+        await db.intel_inflight.insert_one({"lookup_id": lookup_id, **fields})
+        return token
+    except DuplicateKeyError:
+        taken = await db.intel_inflight.find_one_and_update({"lookup_id": lookup_id, "until": {"$lte": now}}, {"$set": fields})
+        return token if taken else None
+
+
+async def once(lookup_id: str, fetch, *, reuse, wait_seconds: float = 15.0, poll_seconds: float = 0.25):
+    """Run `fetch()` for a reusable public lookup unless another request is already running it. A request that finds
+    the lookup claimed waits for the result the holder saves (`reuse()`), and never sends the same lookup alongside it.
+    Returns fetch()'s or reuse()'s result, or None when the holder neither saved a result nor let go in time."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + wait_seconds
+    while True:
+        token = await _claim(lookup_id)
+        if token:
+            try:
+                return await fetch()
+            finally:
+                await db.intel_inflight.delete_one({"lookup_id": lookup_id, "token": token})
+        while True:
+            await asyncio.sleep(poll_seconds)
+            found = await reuse()
+            if found is not None:
+                return found
+            if loop.time() >= deadline:
+                return None
+            if not await db.intel_inflight.find_one({"lookup_id": lookup_id, "until": {"$gt": now_utc()}}, {"_id": 1}):
+                break   # the holder let go without a reusable result: this request may run the lookup itself
 
 
 # ── Moving the KB's old saved Gemini answers here (kept, never discarded) ─────

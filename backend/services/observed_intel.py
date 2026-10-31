@@ -58,7 +58,7 @@ def subject(kind: str, value: str) -> tuple[str, str | None] | None:
     """(one-way key, readable name or None) for a website, phone number, email address, message or file that may be recorded."""
     from services import org_directory, threat_feeds
     from services.higgins.brand_domains import owner, registrable
-    from services.higgins.teddy.triage import FREE_MAIL
+    from services.higgins.tc_flyby.triage import FREE_MAIL
     from services.reusable_intel import fingerprint, subject_key
     value = (value or "").strip()
     if not value:
@@ -173,10 +173,10 @@ async def record_case(owner: str, case_id: str, outcome: str | None, *, simulate
     if not stance or simulated:
         return 0
     from services.higgins import repository as repo
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "teddy_ciphertext": 1, "observed_at": 1})
-    if not stored or not stored.get("teddy_ciphertext") or stored.get("observed_at"):
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1, "observed_at": 1})
+    if not stored or not stored.get("tc_flyby_ciphertext") or stored.get("observed_at"):
         return 0
-    record = repo.dec_json(stored["teddy_ciphertext"])
+    record = repo.dec_json(stored["tc_flyby_ciphertext"])
     # Asserted by the KB while this case ran → not independent confirmation of that same assertion.
     asserted = set(record.get("kbAsserted") or [])
     now = now_utc()

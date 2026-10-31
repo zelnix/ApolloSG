@@ -143,7 +143,7 @@ async def test_preview_runs_every_production_check_before_the_simulator(monkeypa
         await _REAL_GENERATE("", "hello", model="not-a-model", capability="text", purpose=Purpose.ORDINARY_CHAT)
     assert unknown_model.value.code == "provider_configuration"
     with pytest.raises(ProviderFailure) as no_search:  # a model that can't search is refused, never swapped for one that can
-        await _REAL_GENERATE("", "hello", model="gemini-2.5-flash-lite", capability="json", web_search=True, purpose=Purpose.TEDDY_SEARCH)
+        await _REAL_GENERATE("", "hello", model="gemini-2.5-flash-lite", capability="json", web_search=True, purpose=Purpose.TC_FLYBY_SEARCH)
     assert no_search.value.code == "provider_configuration"
     assert calls == [], "the simulator must never answer a request production would refuse"
 

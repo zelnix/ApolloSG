@@ -122,7 +122,7 @@ class Purpose(str, Enum):
     PUBLIC_ADVISORY_ANALYSIS = "public_advisory_analysis"  # Government scam advisory classification
     VISION_INVESTIGATION = "vision_investigation"  # Vision Gate: photograph/upload → indicator extraction + routing
     TRIAGE = "triage"                         # Minimal structured triage: SAFE/SUSPICIOUS/UNCERTAIN only
-    TEDDY_SEARCH = "teddy_search"             # TC FlyBy: narrow factual web search lookups about public identifiers
+    TC_FLYBY_SEARCH = "tc_flyby_search"             # TC FlyBy: narrow factual web search lookups about public identifiers
 
 
 # ── One outbound privacy decision per field ────────────────────────────────
@@ -202,7 +202,7 @@ def enforce_boundary(purpose: Purpose, payload: Any, *, evidence_pii: set[str] |
 
 
 # ABN, ACN and licence numbers: an exact number goes only to TC FlyBy's register question about that number (its search
-# call, where every other question already carries the number as a label: teddy/search.prompt). Every other AI or
+# call, where every other question already carries the number as a label: tc_flyby/search.prompt). Every other AI or
 # research request carries it as a label.
 _REGISTRATION_NUMBERS = (
     (re.compile(r"\bABN[\s:#.]*(?:\d[\s-]?){10}\d\b", re.I), "[business number]"),
@@ -223,7 +223,7 @@ def _enforce_text(purpose: Purpose, text: str, *, evidence_pii: set[str] | None 
     """Strip credentials from all text, compress long URLs. For research and advisory analysis, also minimise personal identifiers."""
     cleaned = strip_credentials(text)
     cleaned = compress_urls(cleaned)
-    if purpose is not Purpose.TEDDY_SEARCH:
+    if purpose is not Purpose.TC_FLYBY_SEARCH:
         cleaned = redact_registration_numbers(cleaned)
     if purpose in (Purpose.RESEARCH, Purpose.PUBLIC_ADVISORY_ANALYSIS):
         # Research and advisory queries should contain only public identifiers, not personal data.

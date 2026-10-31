@@ -74,7 +74,7 @@ function response(outcome: string, attention: string, briefing: BriefingKind) {
 }
 const investigation = (resp: ReturnType<typeof response>) => ({
   caseId: "case-1", gates: ["text"], status: "complete", createdAt: "2026-10-28T01:00:00Z", completedAt: "2026-10-28T01:00:30Z",
-  committedAt: "2026-10-28T01:00:31Z", question: "", sources: [], turns: [], patrolEventId: "ev1", answeredBy: "teddy",
+  committedAt: "2026-10-28T01:00:31Z", question: "", sources: [], turns: [], patrolEventId: "ev1", answeredBy: "tc_flyby",
   evidenceItems: [{ id: "EV-1", caseId: "case-1", clientItemId: "c1", displayId: "EV-1", origin: "user_submission", kind: "text", parentId: null,
     availability: "available", mediaType: null, byteLength: null, integrityHash: null, provenance: null,
     coverage: { status: "examined", unit: "characters", total: 120, examined: 120, materialGap: false }, simulation: null, transformations: [],
@@ -199,7 +199,7 @@ test("every screen says the case result's verdict and severity — for every out
     assert.ok(trail.some((e) => e.description === `Verdict: ${r.verdict}.`), at);
 
     // DI: what Higgins presented is the same verdict and risk.
-    const steps = buildDecisionTrace({ trace: { triage: null, flyby: null, magnum: null, answeredBy: "teddy", outcome: o, completion: "complete",
+    const steps = buildDecisionTrace({ trace: { triage: null, flyby: null, magnum: null, answeredBy: "tc_flyby", outcome: o, completion: "complete",
       settledReason: null, higgins: { status: "PASS", mode: "plain", attempts: 1 } }, records: [], triage: null, hasCase: true,
     presented: { verdict: brief.label, risk: brief.risk?.label ?? null } });
     const lock = steps.find((s) => s.id === "lock")!;

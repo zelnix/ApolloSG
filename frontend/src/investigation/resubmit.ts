@@ -1,5 +1,5 @@
-// Resubmitting a stopped investigation. Magnum DI makes one Gemini call and, if it fails, exactly one retry;
-// after that the server sets `resubmitAt` (about five minutes later) and the Resubmit button waits until then.
+// Resubmitting a stopped investigation. Magnum DI makes at most one Gemini call per case and never retries it; only a
+// case stopped before that call was made can be resubmitted. The server sets `resubmitAt` and the Resubmit button waits until then.
 // The case keeps everything the person submitted, so resubmitting sends the same material again. Pure — no React Native imports.
 import type { Failure } from "./types";
 

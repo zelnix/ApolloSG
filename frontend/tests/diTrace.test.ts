@@ -23,9 +23,9 @@ function record(partial: Partial<DiTransaction> = {}): DiTransaction {
 }
 
 const flybyTrace = (resolved: boolean): DiTrace => ({
-  triage: null, answeredBy: resolved ? "teddy_official" : "magnum_di", outcome: resolved ? "concerning" : "likely_scam", completion: "complete",
+  triage: null, answeredBy: resolved ? "tc_flyby_official" : "magnum_di", outcome: resolved ? "concerning" : "likely_scam", completion: "complete",
   flyby: {
-    ranAt: null, resolved, answeredBy: resolved ? "teddy_official" : "magnum_di", outcome: resolved ? "concerning" : null, basis: resolved ? "impersonation" : null,
+    ranAt: null, resolved, answeredBy: resolved ? "tc_flyby_official" : "magnum_di", outcome: resolved ? "concerning" : null, basis: resolved ? "impersonation" : null,
     messageType: "sms", pattern: null, checks: [{ kind: "link", status: "resolved", route: "official_source" }], searchCalls: 0, searchQueries: 0,
     cacheHits: 0, magnumNeeded: !resolved, magnumSearch: false, gaps: [], issues: resolved ? [] : [{ capability: "reasoning", text: "Weigh the money request." }], simulated: false,
   },

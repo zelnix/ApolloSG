@@ -2,7 +2,7 @@
 
 Higgins explains what was found → what it means → what to do. Every finding is live evidence about this
 case, citing the TC FlyBy evidence item and the source that established it. Apollo KB knowledge is never a
-finding: it appears only as supporting context in the explanation. Anything Teddy could not establish stays
+finding: it appears only as supporting context in the explanation. Anything TC FlyBy could not establish stays
 an uncertainty — missing evidence is never turned into a fact.
 """
 from __future__ import annotations
@@ -11,10 +11,10 @@ import json
 import re
 
 from services.higgins import outcomes
-from services.higgins.teddy.decide import WARNING, Decision, corroborated_impersonation, signals
-from services.higgins.teddy.triage import Check, Plan
+from services.higgins.tc_flyby.decide import WARNING, Decision, corroborated_impersonation, signals
+from services.higgins.tc_flyby.triage import Check, Plan
 
-ROUTE_LABEL = {"teddy_official": "official source checks", "teddy_kb": "ApolloSG's knowledge base", "teddy_search": "a targeted web search"}
+ROUTE_LABEL = {"tc_flyby_official": "official source checks", "tc_flyby_kb": "ApolloSG's knowledge base", "tc_flyby_search": "a targeted web search"}
 
 
 def _finding(f: dict, evidence_ids: list[str], confidence: str) -> dict:
@@ -78,14 +78,14 @@ def _knowledge_block(checks: list[Check]) -> str:
     return f"\n\n**What ApolloSG's knowledge base adds** (general knowledge, not evidence about what you sent)\n{lines}"
 
 
-def _evidence_for(subject: str, material: dict[str, str], teddy_item: str) -> list[str]:
+def _evidence_for(subject: str, material: dict[str, str], flyby_item: str) -> list[str]:
     """The TC FlyBy record, plus the submitted item(s) the checked value actually appears in."""
     needle = subject.lower()
-    return [teddy_item, *[eid for eid, text in material.items() if needle and needle in text.lower()][:2]]
+    return [flyby_item, *[eid for eid, text in material.items() if needle and needle in text.lower()][:2]]
 
 
-def _evidence(c: Check, material: dict[str, str], teddy_item: str) -> list[str]:
-    return _evidence_for(c.subject, material, teddy_item)
+def _evidence(c: Check, material: dict[str, str], flyby_item: str) -> list[str]:
+    return _evidence_for(c.subject, material, flyby_item)
 
 
 def _join(items: list[str]) -> str:
@@ -94,12 +94,12 @@ def _join(items: list[str]) -> str:
 
 def _routes(checks: list[Check]) -> str:
     used = {c.route for c in checks if c.route}
-    searched = [c for c in checks if c.route == "google_search"]
+    searched = [c for c in checks if c.route == "web_search"]
     reused = [c for c in searched if any((f.get("source") or {}).get("reused") for f in c.facts)]
     search = ("a targeted web search" if not reused else "ApolloSG's recent targeted web search, reused while still current"
               if len(reused) == len(searched) else "a targeted web search, partly reused from ApolloSG's recent lookups")
     names = [label for route, label in (("triage_rules", "Higgins Triage's message rules"), ("official_source", "official source checks"),
-                                        ("apollo_kb", "ApolloSG's knowledge base"), ("google_search", search)) if route in used]
+                                        ("apollo_kb", "ApolloSG's knowledge base"), ("web_search", search)) if route in used]
     return _join(names) or "official source checks"
 
 
@@ -120,12 +120,12 @@ def _scope(plan_: Plan, how: str) -> str:
     return f"{_checked(plan_, how)} Nothing was opened or fetched from the destination, no one was contacted and no account was accessed."
 
 
-def concern(plan_: Plan, checks: list[Check], material: dict[str, str], teddy_item: str, route: str) -> dict:
+def concern(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, route: str) -> dict:
     decisive = [(c, f) for c, f in _live(checks) if f["decisive"] and f["signal"] == "concern"]
     lead_check, lead = decisive[0]
     brand = plan_.entities.brands[0][0] if plan_.entities.brands else None
-    findings = [_finding(f, _evidence(c, material, teddy_item), "high") for c, f in decisive]
-    findings += [_finding(f, _evidence(c, material, teddy_item), "medium") for c, f in _signs(checks) if not f["decisive"]]
+    findings = [_finding(f, _evidence(c, material, flyby_item), "high") for c, f in decisive]
+    findings += [_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in _signs(checks) if not f["decisive"]]
     kinds = {c.kind for c, _ in decisive}
     actions: list[dict] = []
     if "link" in kinds:
@@ -176,10 +176,10 @@ def _what_was_checked(checks: list[Check]) -> str:
             + (", so it compared it with the official scam alerts ApolloSG holds." if alerts else "."))
 
 
-def clear(plan_: Plan, checks: list[Check], material: dict[str, str], teddy_item: str, route: str) -> dict:
+def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, route: str) -> dict:
     """No scam indicators in what TC FlyBy checked — never described as safe."""
     facts = _live(checks)
-    findings = [_finding(f, _evidence(c, material, teddy_item), "medium") for c, f in facts]
+    findings = [_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in facts]
     official_check, official = next(((c, f) for c, f in facts if f["decisive"] and f["signal"] == "clear"), (None, None))
     if plan_.link_only:
         # A verified official domain settles who the address belongs to — that check only, never the whole case.
@@ -226,7 +226,7 @@ def _result(plan_: Plan, checks: list[Check], *, overview: str, found: list[dict
     }
 
 
-def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], teddy_item: str, outcome: str) -> dict:
+def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, outcome: str) -> dict:
     """The material matches an established scam pattern in Apollo's KB. The material's own words are the
     findings; the pattern is general knowledge that supports the assessment — never proof about the sender."""
     p = plan_.pattern
@@ -234,7 +234,7 @@ def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], t
     quoted = [*p["found"], *([p["ask"]] if p["ask"] else [])]
     found = [{"text": f"It {label}: “{quote}”.", "basis": "observation", "confidence": "high", "evidenceIds": items, "sourceIds": [],
               "supersedesFindingIds": []} for label, quote in quoted]
-    found += [_finding(f, _evidence(c, material, teddy_item), "medium") for c, f in _signs(checks)]
+    found += [_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in _signs(checks)]
     kb_sources = sorted({s for c in checks if c.kind == "scam_pattern" for f in c.facts for s in f.get("sourceIds", [])})
     advice = p["advice"]
     call = plan_.channel == "call"
@@ -260,13 +260,13 @@ def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], t
                    extra_sources=kb_sources)
 
 
-def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, str], teddy_item: str, facts: list[dict]) -> dict:
+def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, facts: list[dict]) -> dict:
     """The material borrows an organisation's name, its link goes elsewhere, and an independent fact about
     that link backs it up: Concerning, whatever the wording says."""
     brand = plan_.entities.brands[0][0]
     place = next(f["place"] for f in facts if f.get("place"))
     support = [f for f in facts if not f.get("place")]
-    found = [_finding(f, _evidence_for(f.get("place") or place, material, teddy_item), "high" if f.get("place") else "medium") for f in facts]
+    found = [_finding(f, _evidence_for(f.get("place") or place, material, flyby_item), "high" if f.get("place") else "medium") for f in facts]
     return _result(
         plan_, checks, found=found, outcome="concerning", attention="action_needed",
         overview=(f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. {support[0]['text']} "
@@ -295,7 +295,7 @@ def _signs_established(warnings: int, rest: int) -> str:
     return f"Apollo's checks established {first}. {other}"
 
 
-def signals_result(plan_: Plan, checks: list[Check], material: dict[str, str], teddy_item: str) -> dict:
+def signals_result(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str) -> dict:
     """Warning signs the evidence established, with nothing that proves a scam: Concerning. Deeper analysis
     couldn't change what to do — be careful and check independently."""
     warning = signals(plan_)
@@ -309,7 +309,7 @@ def signals_result(plan_: Plan, checks: list[Check], material: dict[str, str], t
                                                "not anything in it.")])
     return _result(
         plan_, checks, outcome="concerning", attention="review", actions=actions,
-        found=[_finding(f, _evidence(c, material, teddy_item), "medium") for c, f in facts],
+        found=[_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in facts],
         overview=(f"{subject[0].upper()}{subject[1:]} raises a concern: {facts[0][1]['text']} Nothing here proves it's a scam, but don't act on "
                   "it until you've checked it through a channel you trust."),
         means=f"{_signs_established(len(warning), len(facts) - len(warning))} That's reason to be careful, but not enough to call it a scam.",
@@ -333,7 +333,7 @@ def _unchecked(plan_: Plan) -> bool:
     return False
 
 
-def undetermined(plan_: Plan, checks: list[Check], material: dict[str, str], teddy_item: str) -> dict:
+def undetermined(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str) -> dict:
     """The available evidence can't establish more, and deeper investigation couldn't change that. It says why:
     something couldn't be checked, weak signals were found, or both — never a gap that isn't there."""
     subject = _subject(plan_)
@@ -349,7 +349,7 @@ def undetermined(plan_: Plan, checks: list[Check], material: dict[str, str], ted
     means = f"{why[0][0].upper()}{why[0][1:]}{' and ' + why[1] if len(why) > 1 else ''}, so the available evidence can't establish more."
     return _result(
         plan_, checks, outcome="unable_to_determine", attention="review", actions=[_action("Check before using it", _CHECK_FIRST)],
-        found=[_finding(f, _evidence(c, material, teddy_item), "medium") for c, f in _live(checks)],
+        found=[_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in _live(checks)],
         overview=f"ApolloSG couldn't establish enough about {subject} to say either way. {found}, but that isn't the same as it being safe — {after}",
         means=means,
         how=_method(f"{_checked(plan_, _routes(checks))} {_NOT_NEEDED}", checks, not_taken=False),
@@ -367,27 +367,27 @@ def _with_gaps(result: dict, plan_: Plan) -> dict:
             "remainingEvidenceIds": sorted({*result["remainingEvidenceIds"], *(g["evidenceId"] for g in plan_.gaps)})}
 
 
-def compose(decision: Decision, plan_: Plan, material: dict[str, str], teddy_item: str) -> dict:
+def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_item: str) -> dict:
     """Higgins' result for a case TC FlyBy resolved, by what settled it."""
     route, checks = decision.answered_by, plan_.checks
     if decision.basis == "threat":
-        result = concern(plan_, checks, material, teddy_item, route)
+        result = concern(plan_, checks, material, flyby_item, route)
     elif decision.basis == "pattern":
-        result = pattern_result(plan_, checks, material, teddy_item, decision.outcome)
+        result = pattern_result(plan_, checks, material, flyby_item, decision.outcome)
     elif decision.basis == "impersonation":
-        result = impersonation_result(plan_, checks, material, teddy_item, corroborated_impersonation(plan_))
+        result = impersonation_result(plan_, checks, material, flyby_item, corroborated_impersonation(plan_))
     elif decision.basis == "signals":
-        result = signals_result(plan_, checks, material, teddy_item)
+        result = signals_result(plan_, checks, material, flyby_item)
     elif decision.outcome == "no_scam_indicators":
-        result = clear(plan_, checks, material, teddy_item, route)
+        result = clear(plan_, checks, material, flyby_item, route)
     else:
-        result = undetermined(plan_, checks, material, teddy_item)
+        result = undetermined(plan_, checks, material, flyby_item)
     return _with_gaps(result, plan_)
 
 
 def knowledge_answer(check: Check, route: str, presented: str, source_ids: list[str]) -> dict:
     """A general question answered from Apollo's KB or a targeted search — information, not a finding."""
-    if route == "teddy_kb":
+    if route == "tc_flyby_kb":
         overview = "Here's what ApolloSG's library says on this, from the sources below."
         body = presented
     else:

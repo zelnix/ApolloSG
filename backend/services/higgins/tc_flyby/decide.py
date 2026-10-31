@@ -35,7 +35,7 @@ import re
 from dataclasses import dataclass, field
 
 from services.higgins.brand_domains import registrable
-from services.higgins.teddy.triage import CONSEQUENTIAL, Check, Plan, digits
+from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Check, Plan, digits
 
 #: Signals that are warning signs (with "concern"). "weak" signals are never a warning sign by themselves.
 WARNING = ("concern", "anomaly")
@@ -103,9 +103,9 @@ def signals(plan_: Plan) -> list[tuple[Check, dict]]:
 
 def _route(checks: list[Check]) -> str:
     routes = {c.route for c in checks if c.route}
-    if "google_search" in routes:
-        return "teddy_search"
-    return "teddy_kb" if routes == {"apollo_kb"} else "teddy_official"
+    if "web_search" in routes:
+        return "tc_flyby_search"
+    return "tc_flyby_kb" if routes == {"apollo_kb"} else "tc_flyby_official"
 
 
 def _contradicted(plan_: Plan) -> bool:
@@ -117,14 +117,14 @@ def provisional(plan_: Plan) -> Decision | None:
     """The concern outcome the established evidence already supports, if any."""
     for c, f in _live(plan_):
         if f["signal"] == "concern" and f["decisive"]:
-            return Decision("teddy_search" if c.route == "google_search" else "teddy_official", "confirmed_threat", "threat")
+            return Decision("tc_flyby_search" if c.route == "web_search" else "tc_flyby_official", "confirmed_threat", "threat")
     p = plan_.pattern
     if p and p["stage"] == "full" and not _contradicted(plan_):
-        return Decision("teddy_kb", "likely_scam", "pattern")
+        return Decision("tc_flyby_kb", "likely_scam", "pattern")
     if corroborated_impersonation(plan_):
-        return Decision("teddy_official", "concerning", "impersonation")
+        return Decision("tc_flyby_official", "concerning", "impersonation")
     if p and p["stage"] == "opening" and not _contradicted(plan_):
-        return Decision("teddy_kb", "concerning", "pattern")
+        return Decision("tc_flyby_kb", "concerning", "pattern")
     found = signals(plan_)
     if found:
         return Decision(_route([c for c, _ in found]), "concerning", "signals")
@@ -260,7 +260,7 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
     if plan_.general:
         check = plan_.checks[0]
         if check.status == "resolved":
-            return Decision("teddy_kb" if check.route == "apollo_kb" else "teddy_search", None, "knowledge"), []
+            return Decision("tc_flyby_kb" if check.route == "apollo_kb" else "tc_flyby_search", None, "knowledge"), []
         return None, ([Issue("reasoning", f"Answer the general question: {check.subject}", list(texts), check.id)] if final else [])
     if plan_.channel == "call" and not plan_.has_message and not plan_.link_only:
         # A call described only in the question: TC FlyBy has nothing to compare, so Magnum DI assesses the call itself.
@@ -287,5 +287,5 @@ def decisive(plan_: Plan) -> bool:
 
 def magnum_needs_search(plan_: Plan, issues: list[Issue]) -> bool:
     """Web search stays OFF for Magnum DI unless a specific external fact may still be missing: content it
-    will read for the first time, a lookup that was unavailable, or a general question Teddy couldn't answer."""
+    will read for the first time, a lookup that was unavailable, or a general question TC FlyBy couldn't answer."""
     return bool(any(i.capability == "reading" for i in issues) or any(c.status == "unavailable" for c in plan_.checks) or plan_.general)

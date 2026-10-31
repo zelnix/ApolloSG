@@ -6,8 +6,8 @@ Run: cd /app/backend && python -m pytest tests/test_higgins_wording.py -q
 """
 from services.higgins import presenter
 from services.higgins.explain import words
-from services.higgins.teddy import decide, report, triage
-from services.higgins.teddy.official import fact
+from services.higgins.tc_flyby import decide, report, triage
+from services.higgins.tc_flyby.official import fact
 
 MATERIAL = {"item-0": ""}
 
@@ -47,14 +47,14 @@ def test_a_verified_official_domain_settles_only_that_check():
                                                  topic="official_domains"))
     decision, issues = decide.evaluate(plan, MATERIAL, final=True)
     assert issues == [] and decision.outcome == "no_scam_indicators", "settlement unchanged"
-    result = report.compose(decision, plan, MATERIAL, "teddy-1")
+    result = report.compose(decision, plan, MATERIAL, "flyby-1")
     assert result["overview"] == ("ato.gov.au is the Australian Taxation Office's official domain. That settles who the address belongs to, "
                                   "and none of Apollo's other checks found a warning sign.")
     assert "nothing here needs action" not in result["explanationMarkdown"] + result["overview"]
     assert result["attention"] == "none" and result["actions"] == [] and result["outcome"] == "no_scam_indicators"
     # With no other check, it says only what the one check settled.
     plan.checks = [_check(plan, "link")]
-    alone = report.clear(plan, plan.checks, MATERIAL, "teddy-1", "teddy_official")
+    alone = report.clear(plan, plan.checks, MATERIAL, "flyby-1", "tc_flyby_official")
     assert alone["overview"] == "ato.gov.au is the Australian Taxation Office's official domain. That settles who the address belongs to."
 
 
@@ -64,18 +64,18 @@ def test_a_clear_message_names_only_what_was_checked():
     _resolve(_check(plan, "link"), _listed_clean("slides-deck.net"), _registered("slides-deck.net", young=False))
     _resolve(_check(plan, "phone"), fact("IPQualityScore gives 0412 345 678 a fraud score of 10/100 (carrier: Telstra).", "neutral"))
     _resolve(_check(plan, "scam_alerts"))
-    result = report.clear(plan, plan.checks, MATERIAL, "teddy-1", "teddy_official")
+    result = report.clear(plan, plan.checks, MATERIAL, "flyby-1", "tc_flyby_official")
     assert _means(result).startswith("Apollo checked the link and the phone number in it, and compared it with the official scam alerts "
                                      "ApolloSG holds. Checks like these can't confirm who sent it")
     assert "addresses and names" not in result["explanationMarkdown"]
 
     nothing = _plan("Hey, are we still on for dinner on Friday? Let me know what time suits.")
     _resolve(_check(nothing, "scam_alerts"))
-    assert _means(report.clear(nothing, nothing.checks, MATERIAL, "teddy-1", "teddy_kb")).startswith(
+    assert _means(report.clear(nothing, nothing.checks, MATERIAL, "flyby-1", "tc_flyby_kb")).startswith(
         "Apollo found no links, numbers, addresses or names in it to look up, so it compared it with the official scam alerts ApolloSG holds.")
     # A check that didn't run (not needed, unavailable) is never named as checked.
     _check(plan, "phone").status = "unavailable"
-    assert "phone number" not in _means(report.clear(plan, plan.checks, MATERIAL, "teddy-1", "teddy_official"))
+    assert "phone number" not in _means(report.clear(plan, plan.checks, MATERIAL, "flyby-1", "tc_flyby_official"))
 
 
 # 3. Corroborated impersonation says what was established about the address, not a general claim.
@@ -93,7 +93,7 @@ def test_corroborated_impersonation_says_only_what_was_established():
     plan = _impersonation_plan()
     found = decide.provisional(plan)
     assert (found.outcome, found.basis) == ("concerning", "impersonation"), "settlement unchanged"
-    result = report.compose(found, plan, MATERIAL, "teddy-1")
+    result = report.compose(found, plan, MATERIAL, "flyby-1")
     assert _means(result) == ("commbank-notice.net isn't one of CommBank's published domains, and a separate check on that address backs up "
                               "the concern. That's enough to treat it as concerning without weighing up the wording.")
     assert result["attentionReason"] == ("Anything typed into that link goes to whoever runs commbank-notice.net, which isn't one of CommBank's "
@@ -120,18 +120,18 @@ def _signals_plan(weak: int, claims: int = 1) -> triage.Plan:
 def test_weak_signals_are_never_called_warning_signs():
     plan = _signals_plan(weak=0)
     assert decide.provisional(plan).basis == "signals", "settlement unchanged"
-    assert _means(report.compose(decide.provisional(plan), plan, MATERIAL, "teddy-1")).startswith(
+    assert _means(report.compose(decide.provisional(plan), plan, MATERIAL, "flyby-1")).startswith(
         "Apollo's checks established the warning sign above. That's reason to be careful")
 
     plan = _signals_plan(weak=1)
-    result = report.compose(decide.provisional(plan), plan, MATERIAL, "teddy-1")
+    result = report.compose(decide.provisional(plan), plan, MATERIAL, "flyby-1")
     assert result["findings"][0]["text"].startswith("The material promises") and "registered on" in result["findings"][1]["text"]
     assert _means(result) == ("Apollo's checks established the first finding above as a warning sign. The other finding is recorded too, but "
                               "doesn't count as a warning sign on its own. That's reason to be careful, but not enough to call it a scam.")
     assert result["outcome"] == "concerning" and result["attention"] == "review"
 
     plan = _signals_plan(weak=2, claims=2)
-    assert _means(report.compose(decide.provisional(plan), plan, MATERIAL, "teddy-1")).startswith(
+    assert _means(report.compose(decide.provisional(plan), plan, MATERIAL, "flyby-1")).startswith(
         "Apollo's checks established the first two findings above as warning signs. The other findings are recorded too, but don't count "
         "as warning signs on their own.")
 
@@ -148,7 +148,7 @@ def _bare_link(*facts: dict, unavailable: bool = False) -> triage.Plan:
 def _undetermined(plan: triage.Plan) -> dict:
     decision, issues = decide.evaluate(plan, MATERIAL, final=True)
     assert issues == [] and decision.outcome == "unable_to_determine", "settlement unchanged"
-    result = report.compose(decision, plan, MATERIAL, "teddy-1")
+    result = report.compose(decision, plan, MATERIAL, "flyby-1")
     assert result["attention"] == "review" and result["outcome"] == "unable_to_determine"
     return result
 

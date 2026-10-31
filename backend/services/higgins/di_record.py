@@ -190,12 +190,12 @@ async def decision_trace(owner: str, case_id: str) -> dict:
     routing = case.get("routing") or {}
     triage = await db.triage_investigations.find_one({"device_id": owner, "investigation_case_id": case_id},
                                                      {"_id": 0, "record": 1}, sort=[("evaluated_at", -1)])
-    teddy, magnum, fidelity = routing.get("teddy"), routing.get("magnum"), routing.get("fidelity")
+    recorded, magnum, fidelity = routing.get("tc_flyby"), routing.get("magnum"), routing.get("fidelity")
     flyby = None
-    if teddy:
-        flyby = {key: teddy.get(key) for key in _FLYBY_FIELDS}
-        flyby["ranAt"] = _iso(teddy.get("ranAt"))
-        flyby["checks"] = [{**c, "route": _TOOL_NAMES.get(c.get("route"), c.get("route"))} for c in teddy.get("checks") or []]
+    if recorded:
+        flyby = {key: recorded.get(key) for key in _FLYBY_FIELDS}
+        flyby["ranAt"] = _iso(recorded.get("ranAt"))
+        flyby["checks"] = [{**c, "route": _TOOL_NAMES.get(c.get("route"), c.get("route"))} for c in recorded.get("checks") or []]
     return {
         "triage": (triage or {}).get("record"),
         "flyby": flyby,
@@ -215,5 +215,5 @@ async def get_di_records(owner: str, case_id: str) -> list[dict]:
     """Magnum DI's own records for one case. TC FlyBy's search call is recorded under the same case but is not
     Magnum DI: it stays in the Admin Portal, so a case TC FlyBy settled never shows Magnum DI as engaged. Access is
     authorised by the caller (it resolves the case for this device first)."""
-    cursor = db.di_transactions.find({"correlation_id": f"case-{case_id}", "purpose": {"$ne": "teddy_search"}}).sort("created_at", 1)
+    cursor = db.di_transactions.find({"correlation_id": f"case-{case_id}", "purpose": {"$ne": "tc_flyby_search"}}).sort("created_at", 1)
     return [wire(doc) async for doc in cursor]

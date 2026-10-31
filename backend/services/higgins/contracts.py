@@ -23,7 +23,7 @@ Completion = Literal["complete", "partial", "waiting_user"]
 FailureCode = Literal["invalid_input", "unauthenticated", "not_found", "conflict", "provider_configuration", "rate_limited",
                       "provider_unavailable", "transport_interrupted", "incomplete_output", "unsupported_format", "evidence_expired",
                       "budget_exhausted", "device_unavailable", "permission_denied", "response_invalid", "cleanup_failed",
-                      "evidence_too_large"]
+                      "evidence_too_large", "budget_limit"]
 EvidenceKind = Literal["text", "url", "image", "document", "audio", "attachment", "observation", "source_snapshot"]
 Platform = Literal["android", "ios", "windows", "macos", "web"]
 UUID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._:-]{3,79}$"
@@ -343,7 +343,7 @@ class InvestigationCase(Wire):
     pending_device_request_ids: list[str] = Field(default_factory=list)
     inventory: Inventory = Field(default_factory=Inventory)
     cleanup_status: Literal["not_due", "pending", "complete", "failed"] = "not_due"
-    # Who settled the latest result: "magnum_di", or TC FlyBy by route ("teddy_official", "teddy_kb", "teddy_search").
+    # Who settled the latest result: "magnum_di", or TC FlyBy by route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search").
     answered_by: Optional[str] = None
     # The rule that settled it, as one plain sentence (services/rulebook.py). None when the record doesn't say.
     settled_reason: Optional[SettledReason] = None
@@ -527,7 +527,7 @@ class ProviderResult(Wire):
     source_ids: list[str] = Field(default_factory=list)
     # True when the preview simulator answered instead of Gemini — recorded, never hidden.
     simulated: bool = False
-    # Who settled this turn: "magnum_di", or TC FlyBy by route ("teddy_official", "teddy_kb", "teddy_search").
+    # Who settled this turn: "magnum_di", or TC FlyBy by route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search").
     answered_by: str = "magnum_di"
 
 

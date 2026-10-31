@@ -127,7 +127,7 @@ const RESPONSE = {
   recommendedActionId: "a1", question: null, completion: "complete",
 };
 for (const q of ["What does this mean for me?", "Why is it suspicious?", "How sure are you?", "What should I do?", "What wasn't established?", "What evidence is there?"]) {
-  chat(`Follow-up: "${q}"`, "Answer", investigationFollowUp(RESPONSE as never, [], q, "", "teddy_official").answer);
+  chat(`Follow-up: "${q}"`, "Answer", investigationFollowUp(RESPONSE as never, [], q, "", "tc_flyby_official").answer);
 }
 for (const intent of ["how_apollo_works", "what_is_magnum_di", "explain_alert"] as const) chat(`About ApolloSG (${intent.replace(/_/g, " ")})`, "Answer", knowledgeToHigginsMessage(intent, "c").content);
 

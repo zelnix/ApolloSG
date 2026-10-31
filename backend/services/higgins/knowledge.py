@@ -4,7 +4,7 @@ Every entry keeps its source, link, authority tier, jurisdiction and dates, and 
 - learn_article      — published Learn with Higgins articles (in-app route)
 - scam_alert         — official scam alerts and advisories from the government feeds
 - official_guidance  — cyber.gov.au guidance (CC BY 4.0), shipped in data/cyber_gov_au_guidance.json
-- scam_pattern       — established scam patterns as official sources describe them (teddy/patterns.py), with the
+- scam_pattern       — established scam patterns as official sources describe them (tc_flyby/patterns.py), with the
                        markers TC FlyBy compares submitted material against
 - researched         — trusted pages found and maintained through Tavily (services/apollo_kb.py), versioned
 - exploited_vulnerability, attack_technique — technical knowledge from the free feeds (services/threat_feeds.py):
@@ -327,7 +327,7 @@ async def load_official_guidance() -> int:
 
 async def refresh() -> dict:
     """Bring the KB up to date with Learn, Scam Alerts, the shipped official guidance and scam patterns. Idempotent."""
-    from services.higgins.teddy import patterns
+    from services.higgins.tc_flyby import patterns
     result = {"learn": await sync_learn_articles(), "alerts": await sync_scam_alerts(), "guidance": await load_official_guidance(),
               "patterns": await patterns.load()}
     forget_weights()

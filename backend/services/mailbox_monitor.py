@@ -20,9 +20,12 @@ from fastapi import HTTPException
 from core.config import logger
 from core.db import db, now_utc
 from core.redaction import redact_investigation_secrets
-from services import gmail
+from services import gmail, work_dedupe
+from services.email_infrastructure import is_tracking
 from services.higgins import evidence, jobs, repository as repo
 from urllib.parse import urlparse
+
+PROCESSING_CLAIM_SECONDS = 120   # how long one pass holds a message before another may take it over (a crashed holder)
 
 
 def _extract_domain_from_email(email_str: str) -> str | None:
@@ -63,9 +66,9 @@ def _find_domain_mismatches(sender_domain: str, links: list) -> set[str]:
             host = (parsed.hostname or "").lower()
             if not host or host == sender_domain:
                 continue
-            # Skip common tracking/infrastructure domains that are not the actual destination
-            tracking_domains = {"click.", "track.", "links.", "email.", "mail.", "e.", "go.", "t.", "l."}
-            if any(host.startswith(p) for p in tracking_domains):
+            # A recognised email-sending service's click tracking says who delivered the email, not where the link
+            # goes: never a mismatch by itself, and never proof the email is genuine (services/email_infrastructure.py).
+            if is_tracking(host):
                 continue
             link_org = _org_domain(host)
             if link_org != sender_org:
@@ -175,6 +178,24 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
         pass
     receipt = await db.mailbox_assessment_receipts.find_one(key, {"_id": 0})
     if not receipt or receipt.get("state") in ("submitted", "complete"):
+        return False
+    # Atomic in-progress claim on this message: a second pass, worker or account scan arriving while it is being
+    # handled launches nothing. The claim lapses on its own if the holder crashes.
+    now = now_utc()
+    if not await db.mailbox_assessment_receipts.find_one_and_update(
+            {**key, "state": {"$nin": ["submitted", "complete"]},
+             "$or": [{"processing_until": {"$exists": False}}, {"processing_until": None}, {"processing_until": {"$lte": now}}]},
+            {"$set": {"processing_until": now + timedelta(seconds=PROCESSING_CLAIM_SECONDS)}}, projection={"_id": 1}):
+        return False
+    # The same email already taken on by this device (another connected account, a forwarded copy with a new id):
+    # nothing new is launched — not even Higgins Triage. Device-scoped: another device's mail never matches.
+    content = work_dedupe.digest(device_id, str(message.get("from", "")), str(message.get("subject", "")), str(message.get("body", "")))
+    earlier = await work_dedupe.claim(device_id, "email", content, message_digest=digest)
+    if earlier and earlier.get("message_digest") != digest:
+        await db.mailbox_assessment_receipts.update_one(key, {"$set": {"state": "complete", "screening_result": "duplicate",
+                                                                      "duplicate_of": earlier.get("message_digest"), "case_id": earlier.get("case_id"),
+                                                                      "processed_at": now_utc(), "updated_at": now_utc()}})
+        logger.info("mailbox_duplicate_suppressed device=%s digest=%s", device_id, digest[:12])
         return False
     # Temporary failures (e.g. "temporary_case_unavailable") are retryable — only permanent
     # terminal states ("complete") and active submissions ("submitted") are skipped.
@@ -321,6 +342,7 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
     if not budget_ok:
         await db.mailbox_assessment_receipts.update_one(key, {"$set": {
             "state": "budget_paused",
+            "processing_until": None,
             "screening_result": "suspicious",
             "triage_outcome": triage_result.outcome.value,
             "triage_reason": triage_result.reason,
@@ -403,6 +425,7 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
         "job_id": job["job_id"],
         "updated_at": now_utc(),
     }})
+    await work_dedupe.attach(device_id, "email", content, case_id=case["case_id"])
     if triage_result.investigation is not None:
         from services.triage import record_triage_history
         try:
@@ -455,6 +478,10 @@ async def finalise_pending_assessments() -> None:
 
 
 async def scan_gmail_through_shared_pipeline(device_id: str, intake_mode: str, email: str | None = None) -> dict:
+    """One page for one account. Incremental per account: each connected mailbox keeps its own checkpoint (the newest
+    message time a finished pass covered). A pass asks Gmail only for mail after it, page by page; when the pass ends
+    the checkpoint moves to the newest message it handled — but never past a message paused by the spending limit, so
+    paused mail is read again later. Messages already handled are skipped by their receipts."""
     lease = str(uuid.uuid4()); now = now_utc()
     lease_query: dict = {"device_id": device_id, "$or": [{"monitor_lease_until": {"$lte": now}}, {"monitor_lease_until": {"$exists": False}}, {"monitor_lease_until": None}]}
     if email:
@@ -462,7 +489,8 @@ async def scan_gmail_through_shared_pipeline(device_id: str, intake_mode: str, e
     row = await db.gmail_connections.find_one_and_update(
         lease_query,
         {"$set": {"monitor_lease": lease, "monitor_lease_until": now + timedelta(seconds=90), "monitor_last_attempt_at": now}},
-        projection={"_id": 0, "monitor_next_page_token": 1, "email": 1},
+        projection={"_id": 0, "monitor_next_page_token": 1, "email": 1, "monitor_checkpoint_ms": 1, "monitor_pass_floor_ms": 1,
+                    "monitor_pass_max_ms": 1, "monitor_pass_hold_ms": 1},
         return_document=ReturnDocument.AFTER,
     )
     if row is None:
@@ -472,17 +500,40 @@ async def scan_gmail_through_shared_pipeline(device_id: str, intake_mode: str, e
         return {"status": "busy", "checked": 0, "accepted": 0, "nextCursor": None}
     account = row.get("email")
     lease_filter = {"device_id": device_id, "monitor_lease": lease}
+    cursor = row.get("monitor_next_page_token")
+    # A pass in progress keeps the floor it started with; a new pass starts at the account's checkpoint.
+    floor = row.get("monitor_pass_floor_ms") if cursor else row.get("monitor_checkpoint_ms")
     try:
-        messages, next_cursor = await gmail.scan_inbox_page(device_id, row.get("monitor_next_page_token"), email=account)
+        scan_kwargs: dict = {"email": account}
+        if floor:
+            scan_kwargs["after_ms"] = floor
+        messages, next_cursor = await gmail.scan_inbox_page(device_id, cursor, **scan_kwargs)
         accepted = 0
         for message in messages:
             accepted += int(await _submit_shared_case("gmail", device_id, message, intake_mode))
+        times = [int(m["internal_date"]) for m in messages if str(m.get("internal_date") or "").isdigit()]
+        paused = {r["message_digest"] async for r in db.mailbox_assessment_receipts.find(
+            {"provider": "gmail", "device_id": device_id, "state": "budget_paused",
+             "message_digest": {"$in": [_message_digest("gmail", str(m.get("id", ""))) for m in messages]}}, {"message_digest": 1})}
+        held = [int(m["internal_date"]) for m in messages if _message_digest("gmail", str(m.get("id", ""))) in paused
+                and str(m.get("internal_date") or "").isdigit()]
+        pass_max = max([*times, *([row["monitor_pass_max_ms"]] if cursor and row.get("monitor_pass_max_ms") else [])], default=None)
+        pass_hold = min([*held, *([row["monitor_pass_hold_ms"]] if cursor and row.get("monitor_pass_hold_ms") else [])], default=None)
+        progress: dict = {"monitor_next_page_token": next_cursor}
+        if next_cursor:
+            progress.update(monitor_pass_floor_ms=floor, monitor_pass_max_ms=pass_max, monitor_pass_hold_ms=pass_hold)
+        else:
+            checkpoint = row.get("monitor_checkpoint_ms")
+            if pass_max:
+                newest = pass_max if pass_hold is None else min(pass_max, pass_hold - 1000)
+                checkpoint = max(checkpoint or 0, newest) or checkpoint
+            progress.update(monitor_checkpoint_ms=checkpoint, monitor_pass_floor_ms=None, monitor_pass_max_ms=None, monitor_pass_hold_ms=None)
         # C2: Distinguish successful retrieval from completed assessment. `monitor_last_success_at`
         # now reflects RETRIEVAL success only. `monitor_last_assessment_at` tracks when assessments
         # actually complete (updated by finalise_pending_assessments). The Email Gate should check
         # BOTH timestamps — retrieval without assessment means the gate is degraded, not working.
         await db.gmail_connections.update_one(lease_filter, {"$set": {
-            "monitor_next_page_token": next_cursor, "monitor_last_checked_at": now_utc(),
+            **progress, "monitor_last_checked_at": now_utc(),
             "monitor_last_retrieval_at": now_utc(),  # C2: renamed from monitor_last_success_at
             "monitor_last_success_at": now_utc(),    # kept for backward compat; gate must also check assessment
             "monitor_last_error_at": None, "monitor_last_error": None, "monitor_lease": None, "monitor_lease_until": None,

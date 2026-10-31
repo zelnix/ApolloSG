@@ -8,8 +8,8 @@ import pytest
 
 from services.higgins import brand_domains as bd
 from services.higgins.indicators import read_indicators
-from services.higgins.teddy import official, triage
-from services.higgins.teddy.decide import corroborated_impersonation, provisional, signals
+from services.higgins.tc_flyby import official, triage
+from services.higgins.tc_flyby.decide import corroborated_impersonation, provisional, signals
 
 
 @pytest.mark.parametrize("place,kind", [

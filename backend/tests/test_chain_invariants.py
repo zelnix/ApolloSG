@@ -28,7 +28,7 @@ from services.higgins.explain import fidelity, render
 BACKEND = Path(__file__).resolve().parents[1]
 OUTCOMES = list(outcomes.LABELS)
 ATTENTION = ["urgent", "action_needed", "review", "none"]
-BY = ["teddy_flyby", "magnum_di"]
+BY = ["tc_flyby", "magnum_di"]
 
 
 def result(outcome: str, attention: str) -> HigginsResponse:
@@ -96,7 +96,7 @@ def test_the_committed_result_differs_only_by_the_explanation_beside_it(monkeypa
     monkeypatch.setattr(coordinator, "db", _Db())
     monkeypatch.setattr(coordinator.repo, "sources", sources)
     response = result(outcome, attention)
-    committed, summary = asyncio.run(coordinator._plain_english("owner", {"case_id": "case-1"}, response, "teddy_flyby"))
+    committed, summary = asyncio.run(coordinator._plain_english("owner", {"case_id": "case-1"}, response, "tc_flyby"))
     explained = {"plain_english", "briefing"}
     assert committed.model_dump(exclude=explained) == response.model_dump(exclude=explained)
     assert committed.briefing is not None and committed.briefing.status_code == response.outcome
@@ -194,9 +194,9 @@ def test_ask_higgins_reaches_a_case_only_through_the_shared_pipeline_and_never_s
 # ── 2. Presentation can't silently change the verdict, severity, confidence or status ───────────────────────────────
 
 def _checked(response: HigginsResponse):
-    f = facts_mod.build(response, answered_by="teddy_flyby", routing={}, sources=SOURCES, gates=["text"])
+    f = facts_mod.build(response, answered_by="tc_flyby", routing={}, sources=SOURCES, gates=["text"])
     draft = render.render(f, frozenset())
-    _, briefing = explain.explain_case(response, answered_by="teddy_flyby", routing={}, sources=SOURCES, gates=["text"])
+    _, briefing = explain.explain_case(response, answered_by="tc_flyby", routing={}, sources=SOURCES, gates=["text"])
     return f, draft, briefing
 
 

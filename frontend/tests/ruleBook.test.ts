@@ -29,7 +29,7 @@ test("inline emphasis: bold, italics and code become styled spans; snake_case st
   assert.deepEqual(parseInline("A **full** match, *partial* and `code`."), [
     { text: "A " }, { text: "full", bold: true }, { text: " match, " }, { text: "partial", italic: true }, { text: " and " }, { text: "code", code: true }, { text: "." }]);
   assert.deepEqual(parseInline("_Last reviewed: 2026-06-01._"), [{ text: "Last reviewed: 2026-06-01.", italic: true }]);
-  assert.deepEqual(parseInline("teddy_official and magnum_di"), [{ text: "teddy_official and magnum_di" }]);
+  assert.deepEqual(parseInline("tc_flyby_official and magnum_di"), [{ text: "tc_flyby_official and magnum_di" }]);
 });
 
 test("headings carry their {#id}, tables keep headers and rows, nested lists keep their depth", () => {

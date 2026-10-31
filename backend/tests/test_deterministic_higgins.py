@@ -118,13 +118,16 @@ async def test_turn_on_a_finished_case_returns_a_follow_up_and_starts_no_job(mon
 
 
 @pytest.mark.asyncio
-async def test_answer_to_magnum_dis_own_question_still_continues_the_investigation(monkeypatch):
+async def test_an_answer_to_magnum_dis_own_question_is_answered_from_the_record_too(monkeypatch):
+    """One Magnum DI call per correlated case: even an answer to its own question doesn't reopen the investigation."""
+    monkeypatch.setattr(investigations.repo, "sources", AsyncMock(return_value=[]))
     waiting = {**RESPONSE, "completion": "waiting_user", "question": {"id": "q1", "text": "Did you tap it?", "reasonNeeded": "",
                                                                        "answerType": "yes_no", "choices": []}}
     case = _case(waiting)
     body = investigations.SubmitTurn(expected_revision=7, turn_id="00000000-0000-4000-8000-0000000000a2",
                                      message="No", answer_to_question_id="q1", evidence_ids=[])
-    assert await investigations._finished_follow_up("owner-turns", case, body) is None
+    answer = await investigations._follow_up("owner-turns", case, body)
+    assert answer and answer["answeredBy"] == "apollo" and answer["answer"]
 
 
 # ── Scam alerts, advisories and Learn articles ──────────────────────────────────────────────────
@@ -241,6 +244,6 @@ def test_public_health_result_carries_the_provider_status():
 
 
 def test_a_follow_up_credits_whichever_investigator_settled_the_result():
-    assert presenter.investigation_follow_up(RESPONSE, [], "What should I do?", "teddy_kb")["answer"].startswith("What TC FlyBy recommends")
+    assert presenter.investigation_follow_up(RESPONSE, [], "What should I do?", "tc_flyby_kb")["answer"].startswith("What TC FlyBy recommends")
     assert presenter.investigation_follow_up(RESPONSE, [], "What should I do?", "magnum_di")["answer"].startswith("What Magnum DI recommends")
     assert presenter.investigation_follow_up(RESPONSE, [], "What should I do?")["answer"].startswith("What Magnum DI recommends"), "older results were Magnum DI's"

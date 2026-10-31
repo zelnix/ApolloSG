@@ -185,8 +185,8 @@ async def simulate_generate(
         except Exception:  # noqa: BLE001 — the knowledge base can never break the simulator
             kb = []
     grounding = None
-    if name == "teddy_search":
-        text, grounding = await teddy_lookup(blocks)
+    if name == "tc_flyby_search":
+        text, grounding = await flyby_lookup(blocks)
     else:
         text = simulated_text(purpose, json_output, blocks, kb=kb, query=query)
     prompt_chars = (len(system) if system else 0) + int(payload_audit.get("total_text_chars") or 0)
@@ -231,10 +231,10 @@ async def simulate_generate(
 
 
 # ── TC FlyBy's targeted search, answered from Apollo's knowledge base ───────
-_TEDDY_QUESTION = re.compile(r"^Q(\d+) \[statuses: ([A-Z_, ]+)\] \[subject: (.*?)\] (.+)$", re.M)
+_FLYBY_QUESTION = re.compile(r"^Q(\d+) \[statuses: ([A-Z_, ]+)\] \[subject: (.*?)\] (.+)$", re.M)
 
 
-async def teddy_lookup(blocks: list[EvidenceBlock]) -> tuple[str, dict]:
+async def flyby_lookup(blocks: list[EvidenceBlock]) -> tuple[str, dict]:
     """Each TC FlyBy question answered from Apollo's KB, in the line format and grounding shape a provider's
     web search produces. A warning is reported only when an official alert in the KB names the exact value;
     anything else is reported as not found. No web search is made."""
@@ -245,7 +245,7 @@ async def teddy_lookup(blocks: list[EvidenceBlock]) -> tuple[str, dict]:
     chunks: list[dict] = []
     supports: list[dict] = []
     offset = 0
-    for match in _TEDDY_QUESTION.finditer(prompt):
+    for match in _FLYBY_QUESTION.finditer(prompt):
         number, subject, question = match.group(1), match.group(3), match.group(4)
         statuses = [s.strip() for s in match.group(2).split(",")]
         entry = None

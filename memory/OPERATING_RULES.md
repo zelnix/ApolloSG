@@ -10,15 +10,15 @@
 7. Production never runs simulation. The preview simulator exists only in preview.
 
 ## Higgins Triage (inside a case) — prepares, doesn't investigate
-1. Runs on its own logic: no network and no AI (`teddy/triage.py`).
-2. Extracts every input before TC FlyBy sees it: text, links, the text the phone read from a screenshot, and a document's text layer (`teddy/__init__._material`).
+1. Runs on its own logic: no network and no AI (`tc_flyby/triage.py`).
+2. Extracts every input before TC FlyBy sees it: text, links, the text the phone read from a screenshot, and a document's text layer (`tc_flyby/__init__._material`).
 3. Structures what it finds: links, emails, phone numbers, companies and ABNs, brands, payment details, claims, and requests to act.
 4. Records anything it couldn't extract as a gap, and never guesses its content. Images are marked "Magnum DI can read this".
 5. Plans the checks, each with a narrow factual question about one exact value.
 6. A request counts only if it asks the person to send money, codes or details, install something, or give remote access. Negated requests ("we will never ask…") don't count.
 
 ## TC FlyBy — fast, low-cost investigation
-1. Route, cheapest first: official sources → Apollo KB → one targeted web search. The search is one call to the low-cost model, at most 6 questions. An answer counts only if a page backs it, and answers are cached for 7 days. The search looks facts up; it never judges.
+1. Route, cheapest first: official sources → Apollo KB → one targeted Brave search. No AI call. One search request per case, claimed before it is sent, read by fixed rules: a result counts only if its own words name the exact value. Earlier lookups are reused (7 days found, 1 day nothing found). The search looks facts up; it never judges.
 2. Stopping rule: stop as soon as more investigation couldn't change Apollo's finding or Higgins' action. "Unable to determine" is a valid result.
 3. It stops early only for a confirmed threat. Every other result waits until the planned checks have run.
 4. How the outcome is chosen:
@@ -40,8 +40,8 @@
 
 ## Magnum DI — deep investigation
 1. Runs only when TC FlyBy sends it issues.
-2. Makes one call to the existing configured Gemini model. There is one retry only if a call fails. No Pro escalation, no tool rounds, no second call to present the answer.
-3. Receives the question once, Teddy's brief ("For Magnum DI to settle — only these"), the evidence each issue needs, and anything Teddy didn't examine. There is no system prompt; the response schema carries the shape and the outcome definitions.
+2. At most one call per correlated case, to the configured Gemini model, claimed before anything is sent and never retried. A failed call or invalid answer stops the case with its reason and TC FlyBy's findings. No Pro escalation, no tool rounds, no second call to present the answer.
+3. Receives the question once, TC FlyBy's brief ("For Magnum DI to settle — only these"), the evidence each issue needs, and anything TC FlyBy didn't examine. There is no system prompt; the response schema carries the shape and the outcome definitions.
 4. It can't override what's already established, and it isn't called to move a case between concern outcomes.
 5. Validation:
    - findings must cite registered evidence;

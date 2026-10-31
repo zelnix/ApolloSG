@@ -50,7 +50,7 @@ KEPT = ("learning_*", "higgins_knowledge", "kb_benchmark_corpus", "apollo_kb_sta
         "blocklist", "caller_id_numbers", "reusable_intelligence", "government_alerts", "government_feed_state",
         "apollo_settings", "gemini_model_choices", "apollo_migrations", "migration_reports", "rule_bundle_state",
         "rule_bundle_publications", "reputation_cache", "domain_info_cache", "phone_risk_cache", "url_risk_cache",
-        "teddy_search_cache", "voice_cache", "worker_heartbeats")
+        "voice_cache", "worker_heartbeats")
 CONFIRM = "DELETE PREVIEW DATA"
 _TASKS: set = set()
 

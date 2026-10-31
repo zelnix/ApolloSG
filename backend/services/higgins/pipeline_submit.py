@@ -118,7 +118,11 @@ async def submit_to_investigation_pipeline(
     from routers.investigations import (
         _pregather_specialist_evidence,
         _build_source_metadata,
+        CHECK_CLAIM,
+        first_job,
+        same_evidence_case,
     )
+    from services import work_dedupe
 
     # Build Submission objects
     submissions: list[Submission] = []
@@ -136,9 +140,17 @@ async def submit_to_investigation_pipeline(
     question = redact_investigation_secrets(message)
     gate = _infer_gate(items)
 
+    # The same evidence already checked on this device: that case, not a new one (rewording the question doesn't count).
+    earlier, claim = await same_evidence_case(owner, [(s.kind, s.value) for s in submissions])
+    if earlier:
+        job = await first_job(owner, earlier["case_id"])
+        return {"case_id": earlier["case_id"], "status": "existing", "job_id": job["job_id"] if job else None}
+
     # ── Create new case with shared pipeline ─────────────────────────────────
     case = await repo.create_case(owner, gate, device_profile, initiator="higgins_user_request")
     case_id = case["case_id"]
+    if claim:
+        await work_dedupe.attach(owner, CHECK_CLAIM, claim, case_id=case_id)
 
     # Source metadata
     update_fields: dict = {}

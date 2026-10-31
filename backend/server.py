@@ -96,9 +96,19 @@ async def lifespan(_: FastAPI):
         logger.warning("apollo kb setup failed", exc_info=True)
     await capability_registry.ensure_indexes()
     await investigation_repository.backfill_work_epochs()
+    try:
+        # Records saved under TC FlyBy's old internal name ("teddy") move to its current names; nothing to do once moved.
+        from services.higgins.tc_flyby import legacy_names
+        await legacy_names.migrate()
+    except Exception:  # noqa: BLE001 — renaming old records must never block startup
+        logger.warning("TC FlyBy legacy name migration failed", exc_info=True)
     # Legacy retention migration removed — server no longer retains completed investigations
     await ensure_maintenance_indexes()
     await gemini_usage.ensure_indexes()
+    # Daily AI spending limits (reserve → settle ledger) and one-piece-of-work-per-evidence claims.
+    from services import ai_budget, work_dedupe
+    await ai_budget.ensure_indexes()
+    await work_dedupe.ensure_indexes()
     await triage_engine.ensure_indexes()
     from services.triage.store import ensure_indexes as ensure_triage_history_indexes
     await ensure_triage_history_indexes()

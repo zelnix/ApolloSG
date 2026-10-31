@@ -159,7 +159,7 @@ def test_old_marks_stop_counting():
 
 async def _case(db, owner: str, case_id: str, asserted: list[str]):
     record = {"checks": [{"kind": "link", "subject": SITE}], "kbAsserted": asserted}
-    await db.investigation_cases.insert_one({"owner_id": owner, "case_id": case_id, "teddy_ciphertext": repo.enc_json(record)})
+    await db.investigation_cases.insert_one({"owner_id": owner, "case_id": case_id, "tc_flyby_ciphertext": repo.enc_json(record)})
 
 
 def test_case_a_to_assertion_to_case_b_never_grows_the_same_assertion():
@@ -210,7 +210,7 @@ def test_relations_never_carry_a_count():
         other = "parcel-fee-pay.top"
         for d in ("a", "b", "c"):
             record = {"checks": [{"kind": "link", "subject": SITE}, {"kind": "link", "subject": other}]}
-            await db.investigation_cases.insert_one({"owner_id": d, "case_id": f"rel-{d}", "teddy_ciphertext": repo.enc_json(record)})
+            await db.investigation_cases.insert_one({"owner_id": d, "case_id": f"rel-{d}", "tc_flyby_ciphertext": repo.enc_json(record)})
             await oi.record_case(d, f"rel-{d}", "likely_scam")
         rows = await oi.related("domain", SITE)
         assert [set(r) for r in rows] == [{"key", "kind", "name"}] and rows[0]["name"] == other

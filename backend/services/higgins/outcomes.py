@@ -32,9 +32,9 @@ DIRECTION = {outcome: "concern" if assessment == "concern_found" else "clear"
 
 
 def settled_by_flyby(answered_by: Optional[str]) -> bool:
-    """TC FlyBy settled the result (answered_by "teddy_*"). Anything else, including results recorded before routing
+    """TC FlyBy settled the result (answered_by "tc_flyby_*"). Anything else, including results recorded before routing
     existed, was Magnum DI's."""
-    return str(answered_by or "").startswith("teddy")
+    return str(answered_by or "").startswith("tc_flyby")
 
 
 def investigator(answered_by: Optional[str]) -> str:

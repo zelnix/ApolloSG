@@ -27,7 +27,7 @@ export interface DiTransaction {
   notice: string | null;
 }
 
-/** What TC FlyBy recorded for the case (server `routing.teddy`, without the model). */
+/** What TC FlyBy recorded for the case (server `routing.tc_flyby`, without the model). */
 export interface FlybyTrace {
   ranAt: string | null;
   resolved: boolean;

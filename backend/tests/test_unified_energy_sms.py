@@ -33,16 +33,16 @@ def test_never_a_threat_on_their_own():
 async def test_tc_flyby_settles_what_triage_flagged_as_concerning_never_as_no_scam_indicators(monkeypatch):
     """Apollo detects → Higgins Triage flags it → TC FlyBy finds nothing more → settled as Concerning, with the message's
     own words as the findings. Magnum DI isn't called: it couldn't change what to do."""
-    from tests.test_teddy_routing import _case, _gateway, _lookups
+    from tests.test_tc_flyby_routing import _case, _gateway, _lookups
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch)
     _owner, case, response, _ = await _case([("text", SMS)], message="Investigate this captured text-message notification.")
     assert calls == [], "Magnum DI's deeper analysis couldn't change the outcome or what to do"
     assert response["outcome"] == "concerning" and response["assessment"] == "concern_found"
     assert response["attention"] == "review" and response["completion"] == "complete"
-    teddy = case["routing"]["teddy"]
-    assert teddy["resolved"] is True and teddy["basis"] == "signals" and teddy["answeredBy"] == "teddy_official"
-    assert {"kind": "triage_rules", "status": "resolved", "route": "triage_rules"} in teddy["checks"]
+    flyby = case["routing"]["tc_flyby"]
+    assert flyby["resolved"] is True and flyby["basis"] == "signals" and flyby["answeredBy"] == "tc_flyby_official"
+    assert {"kind": "triage_rules", "status": "resolved", "route": "triage_rules"} in flyby["checks"]
     texts = [f["text"] for f in response["findings"]]
     assert texts[0] == "It writes “UNI\ufb01ed Energy” with “\ufb01” in place of ordinary letters. A real business has no reason to do that."
     assert texts[1] == ("It claims a government rebate (“STC savings”), puts a deadline on it to hurry you (“before rebates drop next week”) "
@@ -54,15 +54,15 @@ async def test_tc_flyby_settles_what_triage_flagged_as_concerning_never_as_no_sc
 
 @pytest.mark.anyio
 async def test_a_message_triage_does_not_flag_is_still_settled_by_tc_flyby_alone(monkeypatch):
-    from tests.test_teddy_routing import _case, _gateway
+    from tests.test_tc_flyby_routing import _case, _gateway
     calls = _gateway(monkeypatch)
     _owner, case, response, _ = await _case([("text", SMS.replace("\ufb01", "fi").replace("Reply YES", "Call us"))])
     assert calls == [] and response["outcome"] != "concerning"
-    assert not any(c["kind"] == "triage_rules" for c in case["routing"]["teddy"]["checks"])
+    assert not any(c["kind"] == "triage_rules" for c in case["routing"]["tc_flyby"]["checks"])
 
 
 def test_tc_flyby_method_lines_are_said_under_how_apollo_checked_not_what_isnt_certain():
-    from services.higgins.teddy.report import _method, _not_found
+    from services.higgins.tc_flyby.report import _method, _not_found
 
     class C:  # a check that found nothing, and one left open
         def __init__(self, status, facts, open_issue=None):

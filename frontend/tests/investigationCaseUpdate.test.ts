@@ -130,15 +130,15 @@ test("the case stops saying 'Investigating' once Magnum DI has answered", () => 
 });
 
 test("a finished case records who settled it, for the Threats list badge — never guessed", () => {
-  const teddy = investigationPatch(placeholder, { ...(investigation() as object), answeredBy: "teddy_kb" } as never)!;
-  assert.equal(teddy.investigation_answered_by, "teddy_kb");
-  assert.equal(settledBy(teddy), "TC FlyBy");
+  const flyby = investigationPatch(placeholder, { ...(investigation() as object), answeredBy: "tc_flyby_kb" } as never)!;
+  assert.equal(flyby.investigation_answered_by, "tc_flyby_kb");
+  assert.equal(settledBy(flyby), "TC FlyBy");
   assert.equal(settledBy(investigationPatch(placeholder, { ...(investigation() as object), answeredBy: "magnum_di" } as never)!), "Magnum DI");
   assert.equal(settledBy(investigationPatch(placeholder, investigation())!), null, "not recorded: no badge");
   assert.equal(settledBy(placeholder), null, "still investigating: no badge");
   // A case patched before the record existed picks it up once the stored result has it.
   const before = investigationPatch(placeholder, investigation())!;
-  assert.equal(investigationPatch(before, { ...(investigation() as object), answeredBy: "teddy_search" } as never)!.investigation_answered_by, "teddy_search");
+  assert.equal(investigationPatch(before, { ...(investigation() as object), answeredBy: "tc_flyby_search" } as never)!.investigation_answered_by, "tc_flyby_search");
 });
 
 test("a case is tagged Simulated when an outside source behind it was simulated — never otherwise", () => {

@@ -71,7 +71,7 @@ async def test_a_case_answered_before_the_device_record_arrives_is_filed_under_t
                                attention="action_needed", findings=[], uncertainties=[], scope="submitted message", sourceIds=[],
                                remainingEvidenceIds=[], actions=[], completion="complete")
     commit = TurnCommit(turnId=turn_id, caseId=case["case_id"], inputRevision=1, committedRevision=1, question="q", response=response,
-                        provider=ProviderResult(model="teddy-flyby", finishReason="STOP", providerComplete=True), committedAt=now_utc())
+                        provider=ProviderResult(model="tc-flyby", finishReason="STOP", providerComplete=True), committedAt=now_utc())
     commit_id = await repo.stage_turn(owner, commit, job, repo.utc(case["expires_at"]))
     assert await repo.accept_turn(owner, case, job, commit, commit_id, "complete", "none", None)
 

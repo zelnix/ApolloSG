@@ -81,7 +81,7 @@ const variants = (): PatrolEvent[] => MODELS.flatMap((model) => [
   ev(model),
   ev({ ...model, triage_investigation: triage() }),
   ev({ ...model, investigation_case_id: "case-1" }),
-  ev({ ...model, investigation_case_id: "case-1", investigation_completed_at: "2026-10-26T14:12:00.000Z", investigation_answered_by: "teddy_kb" }),
+  ev({ ...model, investigation_case_id: "case-1", investigation_completed_at: "2026-10-26T14:12:00.000Z", investigation_answered_by: "tc_flyby_kb" }),
 ]);
 
 test("every Threat Case's origin is the device that detected it", () => {

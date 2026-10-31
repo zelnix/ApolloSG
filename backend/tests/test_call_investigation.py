@@ -16,8 +16,8 @@ from core.db import db
 from services.higgins import jobs
 from services.higgins import evidence as ev
 from services.higgins import repository as repo
-from services.higgins.teddy import patterns, triage
-from tests.test_teddy_routing import _gateway, _lookups
+from services.higgins.tc_flyby import patterns, triage
+from tests.test_tc_flyby_routing import _gateway, _lookups
 
 pytestmark = pytest.mark.anyio
 
@@ -87,8 +87,8 @@ async def test_bank_wants_my_code_gets_a_scam_assessment_without_gemini(monkeypa
     assert any(a["label"] == "Call your bank yourself" for a in response["actions"])
     assert "who actually called" in " ".join(response["uncertainties"])
     assert "general information" not in response["explanationMarkdown"]
-    assert case["routing"]["teddy"]["pattern"] == {"key": "bank_code_call", "stage": "full"}
-    assert case["routing"]["teddy"]["messageType"] != "general_question"
+    assert case["routing"]["tc_flyby"]["pattern"] == {"key": "bank_code_call", "stage": "full"}
+    assert case["routing"]["tc_flyby"]["messageType"] != "general_question"
 
 
 async def test_a_call_described_only_in_the_question_goes_to_magnum_not_the_library(monkeypatch):
@@ -97,5 +97,5 @@ async def test_a_call_described_only_in_the_question_goes_to_magnum_not_the_libr
     _lookups(monkeypatch)
     case, response = await _call_case(None, message="About the phone call I just checked. The bank wants my code. What should I do?")
     assert [c["purpose"] for c in calls] == [Purpose.INVESTIGATION]
-    assert case["routing"]["teddy"]["messageType"] != "general_question" and case["routing"]["answeredBy"] == "magnum_di"
+    assert case["routing"]["tc_flyby"]["messageType"] != "general_question" and case["routing"]["answeredBy"] == "magnum_di"
     assert response["outcome"], "an assessment of the call, with an outcome"

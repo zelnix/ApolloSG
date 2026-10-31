@@ -703,7 +703,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
           ) : null}
 
           <View style={{ gap: spacing.sm }}>
-            {/* Resubmit — when Magnum DI's one call and its one retry both failed */}
+            {/* Resubmit — only when the investigation stopped before Magnum DI's one call was made */}
             {(showResubmit && caseData) ? (
               <Pressable style={[s.actionCard, resubmitDisabled && { opacity: 0.6 }]} disabled={resubmitDisabled} onPress={handleRetry} testID="inv-retry"
                 accessibilityRole="button" accessibilityState={{ disabled: resubmitDisabled }}>

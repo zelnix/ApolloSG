@@ -16,7 +16,7 @@ function ev(partial: Partial<PatrolEvent> = {}): PatrolEvent {
     why: ["commbank-cancel.co isn't CommBank's domain."], what_to_do: "Don't open the link.",
     indicator_host: "commbank-cancel.co", indicator_digest: null, verified_block: false, adapter_label: "test",
     occurred_at: "2026-10-28T01:12:00.000Z", resolved_at: null, investigation_case_id: "case-1",
-    investigation_completed_at: "2026-10-28T01:12:30.000Z", investigation_answered_by: "teddy",
+    investigation_completed_at: "2026-10-28T01:12:30.000Z", investigation_answered_by: "tc_flyby",
     evidence_provenance: "device_submission", processing_source: "apollosg_servers", evidence_representation: "full_record",
     ...partial,
   } as PatrolEvent;
@@ -42,9 +42,9 @@ const response = (over: Record<string, unknown> = {}) => ({
 });
 const investigation = (over: Record<string, unknown> = {}, resp: Record<string, unknown> = {}) => ({
   caseId: "case-1", gates: ["text"], status: "complete", createdAt: "2026-10-28T01:12:00Z", completedAt: "2026-10-28T01:12:30Z",
-  committedAt: "2026-10-28T01:12:30Z", question: "", sources: [], turns: [], patrolEventId: "e1", answeredBy: "teddy",
+  committedAt: "2026-10-28T01:12:30Z", question: "", sources: [], turns: [], patrolEventId: "e1", answeredBy: "tc_flyby",
   evidenceItems: [item({}), item({ id: "EV-2", displayId: "EV-2", kind: "url", parentId: "EV-1", label: "URL from message", coverage: { status: "examined", unit: "items", total: 1, examined: 1, materialGap: false } }),
-    item({ id: "EV-C", clientItemId: "teddy-di-checks", origin: "apollo_inference", kind: "observation", label: "TC FlyBy fly-by checks" })],
+    item({ id: "EV-C", clientItemId: "tc-flyby-di-checks", origin: "apollo_inference", kind: "observation", label: "TC FlyBy fly-by checks" })],
   response: response(resp), ...over,
 }) as never;
 
@@ -135,7 +135,7 @@ test("the trail lists only the stages that happened", () => {
 });
 
 test("a message case whose investigation never received the message says it wasn't saved", () => {
-  const without = investigation({ evidenceItems: [item({ id: "EV-C", clientItemId: "teddy-di-checks", origin: "apollo_inference", kind: "observation", label: "TC FlyBy fly-by checks" })] }, { evidence: [] });
+  const without = investigation({ evidenceItems: [item({ id: "EV-C", clientItemId: "tc-flyby-di-checks", origin: "apollo_inference", kind: "observation", label: "TC FlyBy fly-by checks" })] }, { evidence: [] });
   const out = build(ev(), without);
   assert.deepEqual(out.facts, []);
   assert.equal(out.messageNotSaved, true);

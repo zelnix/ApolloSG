@@ -13,7 +13,7 @@ from core.db import db
 from services.investigation_projector import _RUNNING, ended_view, project_ended_cases
 
 AT = datetime(2020, 1, 1, 9, 0, tzinfo=timezone.utc)  # older than anything real, so the oldest-first scan reaches it
-CLEAR_ROUTING = {"answeredBy": "teddy_search", "teddy": {"resolved": True, "outcome": "no_scam_indicators", "basis": "clear"}}
+CLEAR_ROUTING = {"answeredBy": "tc_flyby_search", "tc_flyby": {"resolved": True, "outcome": "no_scam_indicators", "basis": "clear"}}
 
 
 def test_recorded_outcome_is_the_final_result():

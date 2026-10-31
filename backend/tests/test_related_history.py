@@ -23,8 +23,8 @@ from core.db import now_utc
 from services import correlation, observed_intel
 from services.higgins import history
 from services.higgins.contracts import ActionProposal, Finding, HigginsResponse
-from services.higgins.teddy import decide, report, triage
-from services.higgins.teddy.official import fact
+from services.higgins.tc_flyby import decide, report, triage
+from services.higgins.tc_flyby.official import fact
 
 TEXT = "CommBank: your card is locked. Unlock it now at https://commbank-unlock.top/login"
 MATERIAL = {"item-0": TEXT}

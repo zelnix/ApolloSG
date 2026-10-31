@@ -116,64 +116,59 @@ _DEFAULT_PRICING = {
 SEARCH_QUERY_USD = {"gemini": 0.014, "anthropic": 0.010, "openai": 0.010}
 
 
-def _get_pricing(model: str) -> dict[str, float]:
-    """Get pricing for a model, falling back to conservative defaults."""
+def pricing_for(model: str) -> dict[str, float]:
+    """Pricing for a model, falling back to conservative defaults."""
     return MODEL_PRICING.get(model, _DEFAULT_PRICING)
 
 
 def estimate_cost_usd(model: str, tokens: dict[str, int | None]) -> float:
-    """Calculate estimated cost in USD from actual token counts.
+    """Estimated cost in USD from the token counts the provider reported.
 
-    Returns 0.0 if no usable token data is present.
-    Does NOT treat missing values as zero — they are excluded from the calculation.
+    Every adapter reports candidate (answer) tokens WITHOUT the thinking tokens (services/higgins/ai_request.py), so the
+    two are charged separately — candidates at the output rate, thinking at the thinking rate — and never subtracted
+    from each other. Cached input is charged at the cached rate and the rest of the input at the input rate.
+    Missing values are left out, never treated as zero. 0.0 when no usable token data is present.
     """
-    pricing = _get_pricing(model)
+    pricing = pricing_for(model)
     cost = 0.0
-    has_any = False
+    input_tokens, cached_tokens = tokens.get("input") or 0, tokens.get("cached_input") or 0
+    if input_tokens > 0:
+        cached = min(cached_tokens, input_tokens)
+        cost += cached / 1_000_000 * pricing["cached_input"] + (input_tokens - cached) / 1_000_000 * pricing["input"]
+    cost += (tokens.get("candidates") or 0) / 1_000_000 * pricing["output"]
+    cost += (tokens.get("thinking") or 0) / 1_000_000 * pricing["thinking"]
+    return cost
 
-    input_tokens = tokens.get("input")
-    cached_tokens = tokens.get("cached_input")
-    output_tokens = tokens.get("output")
-    thinking_tokens = tokens.get("thinking")
 
-    if input_tokens is not None and input_tokens > 0:
-        has_any = True
-        # Subtract cached tokens from input if both are present
-        billable_input = input_tokens
-        if cached_tokens is not None and cached_tokens > 0:
-            billable_input = max(0, input_tokens - cached_tokens)
-            cost += (cached_tokens / 1_000_000) * pricing["cached_input"]
-        cost += (billable_input / 1_000_000) * pricing["input"]
-
-    if output_tokens is not None and output_tokens > 0:
-        has_any = True
-        # Subtract thinking tokens from output if counted separately
-        billable_output = output_tokens
-        if thinking_tokens is not None and thinking_tokens > 0:
-            billable_output = max(0, output_tokens - thinking_tokens)
-            cost += (thinking_tokens / 1_000_000) * pricing["thinking"]
-        cost += (billable_output / 1_000_000) * pricing["output"]
-    elif thinking_tokens is not None and thinking_tokens > 0:
-        # Thinking tokens reported without output total
-        has_any = True
-        cost += (thinking_tokens / 1_000_000) * pricing["thinking"]
-
-    return cost if has_any else 0.0
+def _first(usage: dict[str, Any], *keys: str) -> int | None:
+    for key in keys:
+        if usage.get(key) is not None:
+            return usage[key]
+    return None
 
 
 def _extract_tokens(usage_metadata: dict[str, Any] | None) -> dict[str, int | None]:
-    """Extract token counts from Gemini usage_metadata, preserving None for missing values."""
+    """Token counts from the gateway's usage record, preserving None for missing values. `candidates` (also kept as
+    `output`) excludes thinking; `thinking` is counted on its own."""
     if not usage_metadata:
-        return {"input": None, "output": None, "total": None, "thinking": None, "cached_input": None, "admission_input": None}
-
+        return {"input": None, "output": None, "candidates": None, "total": None, "thinking": None, "cached_input": None, "admission_input": None}
+    candidates = _first(usage_metadata, "candidates_token_count", "output_tokens")
     return {
-        "input": usage_metadata.get("prompt_token_count") or usage_metadata.get("input_tokens"),
-        "output": usage_metadata.get("candidates_token_count") or usage_metadata.get("output_tokens"),
-        "total": usage_metadata.get("total_token_count") or usage_metadata.get("total_tokens"),
-        "thinking": usage_metadata.get("thoughts_token_count") or usage_metadata.get("thinking_tokens"),
-        "cached_input": usage_metadata.get("cached_content_token_count") or usage_metadata.get("cached_tokens"),
+        "input": _first(usage_metadata, "prompt_token_count", "input_tokens"),
+        "output": candidates,
+        "candidates": candidates,
+        "total": _first(usage_metadata, "total_token_count", "total_tokens"),
+        "thinking": _first(usage_metadata, "thoughts_token_count", "thinking_tokens"),
+        "cached_input": _first(usage_metadata, "cached_content_token_count", "cached_tokens"),
         "admission_input": usage_metadata.get("admission_input_tokens"),
     }
+
+
+def call_cost(model: str, provider: str, usage_metadata: dict[str, Any] | None, search_queries: int = 0, *, simulated: bool = False) -> float:
+    """One call's estimated cost: its tokens plus every web search it ran (each is billed). A simulated call costs nothing."""
+    if simulated:
+        return 0.0
+    return estimate_cost_usd(model, _extract_tokens(usage_metadata)) + search_queries * SEARCH_QUERY_USD.get(provider, SEARCH_QUERY_USD["gemini"])
 
 
 # ── Trigger source constants ────────────────────────────────────────────────
@@ -200,53 +195,20 @@ AUTOMATED_SOURCES = frozenset({
     TriggerSource.HEALTH_CHECK,
 })
 
-# Default automated daily spend limit (USD).  Overridable via db.apollo_config.
-DEFAULT_AUTOMATED_DAILY_BUDGET_USD = 2.00
-
-
-async def get_automated_daily_budget() -> float:
-    """Read the automated daily budget from apollo_config, falling back to the default."""
-    try:
-        row = await db.apollo_config.find_one({"key": "automated_daily_budget_usd"})
-        if row and row.get("value") is not None:
-            return float(row["value"])
-    except Exception:
-        pass
-    return DEFAULT_AUTOMATED_DAILY_BUDGET_USD
-
-
-async def set_automated_daily_budget(value: float) -> None:
-    """Persist a new automated daily budget."""
-    await db.apollo_config.update_one(
-        {"key": "automated_daily_budget_usd"},
-        {"$set": {"value": value, "updated_at": datetime.now(timezone.utc)}},
-        upsert=True,
-    )
-
-
-async def automated_spend_today() -> float:
-    """Sum today's estimated cost for automated sources (success only)."""
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    pipeline = [
-        {"$match": {
-            "timestamp": {"$gte": today_start},
-            "success": True,
-            "extra.trigger_source": {"$in": list(AUTOMATED_SOURCES)},
-        }},
-        {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$estimated_cost_usd", 0]}}}},
-    ]
-    result = await db[COLLECTION].aggregate(pipeline).to_list(1)
-    return result[0]["total"] if result else 0.0
-
-
 async def check_automated_budget() -> tuple[bool, float, float]:
-    """Check whether the automated daily budget is still available.
-    
-    Returns (allowed: bool, spent: float, limit: float).
+    """Whether automatic checks still have room in today's spending ledger (services/ai_budget.py), counting what is
+    held for calls whose billing isn't known. An early guard only: the gateway's reservation is what enforces it.
+
+    Returns (allowed, used_usd, automated_limit_usd).
     """
-    limit = await get_automated_daily_budget()
-    spent = await automated_spend_today()
-    return (spent < limit, spent, limit)
+    from services import ai_budget
+    ledger = await ai_budget.today()
+    used, limit = ledger["automatedUsedUsd"], ledger["automatedLimitUsd"]
+    return (used < limit and ledger["usedUsd"] < ledger["totalLimitUsd"], used, limit)
+
+
+def _case_of(correlation_id: str | None) -> str | None:
+    return correlation_id.removeprefix("case-") if (correlation_id or "").startswith("case-") else None
 
 
 async def record_usage(
@@ -262,25 +224,33 @@ async def record_usage(
     usage_metadata: dict[str, Any] | None = None,
     duration_ms: int | None = None,
     extra: dict[str, Any] | None = None,
+    device_id: str | None = None,
+    case_id: str | None = None,
+    job_id: str | None = None,
+    reservation_id: str | None = None,
 ) -> str:
-    """Persist a single Gemini API call's usage to the database.
+    """Persist one AI call's usage: model, purpose, time, device, case, job, input / candidate / thinking / cached tokens,
+    web searches and estimated cost. A failed call records whatever usage the provider reported before it failed.
 
-    Returns the record_id used (generated if not provided).
-    Prevents duplicates via upsert on record_id.
+    Returns the record_id used (generated if not provided). Prevents duplicates via upsert on record_id.
     """
     if record_id is None:
         record_id = str(uuid.uuid4())
 
     tokens = _extract_tokens(usage_metadata)
-    cost = estimate_cost_usd(model, tokens)
     search_queries = int((extra or {}).get("search_queries") or 0)
-    search_cost = 0.0 if (extra or {}).get("simulated") else search_queries * SEARCH_QUERY_USD.get(provider, SEARCH_QUERY_USD["gemini"])
-    cost += search_cost
+    simulated = bool((extra or {}).get("simulated"))
+    search_cost = 0.0 if simulated else search_queries * SEARCH_QUERY_USD.get(provider, SEARCH_QUERY_USD["gemini"])
+    cost = call_cost(model, provider, usage_metadata, search_queries, simulated=simulated)
     now = datetime.now(timezone.utc)
 
     doc = {
         "record_id": record_id,
         "correlation_id": correlation_id,
+        "device_id": device_id,
+        "case_id": case_id or _case_of(correlation_id),
+        "job_id": job_id,
+        "reservation_id": reservation_id,
         "timestamp": now,
         "provider": provider,
         "model": model,
@@ -293,7 +263,7 @@ async def record_usage(
         "search_queries": search_queries,
         "search_cost_usd": search_cost,
         "pricing_version": PRICING_VERSION,
-        "pricing_rates": _get_pricing(model),
+        "pricing_rates": pricing_for(model),
         "duration_ms": duration_ms,
         "usage_metadata_available": usage_metadata is not None,
     }
@@ -306,6 +276,19 @@ async def record_usage(
         upsert=True,
     )
     return record_id
+
+
+async def record_search(*, record_id: str, provider: str, model: str, purpose: str, success: bool, failure_code: str | None, cost_usd: float,
+                        correlation_id: str | None, device_id: str | None, case_id: str | None, trigger_source: str | None) -> None:
+    """One paid web-search request that isn't an AI call (TC FlyBy's Brave search): no tokens, one search, its price."""
+    now = datetime.now(timezone.utc)
+    await db[COLLECTION].update_one({"record_id": record_id}, {"$set": {
+        "record_id": record_id, "correlation_id": correlation_id, "device_id": device_id, "case_id": case_id or _case_of(correlation_id),
+        "job_id": None, "reservation_id": record_id, "timestamp": now, "provider": provider, "model": model, "purpose": purpose,
+        "call_type": "web_search", "success": success, "failure_code": failure_code, "tokens": _extract_tokens(None),
+        "estimated_cost_usd": cost_usd or None, "search_queries": 1, "search_cost_usd": cost_usd, "pricing_version": PRICING_VERSION,
+        "duration_ms": None, "usage_metadata_available": False, "extra": {"trigger_source": trigger_source} if trigger_source else {}},
+        "$setOnInsert": {"created_at": now}}, upsert=True)
 
 
 async def get_usage_report(
@@ -508,5 +491,6 @@ async def ensure_indexes():
     coll = db[COLLECTION]
     await coll.create_index("record_id", unique=True)
     await coll.create_index("correlation_id")
+    await coll.create_index([("device_id", 1), ("timestamp", 1)])
     await coll.create_index("timestamp")
     await coll.create_index([("model", 1), ("purpose", 1), ("timestamp", 1)])

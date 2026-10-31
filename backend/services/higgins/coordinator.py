@@ -15,13 +15,15 @@ things:
 There is no system prompt. Web search is attached only when a specific external fact is still missing.
 
 The model is the one selected in ApolloSG Settings → AI Provider & Model (services/higgins/ai_settings.py),
-pinned on the job when the investigation starts; TC FlyBy uses the same one. The call goes through the single AI
-gateway (provider.generate), never a provider SDK.
+pinned on the job when the investigation starts. The call goes through the single AI gateway (provider.generate),
+never a provider SDK. TC FlyBy makes no AI call.
 
-MAGNUM DI MAKES ONE CALL. There are no tool rounds, no nested research calls, no model escalation, no Pro
-fallback and no second call to present the answer: Higgins shows what this one call returned. The only
-exception is a single retry after a failed call (`MAX_GEMINI_CALLS`), enforced atomically on the job record.
-Follow-up turns go straight to Magnum DI with the complete case evidence.
+ONE MAGNUM DI CALL PER CORRELATED CASE, AT MOST. There are no tool rounds, no nested research calls, no model
+escalation, no Pro fallback, no second call to present the answer and no retry: Higgins shows what this one call
+returned, or why it failed. The call is claimed atomically for the case (repository.claim_magnum_call) before anything
+is sent, so a follow-up, retry, Resubmit, new job, recovered job or restart can never make a second one. Cases TC FlyBy
+settles use none. Follow-up questions are answered from the case's locked findings and ApolloSG's approved knowledge
+(routers/investigations._follow_up), never by another investigation.
 """
 from __future__ import annotations
 
@@ -39,7 +41,7 @@ from services.higgins import ai_settings
 from services.higgins import provider
 from services.higgins.ai_request import Message, Part
 from services.higgins import repository as repo
-from services.higgins import teddy
+from services.higgins import tc_flyby
 from services.higgins.contracts import Coverage, HigginsResponse, ProviderResult, TurnCommit, Usage
 from services.higgins.response_schema import response_schema
 from services.higgins.tools import grounding_sources
@@ -49,10 +51,10 @@ log = logging.getLogger("apollo.coordinator")
 
 # Apollo's pre-gathered specialist intelligence (RDAP, Safe Browsing, IPQualityScore, HIBP) is
 # evidence collected for this case. It is registered as evidence, verbatim, so it can be cited.
-TRIAGE_EVIDENCE_ITEM_ID = teddy.PREGATHERED_ITEM_ID
+TRIAGE_EVIDENCE_ITEM_ID = tc_flyby.PREGATHERED_ITEM_ID
 
-# Magnum DI's one AI call, plus at most one retry if that call fails.
-MAX_GEMINI_CALLS = 2
+# Magnum DI's one AI call for the whole correlated case. No retry.
+MAX_MAGNUM_CALLS = 1
 
 
 async def _register_triage_evidence(owner: str, case: dict) -> None:
@@ -129,8 +131,8 @@ async def _with_history(owner: str, case: dict, response: HigginsResponse) -> tu
     a concern raises the confidence of the findings about the same subject; nothing else in the result changes. A failure
     leaves the result exactly as validated."""
     try:
-        stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "teddy_ciphertext": 1}) or {}
-        record = repo.dec_json(stored["teddy_ciphertext"]) if stored.get("teddy_ciphertext") else {}
+        stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "tc_flyby_ciphertext": 1}) or {}
+        record = repo.dec_json(stored["tc_flyby_ciphertext"]) if stored.get("tc_flyby_ciphertext") else {}
         return history.weigh(response, record.get("history") or []), record
     except Exception:  # noqa: BLE001 — history is context; it never fails an investigation
         log.warning("history_weigh_failed case=%s", case["case_id"], exc_info=True)
@@ -192,7 +194,7 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
     return Outcome("committed", commit=commit, case=updated)
 
 
-async def _commit_teddy(owner: str, case: dict, job: dict, payload: dict, fly_by: teddy.TeddyOutcome,
+async def _commit_flyby(owner: str, case: dict, job: dict, payload: dict, fly_by: tc_flyby.FlyByOutcome,
                         capability_ids: set[str]) -> Optional[Outcome]:
     """TC FlyBy settled the case: its result passes the same validation as Magnum DI's, then commits.
     None when it doesn't validate — Magnum DI then takes the case."""
@@ -203,20 +205,19 @@ async def _commit_teddy(owner: str, case: dict, job: dict, payload: dict, fly_by
                                 source_ids=source_ids, capability_ids=capability_ids, pending_question=None, provider_complete=True,
                                 material_gaps=_material_gaps(rows))
     if response is None:
-        log.warning("teddy_result_invalid case=%s errors=%s", case["case_id"], "; ".join(errors)[:300])
+        log.warning("tc_flyby_result_invalid case=%s errors=%s", case["case_id"], "; ".join(errors)[:300])
         return None
-    provider_result = ProviderResult(provider="apollo", model="teddy-flyby" + (f" + {fly_by.model}" if fly_by.model else ""), api_version="",
+    provider_result = ProviderResult(provider="apollo", model="tc-flyby" + (f" + {fly_by.model}" if fly_by.model else ""), api_version="",
                                      finish_reason="STOP", provider_complete=True, usage=Usage(**fly_by.usage),
                                      source_ids=sorted(response.source_ids), simulated=fly_by.simulated, answered_by=fly_by.answered_by)
     return await _commit(owner, case, job, payload, response, provider_result, evidence_ids, source_ids)
 
 
 async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
-    """First turn: Higgins Triage → TC FlyBy → (only if needed) Magnum DI's one call. Follow-ups: Magnum DI.
+    """The case's investigation: Higgins Triage → TC FlyBy → (only if needed) Magnum DI's one call for the case.
 
-    Magnum DI flow: claim the call slot → send question and evidence → validate the schema-shaped response
-    → commit. No autonomous tool rounds, reassessment cycles or repair loops; a retry is the caller's
-    (jobs.py) single decision and claims its own slot.
+    Magnum DI flow: claim the case's one call → send question and evidence → validate the schema-shaped response
+    → commit. No autonomous tool rounds, reassessment cycles, repair loops or retries.
     """
     payload = repo.dec_json(job["payload_ciphertext"])
     device = repo.device_profile(case)
@@ -232,9 +233,9 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     rows = await repo.list_evidence(owner, case["case_id"])
     first_turn = not case.get("response_revision") and not payload.get("answerToQuestionId")
     search_on = True
-    # What Magnum DI's result can't go below: TC FlyBy's concern, established or provisional (teddy/decide.floor).
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "routing.teddy.floor": 1}) or {}
-    floor = ((stored.get("routing") or {}).get("teddy") or {}).get("floor")
+    # What Magnum DI's result can't go below: TC FlyBy's concern, established or provisional (tc_flyby/decide.floor).
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "routing.tc_flyby.floor": 1}) or {}
+    floor = ((stored.get("routing") or {}).get("tc_flyby") or {}).get("floor")
 
     # Too much written evidence for one investigation. Apollo sends NOTHING rather than quietly
     # shortening, sampling or dropping any of it, and no evidence is marked as examined — so this is
@@ -245,32 +246,32 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
                        errors=[f"written evidence is {evidence_words} words; Apollo's limit for one investigation is {ev.EVIDENCE_WORD_LIMIT}"])
 
     # ── Step 2: Higgins Triage → TC FlyBy (first turn only) ──
-    if first_turn:
-        fly_by = await teddy.investigate(owner, case, job, payload["message"], rows, progress)
-        if fly_by.resolved:
-            committed = await _commit_teddy(owner, case, job, payload, fly_by, capability_ids)
-            if committed is not None:
-                return committed
-            await teddy.discard_response(owner, case)
-            fly_by = await teddy.investigate(owner, case, job, payload["message"], rows, progress)
-        rows, search_on, floor = fly_by.rows, fly_by.magnum_search, fly_by.floor
-        evidence_parts, pending_marks, evidence_words = await ev.model_parts(owner, case, rows)
-    else:
-        evidence_parts, pending_marks = _parts, _marks
+    if not first_turn:
+        # A follow-up is answered from the case's locked findings (routers/investigations._follow_up), never by
+        # another investigation: this turn sends nothing.
+        return Outcome("call_limit_reached", errors=["a follow-up is answered from the case's findings, not by another investigation"])
+    fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
+    if fly_by.resolved:
+        committed = await _commit_flyby(owner, case, job, payload, fly_by, capability_ids)
+        if committed is not None:
+            return committed
+        await tc_flyby.discard_response(owner, case)
+        fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
+    rows, search_on, floor = fly_by.rows, fly_by.magnum_search, fly_by.floor
+    evidence_parts, pending_marks, evidence_words = await ev.model_parts(owner, case, rows)
 
     contents = [Message("user", [Part(text=payload["message"]), *evidence_parts])]
 
-    # Take an AI call slot before anything is sent. Refused = both attempts are already used:
-    # nothing is sent and the person is asked to resubmit later.
-    if await repo.claim_gemini_call(owner, job["job_id"], MAX_GEMINI_CALLS) is None:
-        return Outcome("call_limit_reached", errors=[f"this investigation already made {MAX_GEMINI_CALLS} AI calls"])
+    # Take the case's one Magnum DI call before anything is sent. Refused = the case already used it: nothing is sent.
+    if not await repo.claim_magnum_call(owner, case["case_id"], job["job_id"]):
+        return Outcome("call_limit_reached", errors=[f"this case already made its {MAX_MAGNUM_CALLS} Magnum DI call"])
 
     # Mark evidence as examined now that it has been sent to the model
     for evidence_id, start, end, total in pending_marks:
         await ev.mark_examined(owner, case["case_id"], evidence_id, start, end, total)
 
     # ── Step 3: Magnum DI's single AI call ──
-    await progress("assess", "Magnum DI is examining what needs deeper analysis." if first_turn else "Magnum DI is examining the evidence.")
+    await progress("assess", "Magnum DI is examining what needs deeper analysis.")
     job_source = job.get("source", "user_initiated")
     # The schema lets the model cite only what is registered for this case; it cannot know Apollo's ids.
     source_ids = {s["id"] for s in await repo.sources(owner, case["case_id"])}
@@ -282,13 +283,13 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
                                      json_output=True,
                                      response_schema=response_schema(evidence_ids=sorted(row["evidence_id"] for row in rows),
                                                                      source_ids=sorted(source_ids), capability_ids=sorted(capability_ids)),
-                                     correlation_id=f"case-{case['case_id']}", trigger_source=job_source)
-    if first_turn:
-        usage = result.usage or {}
-        await db.investigation_cases.update_one({"owner_id": owner, "case_id": case["case_id"]}, {"$set": {"routing.magnum": {
-            "search": search_on, "searchQueries": provider.search_query_count(result.grounding) if search_on else 0,
-            "itemsSent": len(rows), "inputTokens": usage.get("prompt_token_count"), "outputTokens": usage.get("candidates_token_count"),
-            "simulated": result.simulated, "at": now_utc()}}})
+                                     correlation_id=f"case-{case['case_id']}", trigger_source=job_source,
+                                     device_id=owner, job_id=job["job_id"])
+    usage = result.usage or {}
+    await db.investigation_cases.update_one({"owner_id": owner, "case_id": case["case_id"]}, {"$set": {"routing.magnum": {
+        "search": search_on, "searchQueries": provider.search_query_count(result.grounding) if search_on else 0,
+        "itemsSent": len(rows), "inputTokens": usage.get("prompt_token_count"), "outputTokens": usage.get("candidates_token_count"),
+        "thinkingTokens": usage.get("thoughts_token_count"), "simulated": result.simulated, "at": now_utc()}}})
 
     # ── Step 4: Parse and validate the response ──
     # Re-read the rows so coverage reflects the examination marks applied above.

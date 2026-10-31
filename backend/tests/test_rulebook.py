@@ -7,12 +7,12 @@ import re
 
 from routers import admin_portal
 from routers.ask import ChatRequest
-from services import apollo_kb, kb_benchmark, kb_sources, rulebook, triage_engine
+from services import ai_budget, apollo_kb, kb_benchmark, kb_sources, rulebook, triage_engine
 from services import reusable_intel as intel
 from services.higgins import capacity, chat, coordinator, evidence, jobs, knowledge, llm_boundary, outcomes, pipeline_submit, presenter
 from services.higgins import context as chat_memory
-from services.higgins.teddy import official, patterns, search
-from services.higgins.teddy import triage as higgins_triage
+from services.higgins.tc_flyby import official, patterns, search
+from services.higgins.tc_flyby import triage as higgins_triage
 from services.triage import CATALOGUE, RULES, Outcome
 
 BOOK = rulebook.BOOK.read_text(encoding="utf-8")
@@ -133,12 +133,12 @@ def test_every_number_in_the_rule_book_matches_the_code():
         f"The {len(higgins_triage.REQUESTS)} types are",
         f"{official.LOOKUP_SECONDS:g} s per lookup",
         f"There are {len(patterns.PATTERNS)} patterns",
-        f"at most {search.MAX_QUESTIONS} questions",
+        "One Brave Search request per case",
         f"Something found counts as current for {intel.TTL['web_lookup'].days} days, \"nothing found\" for {intel.TTL['web_lookup_negative'].days} day",
         f"over {evidence.EVIDENCE_WORD_LIMIT:,} words",
-        f"one retry after {jobs.RETRY_DELAY_SECONDS} seconds",
-        f"limit of {coordinator.MAX_GEMINI_CALLS} calls per job",
-        f"resubmit in about {jobs.RESUBMIT_AFTER_SECONDS // 60} minutes",
+        f"at most {coordinator.MAX_MAGNUM_CALLS} Magnum DI call per correlated case",
+        f"a daily total AI limit of ${ai_budget.DEFAULT_TOTAL_USD:.2f}",
+        f"may use up to ${ai_budget.DEFAULT_AUTOMATED_USD:.2f} of it",
     ]
     missing = [phrase for phrase in expected if phrase not in BOOK]
     assert not missing, f"The rule book no longer matches the code on: {missing}"
@@ -155,21 +155,21 @@ def test_every_settling_rule_is_listed_in_the_rule_book_word_for_word():
         assert re.search(rf"^\| {re.escape(rule_id)} \| {re.escape(name)} \| {re.escape(who)} \|", section, re.M), rule_id
 
 
-def _routing(answered_by, **teddy):
-    return {"answeredBy": answered_by, "teddy": {"answeredBy": answered_by, **teddy}}
+def _routing(answered_by, **flyby):
+    return {"answeredBy": answered_by, "tc_flyby": {"answeredBy": answered_by, **flyby}}
 
 
 def test_tc_flyby_results_name_the_rule_that_settled_them():
     cases = [
-        (_routing("teddy_official", basis="threat", outcome="confirmed_threat"), "FLYBY-THREAT", "direct safety check"),
-        (_routing("teddy_search", basis="threat", outcome="confirmed_threat"), "FLYBY-THREAT", "official source found in TC FlyBy's search"),
-        (_routing("teddy_kb", basis="pattern", outcome="likely_scam", pattern={"key": "family_new_number", "stage": "full"}), "FLYBY-PATTERN", "“Hi Mum”"),
-        (_routing("teddy_kb", basis="pattern", outcome="concerning", pattern={"key": "family_new_number", "stage": "opening"}), "FLYBY-OPENING", "hasn't asked"),
-        (_routing("teddy_official", basis="impersonation", outcome="concerning"), "FLYBY-IMPERSONATION", "isn't the organisation's website"),
-        (_routing("teddy_search", basis="signals", outcome="concerning"), "FLYBY-SIGNS", "warning signs"),
-        (_routing("teddy_official", basis="clear", outcome="no_scam_indicators"), "FLYBY-CLEAR", "every planned check"),
-        (_routing("teddy_official", basis="unknown", outcome="unable_to_determine"), "FLYBY-UNKNOWN", "couldn't establish more"),
-        (_routing("teddy_kb", basis="knowledge", outcome=None), "FLYBY-ANSWERED", "knowledge base"),
+        (_routing("tc_flyby_official", basis="threat", outcome="confirmed_threat"), "FLYBY-THREAT", "direct safety check"),
+        (_routing("tc_flyby_search", basis="threat", outcome="confirmed_threat"), "FLYBY-THREAT", "official source found in TC FlyBy's search"),
+        (_routing("tc_flyby_kb", basis="pattern", outcome="likely_scam", pattern={"key": "family_new_number", "stage": "full"}), "FLYBY-PATTERN", "“Hi Mum”"),
+        (_routing("tc_flyby_kb", basis="pattern", outcome="concerning", pattern={"key": "family_new_number", "stage": "opening"}), "FLYBY-OPENING", "hasn't asked"),
+        (_routing("tc_flyby_official", basis="impersonation", outcome="concerning"), "FLYBY-IMPERSONATION", "isn't the organisation's website"),
+        (_routing("tc_flyby_search", basis="signals", outcome="concerning"), "FLYBY-SIGNS", "warning signs"),
+        (_routing("tc_flyby_official", basis="clear", outcome="no_scam_indicators"), "FLYBY-CLEAR", "every planned check"),
+        (_routing("tc_flyby_official", basis="unknown", outcome="unable_to_determine"), "FLYBY-UNKNOWN", "couldn't establish more"),
+        (_routing("tc_flyby_kb", basis="knowledge", outcome=None), "FLYBY-ANSWERED", "knowledge base"),
     ]
     for routing, rule_id, words in cases:
         reason = rulebook.settled_reason(routing)
@@ -201,9 +201,9 @@ def test_no_reason_is_guessed_when_the_record_does_not_say():
 
 
 def test_the_sentence_never_repeats_anything_from_the_material():
-    routing = _routing("teddy_official", basis="threat", outcome="confirmed_threat",
+    routing = _routing("tc_flyby_official", basis="threat", outcome="confirmed_threat",
                        issues=[], checks=[{"kind": "link", "status": "resolved", "route": "official_source"}])
-    routing["teddy"]["subject"] = "evil-commbank.example"
+    routing["tc_flyby"]["subject"] = "evil-commbank.example"
     assert "evil-commbank" not in rulebook.settled_reason(routing)["sentence"]
 
 
@@ -212,12 +212,12 @@ def test_the_admin_rule_book_page_is_the_shared_file(monkeypatch):
     page = admin_portal._rule_book_html()
     assert 'data-testid="rule-book-in-step"' in page and 'id="settling-rules"' in page
     assert "Settled by TC FlyBy — Known scam, every step" in page
-    monkeypatch.setattr(rulebook, "changed", lambda: ["services/higgins/teddy/decide.py"])
+    monkeypatch.setattr(rulebook, "changed", lambda: ["services/higgins/tc_flyby/decide.py"])
     assert "rule-book-behind" in admin_portal._rule_book_html() and "decide.py" in admin_portal._rule_book_html()
 
 
 def test_each_case_shows_its_reason_in_the_admin_portal():
-    routing = _routing("teddy_kb", basis="pattern", outcome="likely_scam", pattern={"key": "family_new_number", "stage": "full"})
+    routing = _routing("tc_flyby_kb", basis="pattern", outcome="likely_scam", pattern={"key": "family_new_number", "stage": "full"})
     row = admin_portal._settled_reason_html(routing)
     assert 'data-testid="settled-reason"' in row and "FLYBY-PATTERN" in row and "/api/admin/rule-book#settling-rules" in row
     assert "Not recorded" in admin_portal._settled_reason_html({})

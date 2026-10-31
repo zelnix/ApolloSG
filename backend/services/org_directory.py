@@ -12,7 +12,7 @@ What counts as official:
 - Source pages must be on the organisation's own domains or an official (Tier 1) authority. A page the source blocks from
   cloud servers is read from an Internet Archive copy no older than ARCHIVE_MAX_AGE.
 
-How checks use it (services/higgins/teddy/official.py): a number or address on the list is the organisation's published
+How checks use it (services/higgins/tc_flyby/official.py): a number or address on the list is the organisation's published
 contact (it settles that check only). A number the material presents as a listed organisation's, but that isn't one of its
 published numbers, is a warning sign that needs corroboration (the owner's rule): organisations have many numbers.
 
@@ -226,7 +226,7 @@ def site_verdict(host: str, claimed: str | None = None) -> dict | None:
             return {"status": kind, "name": name, "domain": brand_domains.registrable(host), "official_domain": official[0] if official else None,
                     "detail": brand_domains.SIGN_WORDS.get(detail) if kind == "lookalike" else f"{detail} is a link or website service anyone can use",
                     "source_url": source(entry), "call": _call(entry)}
-    from services.higgins.teddy.official import official_domain
+    from services.higgins.tc_flyby.official import official_domain
     entry = find(claimed)
     # Another organisation's or a government website, or the organisation's own country site, is never "not official".
     if entry and not official_domain(host) and brand_domains.classify(entry["name"], host)[0] != "country_site":

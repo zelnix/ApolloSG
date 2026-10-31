@@ -56,7 +56,7 @@ test("a Triage that opened an investigation says where it went", () => {
   assert.match(escalated.find((s) => s.id === "triage")!.returned, /Escalated to Magnum DI\.$/);
   const settled = buildCaseSources({
     event: ev({ triage_investigation: triage, investigation_case_id: "case-9" }),
-    investigation: { answeredBy: "teddy_official", response: { findings: [] }, sources: [] } as never,
+    investigation: { answeredBy: "tc_flyby_official", response: { findings: [] }, sources: [] } as never,
   });
   assert.match(settled.find((s) => s.id === "triage")!.returned, /TC FlyBy settled it — Magnum DI was not engaged\.$/);
   assert.equal(settled.find((s) => s.id === "magnum")!.name, "TC FlyBy investigation");

@@ -27,12 +27,12 @@ WATCHED = (
     "backend/services/triage/engine.py",
     "backend/services/triage_engine.py",
     "backend/services/patrol_policy.py",
-    "backend/services/higgins/teddy/__init__.py",
-    "backend/services/higgins/teddy/triage.py",
-    "backend/services/higgins/teddy/official.py",
-    "backend/services/higgins/teddy/patterns.py",
-    "backend/services/higgins/teddy/search.py",
-    "backend/services/higgins/teddy/decide.py",
+    "backend/services/higgins/tc_flyby/__init__.py",
+    "backend/services/higgins/tc_flyby/triage.py",
+    "backend/services/higgins/tc_flyby/official.py",
+    "backend/services/higgins/tc_flyby/patterns.py",
+    "backend/services/higgins/tc_flyby/search.py",
+    "backend/services/higgins/tc_flyby/decide.py",
     "backend/services/higgins/coordinator.py",
     "backend/services/higgins/validation.py",
     "backend/services/higgins/outcomes.py",
@@ -193,8 +193,8 @@ SETTLING_RULES: dict[str, tuple[str, str]] = {
 # result and never change it. The book lists every one under its section, word for word; the Fidelity Check's
 # failure codes (explain/fidelity.CODES) and the settling rules above are EXPLAIN rules too.
 EXPLAIN_RULES: dict[str, tuple[str, str, str]] = {
-    "HIG-01": ("higgins-explanation", "A follow-up on a finished investigation is answered from its record, with no AI, and the case is never reopened",
-               "services.higgins.presenter:investigation_follow_up"),
+    "HIG-01": ("higgins-explanation", "Every follow-up on an investigated case is answered from its locked findings, with no AI, and the case is never reopened",
+               "routers.investigations:_follow_up"),
     "HIG-02": ("higgins-explanation", "Something to check goes to the investigation pipeline", "services.higgins.pipeline_submit:submit_to_investigation_pipeline"),
     "HIG-03": ("higgins-explanation", "A scam alert the person opened is shown in the source's own words", "services.higgins.presenter:scam_alert_explanation"),
     "HIG-04": ("higgins-explanation", "A Learn article is shown in its own words", "services.higgins.presenter:learn_article"),
@@ -206,8 +206,8 @@ EXPLAIN_RULES: dict[str, tuple[str, str, str]] = {
                "services.higgins.presenter:not_in_trusted_knowledge"),
     "HIG-09": ("higgins-explanation", "The phone's live reading is the truth: Higgins never contradicts it, guesses past it or invents a concern",
                "services.higgins.presenter:device_state"),
-    "HIG-10": ("higgins-explanation", "Answering Magnum DI's pending question continues that investigation, and isn't treated as a follow-up",
-               "services.higgins.coordinator:run_turn"),
+    "HIG-10": ("higgins-explanation", "A case gets at most one Magnum DI call: answering its pending question doesn't reopen the investigation",
+               "services.higgins.repository:claim_magnum_call"),
     "HIG-11": ("higgins-explanation", "Plain Australian English, no internal codes, 2–4 short paragraphs", "services.higgins.presenter:STATE_TEXT"),
     "PER-01": ("plain-english-renderer", "The evidence lock: no fact, identifier, certainty, severity, step or attribution is added, dropped or changed",
                "services.higgins.explain.fidelity:check"),
@@ -235,18 +235,18 @@ _CAPABILITY_RULE = {"reading": "MAGNUM-READING", "reasoning": "MAGNUM-REASONING"
 
 
 def _pattern_name(pattern: Optional[dict]) -> str:
-    from services.higgins.teddy.patterns import PATTERNS
+    from services.higgins.tc_flyby.patterns import PATTERNS
     key = (pattern or {}).get("key")
     return next((p["name"] for p in PATTERNS if p["key"] == key), "a known scam")
 
 
-def _flyby(teddy: dict, answered_by: str) -> Optional[tuple[str, str]]:
-    basis, outcome = teddy.get("basis"), teddy.get("outcome")
+def _flyby(flyby: dict, answered_by: str) -> Optional[tuple[str, str]]:
+    basis, outcome = flyby.get("basis"), flyby.get("outcome")
     if basis == "threat":
-        return "FLYBY-THREAT", ("an official source found in TC FlyBy's search names this exact item as a scam or threat" if answered_by == "teddy_search"
+        return "FLYBY-THREAT", ("an official source found in TC FlyBy's search names this exact item as a scam or threat" if answered_by == "tc_flyby_search"
                                 else "a direct safety check (Google Safe Browsing, Apollo's blocklist or an official scam advisory) lists this exact item as a threat")
     if basis == "pattern":
-        name = _pattern_name(teddy.get("pattern"))
+        name = _pattern_name(flyby.get("pattern"))
         if outcome == "likely_scam":
             return "FLYBY-PATTERN", f"it matches every step of the {name} that Scamwatch describes, and nothing in it contradicts that"
         return "FLYBY-OPENING", f"it opens the same way as the {name} that Scamwatch describes, though it hasn't asked for anything yet"
@@ -256,16 +256,16 @@ def _flyby(teddy: dict, answered_by: str) -> Optional[tuple[str, str]]:
         "signals": ("FLYBY-SIGNS", "its checks found real warning signs, but not enough to call it a scam"),
         "clear": ("FLYBY-CLEAR", "every planned check ran over everything you sent and none found a scam indicator"),
         "unknown": ("FLYBY-UNKNOWN", "its checks couldn't establish more, and a deeper look couldn't change what you should do"),
-        "knowledge": ("FLYBY-ANSWERED", "a targeted search answered the question, backed by a real web page" if answered_by == "teddy_search"
+        "knowledge": ("FLYBY-ANSWERED", "a targeted search answered the question, backed by a real web page" if answered_by == "tc_flyby_search"
                       else "ApolloSG's knowledge base answers the question from a named source"),
     }.get(basis or "")
 
 
-def _magnum(teddy: dict) -> Optional[tuple[list[str], str]]:
-    issues = teddy.get("issues") or []
+def _magnum(flyby: dict) -> Optional[tuple[list[str], str]]:
+    issues = flyby.get("issues") or []
     if not issues:
         # TC FlyBy reached a result, but it failed validation and Magnum DI took the whole case.
-        return (["MAGNUM-SAFETY-NET"], "TC FlyBy's own result didn't pass Apollo's checks, so Magnum DI looked at the whole case") if teddy.get("basis") else None
+        return (["MAGNUM-SAFETY-NET"], "TC FlyBy's own result didn't pass Apollo's checks, so Magnum DI looked at the whole case") if flyby.get("basis") else None
     rule_ids: list[str] = []
     for issue in issues:
         rule_id = "MAGNUM-QUESTION" if (issue.get("text") or "").startswith("Answer the general question") else _CAPABILITY_RULE.get(issue.get("capability") or "")
@@ -280,17 +280,17 @@ def settled_reason(routing: Optional[dict]) -> Optional[dict]:
     """The rule that settled this case, as one plain sentence. None when the case's record doesn't say (results
     from before routing was recorded) — never guessed. Names no value from the material."""
     routing = routing or {}
-    teddy = routing.get("teddy")
-    if not teddy:
+    flyby = routing.get("tc_flyby")
+    if not flyby:
         return None
-    answered_by = routing.get("answeredBy") or teddy.get("answeredBy") or ""
+    answered_by = routing.get("answeredBy") or flyby.get("answeredBy") or ""
     if outcomes.settled_by_flyby(answered_by):
-        found = _flyby(teddy, answered_by)
+        found = _flyby(flyby, answered_by)
         if not found:
             return None
         rule_ids, why = [found[0]], found[1]
     else:
-        magnum = _magnum(teddy)
+        magnum = _magnum(flyby)
         if not magnum:
             return None
         rule_ids, why = magnum

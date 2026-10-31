@@ -955,6 +955,23 @@ def _attachment_triage(names: list[str]) -> dict:
     return {"outcome": Outcome.POSSIBLE_THREAT.value if rules_met else (Outcome.NO_THREAT.value if names else None), "rules_met": rules_met}
 
 
+def _destinations(link_domains: list[str], provider_evidence: dict | None) -> list[str]:
+    """The link domains a sender/link mismatch is judged on. A recognised email-sending service's tracking domain is
+    replaced by where Apollo's redirect expansion found it goes, or left out when that isn't known: on its own it is
+    neither a mismatch nor proof of anything (services/email_infrastructure.py)."""
+    from urllib.parse import urlparse
+    from services.email_infrastructure import is_tracking
+    finals: dict[str, list[str]] = {}
+    for url, info in (((provider_evidence or {}).get("redirects") or {}).get("urls") or {}).items():
+        host, final = (urlparse(url).hostname or "").lower(), (urlparse(str((info or {}).get("final_url") or "")).hostname or "").lower()
+        if host and final:
+            finals.setdefault(host, []).append(final)
+    out: list[str] = []
+    for domain in link_domains:
+        out += [f for f in finals.get(domain, []) if not is_tracking(f)] if is_tracking(domain) else [domain]
+    return out
+
+
 def _rule_evidence(evidence: dict, findings: list[str], provider_evidence: dict,
                    correlation: Optional[dict] = None) -> dict:
     """Build the shared Triage evidence dict from server-side intake evidence."""
@@ -970,9 +987,10 @@ def _rule_evidence(evidence: dict, findings: list[str], provider_evidence: dict,
     link_domains = [str(d).lower() for d in (evidence.get("link_domains") or [])]
     # Links on the sender's own site or on the same organisation's other domains (ebay.com → ebay.com.au) aren't a mismatch.
     from services.higgins.brand_domains import same_organisation
-    domain_mismatch = bool(sender_domain and link_domains and all(
+    judged = _destinations(link_domains, provider_evidence)
+    domain_mismatch = bool(sender_domain and judged and all(
         d != sender_domain and not d.endswith("." + sender_domain) and not sender_domain.endswith("." + d)
-        and not same_organisation(d, sender_domain) for d in link_domains))
+        and not same_organisation(d, sender_domain) for d in judged))
 
     credential_request = any(word in blob for word in _CREDENTIAL_WORDS) or "credential" in finding_blob
     code_request = any(word in blob for word in ("verification code", "security code", "one-time", "otp", "2fa"))

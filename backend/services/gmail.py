@@ -243,15 +243,17 @@ def _collect_attachment_names(part: dict, names: list[str]) -> None:
         names.append(filename)
 
 
-async def scan_inbox_page(device_id: str, page_token: str | None = None, limit: int = 15, email: str | None = None) -> tuple[list[dict[str, Any]], str | None]:
-    """Fetch one durable cursor page for a single account; content remains request-scoped."""
+async def scan_inbox_page(device_id: str, page_token: str | None = None, limit: int = 15, email: str | None = None,
+                          after_ms: int | None = None) -> tuple[list[dict[str, Any]], str | None]:
+    """Fetch one durable cursor page for a single account; content remains request-scoped. `after_ms`: only mail
+    received after the account's checkpoint (incremental monitoring)."""
     limit = max(1, min(limit, 25))
     row = await get_connection(device_id, email)
     account = row.get("email") if row else email
     token = await _access_token_for(device_id, account)
     auth = {"Authorization": f"Bearer {token}"}
     async with httpx.AsyncClient(timeout=20) as http:
-        params = {"maxResults": limit, "q": "newer_than:30d"}
+        params = {"maxResults": limit, "q": "newer_than:30d" + (f" after:{int(after_ms) // 1000}" if after_ms else "")}
         if page_token:
             params["pageToken"] = page_token
         listed = await http.get(f"{GMAIL_API}/messages", params=params, headers=auth)
@@ -278,7 +280,7 @@ async def scan_inbox_page(device_id: str, page_token: str | None = None, limit: 
             # Extract attachment filenames for risky-type flagging
             attachment_names = _extract_attachment_names(msg.get("payload", {}))
             out.append({"id": msg.get("id", ""), "account": account, "from": h.get("from", ""), "subject": h.get("subject", ""),
-                        "date": h.get("date", ""), "body": text, "links": anchors,
+                        "date": h.get("date", ""), "internal_date": msg.get("internalDate"), "body": text, "links": anchors,
                         "reply_to": reply_to, "attachment_names": attachment_names,
                         "auth_results": auth_results})
     return out, listing.get("nextPageToken")

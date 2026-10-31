@@ -3,7 +3,7 @@
 Found during the revision 2 implementation audit (EXPLAIN rules). Owner's choice: "List it for me to review first".
 Nothing below has been changed in the code.
 
-1. **TC FlyBy "no scam indicators", link with a verified official domain** — `backend/services/higgins/teddy/report.py` `clear()`:
+1. **TC FlyBy "no scam indicators", link with a verified official domain** — `backend/services/higgins/tc_flyby/report.py` `clear()`:
    "… Nothing Apollo checked raises a concern, so nothing here needs action."
    Rule book: a verified check settles that one check only, never the whole case.
 2. **TC FlyBy "no scam indicators", message** — `report.py` `clear()`:

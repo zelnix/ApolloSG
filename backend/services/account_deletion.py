@@ -52,6 +52,8 @@ CATEGORIES: dict[str, dict[str, Any]] = {
             ("investigation_idempotency", ["owner_id"]),
             ("investigation_device_requests", ["owner_id"]),
             ("device_case_history", ["owner_id"]),
+            ("magnum_di_calls", ["owner_id"]),
+            ("work_claims", ["owner_id"]),
         ],
     },
     "patrol_activity": {

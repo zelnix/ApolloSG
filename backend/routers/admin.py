@@ -461,3 +461,27 @@ async def retrofit_status():
     if not report:
         return {"status": "not_run", "message": "No retrofit migration has been executed yet."}
     return {"status": "completed", "report": report}
+
+
+# ── Daily AI spending limits (services/ai_budget.py) ─────────────────────────
+class AIBudgetIn(BaseModel):
+    total_usd: Optional[float] = Field(default=None, ge=0, le=1000)
+    automated_usd: Optional[float] = Field(default=None, ge=0, le=1000)
+
+
+@router.get("/ai-budget")
+async def admin_ai_budget():
+    """Today's AI spending ledger: the total limit, the automatic-check limit inside it, what is used or held."""
+    from services import ai_budget
+    return await ai_budget.today()
+
+
+@router.put("/ai-budget")
+async def admin_set_ai_budget(body: AIBudgetIn, request: Request, actor: Optional[str] = Header(default=None, alias="X-Admin-Actor")):
+    from services import ai_budget
+    try:
+        total, automated = await ai_budget.set_limits(total=body.total_usd, automated_usd=body.automated_usd)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    await audit(request, "ai_budget.set", "daily_limits", {"total_usd": total, "automated_usd": automated}, actor)
+    return await ai_budget.today()

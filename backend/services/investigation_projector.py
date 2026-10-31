@@ -268,7 +268,7 @@ def ended_view(case: dict | None) -> dict:
     doesn't hold: the outcome its routing recorded and the rule that settled it; else that it finished but its
     result isn't kept; else that it ended without a result."""
     routing = (case or {}).get("routing") or {}
-    outcome = (routing.get("teddy") or {}).get("outcome")
+    outcome = (routing.get("tc_flyby") or {}).get("outcome")
     if outcome in outcomes.LABELS:
         reason = rulebook.settled_reason(routing)
         return {"outcome": outcome, "headline": outcomes.LABELS[outcome],

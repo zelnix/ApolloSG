@@ -27,13 +27,13 @@ class _One:
 
 
 def _routing(resolved: bool) -> dict:
-    teddy = {"ranAt": AT, "answeredBy": "teddy_official" if resolved else "magnum_di", "resolved": resolved,
+    flyby = {"ranAt": AT, "answeredBy": "tc_flyby_official" if resolved else "magnum_di", "resolved": resolved,
              "outcome": "concerning" if resolved else None, "basis": "impersonation" if resolved else None, "messageType": "sms",
              "pattern": None, "checks": [{"kind": "claim", "status": "checked", "route": "google_search"}],
-             "searchCalls": 1, "searchQueries": 2, "cacheHits": 0, "teddyTokens": {"input": 5}, "simulated": False,
+             "searchCalls": 1, "searchQueries": 2, "cacheHits": 0, "flybyTokens": {"input": 5}, "simulated": False,
              "searchModel": "gemini-3.1-flash-lite", "magnumNeeded": not resolved, "magnumSearch": False, "reusedOnRetry": 0,
              "gaps": [], "issues": [] if resolved else [{"capability": "reasoning", "text": "Weigh the request."}]}
-    routing = {"teddy": teddy, "answeredBy": teddy["answeredBy"], "outcome": "concerning", "completion": "complete",
+    routing = {"tc_flyby": flyby, "answeredBy": flyby["answeredBy"], "outcome": "concerning", "completion": "complete",
                "fidelity": {"status": "PASS", "mode": "plain", "attempts": 1, "attemptFailures": [], "at": AT}}
     if not resolved:
         routing["magnum"] = {"search": True, "searchQueries": 3, "itemsSent": 4, "inputTokens": 10, "outputTokens": 5, "simulated": False, "at": AT}
@@ -56,7 +56,7 @@ async def test_a_flyby_settled_case_records_every_stage_without_the_model(cases)
     assert trace["triage"]["investigationId"] == "tri-1"
     assert trace["flyby"]["resolved"] is True and trace["flyby"]["ranAt"] == AT.isoformat()
     assert trace["flyby"]["checks"][0]["route"] == "web_search"
-    assert "searchModel" not in trace["flyby"] and "teddyTokens" not in trace["flyby"]
+    assert "searchModel" not in trace["flyby"] and "flybyTokens" not in trace["flyby"]
     assert trace["magnum"] is None
     assert trace["settledReason"]["by"] == "TC FlyBy"
     assert trace["higgins"] == {"status": "PASS", "mode": "plain", "attempts": 1}
@@ -143,7 +143,7 @@ async def test_tc_flybys_search_call_is_never_shown_as_magnum_di(monkeypatch):
 
     monkeypatch.setattr(di_record.db, "di_transactions", _Coll(), raising=False)
     assert await di_record.get_di_records("owner-1", "case-1") == []
-    assert seen["query"] == {"correlation_id": "case-case-1", "purpose": {"$ne": "teddy_search"}}
+    assert seen["query"] == {"correlation_id": "case-case-1", "purpose": {"$ne": "tc_flyby_search"}}
 
 
 def test_a_limited_triage_is_plain_english_and_never_nothing_to_worry_about():

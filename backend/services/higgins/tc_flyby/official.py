@@ -14,14 +14,14 @@ from datetime import datetime, timezone
 from services import kb_sources
 from services.higgins import brand_domains
 from services.higgins.brand_domains import registrable
-from services.higgins.teddy.triage import FREE_MAIL, Check, Plan, abn_valid, acn_valid
+from services.higgins.tc_flyby.triage import FREE_MAIL, Check, Plan, abn_valid, acn_valid
 
 LOOKUP_SECONDS = 8.0
 
 
 def fact(text: str, signal: str, *, decisive: bool = False, kind: str = "live_evidence", source: dict | None = None,
          topic: str | None = None) -> dict:
-    """One statement Teddy established. `kind` keeps live evidence apart from Apollo knowledge (never a finding).
+    """One statement TC FlyBy established. `kind` keeps live evidence apart from Apollo knowledge (never a finding).
     `signal`: concern | anomaly (a warning sign) | weak (a weak signal: alone or together never Concerning, only the
     corroboration a warning sign or impersonation needs) | clear | neutral | missing (looked up, not established) |
     context (knowledge)."""
@@ -84,7 +84,7 @@ KNOWN_SECTIONS = {"safe_browsing", "rdap", "redirects", "ipqs", "download_links"
 
 
 def unread_sections(pe: dict | None) -> dict:
-    """Pre-gathered results Teddy has no reader for. They are passed on verbatim so nothing is lost."""
+    """Pre-gathered results TC FlyBy has no reader for. They are passed on verbatim so nothing is lost."""
     out = {}
     for key, value in (pe or {}).items():
         if key not in KNOWN_SECTIONS:
@@ -228,6 +228,16 @@ def _impersonation(check: Check, plan_: Plan) -> None:
         check.status, check.open_issue = "needs_reasoning", f"Whether the material genuinely comes from {name}."
         return
     kinds = {place: brand_domains.classify(name, place) for place in places}
+    # A recognised email-sending service's tracking link that doesn't carry the name says only who delivered the email:
+    # it is no mismatch (so it can't send the case to Magnum DI by itself) and never proof the email is genuine.
+    from services.email_infrastructure import is_tracking
+    delivery = [p for p in places if kinds[p][0] == "unrelated" and is_tracking(p)]
+    places = [p for p in places if p not in delivery]
+    if delivery and not places:
+        check.facts.append(fact(f"The links go through {', '.join(sorted({registrable(p) for p in delivery})[:3])}, an email-sending service's "
+                                "click tracking. That shows who delivered the email, not who sent it.", "neutral", topic="email_delivery"))
+        check.status, check.route = "resolved", "official_source"
+        return
     mismatched = [p for p in places if kinds[p][0] not in ("official", "country_site")]
     source = source_ref("ApolloSG official-domain register", basis=f"{name}'s published domains")
     if mismatched:

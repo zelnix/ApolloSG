@@ -3,11 +3,11 @@
     Input → Higgins Triage → only the relevant checks → for each check:
         1. direct / authoritative source (official.py)
         2. Apollo Knowledge Base — including the established scam patterns (patterns.py)
-        3. targeted web search — one call, the investigation model selected in ApolloSG Settings (search.py)
+        3. one targeted web search per case — Brave Search, read deterministically; no AI model (search.py)
     → an Apollo case outcome (outcomes.py) when further investigation couldn't change the finding or what
       Higgins tells the person, or hand Magnum DI only what TC FlyBy could not settle.
 
-TC FlyBy never pays the AI provider to confirm what a reliable source has already established, and Magnum DI never
+TC FlyBy makes no AI call at all, never pays to confirm what a reliable source has already established, and Magnum DI never
 rediscovers what TC FlyBy found: it receives a short brief of the unresolved issues and the facts that bear on
 them, with web search left off unless a specific external fact is still missing.
 
@@ -28,20 +28,19 @@ from core.db import db, now_utc
 from services import kb_sources
 from services.higgins import evidence as ev
 from services.higgins import knowledge
-from services.higgins import ai_settings
 from services.higgins import repository as repo
 from services.higgins.contracts import Coverage, SourceReference
-from services.higgins.teddy import decide as deciding
-from services.higgins.teddy import official, patterns, report, search
-from services.higgins.teddy.official import fact, source_ref
-from services.higgins.teddy.triage import CALL_GATE, RED_FLAG_CLAIM, Check, Plan, digits
-from services.higgins.teddy.triage import plan as triage_plan
+from services.higgins.tc_flyby import decide as deciding
+from services.higgins.tc_flyby import official, patterns, report, search
+from services.higgins.tc_flyby.official import fact, source_ref
+from services.higgins.tc_flyby.triage import CALL_GATE, RED_FLAG_CLAIM, Check, Plan, digits
+from services.higgins.tc_flyby.triage import plan as triage_plan
 
-log = logging.getLogger("apollo.teddy")
+log = logging.getLogger("apollo.tc_flyby")
 
 PREGATHERED_ITEM_ID = "apollo-triage-intelligence"   # what Higgins Triage gathered before the case started
-CHECKS_ITEM_ID = "teddy-di-checks"                   # TC FlyBy's full check record, with provenance
-BRIEF_ITEM_ID = "teddy-di-brief"                     # the slice Magnum DI receives
+CHECKS_ITEM_ID = "tc-flyby-di-checks"                   # TC FlyBy's full check record, with provenance
+BRIEF_ITEM_ID = "tc-flyby-di-brief"                     # the slice Magnum DI receives
 _CORPORATE = re.compile(r"\b(pty|ltd|limited|inc|llc|plc|the|group|holdings)\b\.?", re.I)
 # A warning only an official source naming this exact value makes decisive; any other warning is a third-party
 # warning, and text found copied elsewhere is supporting evidence only: both are weak signals.
@@ -49,7 +48,7 @@ _SEARCH_SIGNAL = {"WARNING": "weak", "OFFICIAL": "clear", "FOUND_ELSEWHERE": "we
 
 
 @dataclass
-class TeddyOutcome:
+class FlyByOutcome:
     resolved: bool
     answered_by: str
     response: dict | None = None
@@ -235,7 +234,7 @@ async def _kb_stage(plan_: Plan, text: str) -> None:
                         check.facts.append(_kb_fact(entry, f"ApolloSG's library holds an official alert that mentions “{check.subject}” (“{entry.get('title')}”). "
                                                            "That is context, not proof about this case."))
         except Exception:  # noqa: BLE001 — the KB can never break an investigation
-            log.warning("teddy_kb_stage_failed kind=%s", check.kind, exc_info=True)
+            log.warning("tc_flyby_kb_stage_failed kind=%s", check.kind, exc_info=True)
 
 
 # ── Stage 3: applying targeted search answers ───────────────────────────────
@@ -265,9 +264,12 @@ def _shares_name(name: str, entry: str) -> bool:
 def _apply(check: Check, answer: dict, plan_: Plan) -> None:
     status = answer.get("status")
     if status == "UNAVAILABLE":
+        # Not searched (one search per case, not set up, a failure): missing evidence, never a pass.
         check.status = "unavailable"
+        if answer.get("note"):
+            check.facts.append(fact(answer["note"], "missing", topic="web_search"))
         return
-    check.route = "google_search"
+    check.route = "web_search"
     sources = answer.get("sources") or []
     lead = sources[0] if sources else None
     src = ({"publisher": lead["domain"] or lead["title"], "url": lead["url"], "title": lead["title"], "authority": lead["authority"],
@@ -281,7 +283,7 @@ def _apply(check: Check, answer: dict, plan_: Plan) -> None:
         return
     if status in search.NOT_FOUND:
         check.status = "not_found"
-        check.facts.append(fact(f"TC FlyBy's search found no record for {check.subject}: {answer.get('fact', '')}".strip(), "missing", source=src))
+        check.facts.append(fact(answer.get("fact") or f"TC FlyBy's search found no record for {check.subject}.", "missing", source=src))
         return
     decisive = (status == "WARNING" and check.kind in ("link", "phone", "email", "company")
                 and any(s.get("authority") == "official" for s in sources) and _names(check, answer.get("fact", "")))
@@ -356,7 +358,7 @@ async def _item(owner: str, case: dict, client_item_id: str, text: str, label: s
     if existing:
         return existing["evidence_id"]
     item = await ev.ingest_text(owner, case, client_item_id, text, kind="observation", origin="apollo_inference", label=label,
-                                meta={"source": "teddy_di"}, coverage=Coverage(status="examined", unit="items", total=1, examined=1))
+                                meta={"source": "tc_flyby_di"}, coverage=Coverage(status="examined", unit="items", total=1, examined=1))
     return item.id
 
 
@@ -369,9 +371,9 @@ async def _mark_read(owner: str, case_id: str, read: list[dict], texts: dict[str
 
 
 async def _magnum_rows(owner: str, case: dict, brief_id: str, needed: set[str] | None, settled: set[str]) -> list[dict]:
-    """What Magnum DI receives: Teddy's brief, the evidence each unresolved issue needs, and anything Teddy didn't
-    examine. Material Teddy already settled — and the raw lookups behind it — isn't resent. `needed` None: the
-    whole case (Teddy's own result couldn't be used)."""
+    """What Magnum DI receives: TC FlyBy's brief, the evidence each unresolved issue needs, and anything TC FlyBy didn't
+    examine. Material TC FlyBy already settled — and the raw lookups behind it — isn't resent. `needed` None: the
+    whole case (TC FlyBy's own result couldn't be used)."""
     pe_values = {json.dumps(v, sort_keys=True, default=str) for v in (case.get("triage_provider_evidence") or {}).values()}
     skip = set() if needed is None else settled - needed
     rows = []
@@ -398,31 +400,32 @@ def _summary(plan_: Plan, decision: deciding.Decision | None, issues: list[decid
             "pattern": {"key": plan_.pattern["key"], "stage": plan_.pattern["stage"]} if plan_.pattern else None,
             "checks": [{"kind": c.kind, "status": c.status, "route": c.route} for c in plan_.checks],
             "searchCalls": searched["calls"], "searchQueries": searched["queries"], "cacheHits": searched["cacheHits"],
-            "teddyTokens": searched["tokens"], "simulated": searched["simulated"], "searchModel": searched["model"],
+            "searchProvider": searched.get("provider"), "searchTarget": searched.get("target"), "aiCalls": 0,
+            "flybyTokens": searched["tokens"], "simulated": searched["simulated"], "searchModel": searched["model"],
             "magnumNeeded": not decision, "magnumSearch": magnum_search, "reusedOnRetry": 0,
             "gaps": [{"item": g["item"], "what": g["what"]} for g in plan_.gaps],
             "issues": [{"capability": i.capability, "text": i.text} for i in issues]}
 
 
 # ── Entry point ─────────────────────────────────────────────────────────────
-async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress) -> TeddyOutcome:
+async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress) -> FlyByOutcome:
     """Triage → TC FlyBy. Runs once per case: a retry of Magnum DI reuses this record and repeats no lookup."""
     case_id = case["case_id"]
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "teddy_ciphertext": 1})
-    if stored and stored.get("teddy_ciphertext"):
-        record = repo.dec_json(stored["teddy_ciphertext"])
-        await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$inc": {"routing.teddy.reusedOnRetry": 1}})
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
+    if stored and stored.get("tc_flyby_ciphertext"):
+        record = repo.dec_json(stored["tc_flyby_ciphertext"])
+        await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$inc": {"routing.tc_flyby.reusedOnRetry": 1}})
     else:
         record = await _run(owner, case, job, question, rows, progress)
     usage = record["search"]["tokens"]
     common = {"usage": {"input_tokens": usage.get("input") or None, "output_tokens": usage.get("output") or None},
               "simulated": record["search"]["simulated"], "model": record["search"]["model"]}
     if record.get("response"):
-        return TeddyOutcome(True, record["decision"]["answeredBy"], response=record["response"], **common)
+        return FlyByOutcome(True, record["decision"]["answeredBy"], response=record["response"], **common)
     issues = record.get("issues")
     needed = None if issues is None else {e for i in issues for e in i["evidenceIds"]}
     rows_ = await _magnum_rows(owner, case, record["items"]["brief"], needed, set(record.get("settled") or []))
-    return TeddyOutcome(False, "magnum_di", rows=rows_, magnum_search=record["magnumSearch"], floor=record.get("floor"), **common)
+    return FlyByOutcome(False, "magnum_di", rows=rows_, magnum_search=record["magnumSearch"], floor=record.get("floor"), **common)
 
 
 async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress) -> dict:
@@ -456,11 +459,13 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
         await _kb_stage(plan_, combined)
         decision, issues = deciding.evaluate(plan_, texts, final=False)
     if not decision and not deciding.decisive(plan_):
+        # Only what no verified source already answered: a check settled by a direct source or the KB isn't open.
         open_checks = [c for c in plan_.checks if c.question and c.status == "open"]
         if open_checks:
-            await progress("research", "TC FlyBy is running a few targeted searches.")
-            searched = await search.run(open_checks, model=job.get("provider_model") or await ai_settings.investigation_model(),
-                                        correlation_id=f"case-{case_id}", trigger_source=job.get("source"))
+            await progress("research", "TC FlyBy is running one targeted web search.")
+            focus = {t for r in deciding.unverified_requests(plan_) for t in r["targets"]}
+            searched = await search.run(open_checks, correlation_id=f"case-{case_id}", trigger_source=job.get("source"), owner=owner,
+                                        focus=focus, brands=[b[0] for b in plan_.entities.brands])
             for check in open_checks:
                 if check.id in searched["answers"]:
                     _apply(check, searched["answers"][check.id], plan_)
@@ -491,7 +496,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
         brief_id = await _item(owner, case, BRIEF_ITEM_ID, report.magnum_brief(plan_.checks, [i.wire() for i in issues], unread_sections, plan_.pattern, floor, cross, notes),
                                "TC FlyBy brief for Magnum DI")
 
-    # Material Teddy read in full, and the images whose content it read through the text extracted from them.
+    # Material TC FlyBy read in full, and the images whose content it read through the text extracted from them.
     by_id = {r["evidence_id"]: r for r in rows}
     settled = {r["evidence_id"] for r in read} | {r["parent_id"] for r in read if (by_id.get(r.get("parent_id") or "") or {}).get("kind") == "image"}
     record = {"version": 3, "ranAt": now_utc().isoformat(), "plan": {"messageType": plan_.message_type, "linkOnly": plan_.link_only,
@@ -508,18 +513,33 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     summary = _summary(plan_, decision, issues, magnum_search, searched)
     summary["floor"] = floor
     await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$set": {
-        "teddy_ciphertext": repo.enc_json(record), "routing.teddy": summary, "routing.answeredBy": summary["answeredBy"]}})
+        "tc_flyby_ciphertext": repo.enc_json(record), "routing.tc_flyby": summary, "routing.answeredBy": summary["answeredBy"]}})
     return record
 
 
+_ESTABLISHED = ("concern", "anomaly", "clear", "weak")
+
+
+async def established(owner: str, case_id: str, limit: int = 4) -> list[str]:
+    """What TC FlyBy established about this case, word for word from its check record: live facts only (never ApolloSG
+    knowledge, never what a lookup didn't find), warning signs first. Kept and shown when Magnum DI couldn't finish."""
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
+    if not stored or not stored.get("tc_flyby_ciphertext"):
+        return []
+    facts = [f for c in repo.dec_json(stored["tc_flyby_ciphertext"]).get("checks") or [] for f in c.get("facts") or []
+             if f.get("class") == "live_evidence" and f.get("signal") in _ESTABLISHED and str(f.get("text") or "").strip()]
+    facts.sort(key=lambda f: _ESTABLISHED.index(f["signal"]))
+    return list(dict.fromkeys(str(f["text"]).strip() for f in facts))[:limit]
+
+
 async def discard_response(owner: str, case: dict) -> None:
-    """Teddy's composed result failed Apollo's validation: Magnum DI takes the case instead, with Teddy's
-    brief and with web search on, since Teddy's conclusion can't be relied on."""
+    """TC FlyBy's composed result failed Apollo's validation: Magnum DI takes the case instead, with TC FlyBy's
+    brief and with web search on, since TC FlyBy's conclusion can't be relied on."""
     case_id = case["case_id"]
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "teddy_ciphertext": 1})
-    if not stored or not stored.get("teddy_ciphertext"):
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
+    if not stored or not stored.get("tc_flyby_ciphertext"):
         return
-    record = repo.dec_json(stored["teddy_ciphertext"])
+    record = repo.dec_json(stored["tc_flyby_ciphertext"])
     checks = [Check.from_wire(c) for c in record["checks"]]
     whole = [{"capability": "reasoning", "evidenceIds": [], "checkId": None,
               "text": "TC FlyBy's own result didn't pass Apollo's validation, so investigate the whole case."}]
@@ -528,5 +548,5 @@ async def discard_response(owner: str, case: dict) -> None:
     record["items"]["brief"] = await _item(owner, case, BRIEF_ITEM_ID, brief, "TC FlyBy brief for Magnum DI")
     record.update(response=None, decision=None, magnumSearch=True, issues=None)
     await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$set": {
-        "teddy_ciphertext": repo.enc_json(record), "routing.answeredBy": "magnum_di", "routing.teddy.resolved": False,
-        "routing.teddy.magnumNeeded": True, "routing.teddy.magnumSearch": True, "routing.teddy.answeredBy": "magnum_di"}})
+        "tc_flyby_ciphertext": repo.enc_json(record), "routing.answeredBy": "magnum_di", "routing.tc_flyby.resolved": False,
+        "routing.tc_flyby.magnumNeeded": True, "routing.tc_flyby.magnumSearch": True, "routing.tc_flyby.answeredBy": "magnum_di"}})

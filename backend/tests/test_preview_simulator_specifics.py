@@ -125,7 +125,7 @@ async def test_tc_flybys_simulated_search_lines_carry_no_preview_wording(monkeyp
     monkeypatch.setattr(knowledge, "search", none)
     monkeypatch.setattr(knowledge, "related", none)
     prompt = "Q1 [statuses: ANSWER, NOT_FOUND] [subject: 0412 345 678] Who uses 0412 345 678?"
-    text, grounding = await sim.teddy_lookup([sim.EvidenceBlock(None, "question", "q", prompt)])
+    text, grounding = await sim.flyby_lookup([sim.EvidenceBlock(None, "question", "q", prompt)])
     assert text == "Q1 | NOT_FOUND | ApolloSG's knowledge base has nothing on 0412 345 678."
     assert "Simulated" not in text and "preview" not in text.lower() and grounding["grounding_chunks"] == []
 

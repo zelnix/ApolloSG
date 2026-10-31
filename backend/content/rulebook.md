@@ -2,7 +2,7 @@
 
 How a check moves through ApolloSG, the rules each part follows, when a check is settled, what sends it to the next step, and what information can be requested. Written from the code, word for word the same in the app (Settings → Rule book) and the admin portal.
 
-_Last reviewed against the code: 2026-10-30._
+_Last reviewed against the code: 2026-10-31._
 
 _Revision 2, 27 October 2026: rules corrected after the Rule Book review (rule classes, Possible Threat, TC FlyBy weak signals and verified checks, Magnum DI triggers and provider calls, ABN, ACN and licence numbers), with the second-round corrections the same day (LINK-11, CORR-08, text copied elsewhere, Magnum DI correcting a provisional concern). Status: approved by the owner, then the code was audited against it and brought into line the same day: both engines decide from each rule's class, so ROUTE and COVERAGE rules no longer make a Possible Threat; CORR-08 needs a harmful payload; a failed lookup never supplies a rule's evidence; TC FlyBy treats weak signals as weak; Magnum DI can't go below TC FlyBy's concern without resolving evidence; and ABN, ACN and licence numbers reach only their register question. The EXPLAIN class was added for Higgins' explanation rules, and each one was checked against the code._
 
@@ -10,7 +10,7 @@ This is the only copy. Whenever a rule or process changes, this book is updated 
 
 **The path of every check**
 
-Apollo detection (the gate) → *only if Possible Threat* → one investigation case → **Higgins Triage** → **TC FlyBy** (official sources → ApolloSG KB → one targeted search) → settled, *or*, when unresolved evidence could materially change the outcome or the protective action → **Magnum DI** (one inference attempt, plus one permitted retry: at most two provider calls) → **Higgins** explains the result.
+Apollo detection (the gate) → *only if Possible Threat* → one investigation case → **Higgins Triage** → **TC FlyBy** (official sources → ApolloSG KB → one targeted Brave search, no AI) → settled, *or*, when unresolved evidence could materially change the outcome or the protective action → **Magnum DI** (at most 1 Magnum DI call per correlated case, no retry) → **Higgins** explains the result.
 
 Each check creates exactly one entry in the Threats list. The phone's first detection and the later investigation update the same card.
 
@@ -263,6 +263,8 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 - **Investigation signals — not proof of fraud:** Reply-To or Return-Path on another domain, SPF/DKIM/DMARC recorded as failed, a passing DKIM signature from another domain, no results recorded, results from an unmatched server, an address shown in the display name, a Message-ID from another domain. "Passing SPF, DKIM or DMARC confirms only which domain sent the email. It never makes an email safe."
 - **Upgrading the evidence:** on the result or the Threat case, "Add the original email (.eml)" is offered below L3. The same email is re-checked by Higgins Triage in its existing case: the stronger level becomes current, every earlier level and Triage result is kept, and the timeline shows "Evidence upgraded to …". An original that isn't the same email (subject, sender address or opening text) never changes that case: "That original doesn't match the email you checked, so ApolloSG checked it as a separate email."
 - **What travels with an investigation:** only Higgins Triage's findings — level, each capability's status, the recorded results and who recorded them, domains, counts, attachment types/sizes/fingerprints, signal names and the original's fingerprint. A case still under investigation receives better evidence the same way; a finished investigation keeps it on the phone only.
+
+**Email-sending services.** A link through a recognised email-sending service's click tracking (Mailchimp, SendGrid, HubSpot and the like) says only who delivered the email. On its own it is never a sender/link mismatch, never makes an email a Possible Threat and never sends it to Magnum DI; where Apollo followed the redirect, the destination is judged instead. It is never proof the email is genuine either: every other rule still applies.
 
 **Email Gate rules (19)**
 
@@ -520,7 +522,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 
 ### TC FlyBy {#tc-flyby}
 
-**Job:** a fast, low-cost investigation that takes the cheapest reliable route. It runs once per case; Magnum DI's permitted retry reuses its record and repeats no lookups.
+**Job:** a fast, low-cost investigation that takes the cheapest reliable route. TC FlyBy makes no AI call. It runs once per case; a recovered job reuses its record and repeats no lookups.
 
 **What Higgins Triage flagged is never dismissed.** Before its own stages, TC FlyBy runs Higgins Triage's message rules (the same catalogue the phone runs) over the material, except for a call. Each threat-producing rule met is a **warning sign** about this case, recorded in the message's own words (for example, an organisation name written with a look-alike character: MSG-23). TC FlyBy's own checks can add to it, never dismiss it: a case Triage flagged can't end as "No scam indicators found". When TC FlyBy finds nothing more, it settles the case as **Concerning** ("be careful and check it first"); Magnum DI isn't called, because it couldn't change what to do.
 
@@ -566,10 +568,12 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 **The stages still end early only for a confirmed threat, or an answered general question.** The deciding test still applies.
 
 #### Stage 3: one targeted web search
-- Only open checks with a question get here: at most 6 questions in **one** call, with web search, to the AI provider and model selected in ApolloSG Settings, the same one this investigation's Magnum DI uses. TC FlyBy has no model of its own.
-- ApolloSG's earlier lookups are checked first (see Reusable intelligence). A current, sourced answer about the same link, number, email address, company, ABN, ACN or licence is reused and not asked again; only what is still open goes in the call. Something found counts as current for 7 days, "nothing found" for 1 day. Lookups about the material itself (a quoted phrase, a person, a claim) are never saved or reused.
-- The model is told to look facts up and never to judge whether something is a scam.
-- An answer counts only if a real web page backs it. If no page backs it, the answer is unsourced and not used. "No record found" is recorded as missing, never as verified and never as proof of safety.
+- Only open checks no direct source or the KB already answered get here. **No AI is called.**
+- ApolloSG's earlier lookups are checked first (see Reusable intelligence). A current earlier result about the same link, number, email address, company, ABN, ACN or licence is reused and not asked again. Something found counts as current for 7 days, "nothing found" for 1 day. Lookups about the material itself (a quoted phrase, a person, a claim) are never saved or reused.
+- **One Brave Search request per case**, claimed for the case before it is sent, so no retry, job or recovery can make a second. It goes to the open check most likely to change the outcome or what Higgins tells the person: a link, number or address a consequential request goes through first, then the kinds an official source can settle. Every other open check is recorded as not searched: missing evidence, never a pass.
+- The same lookup already running for another case is waited for and its result reused, never sent twice.
+- The results are read by fixed rules, never by a model: a result counts only when its own words name the exact value; the publisher's authority comes from ApolloSG's trusted-source list; the fact quotes the page's own words with its publisher. A page on the subject's own domain is never a warning about it. "No record found" is recorded as missing, never as verified and never as proof of safety.
+- Not set up, the spending limit reached, or the preview server: the search is recorded as unavailable and nothing is sent.
 - How answers are treated:
   - A warning from an **official** source that names the exact link, number, email or company → **decisive → Confirmed**.
   - Any other warning → a third-party warning: a weak signal, never decisive and never Concerning on its own.
@@ -580,7 +584,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
   - A related but different name → conflict, sent to Magnum DI.
   - No match → warning sign.
 - A failed search is recorded as unavailable and passed on.
-- **ABN, ACN and licence numbers:** the exact number goes only into the register question that verifies it (who holds it, and is it current). The other questions in the call carry it as a label, never the number (see Privacy and redaction).
+- **ABN, ACN and licence numbers:** the exact number goes only into the register search that verifies it (who holds it, and is it current). Any other search carries it as a label, never the number (see Privacy and redaction).
 
 #### The deciding test
 *"Could unresolved evidence materially change Apollo's outcome or the protective action Higgins recommends?"* If not, TC FlyBy settles the case. If it could, the case goes to Magnum DI, even when TC FlyBy has already reached a concern outcome. "Unable to determine" is a valid finished result.
@@ -628,12 +632,13 @@ What TC FlyBy already settled, and the raw lookups behind it, are not sent again
 **Job:** a deep investigation, only when unresolved evidence could materially change the outcome or the protective action (see the deciding test).
 
 **Process**
-1. It runs only when TC FlyBy hands it issues under the deciding test, whether or not TC FlyBy reached a concern outcome. On later turns it runs only when the person answers Magnum DI's own question.
+1. It runs only when TC FlyBy hands it issues under the deciding test, whether or not TC FlyBy reached a concern outcome. It never runs for a follow-up: follow-up questions, answers to its own question, retries, Resubmit taps, new jobs and restarts are answered from the case's locked findings (HIG-01).
 2. **Size limit.** If the written evidence is over 10,000 words, nothing is sent, and the person is told the word count.
-3. **One inference attempt, plus one permitted retry: at most two provider calls.** The attempt goes to the AI provider and model selected in ApolloSG Settings → AI Provider & Model (ApolloSG's default until an admin changes it). The model is fixed when the investigation starts, so a change applies from the next investigation. If that model can't be used, or its call fails, the investigation says so: ApolloSG never switches to another model or provider.
-   - **The permitted retry:** there is one retry after 4 seconds, only when the inference attempt failed temporarily or returned an invalid answer. Configuration errors are never retried.
-   - **Two provider calls at most:** the inference attempt and its retry. The limit of 2 calls per job is enforced on the job record.
-   - If the inference attempt and its retry both fail, the person sees "Please resubmit in about 5 minutes". Everything submitted is kept, and Resubmit is one tap once the 5 minutes are up. There is no automatic resume.
+3. **At most 1 Magnum DI call per correlated case, and no retry.** The call goes to the AI provider and model selected in ApolloSG Settings → AI Provider & Model (ApolloSG's default until an admin changes it). The model is fixed when the investigation starts, so a change applies from the next investigation. If that model can't be used, or its call fails, the investigation says so: ApolloSG never switches to another model or provider.
+   - The call is claimed for the case before anything is sent, apart from the case and job records, so a follow-up, retry, Resubmit tap, new job, recovered job or app restart never resets it. A case TC FlyBy settles uses none: the limit is at most one, never a requirement to make one.
+   - If the call fails or its answer doesn't pass Apollo's checks, the investigation stops and says why, with what TC FlyBy established kept and shown. It is never tried again for that case. A configuration error says a technical fix is needed.
+   - Only a stop before the call was made (TC FlyBy interrupted, or the daily spending limit refused the call before anything was sent) can be resubmitted.
+   - A new case needs a genuinely separate incident or materially new evidence. Rewording a question, or submitting identical evidence again on the same device, opens the existing case instead.
 4. There is no system prompt; the response shape and the outcome definitions travel in the schema. There are no tool rounds, no escalation to a bigger model and no further provider call to present the answer.
 5. **The answer contains:**
    - overview and explanation
@@ -679,7 +684,8 @@ If the answer fails, the check fails honestly. The raw reply is kept only in the
 **Higgins explanation rules (11)**
 
 **EXPLAIN** (11)
-- **HIG-01** · A follow-up on a finished investigation is answered from its record, with no AI, and the case is never reopened
+- **HIG-01** · Every follow-up on an investigated case is answered from its locked findings, with no AI, and the case is never reopened
+  - This includes an answer to Magnum DI's own question, and a case whose Magnum DI call failed: its reason and what TC FlyBy established.
   - It covers: checking again, what wasn't established, sources, evidence, confidence, what to watch for, why it's suspicious, what it means, what to do, and what was found.
   - Anything new (a link, email or phone number) is named as not covered: "start a new check".
   - A general question about that kind of scam is answered from the KB, labelled as general knowledge and kept apart from the case.
@@ -695,7 +701,7 @@ If the answer fails, the check fails honestly. The raw reply is kept only in the
 - **HIG-08** · A question nothing above answers is told plainly that ApolloSG's trusted knowledge doesn't cover it; no general AI model is asked
   - "ApolloSG's trusted knowledge doesn't cover that question yet, so I won't guess at an answer. If it's about something you've received — a message, link, email, call, app or file — tap + and add it, and Apollo's investigators will check it. Learn with Higgins has guides on the common scams.", with a tap to Learn with Higgins. Something specific to check still goes to TC FlyBy and Magnum DI (HIG-02).
 - **HIG-09** · The phone's live reading is the truth: Higgins never contradicts it, guesses past it or invents a concern
-- **HIG-10** · Answering Magnum DI's pending question continues that investigation, and isn't treated as a follow-up
+- **HIG-10** · A case gets at most one Magnum DI call: answering its pending question doesn't reopen the investigation
 - **HIG-11** · Plain Australian English, no internal codes, 2–4 short paragraphs
 
 #### Plain English and the Fidelity Check
@@ -1353,7 +1359,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 
 **When something goes wrong**
 - Higgins can't answer: "Higgins couldn't answer right now. No investigation was started.", with Try again.
-- **A stopped investigation** (Magnum DI's inference attempt and its permitted retry both failed): once it can be resubmitted, one quiet note shows above the conversation. The note goes when the case is resubmitted, answered, removed, dismissed or past its expiry. There is no pop-up anywhere else.
+- **A stopped investigation** (stopped before its Magnum DI call was made, so it can be resubmitted): once it can be resubmitted, one quiet note shows above the conversation. The note goes when the case is resubmitted, answered, removed, dismissed or past its expiry. There is no pop-up anywhere else.
 
 ### Scam Alerts and government feeds {#scam-alerts}
 
@@ -1383,8 +1389,11 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 ### Cost guardrails at a glance {#cost-guardrails}
 
 - Gate and Higgins Triage: 0 AI calls.
-- TC FlyBy: at most 1 low-cost search call per case (max 6 questions); a lookup still current from an earlier case is reused, not asked again.
-- Magnum DI: one inference attempt, plus one permitted retry only if that attempt fails or returns an invalid answer; at most two provider calls.
+- TC FlyBy: 0 AI calls. One Brave Search request per case, read by fixed rules; a lookup still current from an earlier case is reused, not asked again, and the same lookup already running is waited for, never sent twice.
+- Magnum DI: at most 1 Magnum DI call per correlated case, no retry. A case TC FlyBy settles makes none.
+- **Daily AI spending limits:** a daily total AI limit of $5.00 (every AI call and paid search), and automatic checks (mailbox monitoring, recovery, advisories, health checks) may use up to $2.00 of it. An admin can change both; the automatic-check limit can't be more than the total. Each paid call's estimated cost is reserved before it is sent, in one atomic step, and settled to the usage the provider reported afterwards. A call that would go over is refused and nothing is sent. When the billing outcome isn't known (a timeout, a dropped connection), the estimate stays held.
+- **Usage records:** each AI call and paid search records its model, purpose, time, device, case, job, input, answer, thinking and cached tokens, searches and estimated cost.
+- **No repeated processing:** the same evidence on the same device is taken on once (an email seen in two connected accounts, the same check submitted twice), claimed atomically before any work starts. Another device's evidence never matches. Each connected mailbox is read from its own checkpoint, so only newer mail is fetched.
 - Higgins and Ask Higgins: 0 AI calls. Plain English and its Fidelity Check: 0 calls.
-- Models: Magnum DI and TC FlyBy call the one AI provider and model selected in ApolloSG Settings → AI Provider & Model on the admin portal (ApolloSG's default until an admin changes it). Only an approved model that returns the fixed answer shape, reads images sent as evidence and searches the web with sources can be selected, and only when ApolloSG is connected to its provider and the provider's API key is set on the server. ApolloSG is connected to three AI providers; each provider's key is kept only in the server's configuration. API keys are never shown. An investigation keeps the model it started with. A failure is reported as it is: ApolloSG never switches model or provider. Each change records who made it and when, and goes in the admin audit log.
+- Models: Magnum DI calls the one AI provider and model selected in ApolloSG Settings → AI Provider & Model on the admin portal (ApolloSG's default until an admin changes it). Only an approved model that returns the fixed answer shape, reads images sent as evidence and searches the web with sources can be selected, and only when ApolloSG is connected to its provider and the provider's API key is set on the server. ApolloSG is connected to three AI providers; each provider's key is kept only in the server's configuration. API keys are never shown. An investigation keeps the model it started with. A failure is reported as it is: ApolloSG never switches model or provider. Each change records who made it and when, and goes in the admin audit log.
 

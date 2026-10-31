@@ -329,7 +329,7 @@ def test_official_and_shared_addresses_are_never_recorded():
 
 def test_magnum_di_gets_the_cross_source_record_as_context():
     from services.correlation import brief_lines
-    from services.higgins.teddy import report
+    from services.higgins.tc_flyby import report
     record = [{"kind": "website", "subject": "bad.example", "agreement": "1 of 3 sources that answered list it",
                "sources": [{"source": "PhishTank", "status": "listed", "reference": "8812", "lastConfirmed": "2026-10-26T01:00:00+00:00",
                             "expires": "2026-10-29T01:00:00+00:00"},

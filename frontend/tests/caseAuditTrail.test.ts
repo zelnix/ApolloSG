@@ -20,7 +20,7 @@ const base = {
 } as unknown as PatrolEvent;
 
 const flyby = (resolved: boolean): DiTrace => ({
-  triage: null, answeredBy: resolved ? "teddy_official" : "magnum_di", outcome: "likely_scam", completion: "complete",
+  triage: null, answeredBy: resolved ? "tc_flyby_official" : "magnum_di", outcome: "likely_scam", completion: "complete",
   flyby: { ranAt: "2026-10-28T01:00:20Z", resolved, answeredBy: null, outcome: resolved ? "concerning" : null, basis: null, messageType: null, pattern: null,
     checks: [], searchCalls: 0, searchQueries: 0, cacheHits: 0, magnumNeeded: !resolved, magnumSearch: false, gaps: [],
     issues: resolved ? [] : [{ capability: "reasoning", text: "Weigh the payment request." }], simulated: false },
@@ -52,8 +52,8 @@ test("a case Magnum DI settled: created → Triage → opened → TC FlyBy → e
 });
 
 test("TC FlyBy settled it: no escalation and no Magnum DI entry", () => {
-  const event = { ...base, investigation_case_id: "case-1", investigation_completed_at: "2026-10-28T01:01:00Z", investigation_answered_by: "teddy_official" } as PatrolEvent;
-  const trail = caseAuditTrail({ event, investigation: inv("teddy_official"), trace: flyby(true), records: [], verdict: "Concerning" });
+  const event = { ...base, investigation_case_id: "case-1", investigation_completed_at: "2026-10-28T01:01:00Z", investigation_answered_by: "tc_flyby_official" } as PatrolEvent;
+  const trail = caseAuditTrail({ event, investigation: inv("tc_flyby_official"), trace: flyby(true), records: [], verdict: "Concerning" });
   assert.deepEqual(ids(trail), ["created", "triage-0", "opened", "flyby", "lock", "verdict"]);
   assert.equal(trail.find((e) => e.id === "flyby")!.title, "TC FlyBy settled the case");
   assert.ok(!trail.some((e) => /Magnum DI (completed|didn't)/.test(e.title)));

@@ -8,7 +8,7 @@ import pytest
 
 from services.higgins import case_evidence
 from services.higgins.contracts import HigginsResponse
-from tests.test_teddy_routing import _case, _gateway, _lookups
+from tests.test_tc_flyby_routing import _case, _gateway, _lookups
 
 pytestmark = pytest.mark.anyio
 
@@ -38,7 +38,7 @@ TRIAGE = ("It claims a government rebate (“Energy Bill Relief rebate”), puts
 def test_the_first_stage_keeps_the_fact_and_a_later_stage_in_its_own_words_confirms_it():
     record = _record(("triage_rules", [_fact(TRIAGE, "concern", ruleId="MSG-24")]))
     response = _response([{"text": "It asks you to reply: “Reply YES”."}, {"text": TRIAGE}], "likely_scam")
-    facts = case_evidence.build(response, record, answered_by="teddy_kb", simulated=False)
+    facts = case_evidence.build(response, record, answered_by="tc_flyby_kb", simulated=False)
     assert len(facts) == 1, "the same fact is listed once"
     assert facts[0].text == TRIAGE and facts[0].discovered_by == "higgins_triage"
     assert facts[0].corroborated_by == ["tc_flyby"], "TC FlyBy reached it in its own words; repeating Triage's words confirms nothing"
@@ -57,13 +57,13 @@ def test_magnum_di_confirming_tc_flybys_fact_about_the_same_subject():
 def test_what_points_the_other_way_is_kept_and_marked():
     record = _record(("link", [_fact("Google Safe Browsing doesn't list commbank-notice.net.", "clear"),
                                _fact("commbank-notice.net was registered on 2026-06-01.", "weak")]))
-    facts = {f.text: f for f in case_evidence.build(_response([]), record, answered_by="teddy_official", simulated=False)}
+    facts = {f.text: f for f in case_evidence.build(_response([]), record, answered_by="tc_flyby_official", simulated=False)}
     assert facts["Google Safe Browsing doesn't list commbank-notice.net."].stance == "contrary"
     weak = facts["commbank-notice.net was registered on 2026-06-01."]
     assert weak.stance == "supporting" and weak.weak
-    clear = case_evidence.build(_response([], "no_scam_indicators"), record, answered_by="teddy_official", simulated=False)
+    clear = case_evidence.build(_response([], "no_scam_indicators"), record, answered_by="tc_flyby_official", simulated=False)
     assert [f.stance for f in clear] == ["supporting", "contrary"], "sides follow the outcome"
-    unsure = case_evidence.build(_response([], "unable_to_determine"), record, answered_by="teddy_official", simulated=False)
+    unsure = case_evidence.build(_response([], "unable_to_determine"), record, answered_by="tc_flyby_official", simulated=False)
     assert {f.stance for f in unsure} == {"neutral"}, "an uncertain outcome points neither way"
 
 
@@ -81,14 +81,14 @@ def test_lookups_that_found_nothing_knowledge_and_bare_conclusions_are_never_evi
 def test_different_facts_about_one_subject_stay_apart():
     record = _record(("link", [_fact("commbank-notice.net was registered on 2026-06-01.", "weak"),
                                _fact("commbank-notice.net isn't one of CommBank's published domains.", "anomaly")]))
-    assert len(case_evidence.build(_response([]), record, answered_by="teddy_official", simulated=False)) == 2
+    assert len(case_evidence.build(_response([]), record, answered_by="tc_flyby_official", simulated=False)) == 2
 
 
 def test_a_message_rules_name_is_its_conclusion_not_evidence():
     name = "Multiple moderate scam indicators form a coherent scam pattern."
     record = _record(("triage_rules", [_fact(name, "concern", ruleId="MSG-22")]))
     response = _response([{"text": name}, {"text": "It asks for money: “Can you transfer $300”."}], "likely_scam")
-    [fact] = case_evidence.build(response, record, answered_by="teddy_kb", simulated=False)
+    [fact] = case_evidence.build(response, record, answered_by="tc_flyby_kb", simulated=False)
     assert fact.text == "It asks for money: “Can you transfer $300”." and fact.discovered_by == "tc_flyby"
     assert fact.stance == "supporting", "a reason the result gives for its outcome supports it"
 
@@ -113,7 +113,7 @@ async def test_a_case_tc_flyby_settles_records_its_evidence_once_each(monkeypatc
 
 
 async def test_a_case_magnum_di_answers_keeps_tc_flybys_facts_first(monkeypatch):
-    from tests.test_teddy_routing import INVOICE
+    from tests.test_tc_flyby_routing import INVOICE
     _gateway(monkeypatch)
     _lookups(monkeypatch)
     _owner, case_doc, response, _ = await _case([("text", INVOICE)])

@@ -10,7 +10,7 @@ layer of documents — it extracts and structures links and domains, phone numbe
 organisations, companies and people, ABN/ACN/licence numbers, payment requests and amounts, payment and
 account details, claims, requests and instructions (with what each one points at), the message type, and
 how the extracted items relate in context. It records what could not be extracted (the reading of the
-items themselves happens in teddy/__init__.py), then plans only the checks that are relevant.
+items themselves happens in tc_flyby/__init__.py), then plans only the checks that are relevant.
 
 It is deterministic and local: no network, no AI, no cost.
 """
@@ -362,10 +362,10 @@ class Check:
     id: str
     kind: str
     subject: str
-    question: str = ""                         # the narrow factual question for Teddy's search, when that stage applies
+    question: str = ""                         # the narrow factual question for TC FlyBy's search, when that stage applies
     statuses: tuple[str, ...] = ()             # the answers that question allows
     status: str = "open"                       # open | resolved | not_found | unavailable | needs_reasoning | not_needed
-    route: str | None = None                   # official_source | apollo_kb | google_search | magnum_di
+    route: str | None = None                   # official_source | apollo_kb | web_search | magnum_di
     facts: list[dict] = field(default_factory=list)
     open_issue: str = ""                       # what only Magnum DI can settle
     urls: list[str] = field(default_factory=list)
@@ -390,7 +390,7 @@ class Plan:
     link_only: bool
     general: bool
     gaps: list[dict]                           # what Triage couldn't extract: {"evidenceId", "item", "what", "magnum"}
-    advisories: list[dict] = field(default_factory=list)   # official advisories Teddy's stage 1 matched
+    advisories: list[dict] = field(default_factory=list)   # official advisories TC FlyBy's stage 1 matched
     pattern: dict | None = None                            # the established scam pattern (Apollo KB) the material matches best
     channel: str | None = None                             # "call": a phone call the person describes (a Call Gate check)
 

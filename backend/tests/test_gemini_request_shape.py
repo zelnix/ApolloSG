@@ -68,7 +68,7 @@ async def test_request_is_question_plus_complete_evidence_plus_schema():
     # Magnum DI may cite only what it was sent: the material and TC FlyBy's brief. The raw lookups TC FlyBy
     # already read, and TC FlyBy's full check record, stay registered for the case but are not resent.
     supplied = {row["evidence_id"] for row in await repo.list_evidence(owner, case["case_id"])
-                if row["client_item_id"] not in ("apollo-triage-intelligence", "teddy-di-checks")}
+                if row["client_item_id"] not in ("apollo-triage-intelligence", "tc-flyby-di-checks")}
     allowed = finding["evidenceIds"]["items"].get("enum") or []
     assert allowed and set(allowed) == supplied
     assert sent_schema["properties"]["remainingEvidenceIds"]["items"]["enum"] == allowed

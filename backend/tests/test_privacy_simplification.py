@@ -80,6 +80,10 @@ def test_gemini_boundary_screens_a_copy_and_leaves_caller_parts_untouched(monkey
     async def _no_usage(*_a, **_k):  # keep the shared DB client off this test's private event loop
         return None
     monkeypatch.setattr(provider, "_record_usage", _no_usage)
+    # The daily spending limit's reservation uses the shared DB client too; this test is about what is sent.
+    monkeypatch.setattr(provider.ai_budget, "reserve", _no_usage)
+    monkeypatch.setattr(provider.ai_budget, "settle", _no_usage)
+    monkeypatch.setattr(provider.ai_budget, "unknown", _no_usage)
     monkeypatch.delenv("APOLLO_FORBID_PROVIDER_CALLS", raising=False)
     part = Part(text=SCAM)
     try:

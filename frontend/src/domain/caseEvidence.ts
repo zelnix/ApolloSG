@@ -98,7 +98,7 @@ const BASIS_WORDS: Record<string, string> = {
 };
 const SUBMITTED_NOUN: Record<string, string> = { email: "email", call: "call details", file: "file", app: "app details", link: "link", website: "link" };
 const INTERNAL_ITEM: Record<string, string> = {
-  "teddy-di-checks": "TC FlyBy's checks", "teddy-di-brief": "TC FlyBy's brief to Magnum DI", "apollo-triage-intelligence": "Higgins Triage's lookups",
+  "tc-flyby-di-checks": "TC FlyBy's checks", "tc-flyby-di-brief": "TC FlyBy's brief to Magnum DI", "apollo-triage-intelligence": "Higgins Triage's lookups",
 };
 
 function itemName(item: EvidenceItem, byId: Map<string, EvidenceItem>, category: string): string | null {

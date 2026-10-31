@@ -19,7 +19,7 @@ import { outcomeLabel, outcomeTone } from "@/src/domain/messageVoice";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { goBackOrHome } from "@/src/utils/navigation";
 
-const ICONS: Record<CheckRoleId, typeof Shield> = { apollo: Shield, triage: ListChecks, teddy: Zap, magnum: ScanSearch, higgins: MessageCircle };
+const ICONS: Record<CheckRoleId, typeof Shield> = { apollo: Shield, triage: ListChecks, tc_flyby: Zap, magnum: ScanSearch, higgins: MessageCircle };
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },

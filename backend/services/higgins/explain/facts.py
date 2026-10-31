@@ -13,7 +13,7 @@ from typing import Any, Optional
 
 from services.higgins import outcomes
 from services.higgins.contracts import HigginsResponse
-from services.higgins.teddy.report import ROUTE_LABEL
+from services.higgins.tc_flyby.report import ROUTE_LABEL
 
 # ── Words and sentences ──────────────────────────────────────────────────────
 STOP = set(("a an the this that these those it its it's is are was were be been being so to of on in at or and but with for by as "
@@ -418,9 +418,9 @@ def build(response: HigginsResponse, *, answered_by: Optional[str], routing: dic
     used = set(response.source_ids)
     relied = [{"id": s.get("id"), "title": s.get("title") or s.get("url"), "url": s.get("url"), "authority": s.get("authority", "unknown"),
                "retrieval": s.get("retrieval")} for s in sources if s.get("id") in used]
-    teddy = routing.get("teddy") or {}
+    flyby = routing.get("tc_flyby") or {}
     routes = []
-    for check in teddy.get("checks") or []:
+    for check in flyby.get("checks") or []:
         label = ROUTE_LABEL.get(check.get("route") or "")
         if label and label not in routes:
             routes.append(label)
@@ -432,7 +432,7 @@ def build(response: HigginsResponse, *, answered_by: Optional[str], routing: dic
         uncertainties=[strip_markdown(u) for u in response.uncertainties if u.strip()], scope=strip_markdown(response.scope or ""),
         remaining=len(response.remaining_evidence_ids), recommended=recommended,
         other_actions=[a for a in actions if a is not recommended], actions=actions, sources=relied,
-        triaged=bool(teddy) and response.revision == 1, flyby_routes=routes if response.revision == 1 else [],
+        triaged=bool(flyby) and response.revision == 1, flyby_routes=routes if response.revision == 1 else [],
         magnum=routing.get("magnum") if by == "Magnum DI" and response.revision == 1 else None,
     )
     for s in method + sentences(facts.scope):

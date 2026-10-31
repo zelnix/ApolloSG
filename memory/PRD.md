@@ -1,5 +1,30 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## AI cost overhaul finished + Teddy → TC FlyBy rename (everything) + Brave key to secure storage (2026-10-31)
+**Owner's choices:** order as proposed; rename EVERYTHING, internal names and stored labels included; the same Brave key as
+before goes into secure storage. No testing agent (owner's rule) — pytest + node tests + tsc + one screenshot.
+- The 7 cost changes (previous session: TC FlyBy no AI / Brave only; 1 Magnum DI call per correlated case, no retry; email-
+  sending services never escalate alone; same-device dedupe with atomic claims; $5 total / $2 automatic daily AI limits with
+  atomic reservations; full usage records) are in rulebook.md and the rule book is stamped (`scripts/rulebook_stamp.py`).
+  Stale "one retry" wording fixed: How Apollo checks (Magnum DI + "Uses no AI" for TC FlyBy), resubmit.ts/InvestigationView
+  comments, repository job comment, admin Gemini report (over the limit = more than 1 Magnum call; no "retry" bucket),
+  OPERATING_RULES.md.
+- Rename: package `services/higgins/teddy/` → `services/higgins/tc_flyby/`; `TeddyOutcome` → `FlyByOutcome`; answeredBy
+  `teddy_official|kb|search` → `tc_flyby_official|kb|search`; `routing.teddy` → `routing.tc_flyby`; `teddy_ciphertext` →
+  `tc_flyby_ciphertext`; evidence item ids `tc-flyby-di-checks` / `tc-flyby-di-brief`; usage purpose `tc_flyby_search`
+  (`Purpose.TC_FLYBY_SEARCH`); model label `tc-flyby`; summary field `flybyTokens`; admin stat keys `flyby_*`; How Apollo
+  checks role id `tc_flyby` (testID `how-checks-role-tc_flyby`); test file `test_tc_flyby_routing.py`.
+- Stored data: `services/higgins/tc_flyby/legacy_names.py` `migrate()` runs at startup (never blocks it), idempotent. Moved
+  in preview: 146 cases, 120 evidence items, 1741 usage records, 1 DI transaction; the unused `teddy_search_cache` dropped.
+  Turn commits stay as recorded (immutable digest). Phones keep old values: the app's `settledByFlyby` still reads "teddy_*"
+  as TC FlyBy. New `tests/test_tc_flyby_legacy_names.py`.
+- Tests: backend 1547 passed (2 failures at the time, then fixed/explained: test_privacy_simplification now stubs the budget
+  reservation; test_retrofit_acceptance::test_10 is a preview-data check — 141 patrol records now vs 2932 reviewed on
+  2026-10-11 — unrelated); frontend 1240/1240; tsc clean.
+- Brave key: BRAVE_API_KEY saved through the secure card (test + live, 2026-10-31); backend restarted and reads it; the key
+  appears in no repo file. No live Brave or Gemini call was made to check it.
+
+
 ## Threat Domain List: zero entries is valid + gate isolation + Private DNS loop (2026-10-30)
 **Owner's choices:** plan as proposed; Automatic on a network without encrypted lookups → confirm the setting and explain the
 network (no prompt); explanations in Higgins Luddish. No testing agent (owner's rule) — native JVM tests + node tests + pytest + tsc + screenshot.
@@ -115,7 +140,7 @@ a statement plus its confidence; mixed reports say "mixed previous reports"; on 
 - UI: Findings Brief "Previously encountered" → "Previous reports"; Luddish glossary/knowledge entry reworded (no device counts).
   Fixed a blank web preview: `RelatedCases.tsx` imported a non-existent lucide `history` icon → `clock`.
 - Rule book "ApolloSG previous reports" section rewritten + stamped; admin portal text updated (counts stay admin-only).
-- Tests: new `backend/tests/test_previous_reports.py` (19); test_related_history / test_free_kb_phases_3_5 / test_teddy_routing
+- Tests: new `backend/tests/test_previous_reports.py` (19); test_related_history / test_free_kb_phases_3_5 / test_tc_flyby_routing
   updated; backend full suite 1503 passed. Frontend 1157/1157 (chainInvariants + provenance test, caseHistory); tsc clean.
   E2E probe (`/tmp/probe_reports.py`): seeded High → "previously reported as malicious — High confidence", link finding
   medium→high, verdict unchanged; mixed → note shown, nothing raised; recording the case adds a dependent mark only.
@@ -194,7 +219,7 @@ email shows its text without links. No testing agent (owner's rule) — node tes
   `analyseMessage` extracts nothing from it (no claimed organisation, no reply request "Reply YES", no deadline pressure "before rebates
   drop next week", no government-rebate claim, the "ﬁ" ligature not flagged) → Higgins Triage NO_THREAT_IDENTIFIED → TC FlyBy/Magnum DI/
   Evidence Lock/Findings Brief never reached. Same with plain "fi". NOT changed — owner decision pending.
-- Observed, not changed (owner decision pending): TC FlyBy puts method lines in uncertainties (`teddy/report._missing`: "TC FlyBy's search
+- Observed, not changed (owner decision pending): TC FlyBy puts method lines in uncertainties (`tc_flyby/report._missing`: "TC FlyBy's search
   found no record for …", "Not taken further, because …"), so they show under "What isn't certain" in the Findings Brief.
 - Tests: frontend 1113/1113 (checkedAgo → SourceList.tsx, luddish → FindingsBrief); tsc clean. Preview: CommBank SMS → both screens verified.
 
@@ -281,9 +306,9 @@ delete preview data right away if counts match. No testing agent (owner's rule) 
   addresses, claimed brand = analysis brand or chosen provider) and pass `official` to the model.
 - Verified in preview: CommBank SMS with commbank-secure.xyz + 0412 999 888 → two "Not the official contact" lines;
   Telstra SMS with 0499 111 222 → "Not the official number", 13 22 00 to use instead + Telstra's own page link.
-- Magnum DI: `correlation.cross_source` → `report.magnum_brief(..., cross)` → brief item `teddy-di-brief` → `_magnum_rows`
-  (teddy/__init__.py:383). Wired and tested (`test_magnum_di_gets_the_cross_source_record_as_context`).
-- Tests: `test_teddy_routing._lookups` now stubs `observed_intel.seen/related` (earlier runs left cross-device sightings of
+- Magnum DI: `correlation.cross_source` → `report.magnum_brief(..., cross)` → brief item `tc-flyby-di-brief` → `_magnum_rows`
+  (tc_flyby/__init__.py:383). Wired and tested (`test_magnum_di_gets_the_cross_source_record_as_context`).
+- Tests: `test_tc_flyby_routing._lookups` now stubs `observed_intel.seen/related` (earlier runs left cross-device sightings of
   the same test links in the shared DB, which turned a bare lookalike into the impersonation path). Removed
   `@pytest.mark.anyio` from test_case_identity_and_limited_causes / test_case_origin (async fixture teardown ran on a
   different loop — pre-existing errors). Backend 1345 passed; frontend 1083/1083; tsc clean; rule book stamped.
@@ -306,7 +331,7 @@ saved; feeds refresh daily + admin "Refresh now"; ASIC and CVE/NVD added in this
   daily (server.py `threat_feeds_loop`, hourly due-check), retry 2 h, delist on successful refresh, shrink guard (<50% refused),
   out-of-date list = "not checked", never clear. Feed Health (app + `/api/feeds/health`) lists them (Threat list / Threat knowledge).
 - Link checks (`intel.run_intel_check`) report each list; TC FlyBy wording names the lists (`intel.listed_by/answered`);
-  ASIC naming an exact phone/email → decisive concern (`teddy/official._regulator_listing`).
+  ASIC naming an exact phone/email → decisive concern (`tc_flyby/official._regulator_listing`).
 - **False-positive guard:** a listing on a restricted host (platform, free mail, organisation's own/official domain) counts only
   for a specific page — never the home page or a one-segment address carrying its target in the query (google.com/url?q=…)
   (`threat_feeds.restricted/names_a_page`). Found because PhishTank listed google.com/?… and google.com came back malicious.
@@ -314,7 +339,7 @@ saved; feeds refresh daily + admin "Refresh now"; ASIC and CVE/NVD added in this
 - Admin → Knowledge Base → "Free threat feeds": health, current entries, last run, Refresh now (all) + per-feed Refresh
   (POST `/api/admin/threat-feeds/refresh`, background, audit-logged, busy lock).
 - Rule book updated (link check, Stage 1 phone/email, established evidence, KB kinds + "Free threat lists" section); stamped.
-- Tests: new `tests/test_threat_feeds.py` (14); fixed fakes in test_p0_outbound_unit/test_archive_relay; test_teddy_routing
+- Tests: new `tests/test_threat_feeds.py` (14); fixed fakes in test_p0_outbound_unit/test_archive_relay; test_tc_flyby_routing
   stubs `threat_feeds.listed` (ASIC's real list names placeholder 0412 345 678). Backend 1329 passed; frontend 1076/1076; tsc clean.
   No testing agent (owner's rule).
 - NEXT: owner check-in → Phase 3 Official Organisation KB; Phase 4 privacy-safe observed intelligence; Phase 5 correlation/
@@ -373,9 +398,9 @@ show as "no … API key is set on the server" and can't be selected. **Not yet v
   and opens the resulting case, or a toast when the rules open none. Verified in preview: AusPost sample → TC-2026-… case.
 - `isSimulated(event)` (threatCase.ts) = evidence_profile.simulated || investigation_simulated. "Simulated" Pill on Threats
   cards (`threat-card-<id>-simulated`) and Patrol history rows (`patrol-history-row-<id>-simulated`).
-- Server case wire `InvestigationCase.simulated` (routing.teddy/magnum simulated) → DeviceInvestigation.simulated →
+- Server case wire `InvestigationCase.simulated` (routing.tc_flyby/magnum simulated) → DeviceInvestigation.simulated →
   event.investigation_simulated (investigationPatch; never dropped once tagged).
-- Tests: test_teddy_routing case_view simulated; investigationCaseUpdate.test.ts tag test. Backend 1326 + flaky feed test
+- Tests: test_tc_flyby_routing case_view simulated; investigationCaseUpdate.test.ts tag test. Backend 1326 + flaky feed test
   passes alone; frontend 1071/1071; tsc clean.
 
 ## Preview = production, only external sources simulated and tagged (2026-10-27)
@@ -395,14 +420,14 @@ other external sources are simulated, and anything simulated is tagged "Simulate
 ## Higgins wording corrections approved and implemented (2026-10-27)
 Owner approved all 7 items in `/app/memory/higgins_wording_review.md` (file left unchanged as the review record).
 EXPLAIN-layer wording only — no change to thresholds, TC FlyBy settlement (decide.py untouched), Magnum DI, gate outcomes or evidence.
-1. `teddy/report.clear` link-only verified domain: "{official} That settles who the address belongs to[, and none of Apollo's other checks found a warning sign]."
+1. `tc_flyby/report.clear` link-only verified domain: "{official} That settles who the address belongs to[, and none of Apollo's other checks found a warning sign]."
 2. `report.clear` message: `_what_was_checked` names only checks that ran (status resolved/not_found) + official scam alerts.
 3. `report.impersonation_result`: "{place} isn't one of {brand}'s published domains, and a separate check on that address backs up the concern." / reason "… whoever runs {place}, which isn't one of {brand}'s published domains."
 4. `report.signals_result`: `_signs_established` — only established warning signs called warning signs; the rest "recorded too, but don't count as warning signs on their own".
 5. `report.undetermined`: names the real cause — `_unchecked` (gaps, unavailable lookup, link without listing/registration result) and/or weak signals; reason differs.
 6. `presenter.STATE_TEXT` + `issueExplanation.ts` resting → "no concern found within the checks that completed".
 7. `words.SEVERITY["none"]` → "How serious: nothing Apollo found needs action." (Rule Book row updated; re-stamped).
-Tests: new `backend/tests/test_higgins_wording.py` (8), assertions in test_teddy_routing (5 paths), frontend deterministicHiggins test.
+Tests: new `backend/tests/test_higgins_wording.py` (8), assertions in test_tc_flyby_routing (5 paths), frontend deterministicHiggins test.
 Backend 1325 passed; frontend 1068/1068; tsc clean. Not changed (not in the 7): preview simulator `preview_analysis.py` has a similar "has no reason to send you anywhere other than" line.
 
 ## Rule book revision 2 approved; implementation audit done; EXPLAIN class added (2026-10-27)
@@ -435,7 +460,7 @@ away; but any Higgins explanation that says more than the evidence supports → 
   download, IPQS link/number flag, non-official search warning) never Concerning alone or together; "clear" → "no known threat
   listing found" / "verified … settles that check only"; deciding test = unresolved evidence that could materially change the
   outcome or protective action, even after concern (Magnum can keep/raise, never lower); ABN/ACN/licence only in the register
-  question, labels elsewhere; "Teddy" → TC FlyBy; Magnum = one inference attempt + one permitted retry, max two provider calls.
+  question, labels elsewhere; "TC FlyBy" → TC FlyBy; Magnum = one inference attempt + one permitted retry, max two provider calls.
 - Open decisions flagged to owner: LINK-11, CORR-08, QR-03/PWA-02 "unrated", "copied elsewhere" as a warning sign,
   CB-03 catalogue title still says "clean" (catalogue change needed in the audit).
 - Tests (information only): backend test_rulebook 25/25; frontend ruleBook.test.ts 11/12 — "each gate lists its rules one
@@ -588,7 +613,7 @@ away; but any Higgins explanation that says more than the evidence supports → 
   request), "Response from Magnum DI" (response, processing). DI keeps internal codes; never provider/model.
   `DiReport` takes `triage` (event's record) so Triage-only cases show the trace with no case.
 - **Backend:** `GET /investigations/{id}/di` adds `trace` (`di_record.decision_trace`: triage record by
-  investigation_case_id, routing.teddy without searchModel/tokens, routing.magnum as webSearch/itemsSent, settled reason,
+  investigation_case_id, routing.tc_flyby without searchModel/tokens, routing.magnum as webSearch/itemsSent, settled reason,
   fidelity). `wire()` no longer sends `modelRequested`; tool/route `google_search` → `web_search`; simulated notice
   "SIMULATED — the preview simulator answered; Magnum DI was not engaged". PDF simulated note reworded.
 - **Wording:** "No AI calls" → "Magnum DI was not engaged" / "Escalated to Magnum DI" / "TC FlyBy settled it — Magnum DI
@@ -640,7 +665,7 @@ away; but any Higgins explanation that says more than the evidence supports → 
   `protection_explanation`, `explanationScope` on catalogue rows). Device protections now show only the reviewed
   explanation (`GET /protections/device/{id}`); no explanation → "ApolloSG doesn't have an explanation of this
   protection yet." Old phone-cached Higgins copies are ignored. Apollo Protection explanations unchanged.
-- Remaining Gemini callers: coordinator.run_turn (Magnum DI), teddy/search.run (TC FlyBy), chat.reply (Ask Higgins).
+- Remaining Gemini callers: coordinator.run_turn (Magnum DI), tc_flyby/search.run (TC FlyBy), chat.reply (Ask Higgins).
 
 ## Family sharing: code-only pairing; Threats → Family alerts link (2026-10-26)
 - **Email invitations removed end to end:** `/family/guardians` (POST/GET/DELETE) and `/family/confirm/{token}` are
@@ -888,8 +913,8 @@ automated tests only (no testing agent).
 - **Sufficiency** `services/sufficiency.py` `assess()` → KNOWN (KB match, or fresh+complete+usable+uncontradicted record
   for this exact subject) / PARTIAL (expired, missing field, not usable, conflict, `live` check) / UNKNOWN. KB first.
 - **Call sites:** Higgins general question (`chat.py` P4: KB → saved Gemini answer → one Gemini call; `reused` on the reply);
-  TC FlyBy targeted search (`teddy/search.py`: public identifiers only; person/claim/phrase never keyed; legacy
-  `teddy_search_cache` read-only); IPQS phone/URL and RDAP keep their caches, TTL from the table, counted.
+  TC FlyBy targeted search (`tc_flyby/search.py`: public identifiers only; person/claim/phrase never keyed; legacy
+  `tc_flyby_search_cache` read-only); IPQS phone/URL and RDAP keep their caches, TTL from the table, counted.
 - **KB boundary:** saved Gemini answers moved out of `higgins_knowledge` at startup (`migrate_gemini_answers`, idempotent,
   dates/provenance/hits kept). Nothing is promoted into the KB.
 - **App:** `src/domain/checkedAgo.ts` `reusedLine()`; Ask Higgins "Saved answer · From Apollo's check 2 hours ago, still
@@ -902,7 +927,7 @@ automated tests only (no testing agent).
 - **Tests:** `tests/test_sufficiency.py` (18), `tests/test_reusable_intel.py` (36: metadata, keys, TTL, chat reuse/expiry/KB-first/
   simulated/personal, AI never in KB, writers allow-list, Magnum/evidence isolation, TC FlyBy reuse/mixed/expired/negative/
   unsourced/preview, reused sources keep last-checked time, IPQS phone/URL + RDAP, migration, counters, admin page, benchmark),
-  `test_teddy_routing.py` (+reused sources e2e), `test_rulebook.py` (+1); frontend `tests/checkedAgo.test.ts` (4).
+  `test_tc_flyby_routing.py` (+reused sources e2e), `test_rulebook.py` (+1); frontend `tests/checkedAgo.test.ts` (4).
 
 
 ## Higgins Plain-English Renderer + Fidelity Check, and one Higgins avatar (2026-10-25)
@@ -988,21 +1013,21 @@ Check results visible in the admin portal; on FAIL the person sees Apollo's own 
 Higgins' action; "Unable to determine" is a valid resolved outcome; a KB pattern match supports the assessment but is never
 proof about the sender. Owner's answers: impersonation + brand-new domain → Concerning (no Magnum); "Hi Mum" → check Apollo KB
 first, pattern match → Concerning/Likely scam, unclear → Magnum; bare link → stop at Concerning / Unable to determine after all
-Teddy resources; outcome labels in the app result AND the admin portal, fed by both layers.
+TC FlyBy resources; outcome labels in the app result AND the admin portal, fed by both layers.
 - **Outcomes** `services/higgins/outcomes.py`: no_scam_indicators · concerning · likely_scam · confirmed_threat · unable_to_determine,
   each fixing its assessment. `HigginsResponse.outcome` / `ModelResponse.outcome` (optional; null = general question). Magnum's
   Gemini schema requires `outcome` (criteria in its description); validation rejects an outcome that disagrees with the assessment.
   Preview simulator returns one too. `routing.outcome` stored on every commit.
-- **KB scam patterns** `services/higgins/teddy/patterns.py`: 8 Scamwatch-sourced patterns (family new number, organisation phishing,
+- **KB scam patterns** `services/higgins/tc_flyby/patterns.py`: 8 Scamwatch-sourced patterns (family new number, organisation phishing,
   delivery/toll, government threat, unexpected money, job/task, investment returns, remote access) stored in `higgins_knowledge`
   as kind `scam_pattern` (markers in the entry; loaded by `knowledge.refresh()` and on first use). Deterministic match:
   full → Likely scam, opening (family pattern only) → Concerning, partial → Magnum.
-- **Teddy decide()** (`teddy/__init__.py`): official decisive concern stops early (Confirmed); otherwise official → KB (patterns) →
+- **TC FlyBy decide()** (`tc_flyby/__init__.py`): official decisive concern stops early (Confirmed); otherwise official → KB (patterns) →
   targeted search for the planned open checks, then: unreadable image/doc or a register conflict → Magnum; pattern full/opening
   (unless the material's links are the named organisation's own → contradiction → Magnum) → Likely/Concerning; brand named +
   link not its domain + independent fact about that link (new domain, IPQS flag, redirect, download) → Concerning; bare link →
   Concerning / No scam indicators / Unable to determine; any other message → Magnum (message analysis).
-- **Results** `teddy/report.py`: `compose()` → threat / pattern / impersonation / link results; findings are the material's own
+- **Results** `tc_flyby/report.py`: `compose()` → threat / pattern / impersonation / link results; findings are the material's own
   words or sourced live facts; KB pattern only in "What Apollo's knowledge base adds" + sourceIds; uncertainties say what was not
   taken further and why. Magnum brief names the pattern check in one line.
 - **Admin portal**: Outcome badge column on investigations, Outcome + "Apollo KB Scam Pattern" rows in the drill-down, cost-routing
@@ -1011,7 +1036,7 @@ Teddy resources; outcome labels in the app result AND the admin portal, fed by b
   (`inv-outcome`) on the investigation status card. Verified in the preview: "Hi Mum" text → "Likely scam" badge.
 - **Production never loads simulation code**: the indicator reader moved from `preview_analysis.py` to `services/higgins/indicators.py`
   (Higgins Triage imported the preview module in production).
-- Tests: `test_teddy_routing.py` (18), `test_one_gemini_call.py` material updated (its ANZ text is now settled by Teddy),
+- Tests: `test_tc_flyby_routing.py` (18), `test_one_gemini_call.py` material updated (its ANZ text is now settled by TC FlyBy),
   stale mock fixed in `test_deterministic_higgins.py`; full backend suite 1048 passed. Frontend messageGuardrails + tsc clean.
   No testing agent (owner's rule). Preview: 0 live Gemini calls since 08:00 UTC today.
 
@@ -4343,18 +4368,18 @@ Verdict: 3 blockers, 6 warnings, 8 manual checks.
 - Tests: `tests/restrictedPhonePermissions.test.ts` and `tests/screenedCalls.test.ts`; updated `deviceCapabilities.test.ts`. 837/837 frontend tests and tsc pass. Prebuild verified: default build removes both permissions; the approved switch adds only the named one. The Kotlin was not compiled here (no Android SDK) — a native build is required.
 
 ## Higgins Triage → TC FlyBy → Magnum DI: the 6 routing corrections (2026-10)
-- **Triage extracts every input first** (`teddy/__init__.py::_material`): submitted text/links, the text the phone read from a screenshot (`deviceExtractedText`, sent by `investigation/client.ts::investigationImageMeta`, credential-redacted, allow-listed + redacted in `privacy.ts`, stored as a derived text child in `evidence.ingest_file`), and the text layer of documents. Anything not extracted is a recorded gap (`magnum: true` only for images Magnum can read; audio/attachments/omitted pages are uncertainties). An image examined through its extracted text is marked examined.
-- **One deciding test** (`teddy/decide.py::evaluate`): could Magnum DI change Apollo's finding or Higgins' action? Concern outcomes the evidence already supports stand (confirmed → likely scam (full KB pattern) → corroborated impersonation → opening → established signals). Otherwise Magnum gets only these issues: reading (an unextracted image), reasoning (a consequential request through an unverified route), relating (a register name conflict / org name merely mentioned beside another address / pattern vs official links when the request goes elsewhere). No fixed list or input type routes to Magnum; `message_analysis` is `not_needed` unless the test sends it.
+- **Triage extracts every input first** (`tc_flyby/__init__.py::_material`): submitted text/links, the text the phone read from a screenshot (`deviceExtractedText`, sent by `investigation/client.ts::investigationImageMeta`, credential-redacted, allow-listed + redacted in `privacy.ts`, stored as a derived text child in `evidence.ingest_file`), and the text layer of documents. Anything not extracted is a recorded gap (`magnum: true` only for images Magnum can read; audio/attachments/omitted pages are uncertainties). An image examined through its extracted text is marked examined.
+- **One deciding test** (`tc_flyby/decide.py::evaluate`): could Magnum DI change Apollo's finding or Higgins' action? Concern outcomes the evidence already supports stand (confirmed → likely scam (full KB pattern) → corroborated impersonation → opening → established signals). Otherwise Magnum gets only these issues: reading (an unextracted image), reasoning (a consequential request through an unverified route), relating (a register name conflict / org name merely mentioned beside another address / pattern vs official links when the request goes elsewhere). No fixed list or input type routes to Magnum; `message_analysis` is `not_needed` unless the test sends it.
 - **Bare links use the same rule**: no link-only special case; a lookalike address (org name inside the host, `official._lookalike`) is a warning sign by itself for any input.
 - **KB patterns**: phrase-level indicators only, negations ignored; impersonation patterns need an off-site link.
-- **One outcome system** (`outcomes.py`); Teddy results: `report.compose(decision, …)` → threat / pattern / impersonation / signals / clear / undetermined; gaps → `completion: partial` + remainingEvidenceIds.
-- **Magnum receives only the unresolved slice**: brief ("For Magnum DI to settle") + evidence each issue needs + anything Teddy didn't examine (`_magnum_rows(needed, settled)`).
+- **One outcome system** (`outcomes.py`); TC FlyBy results: `report.compose(decision, …)` → threat / pattern / impersonation / signals / clear / undetermined; gaps → `completion: partial` + remainingEvidenceIds.
+- **Magnum receives only the unresolved slice**: brief ("For Magnum DI to settle") + evidence each issue needs + anything TC FlyBy didn't examine (`_magnum_rows(needed, settled)`).
 - Admin drilldown: "Settled By" shows Not needed; new "Sent To Magnum DI" row. Triage payment requests also catch "must be paid to".
-- Tests: `tests/test_teddy_routing.py` (24), full backend suite 1054 passed; tsc clean.
+- Tests: `tests/test_tc_flyby_routing.py` (24), full backend suite 1054 passed; tsc clean.
 - Family Change Alerts: dropped at the user's request ("No family alerts") — not to be built or suggested.
 
-## Teddy DI renamed TC FlyBy + investigator credited correctly (2026-10)
-- Every display string "Teddy DI" → "TC FlyBy" (backend copy, admin portal, tests). Internal codes kept: `teddy_official|teddy_kb|teddy_search`, item ids `teddy-di-checks/brief`. Model label now `teddy-flyby`.
+## TC FlyBy DI renamed TC FlyBy + investigator credited correctly (2026-10)
+- Every display string "TC FlyBy DI" → "TC FlyBy" (backend copy, admin portal, tests). Internal codes kept: `tc_flyby_official|tc_flyby_kb|tc_flyby_search`, item ids `tc-flyby-di-checks/brief`. Model label now `tc-flyby`.
 - Case wire now carries `answeredBy` (`repository.case_view` from `routing.answeredBy`); saved on-device investigations keep it. App credits the right investigator: `investigatorName()` in `messageVoice.ts` (TC FlyBy / Magnum DI; older results default Magnum DI). Used in InvestigationView (found / sources / history / follow-up note), follow-ups (`followUp.ts`, backend `presenter.investigation_follow_up(..., answered_by)`), threat-case timeline, patrol evidence header. In-progress spinner says "Apollo is investigating…".
 - Egress allow-list now includes `sanitizationDecision`, `redactedRegions`, `sanitizationTransformations`.
 - Rules each layer operates under: `/app/memory/OPERATING_RULES.md`.
@@ -4401,8 +4426,8 @@ Verdict: 3 blockers, 6 warnings, 8 manual checks.
 
 ## Report: the same point in other words is said once (2026-10)
 - `reportSections.ts` `Said.repeats()` also drops a sentence when ¾ of its meaningful words (stop words removed, light plural stem) are in one sentence already said, with the same yes/no (a negation is never merged into its opposite). The "not taken further" reason is attached to the How sentence that gives the same reason in other words.
-- TC FlyBy (`teddy/report.py`): "How Apollo checked" and the scope share one sentence (`_checked()`), and the official-threat reason uses one phrase in both places.
-- Verified with a live AusPost phishing check: Ask Higgins and the Threat detail show the identical report: "What it means" once, How once with the reason once. Tests: `tests/reportSections.test.ts` (2 new), frontend 919/919, backend teddy/triage 42 pass.
+- TC FlyBy (`tc_flyby/report.py`): "How Apollo checked" and the scope share one sentence (`_checked()`), and the official-threat reason uses one phrase in both places.
+- Verified with a live AusPost phishing check: Ask Higgins and the Threat detail show the identical report: "What it means" once, How once with the reason once. Tests: `tests/reportSections.test.ts` (2 new), frontend 919/919, backend tc_flyby/triage 42 pass.
 
 ## Apollo SG banner, home-screen name, Send to family, Learn article tidy (2026-10)
 - Banner (`backend/logo/apollo_sg_banner.jpg`, 1200×408, cropped from the owner's artwork; constants in `core/brand.py`): tops every family email (`services/email._wrap`, loaded from public `GET /api/brand/banner.jpg`, `routers/brand.py`), the investigation PDF header (`pdf_export.generate_pdf`, replaces the old logo + "APOLLO SCAM GUARD" text) and admin portal PDFs (`admin_portal._pdf_html`). Existing family invitation/alert emails kept (owner's choice).
@@ -4442,7 +4467,7 @@ Verdict: 3 blockers, 6 warnings, 8 manual checks.
 - App display name changed to "ApolloSG" (app.config.js name). Slug, bundle IDs and scheme unchanged.
 
 ## Architecture Q&A (Jun 2026)
-- Answered: where Magnum DI (coordinator.run_turn via jobs.py), TC FlyBy (teddy/search.run, first turn only) and Ask Higgins (chat.reply via /higgins/chat, Ask tab) run, and which Gemini models each uses (TEXT/TEDDY = gemini-3.1-flash-lite default; CHAT = gemini-3.8-flash via .env). No code changes.
+- Answered: where Magnum DI (coordinator.run_turn via jobs.py), TC FlyBy (tc_flyby/search.run, first turn only) and Ask Higgins (chat.reply via /higgins/chat, Ask tab) run, and which Gemini models each uses (TEXT/TEDDY = gemini-3.1-flash-lite default; CHAT = gemini-3.8-flash via .env). No code changes.
 
 ## Gemini model per feature (Jun 2026)
 - New services/higgins/model_choice.py: per-feature model stored in `gemini_model_choices` (Magnum DI, Ask Higgins); TC FlyBy always follows Magnum DI (uses the job's provider_model). Default = provider.TEXT_MODEL (gemini-3.1-flash-lite), so Ask Higgins switched to the cheaper model (GEMINI_CHAT_MODEL env is no longer read).

@@ -43,7 +43,7 @@ def test_each_record_is_counted_under_the_feature_that_made_it(monkeypatch):
                                                                "success": ok, "search_queries": 1, "timestamp": ts}
         try:
             await scratch.gemini_usage.insert_many([
-                rec("investigation", "case-1"), rec("investigation", "case-1", ok=False), rec("teddy_search", "case-1"),
+                rec("investigation", "case-1"), rec("investigation", "case-1", ok=False), rec("tc_flyby_search", "case-1"),
                 rec("ordinary_chat", "chat-abc"), rec("ordinary_chat", "protection-x"), rec("investigation", "page-crawl"),
                 rec("investigation", "case-2", ts=now - timedelta(days=9)),
             ])
@@ -94,8 +94,8 @@ def test_the_four_weeks_are_counted_separately(monkeypatch):
         start = admin_portal._week_start(0)
         try:
             await scratch.gemini_usage.insert_many([
-                {"purpose": "teddy_search", "correlation_id": "case-1", "estimated_cost_usd": 0.02, "success": True, "timestamp": start - timedelta(days=3)},
-                {"purpose": "teddy_search", "correlation_id": "case-2", "estimated_cost_usd": 0.01, "success": True, "timestamp": start + timedelta(minutes=1)},
+                {"purpose": "tc_flyby_search", "correlation_id": "case-1", "estimated_cost_usd": 0.02, "success": True, "timestamp": start - timedelta(days=3)},
+                {"purpose": "tc_flyby_search", "correlation_id": "case-2", "estimated_cost_usd": 0.01, "success": True, "timestamp": start + timedelta(minutes=1)},
             ])
             last_week = await admin_portal.gemini_usage_by_feature(start - timedelta(weeks=1), start)
             this_week = await admin_portal.gemini_usage_by_feature(start)

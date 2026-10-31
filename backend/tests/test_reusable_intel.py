@@ -20,7 +20,6 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-from services.higgins.ai_request import Message, Part
 from starlette.requests import Request
 
 from core.db import db, now_utc
@@ -29,10 +28,9 @@ from routers import admin_portal
 from services import kb_benchmark, phonerisk, rdap, sufficiency, urlrisk
 from services import reusable_intel as intel
 from services.higgins import chat, presenter, knowledge, provider
-from services.higgins import teddy
-from services.higgins.provider import AIResult, Purpose
-from services.higgins.teddy import report, search
-from services.higgins.teddy.triage import Check
+from services.higgins import tc_flyby
+from services.higgins.tc_flyby import report, search
+from services.higgins.tc_flyby.triage import Check
 
 BACKEND = Path(__file__).resolve().parents[1]
 REAL_SEARCH = search.run  # captured before conftest's offline stub replaces it
@@ -45,11 +43,11 @@ async def store(monkeypatch):
     """The cache, its counters and a KB stand-in in collections of their own, so each test starts empty."""
     tag = uuid.uuid4().hex[:10]
     fake = SimpleNamespace(reusable_intelligence=db[f"test_intel_{tag}"], intel_reuse_metrics=db[f"test_intel_metrics_{tag}"],
-                           higgins_knowledge=db[f"test_intel_kb_{tag}"])
+                           higgins_knowledge=db[f"test_intel_kb_{tag}"], intel_inflight=db[f"test_intel_inflight_{tag}"])
     monkeypatch.setattr(intel, "db", fake)
     monkeypatch.setattr(intel, "_indexed", False)
     yield fake
-    for coll in (fake.reusable_intelligence, fake.intel_reuse_metrics, fake.higgins_knowledge):
+    for coll in (fake.reusable_intelligence, fake.intel_reuse_metrics, fake.higgins_knowledge, fake.intel_inflight):
         await coll.drop()
 
 
@@ -65,16 +63,16 @@ def second(value):
 # ── The cache record ─────────────────────────────────────────────────────────
 async def test_a_saved_result_carries_its_full_metadata(store):
     key = intel.subject_key("domain", "example-scam.top")
-    cid = await intel.put(key, intel.GEMINI_SEARCH, intel.TC_FLYBY_LOOKUP, "web_lookup", {"status": "WARNING", "fact": "Listed."},
-                          knowledge_class="grounded_lookup", ai_generated=True, provenance={"model": "m"})
+    cid = await intel.put(key, intel.BRAVE_SEARCH, intel.TC_FLYBY_LOOKUP, "web_lookup", {"status": "WARNING", "fact": "Listed."},
+                          knowledge_class="search_result_lookup", ai_generated=False, provenance={"provider": "brave"})
     row = await store.reusable_intelligence.find_one({"cache_id": cid}, {"_id": 0})
     for field in ("cache_id", "subject_key", "provider", "source_type", "created_at", "last_verified_at", "expires_at", "knowledge_class"):
         assert row.get(field), field
-    assert (row["subject_key"], row["provider"], row["source_type"], row["info_type"]) == (key, "gemini_google_search", "tc_flyby_lookup", "web_lookup")
-    assert row["ai_generated"] is True and row["authoritative"] is False and row["simulated"] is False and row["hits"] == 0
+    assert (row["subject_key"], row["provider"], row["source_type"], row["info_type"]) == (key, "brave_search", "tc_flyby_lookup", "web_lookup")
+    assert row["ai_generated"] is False and row["authoritative"] is False and row["simulated"] is False and row["hits"] == 0
     assert row["expires_at"] - row["last_verified_at"] == intel.TTL["web_lookup"]
     assert row["purge_at"] - row["expires_at"] == intel.STALE_KEPT_FOR
-    assert row["provenance"] == {"model": "m"}
+    assert row["provenance"] == {"provider": "brave"}
 
 
 async def test_reverifying_keeps_when_it_was_first_obtained_and_moves_its_expiry(store):
@@ -189,7 +187,7 @@ def _code() -> dict[str, str]:
 def test_only_approved_lookups_write_the_reusable_cache():
     code = _code()
     writers = {path for path, text in code.items() if re.search(r"\b(?:intel|reusable_intel)\.put\(", text)}
-    assert writers == {"services/higgins/teddy/search.py"}, "only TC FlyBy's public-identifier lookups are cached; Ask Higgins writes nothing"
+    assert writers == {"services/higgins/tc_flyby/search.py"}, "only TC FlyBy's public-identifier lookups are cached; Ask Higgins writes nothing"
     direct = {path for path, text in code.items() if "db.reusable_intelligence" in text}
     assert direct == {"services/reusable_intel.py", "services/stats_reset.py"}
     reset = code["services/stats_reset.py"]
@@ -226,54 +224,40 @@ def test_a_question_with_personal_detail_is_not_storable():
     assert knowledge.storable(QUESTION)
 
 
-# ── TC FlyBy's grounded search (Gemini + Google Search) ──────────────────────
-QLINE = re.compile(r"^Q(\d+) \[statuses: [^\]]*\] \[subject: (.+?)\]", re.M)
-
-
-def _grounded(lines: list[str]) -> tuple[str, dict]:
-    text = "\n".join(lines)
-    supports, offset = [], 0
-    for index, line in enumerate(lines):
-        supports.append({"segment": {"start_index": offset, "end_index": offset + len(line.encode()), "text": line}, "grounding_chunk_indices": [index]})
-        offset += len(line.encode()) + 1
-    chunks = [{"web": {"uri": f"https://vertexaisearch.cloud.google.com/grounding-api-redirect/{i}", "title": "moneysmart.gov.au",
-                       "domain": "moneysmart.gov.au"}} for i in range(len(lines))]
-    return text, {"grounding_chunks": chunks, "grounding_supports": supports, "web_search_queries": ["q"] * len(lines)}
-
-
+# ── TC FlyBy's one Brave search (no AI) ─────────────────────────────────────
 @pytest.fixture
 def web(monkeypatch, store):
-    """TC FlyBy's grounded search with Gemini replaced: every question gets `status[subject]` (default WARNING)."""
+    """TC FlyBy's Brave search replaced (no request leaves the test): each search returns one official page that names
+    the query's quoted subject, with a warning unless `status[subject]` says otherwise."""
     monkeypatch.setattr(search, "run", REAL_SEARCH)
-    monkeypatch.setattr(provider, "get_provider_mode", lambda: "live")
-    state = SimpleNamespace(prompts=[], status={}, sourced=True)
+    monkeypatch.setattr(search.brave_search, "configured", lambda: True)
+    state = SimpleNamespace(queries=[], status={}, named=True)
 
-    async def fake(system, contents, **kwargs):
-        assert kwargs["purpose"] == Purpose.TEDDY_SEARCH
-        text = contents[0].parts[0].text
-        state.prompts.append(text)
-        lines = [f"Q{n} | {state.status.get(subject, 'WARNING')} | A finding about {subject}." for n, subject in QLINE.findall(text)]
-        answer, grounding = _grounded(lines) if state.sourced else ("\n".join(lines), {"web_search_queries": ["q"]})
-        return AIResult(text=answer, finish_reason="STOP",
-                            usage={"prompt_token_count": 10, "candidates_token_count": 5}, grounding=grounding, model="gemini-3.1-flash-lite")
+    async def fake(q, **kwargs):
+        state.queries.append(q)
+        subject = (re.findall(r'"([^"]+)"', q) or [q])[0]
+        words = "scam warning: do not pay" if state.status.get(subject, "WARNING") == "WARNING" else "company profile and contact page"
+        text = f"{subject} {words}" if state.named else f"An unrelated page, {words}"
+        return [{"url": "https://moneysmart.gov.au/alert", "title": "Investor Alert List", "description": text, "extraSnippets": []}]
 
-    monkeypatch.setattr(provider, "generate", fake)
+    monkeypatch.setattr(search.brave_search, "search", fake)
     return state
 
 
 async def lookup(*checks: Check) -> dict:
-    return await search.run(list(checks), model="gemini-3.1-flash-lite", correlation_id="test-reuse", trigger_source="test")
+    # Each lookup is its own case: one Brave search per correlated case.
+    return await search.run(list(checks), correlation_id=f"case-test-reuse-{uuid.uuid4().hex[:8]}", trigger_source="test")
 
 
 async def test_a_fresh_lookup_is_reused_and_not_paid_for_again(web, store):
     first = await lookup(check("link", "zenith-quantum.top"))
-    assert len(web.prompts) == 1 and first["calls"] == 1 and first["cacheHits"] == 0
+    assert len(web.queries) == 1 and first["calls"] == 1 and first["cacheHits"] == 0 and first["provider"] == "brave"
     row = await store.reusable_intelligence.find_one({}, {"_id": 0})
-    assert (row["subject_key"], row["info_type"], row["knowledge_class"]) == ("link|domain:zenith-quantum.top", "web_lookup", "grounded_lookup")
-    assert row["ai_generated"] is True and row["provenance"]["sources"], "provenance keeps the pages behind the answer"
+    assert (row["subject_key"], row["info_type"], row["knowledge_class"]) == ("link|domain:zenith-quantum.top", "web_lookup", "search_result_lookup")
+    assert row["ai_generated"] is False and row["provenance"]["sources"], "provenance keeps the pages behind the answer"
 
     again = await lookup(c := check("link", "https://www.zenith-quantum.top/join"))
-    assert len(web.prompts) == 1 and again["calls"] == 0 and again["cacheHits"] == 1 and again["status"] == "cached"
+    assert len(web.queries) == 1 and again["calls"] == 0 and again["cacheHits"] == 1 and again["status"] == "cached"
     answer = again["answers"][c.id]
     assert answer["reused"] is True and answer["status"] == "WARNING" and answer["sources"]
     assert answer["lastVerifiedAt"] == row["last_verified_at"].isoformat()
@@ -286,7 +270,7 @@ async def test_a_mixed_batch_asks_only_what_is_still_open(web, store):
     await lookup(check("company", "Zenith Quantum Markets Pty Ltd"))
     known, new = check("company", "Zenith Quantum Markets"), check("link", "brightline-docs.net")
     out = await lookup(known, new)
-    assert len(web.prompts) == 2 and "brightline-docs.net" in web.prompts[1] and "Zenith" not in web.prompts[1]
+    assert len(web.queries) == 2 and "brightline-docs.net" in web.queries[1] and "Zenith" not in web.queries[1]
     assert out["answers"][known.id]["reused"] is True and "reused" not in out["answers"][new.id]
 
 
@@ -294,40 +278,39 @@ async def test_an_expired_lookup_is_asked_again(web, store):
     await lookup(check("link", "zenith-quantum.top"))
     await store.reusable_intelligence.update_many({}, {"$set": {"expires_at": now_utc() - timedelta(minutes=1)}})
     out = await lookup(c := check("link", "zenith-quantum.top"))
-    assert len(web.prompts) == 2 and "reused" not in out["answers"][c.id]
+    assert len(web.queries) == 2 and "reused" not in out["answers"][c.id]
     assert intel.fresh(await store.reusable_intelligence.find_one({})), "refreshed by the new answer"
-    assert (await counts(store, search.SITE))["cache_expired"] == 1
 
 
 async def test_nothing_found_counts_as_current_for_a_day_only(web, store):
     web.status["quiet-site.top"] = "NO_WARNING_FOUND"
-    await lookup(check("link", "quiet-site.top"))
+    out = await lookup(c := check("link", "quiet-site.top"))
+    assert out["answers"][c.id]["status"] == "NO_WARNING_FOUND"
     row = await store.reusable_intelligence.find_one({})
     assert row["info_type"] == "web_lookup_negative" and row["expires_at"] - row["last_verified_at"] == timedelta(days=1)
 
 
-async def test_an_unsourced_answer_is_never_saved(web, store):
-    web.sourced = False
+async def test_a_page_that_doesnt_name_the_exact_value_is_never_a_warning(web, store):
+    web.named = False
     out = await lookup(c := check("link", "zenith-quantum.top"))
-    assert out["answers"][c.id]["status"] == "UNSOURCED"
-    assert await store.reusable_intelligence.count_documents({}) == 0
+    assert out["answers"][c.id]["status"] == "NO_WARNING_FOUND" and out["answers"][c.id]["sources"] == []
 
 
 async def test_a_lookup_saved_in_preview_is_never_reused_live(web, store):
     key = search.lookup_key(c := check("link", "zenith-quantum.top"))
-    await intel.put(key, intel.GEMINI_SEARCH, intel.TC_FLYBY_LOOKUP, "web_lookup", {"status": "WARNING", "fact": "simulated", "sources": []},
-                    knowledge_class="grounded_lookup", ai_generated=True, simulated=True)
+    await intel.put(key, intel.BRAVE_SEARCH, intel.TC_FLYBY_LOOKUP, "web_lookup", {"status": "WARNING", "fact": "simulated", "sources": []},
+                    knowledge_class="search_result_lookup", ai_generated=False, simulated=True)
     out = await lookup(c)
-    assert len(web.prompts) == 1 and "reused" not in out["answers"][c.id]
+    assert len(web.queries) == 1 and "reused" not in out["answers"][c.id]
 
 
 async def test_case_evidence_is_never_written_to_the_cache(web, store):
     person, claim = "Jane Citizen", "pay the invoice to BSB 062-000 account 1234 5678 today"
     await lookup(check("person", person), check("claim", claim))
     await lookup(check("person", person), check("claim", claim))
-    assert len(web.prompts) == 2, "never reused: each case asks for itself"
+    assert len(web.queries) == 2, "never reused: each case asks for itself"
     assert await store.reusable_intelligence.count_documents({}) == 0
-    assert await counts(store, search.SITE) == {"sufficiency_unknown": 4, "external_call_required": 4}
+    assert await counts(store, search.SITE) == {"sufficiency_unknown": 2, "external_call_required": 2}
 
 
 CHECKED = "2026-10-25T07:00:00+00:00"
@@ -338,9 +321,9 @@ def _applied() -> tuple[Check, Check]:
     """One check settled by a reused lookup (last checked at CHECKED), one by a new lookup."""
     no_companies = SimpleNamespace(entities=SimpleNamespace(companies=[]))
     reused, new = check("link", "zenith-quantum.top"), check("link", "brightline-docs.net")
-    teddy._apply(reused, {"status": "WARNING", "fact": "ASIC lists zenith-quantum.top.", "sources": [PAGE], "reused": True,
+    tc_flyby._apply(reused, {"status": "WARNING", "fact": "ASIC lists zenith-quantum.top.", "sources": [PAGE], "reused": True,
                           "lastVerifiedAt": CHECKED}, no_companies)
-    teddy._apply(new, {"status": "WARNING", "fact": "A warning names brightline-docs.net.", "sources": [{**PAGE, "url": "https://moneysmart.gov.au/b"}]},
+    tc_flyby._apply(new, {"status": "WARNING", "fact": "A warning names brightline-docs.net.", "sources": [{**PAGE, "url": "https://moneysmart.gov.au/b"}]},
                  no_companies)
     return reused, new
 
@@ -358,8 +341,8 @@ async def test_reused_sources_are_registered_with_their_last_checked_time(monkey
         saved.extend(refs)
         return {r.id: r.id for r in refs}
 
-    monkeypatch.setattr(teddy.repo, "add_sources", add_sources)
-    await teddy._register_sources("owner", "case", list(_applied()))
+    monkeypatch.setattr(tc_flyby.repo, "add_sources", add_sources)
+    await tc_flyby._register_sources("owner", "case", list(_applied()))
     reused = [r for r in saved if r.reused]
     assert len(reused) == 1 and reused[0].retrieved_at.isoformat() == CHECKED
     assert reused[0].wire()["reused"] is True and reused[0].wire()["retrievedAt"].startswith("2026-10-25T07:00:00")
@@ -370,7 +353,7 @@ async def test_reused_sources_are_registered_with_their_last_checked_time(monkey
 def test_the_result_says_when_a_search_was_reused():
     def searched(reused: bool) -> Check:
         c = check("link", "x.top")
-        c.route, c.facts = "google_search", [{"source": {"reused": reused}}]
+        c.route, c.facts = "web_search", [{"source": {"reused": reused}}]
         return c
     assert report._routes([searched(False)]) == "a targeted web search"
     assert report._routes([searched(True)]) == "ApolloSG's recent targeted web search, reused while still current"

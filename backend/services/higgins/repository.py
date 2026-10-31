@@ -97,6 +97,8 @@ async def ensure_indexes() -> None:
     await _ttl(db.investigation_uploads, 0)
     await db.investigation_upload_chunks.create_index([("owner_id", 1), ("upload_id", 1), ("chunk_index", 1)], unique=True)
     await _ttl(db.investigation_upload_chunks, 0)
+    await db.magnum_di_calls.create_index("correlation_id", unique=True)
+    await db.magnum_di_calls.create_index("owner_id")
     for name in CLOCKED:
         # MongoDB itself removes submitted content at its `delete_by` moment, even if Apollo's sweep has stopped.
         # Content of a check still running carries no `delete_by`, so this never touches it.
@@ -233,7 +235,7 @@ async def inventory(owner: str, case_id: str) -> Inventory:
 async def case_view(doc: dict) -> InvestigationCase:
     response = HigginsResponse.model_validate(dec_json(doc["response_ciphertext"])) if doc.get("response_ciphertext") else None
     routing = doc.get("routing") or {}
-    simulated = bool((routing.get("teddy") or {}).get("simulated") or (routing.get("magnum") or {}).get("simulated"))
+    simulated = bool((routing.get("tc_flyby") or {}).get("simulated") or (routing.get("magnum") or {}).get("simulated"))
     return InvestigationCase(id=doc["case_id"], revision=doc["revision"], gates=doc["gates"], status=doc["status"], created_at=utc(doc["created_at"]),
                              updated_at=utc(doc["updated_at"]), expires_at=utc(doc["expires_at"]), response=response, active_job_id=doc.get("active_job_id"),
                              evidence_expires_at=utc(doc["evidence_expires_at"]) if doc.get("evidence_expires_at") else None,
@@ -645,7 +647,7 @@ async def create_job(owner: str, case: dict, turn_id: str, key_digest: str, payl
            "expires_at": utc(case["expires_at"]),
            "auto_resume_count": 0,
            "retry_history": [],
-           # Gemini calls this investigation has made (the one call + at most one retry).
+           # Gemini calls this investigation has made: at most one per correlated case, never retried.
            "gemini_calls": 0,
            "source": source}
     await stop_deletion_clock(owner, case["case_id"])
@@ -653,19 +655,29 @@ async def create_job(owner: str, case: dict, turn_id: str, key_digest: str, payl
     return doc
 
 
-async def claim_gemini_call(owner: str, job_id: str, limit: int) -> Optional[int]:
-    """Atomically take one of the job's Gemini call slots. Returns the call number (1-based), or None
-    when the job has already made `limit` calls — the caller must then not call Gemini at all."""
-    claimed = await db.investigation_jobs.find_one_and_update(
-        {"owner_id": owner, "job_id": job_id,
-         "$or": [{"gemini_calls": {"$exists": False}}, {"gemini_calls": {"$lt": limit}}]},
-        {"$inc": {"gemini_calls": 1}}, projection={"_id": 0, "gemini_calls": 1}, return_document=ReturnDocument.AFTER)
-    return claimed["gemini_calls"] if claimed else None
+def correlation_id(case_id: str) -> str:
+    return f"case-{case_id}"
 
 
-async def gemini_calls_made(owner: str, job_id: str) -> int:
-    doc = await db.investigation_jobs.find_one({"owner_id": owner, "job_id": job_id}, {"_id": 0, "gemini_calls": 1})
-    return int((doc or {}).get("gemini_calls") or 0)
+async def claim_magnum_call(owner: str, case_id: str, job_id: str) -> bool:
+    """The correlated case's ONE Magnum DI call, taken atomically before anything is sent (`magnum_di_calls`, unique
+    per correlation id). False when the case already used it: a follow-up, retry, Resubmit, new job, recovered job or
+    restart never resets it. Held apart from the case and job records, so nothing that rewrites them can reset it."""
+    try:
+        await db.magnum_di_calls.insert_one({"correlation_id": correlation_id(case_id), "owner_id": owner, "case_id": case_id,
+                                             "job_id": job_id, "claimed_at": now_utc()})
+        return True
+    except DuplicateKeyError:
+        return False
+
+
+async def release_magnum_call(owner: str, case_id: str) -> None:
+    """Only for a call the gateway refused before anything was sent (the daily spending limit): no call was made."""
+    await db.magnum_di_calls.delete_one({"correlation_id": correlation_id(case_id), "owner_id": owner})
+
+
+async def magnum_call_used(owner: str, case_id: str) -> bool:
+    return await db.magnum_di_calls.count_documents({"correlation_id": correlation_id(case_id), "owner_id": owner}, limit=1) > 0
 
 
 async def get_job(owner: str, case_id: str, job_id: str) -> dict:

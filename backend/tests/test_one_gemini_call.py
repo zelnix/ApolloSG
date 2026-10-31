@@ -1,39 +1,33 @@
-"""One investigation = one Gemini call.
+"""One correlated case = at most one Magnum DI call, and no retries.
 
 Every test drives the real durable job (`jobs.run`) with the gateway replaced, and counts the calls:
 - a successful investigation makes exactly ONE call — no tool rounds, no nested research, no second
   "presentation" call;
-- a failed call is retried exactly ONCE, then the person is asked to resubmit in about 5 minutes;
-- a configuration failure is never retried;
-- a job whose two call slots are used can make no further call (crash recovery, duplicate worker);
-- resubmitting is refused until the pause is over, then starts one fresh call + one retry.
+- a failed call or an invalid answer is never retried: the investigation stops, says why, and keeps what
+  TC FlyBy established;
+- a second job, a recovered job, a duplicate worker, a follow-up, a Resubmit tap or a restart can make no further call;
+- a case TC FlyBy settles makes none.
 
 Run: cd /app/backend && python -m pytest tests/test_one_gemini_call.py -q -n 0
 """
 import json
 import uuid
-from datetime import timedelta
 
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from core.db import db, now_utc
+from core.db import db
 from services.higgins import coordinator, jobs, provider
 from services.higgins import evidence as ev
 from services.higgins import repository as repo
+from services.higgins.contracts import SubmitTurn
 from services.higgins.preview.preview_simulator import evidence_blocks, simulated_text
 from services.higgins.provider import AIResult, ProviderFailure, Purpose
 
 
-@pytest.fixture(autouse=True)
-def _fast_retry(monkeypatch):
-    monkeypatch.setattr(jobs, "RETRY_DELAY_SECONDS", 0)
-    monkeypatch.setattr(jobs.random, "uniform", lambda _a, _b: 0.01)
-
-
 def _gateway(monkeypatch, *script):
-    """Replace the Gemini gateway. Each call consumes the next scripted step: "ok", "invalid" or a ProviderFailure."""
+    """Replace the AI gateway. Each call consumes the next scripted step: "ok", "invalid" or a ProviderFailure."""
     calls: list[dict] = []
 
     async def fake(system, contents, **kwargs):
@@ -50,7 +44,15 @@ def _gateway(monkeypatch, *script):
     return calls
 
 
-async def _investigation(gemini_calls: int = 0):
+async def _job(owner: str, case: dict, message: str = "Is this real?") -> str:
+    case = await repo.get_case(owner, case["case_id"])
+    turn_id = str(uuid.uuid4())
+    job = await repo.create_job(owner, case, turn_id, repo.digest(turn_id), repo.digest("p" + turn_id), "turn", {"message": message, "turnId": turn_id})
+    await repo.cas(owner, case["case_id"], {"revision": case["revision"]}, {"$set": {"active_job_id": job["job_id"], "active_turn_id": turn_id, "status": "queued"}})
+    return job["job_id"]
+
+
+async def _investigation():
     owner = f"one-call-{uuid.uuid4().hex[:8]}"
     await repo.ensure_indexes()
     case = await repo.create_case(owner, "text", None)
@@ -58,13 +60,7 @@ async def _investigation(gemini_calls: int = 0):
     # analysis could change what to do, so it reaches Magnum DI's one call.
     await ev.ingest_text(owner, case, "message-text", "Hi, it's Sarah from accounts. Please pay invoice 4471 "
                          "($1,240) to account 1234 5678 today.", kind="text", origin="user_submission", label="Submitted message text")
-    case = await repo.get_case(owner, case["case_id"])
-    turn_id = str(uuid.uuid4())
-    job = await repo.create_job(owner, case, turn_id, repo.digest(turn_id), repo.digest("p"), "turn", {"message": "Is this real?", "turnId": turn_id})
-    if gemini_calls:
-        await db.investigation_jobs.update_one({"owner_id": owner, "job_id": job["job_id"]}, {"$set": {"gemini_calls": gemini_calls}})
-    await repo.cas(owner, case["case_id"], {"revision": case["revision"]}, {"$set": {"active_job_id": job["job_id"], "active_turn_id": turn_id, "status": "queued"}})
-    return owner, case["case_id"], job["job_id"]
+    return owner, case["case_id"], await _job(owner, case)
 
 
 async def _event_types(owner: str, job_id: str) -> list[str]:
@@ -77,39 +73,29 @@ async def test_successful_investigation_makes_exactly_one_call(monkeypatch):
     await jobs.run(owner, case_id, job_id)
     assert len(calls) == 1
     assert calls[0]["kwargs"]["purpose"] == Purpose.INVESTIGATION
+    assert calls[0]["kwargs"]["device_id"] == owner and calls[0]["kwargs"]["job_id"] == job_id, "usage is attributed to device and job"
     job = await repo.get_job(owner, case_id, job_id)
-    assert job["status"] in ("complete", "partial", "waiting_user") and job["gemini_calls"] == 1
+    assert job["status"] in ("complete", "partial", "waiting_user")
+    assert await repo.magnum_call_used(owner, case_id)
     assert "completed" in await _event_types(owner, job_id)
 
 
-async def test_a_failed_call_is_retried_exactly_once_then_succeeds(monkeypatch):
-    calls = _gateway(monkeypatch, ProviderFailure("provider_unavailable", retryable=True), "ok")
+@pytest.mark.parametrize("step", [ProviderFailure("rate_limited", retryable=True), ProviderFailure("provider_unavailable", retryable=True), "invalid"],
+                         ids=["rate_limited", "unavailable", "invalid"])
+async def test_a_failed_call_or_invalid_answer_is_never_retried(monkeypatch, step):
+    calls = _gateway(monkeypatch, step, "ok", "ok")
     owner, case_id, job_id = await _investigation()
     await jobs.run(owner, case_id, job_id)
-    assert len(calls) == 2
-    kinds = await _event_types(owner, job_id)
-    assert kinds.count("retry_scheduled") == 1 and "completed" in kinds
-
-
-@pytest.mark.parametrize("second", ["provider", "invalid"])
-async def test_two_failures_stop_and_ask_to_resubmit_in_five_minutes(monkeypatch, second):
-    failure = ProviderFailure("rate_limited", retryable=True)
-    calls = _gateway(monkeypatch, failure, failure if second == "provider" else "invalid", "ok", "ok")
-    owner, case_id, job_id = await _investigation()
-    before = now_utc()
-    await jobs.run(owner, case_id, job_id)
-    assert len(calls) == 2, "only one retry is allowed"
+    assert len(calls) == 1, "no automatic retry"
     job = await repo.get_job(owner, case_id, job_id)
-    assert job["status"] == "failed" and job["gemini_calls"] == 2
-    failure_wire = job["failure"]
-    assert failure_wire["code"] == ("rate_limited" if second == "provider" else "response_invalid")
-    assert failure_wire["retryable"] is True and failure_wire["retryAfterSeconds"] == 300
-    assert "tried twice" in failure_wire["message"] and "resubmit in about 5 minutes" in failure_wire["message"]
-    assert "No conclusion has been made up" in failure_wire["message"]
-    pause = (repo.utc(job["resubmit_at"]) - before).total_seconds()
-    assert 295 <= pause <= 310
+    failure = job["failure"]
+    assert job["status"] == "failed" and failure["retryable"] is False and job.get("resubmit_at") is None
+    assert failure["code"] == ("response_invalid" if step == "invalid" else step.code)
+    assert "No conclusion has been made up" in failure["message"] and "isn't tried again for this case" in failure["message"]
+    reason = "didn't pass Apollo's checks" if step == "invalid" else ("too busy" if step.code == "rate_limited" else "didn't answer in time")
+    assert reason in failure["message"], "the failure reason is shown"
     kinds = await _event_types(owner, job_id)
-    assert kinds.count("retry_scheduled") == 1 and kinds[-1] == "failed"
+    assert "retry_scheduled" not in kinds and kinds[-1] == "failed"
 
 
 async def test_configuration_failure_is_never_retried(monkeypatch):
@@ -122,20 +108,28 @@ async def test_configuration_failure_is_never_retried(monkeypatch):
     assert "retry_scheduled" not in await _event_types(owner, job_id)
 
 
-async def test_used_call_slots_block_any_further_call(monkeypatch):
-    """A relaunched job (crash recovery, duplicate worker) cannot exceed one call + one retry."""
-    calls = _gateway(monkeypatch, "ok")
-    owner, case_id, job_id = await _investigation(gemini_calls=coordinator.MAX_GEMINI_CALLS)
-    await jobs.run(owner, case_id, job_id)
-    assert calls == []
-    job = await repo.get_job(owner, case_id, job_id)
-    assert job["status"] == "failed" and "resubmit in about 5 minutes" in job["failure"]["message"]
-
-
-async def test_call_slot_claim_is_atomic():
+@pytest.mark.parametrize("first", ["ok", "failed"])
+async def test_no_new_job_recovery_or_restart_makes_a_second_call_for_the_case(monkeypatch, first):
+    """A second job on the same case (a recovered job, a duplicate worker, a restart) is refused before anything is sent."""
+    calls = _gateway(monkeypatch, "ok" if first == "ok" else ProviderFailure("provider_unavailable", retryable=True), "ok")
     owner, case_id, job_id = await _investigation()
-    claims = [await repo.claim_gemini_call(owner, job_id, coordinator.MAX_GEMINI_CALLS) for _ in range(4)]
-    assert claims == [1, 2, None, None]
+    await jobs.run(owner, case_id, job_id)
+    case = await repo.get_case(owner, case_id)
+    await repo.cas(owner, case_id, {"revision": case["revision"]}, {"$set": {"active_job_id": None, "response_revision": 0, "response_ciphertext": None}})
+    second = await _job(owner, case)
+    await jobs.run(owner, case_id, second)
+    assert len(calls) == 1, "one Magnum DI call per correlated case"
+    job = await repo.get_job(owner, case_id, second)
+    assert job["status"] == "failed" and "already had its one Magnum DI call" in job["failure"]["message"]
+    assert job["failure"]["retryable"] is False
+
+
+async def test_the_case_claim_is_atomic():
+    owner, case_id, job_id = await _investigation()
+    import asyncio
+    claims = await asyncio.gather(*(repo.claim_magnum_call(owner, case_id, job_id) for _ in range(6)))
+    assert sorted(claims) == [False] * 5 + [True]
+    assert await db.magnum_di_calls.count_documents({"correlation_id": f"case-{case_id}"}) == 1
 
 
 def _request(owner: str) -> Request:
@@ -144,30 +138,64 @@ def _request(owner: str) -> Request:
     return request
 
 
-async def test_resubmit_waits_for_the_pause_then_starts_a_fresh_attempt(monkeypatch):
+async def test_resubmit_never_makes_a_second_call(monkeypatch):
     from routers import investigations as inv
     from services.higgins.contracts import ExpectedRevision
-    failure = ProviderFailure("provider_unavailable", retryable=True)
-    _gateway(monkeypatch, failure, failure)
+    _gateway(monkeypatch, ProviderFailure("provider_unavailable", retryable=True), "ok")
     owner, case_id, job_id = await _investigation()
     await jobs.run(owner, case_id, job_id)
     launched: list[str] = []
     monkeypatch.setattr(inv.jobs, "launch", lambda _o, _c, j: launched.append(j))
-
     case = await repo.get_case(owner, case_id)
-    with pytest.raises(HTTPException) as early:
+    with pytest.raises(HTTPException) as refused:
         await inv.resume_job(case_id, job_id, ExpectedRevision(expected_revision=case["revision"]), _request(owner), str(uuid.uuid4()))
-    assert early.value.status_code == 429
-    assert "resubmit in about 5 minutes" in early.value.detail["error"]["message"]
+    assert refused.value.status_code == 409 and "one call" in refused.value.detail["error"]["message"]
     assert launched == []
 
-    await db.investigation_jobs.update_one({"owner_id": owner, "job_id": job_id}, {"$set": {"resubmit_at": now_utc() - timedelta(seconds=1)}})
+
+async def test_a_stop_before_magnum_di_can_be_resubmitted(monkeypatch):
+    """The spending limit refused the call before anything was sent: the case's call wasn't used, so Resubmit may run."""
+    from routers import investigations as inv
+    from services.higgins.contracts import ExpectedRevision
+    calls = _gateway(monkeypatch, ProviderFailure("budget_limit", original_message="over the limit"))
+    owner, case_id, job_id = await _investigation()
+    await jobs.run(owner, case_id, job_id)
+    job = await repo.get_job(owner, case_id, job_id)
+    assert len(calls) == 1 and job["failure"]["code"] == "budget_limit" and job["failure"]["retryable"] is True
+    assert "spending limit" in job["failure"]["message"] and "before Magnum DI's call was made" in job["failure"]["message"]
+    assert not await repo.magnum_call_used(owner, case_id), "nothing was sent, so nothing is counted"
+    launched: list[str] = []
+    monkeypatch.setattr(inv.jobs, "launch", lambda _o, _c, j: launched.append(j))
+    case = await repo.get_case(owner, case_id)
     response = await inv.resume_job(case_id, job_id, ExpectedRevision(expected_revision=case["revision"]), _request(owner), str(uuid.uuid4()))
     assert response.status_code == 202 and launched == [job_id]
-    job = await repo.get_job(owner, case_id, job_id)
-    assert job["status"] == "queued" and job["gemini_calls"] == 0 and job["resubmit_at"] is None
-    assert job["retry_history"][-1]["kind"] == "manual_retry"
     assert json.loads(response.body)["job"]["status"] == "queued"
+
+
+@pytest.mark.parametrize("answer_to_question", [False, True])
+async def test_follow_ups_are_answered_from_the_locked_findings_with_no_call(monkeypatch, answer_to_question):
+    from routers import investigations as inv
+    calls = _gateway(monkeypatch, "ok")
+    owner, case_id, job_id = await _investigation()
+    await jobs.run(owner, case_id, job_id)
+    case = await repo.get_case(owner, case_id)
+    body = SubmitTurn(expected_revision=case["revision"], turn_id=str(uuid.uuid4()), message="Why is this a concern? Also check https://other.example/x",
+                      answer_to_question_id="q-1" if answer_to_question else None)
+    answer = await inv._follow_up(owner, case, body)
+    assert answer and answer["answeredBy"] == "apollo" and answer["answer"]
+    assert len(calls) == 1, "a follow-up never reaches Magnum DI"
+    assert await db.investigation_jobs.count_documents({"owner_id": owner, "case_id": case_id}) == 1, "no new job"
+
+
+async def test_a_follow_up_after_a_failed_magnum_call_gets_the_reason_and_tc_flybys_findings(monkeypatch):
+    from routers import investigations as inv
+    calls = _gateway(monkeypatch, "invalid")
+    owner, case_id, job_id = await _investigation()
+    await jobs.run(owner, case_id, job_id)
+    case = await repo.get_case(owner, case_id)
+    answer = await inv._follow_up(owner, case, SubmitTurn(expected_revision=case["revision"], turn_id=str(uuid.uuid4()), message="So is it a scam?"))
+    assert answer and "didn't pass Apollo's checks" in answer["answer"] and answer["limitation"] is True
+    assert len(calls) == 1
 
 
 async def test_settings_plan_makes_no_gemini_call(monkeypatch):
@@ -190,6 +218,8 @@ def test_investigation_code_has_no_other_gemini_call_path():
     from services.higgins import tools
     assert "provider" not in inspect.getsource(tools), "observation tools must not reach the Gemini gateway"
     assert inspect.getsource(coordinator).count("provider.generate(") == 1
+    assert coordinator.MAX_MAGNUM_CALLS == 1
+    assert "retry_once" not in inspect.getsource(jobs) and "asyncio.sleep(delay)" not in inspect.getsource(jobs), "no automatic retry"
     from routers import analysis
     source = inspect.getsource(analysis.vision_investigate)
     assert "generate_json" not in source and "generate(" not in source, "the Vision Gate must not pre-analyse with Gemini"

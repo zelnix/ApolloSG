@@ -52,10 +52,10 @@ def _response(**over) -> HigginsResponse:
 
 SOURCES = [{"id": "s1", "url": "https://www.scamwatch.gov.au/types-of-scams/phishing", "title": "Phishing scams", "authority": "official",
             "retrieval": "fetched"}]
-ROUTING = {"teddy": {"checks": [{"kind": "link", "route": "official_source", "status": "resolved"}]}}
+ROUTING = {"tc_flyby": {"checks": [{"kind": "link", "route": "official_source", "status": "resolved"}]}}
 
 
-def _facts(response=None, by="teddy_official"):
+def _facts(response=None, by="tc_flyby_official"):
     return facts_mod.build(response or _response(), answered_by=by, routing=ROUTING, sources=SOURCES)
 
 
@@ -65,7 +65,7 @@ def _codes(result) -> set[str]:
 
 # ── The renderer ─────────────────────────────────────────────────────────────
 def test_a_tc_flyby_result_is_explained_in_plain_words_and_passes():
-    plain = explain.explain(_response(), answered_by="teddy_official", routing=ROUTING, sources=SOURCES)
+    plain = explain.explain(_response(), answered_by="tc_flyby_official", routing=ROUTING, sources=SOURCES)
     assert plain.mode == "plain" and plain.fidelity.status == "PASS" and plain.attempts == 1
     assert plain.result.startswith("Concerning.")
     assert plain.severity == W.SEVERITY["action_needed"]
@@ -91,7 +91,7 @@ def test_a_tc_flyby_result_is_explained_in_plain_words_and_passes():
 def test_the_structured_result_is_never_changed():
     response = _response()
     before = response.model_dump(exclude={"plain_english"})
-    explain.explain(response, answered_by="teddy_official", routing=ROUTING, sources=SOURCES)
+    explain.explain(response, answered_by="tc_flyby_official", routing=ROUTING, sources=SOURCES)
     assert response.model_dump(exclude={"plain_english"}) == before
 
 
@@ -105,7 +105,7 @@ def test_a_magnum_di_result_credits_magnum_di():
 def test_a_general_question_has_nothing_to_explain():
     response = _response(outcome=None, assessment="no_concern_found_within_scope", attention="none", attention_reason=None, findings=[],
                          actions=[], recommended_action_id=None)
-    assert explain.explain(response, answered_by="teddy_kb", routing={}, sources=[]) is None
+    assert explain.explain(response, answered_by="tc_flyby_kb", routing={}, sources=[]) is None
 
 
 # ── The Fidelity Check catches every kind of change ──────────────────────────
@@ -169,7 +169,7 @@ def test_failure_details_carry_no_case_content(setup):
 def test_a_failed_part_is_repaired_in_apollos_own_wording(monkeypatch):
     real = render.plain
     monkeypatch.setattr(render, "plain", lambda text: real(text).replace("isn't", "is"))  # a renderer that drops a "not"
-    plain = explain.explain(_response(), answered_by="teddy_official", routing=ROUTING, sources=SOURCES)
+    plain = explain.explain(_response(), answered_by="tc_flyby_official", routing=ROUTING, sources=SOURCES)
     assert plain.mode == "repaired" and plain.fidelity.status == "PASS" and plain.attempts == 2
     assert plain.attempt_failures[0] and not plain.attempt_failures[1]
     assert "isn't ANZ's domain" in plain.result, "the failed part is shown in Apollo's own wording"
@@ -178,7 +178,7 @@ def test_a_failed_part_is_repaired_in_apollos_own_wording(monkeypatch):
 def test_still_failing_shows_apollos_wording_only(monkeypatch):
     real = render.render
     monkeypatch.setattr(render, "render", lambda f, literal=frozenset(): replace(real(f, literal), severity="How serious: nothing needs doing."))
-    plain = explain.explain(_response(), answered_by="teddy_official", routing=ROUTING, sources=SOURCES)
+    plain = explain.explain(_response(), answered_by="tc_flyby_official", routing=ROUTING, sources=SOURCES)
     assert plain.mode == "literal" and plain.fidelity.status == "FAIL"
     summary = explain.summary(plain, by="TC FlyBy", revision=1)
     assert summary["status"] == "FAIL" and summary["mode"] == "literal"
@@ -206,7 +206,7 @@ async def test_a_committed_result_carries_checked_plain_english_and_the_portal_s
     from starlette.requests import Request
 
     from routers import admin_portal
-    from tests.test_teddy_routing import _case, _gateway, _lookups
+    from tests.test_tc_flyby_routing import _case, _gateway, _lookups
 
     _gateway(monkeypatch)
     _lookups(monkeypatch, verdict="malicious", threats=["SOCIAL_ENGINEERING"])

@@ -34,7 +34,7 @@ test("a follow-up that brings something new is answered from the record and says
 
 test("the same wording as the backend presenter for the common intents", () => {
   assert.equal(investigationFollowUp(response, [], "What should I do?").answer, "What Magnum DI recommends:\n• Delete the message: Delete it and don't tap the link.");
-  assert.equal(investigationFollowUp(response, [], "What should I do?", "", "teddy_official").answer, "What TC FlyBy recommends:\n• Delete the message: Delete it and don't tap the link.");
+  assert.equal(investigationFollowUp(response, [], "What should I do?", "", "tc_flyby_official").answer, "What TC FlyBy recommends:\n• Delete the message: Delete it and don't tap the link.");
   assert.equal(investigationFollowUp(response, [], "What wasn't established?").answer,
     "What Magnum DI couldn't establish:\n• Who sent it could not be traced.\n\nWhat it checked: The message text and its link.");
   assert.match(investigationFollowUp(response, [], 'I did "Delete the message". Please re-check using the fresh observation Apollo just recorded.').answer, /isn't re-assessed/);

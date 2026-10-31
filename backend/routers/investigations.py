@@ -21,6 +21,7 @@ from core.config import HIBP_API_KEY, IPQS_API_KEY, SAFE_BROWSING_API_KEY
 from core.db import db, now_utc
 from core.redaction import redact_investigation_secrets
 from services.email import email_configured
+from services import work_dedupe
 from services.investigation_projector import project_case_now, project_case_started
 from services.storage import storage_configured
 from routers.push import push_configured
@@ -30,6 +31,7 @@ from services.higgins import ai_settings
 from services.higgins import outcomes, presenter
 from services.higgins import provider
 from services.higgins import repository as repo
+from services.higgins import tc_flyby
 from services.higgins.capacity import EVIDENCE_RETENTION_SECONDS
 from services.higgins.capacity import ITEMS, TEMPORARY_RETENTION, TEXT, policy
 from services.higgins.contracts import (CreateCase, CreateUpload, DeviceProfile, DeviceResult, EvidenceSubmission, ExpectedObservation, ExpectedRevision,
@@ -250,8 +252,14 @@ async def _launch_investigation(
     """
     case_id: str | None = None
     try:
+        earlier, claim = await same_evidence_case(owner, [(s["kind"], s["value"]) for s in (submissions or [])])
+        if earlier:
+            job = await first_job(owner, earlier["case_id"])
+            return earlier["case_id"], repo.job_view(job).wire() if job else None, None
         case = await repo.create_case(owner, gate, None, client_submission_id=client_submission_id, initiator=initiator)
         case_id = case["case_id"]
+        if claim:
+            await work_dedupe.attach(owner, CHECK_CLAIM, claim, case_id=case_id)
 
         # Ingest submitted evidence items
         for sub in (submissions or []):
@@ -323,6 +331,38 @@ async def _launch_investigation(
 
 
 # ------------------------------------------------------------------ cases
+CHECK_CLAIM = "check"
+
+
+async def same_evidence_case(owner: str, items: list[tuple[str, str]]) -> tuple[Optional[dict], Optional[str]]:
+    """Identical evidence already taken on by this device → (that case, None); otherwise (None, the claim to attach the
+    new case to). Claimed atomically (services/work_dedupe.py), so two identical checks arriving together start one
+    case. The question isn't part of it: rewording a question about the same evidence is not a new case. Another
+    device's evidence never matches. A claim whose case is gone (deleted or past its retention) is taken over."""
+    if not items:
+        return None, None
+    value = work_dedupe.digest(owner, *sorted(f"{kind}:{text}" for kind, text in items))
+    for _ in range(3):
+        earlier = await work_dedupe.claim(owner, CHECK_CLAIM, value)
+        if earlier is None:
+            return None, value
+        if not earlier.get("case_id"):
+            earlier = await work_dedupe.wait_for(owner, CHECK_CLAIM, value, "case_id")
+            if earlier is None:
+                if await db.work_claims.find_one({"owner_id": owner, "kind": CHECK_CLAIM, "digest": value}, {"_id": 1}):
+                    raise http(409, "conflict", "The same check is already starting on this device. Open it from Threats in a moment.")
+                continue   # the earlier claim let go: take it
+        case = await db.investigation_cases.find_one({"owner_id": owner, "case_id": earlier["case_id"], "deleted": False}, {"_id": 0})
+        if case and repo.utc(case["expires_at"]) > now_utc():
+            return case, None
+        await work_dedupe.release(owner, CHECK_CLAIM, value)
+    raise http(409, "conflict", "The same check is already starting on this device. Open it from Threats in a moment.")
+
+
+async def first_job(owner: str, case_id: str) -> Optional[dict]:
+    return await db.investigation_jobs.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0}, sort=[("created_at", 1)])
+
+
 @router.post("/investigations", status_code=201)
 async def create_case(body: CreateCase, request: Request, idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key")):
     owner = owner_of(request)
@@ -344,8 +384,22 @@ async def create_case(body: CreateCase, request: Request, idempotency_key: Optio
     if not gate and body.submissions:
         gate = _infer_gate_from_submissions(body.submissions, body.question)
 
-    case = await repo.create_case(owner, gate, body.device_profile.wire() if body.device_profile else None, initiator="user_check", origin=body.origin,
-                                  client_submission_id=body.patrol_event_id)
+    # The same evidence already checked on this device: that case, not a new one (no new work, no new AI call).
+    earlier, claim = await same_evidence_case(owner, [(item.kind, item.value) for item in body.submissions])
+    if earlier:
+        await repo.remember(owner, "create", key, payload_digest, {"caseId": earlier["case_id"]}, repo.utc(earlier["expires_at"]))
+        job = await first_job(owner, earlier["case_id"])
+        return JSONResponse({**await _case_json(earlier), "job": repo.job_view(job).wire() if job else None, "sameEvidence": True},
+                            status_code=201, headers=NO_STORE)
+    try:
+        case = await repo.create_case(owner, gate, body.device_profile.wire() if body.device_profile else None, initiator="user_check", origin=body.origin,
+                                      client_submission_id=body.patrol_event_id)
+    except Exception:
+        if claim:
+            await work_dedupe.release(owner, CHECK_CLAIM, claim)
+        raise
+    if claim:
+        await work_dedupe.attach(owner, CHECK_CLAIM, claim, case_id=case["case_id"])
     for item in body.submissions:
         if item.kind == "url":
             await ev.ingest_url(owner, case, item.client_item_id, item.value, label=item.label)
@@ -537,9 +591,9 @@ async def export_investigation_pdf(case_id: str, request: Request):
     evidence_wire = [repo.evidence_view(r).wire() for r in evidence_rows]
     subject = (case_wire.get("response") or {}).get("subject", "Investigation")
     # Tagged when any external source behind it was simulated: Magnum DI's Gemini call or TC FlyBy's search.
-    teddy = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.teddy.simulated": 1}) or {})
-             .get("routing") or {}).get("teddy") or {}
-    simulated = bool(teddy.get("simulated")) or any(r.get("simulated") for r in await get_di_records(owner, case_id))
+    flyby = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.tc_flyby.simulated": 1}) or {})
+             .get("routing") or {}).get("tc_flyby") or {}
+    simulated = bool(flyby.get("simulated")) or any(r.get("simulated") for r in await get_di_records(owner, case_id))
     # Every time in the report is the phone's local time: the offset it sends now, else the one it registered.
     sent = request.query_params.get("tzOffset", "")
     if re.fullmatch(r"-?\d{1,3}", sent):
@@ -928,24 +982,37 @@ async def complete_upload(case_id: str, upload_id: str, body: ExpectedRevision, 
 
 
 # ------------------------------------------------------------------ turns / jobs
-async def _finished_follow_up(owner: str, case: dict, body: SubmitTurn) -> Optional[dict]:
-    """A follow-up on a FINISHED Magnum DI investigation is answered from its record — no job, no Gemini call.
+async def _follow_up(owner: str, case: dict, body: SubmitTurn) -> Optional[dict]:
+    """Every follow-up on a case that has been investigated is answered from the case's locked findings — no job, no
+    AI call, no second investigation. This holds for an answer to Magnum DI's own question too, and when the follow-up
+    brings something new (a link, an email, a number or fresh evidence): the case's one investigation is never reopened.
 
-    This holds even when the follow-up brings something new (a link, an email, a number or fresh evidence):
-    a finished investigation is never reopened. Only an answer to Magnum DI's own pending question continues it.
+    None only when the case has had no investigation yet (no result, and its Magnum DI call unused): the turn is then the
+    case's first investigation.
     """
-    if body.answer_to_question_id or case.get("active_job_id") or not case.get("response_ciphertext"):
+    if case.get("active_job_id"):
         return None
-    response = repo.dec_json(case["response_ciphertext"])
-    if not presenter.is_finished(response):
-        return None
+    question = redact_investigation_secrets(body.message)
     answered_by = (case.get("routing") or {}).get("answeredBy")
-    answer = presenter.investigation_follow_up(response, await repo.sources(owner, case["case_id"]), redact_investigation_secrets(body.message), answered_by)
+    if case.get("response_ciphertext"):
+        response = repo.dec_json(case["response_ciphertext"])
+        answer = presenter.investigation_follow_up(response, await repo.sources(owner, case["case_id"]), question, answered_by)
+    elif await repo.magnum_call_used(owner, case["case_id"]):
+        # Magnum DI's one call didn't produce a result: the reason, and what TC FlyBy established.
+        answer = presenter.stopped_follow_up(await _failure_of(owner, case), await tc_flyby.established(owner, case["case_id"]))
+    else:
+        return None
     if body.evidence_ids and answer["intent"] != "recheck":
         answer = {**answer, "answer": (f"The new material was kept with this case, but {outcomes.investigator(answered_by)}'s investigation is finished, "
-                                       "so it wasn't re-assessed.\n\n" + answer["answer"])}
-    return {"turnId": body.turn_id, "question": redact_investigation_secrets(body.message), "answer": answer["answer"],
+                                       "so it wasn't re-assessed. If it's a separate message or incident, check it on its own.\n\n" + answer["answer"])}
+    return {"turnId": body.turn_id, "question": question, "answer": answer["answer"],
             "intent": answer["intent"], "limitation": answer["limitation"], "newItems": answer["newItems"], "answeredBy": "apollo"}
+
+
+async def _failure_of(owner: str, case: dict) -> Optional[str]:
+    job = await db.investigation_jobs.find_one({"owner_id": owner, "case_id": case["case_id"], "failure": {"$ne": None}}, {"_id": 0, "failure": 1},
+                                               sort=[("created_at", -1)])
+    return ((job or {}).get("failure") or {}).get("message")
 
 
 async def _submit_turn(owner: str, case: dict, body: SubmitTurn, key: str) -> dict:
@@ -978,7 +1045,7 @@ async def submit_turn(case_id: str, body: SubmitTurn, request: Request, idempote
     existing = await db.investigation_jobs.find_one({"owner_id": owner, "case_id": case_id, "idempotency_key_digest": repo.digest(f"{owner}:turn:{key}")}, {"_id": 0})
     if not existing:
         _revision_check(case, body.expected_revision)
-        follow_up = await _finished_follow_up(owner, case, body)
+        follow_up = await _follow_up(owner, case, body)
         if follow_up:
             return JSONResponse({"job": None, "followUp": follow_up, "caseRevision": case["revision"]}, status_code=200, headers=NO_STORE)
     job = await _submit_turn(owner, case, body, key)
@@ -1045,21 +1112,18 @@ async def resume_job(case_id: str, job_id: str, body: ExpectedRevision, request:
         await repo.get_evidence(owner, case_id, evidence_id)
     if case.get("active_job_id") and case["active_job_id"] != job_id:
         raise http(409, "conflict", "Another turn is active.")
-    # Both Gemini attempts were used: Magnum DI asked for a short pause before the person resubmits.
-    resubmit_at = repo.utc(job["resubmit_at"]) if job.get("resubmit_at") else None
-    if resubmit_at and resubmit_at > now_utc():
-        wait = int((resubmit_at - now_utc()).total_seconds()) + 1
-        minutes = max(1, round(wait / 60))
-        raise http(429, "rate_limited", f"Magnum DI needs a short pause before trying again. You can resubmit in about {minutes} minute{'s' if minutes != 1 else ''}.",
-                   retryable=True, retry_after=wait)
+    # One Magnum DI call per correlated case: once it was made, Resubmit can't make another.
+    if await repo.magnum_call_used(owner, case_id):
+        raise http(409, "conflict", "Magnum DI has already made this case's one call, so it can't be resubmitted. "
+                                    "Its findings, and why it stopped, stay on the case.")
     deadline = min(repo.utc(case["expires_at"]), now_utc() + timedelta(seconds=policy()["workSeconds"]))
     resubmitted = RetryAttempt(attempt=len(job.get("retry_history") or []) + 1, kind="manual_retry",
                                failure_code=(job.get("failure") or {}).get("code"), failure_message="Resubmitted by the person",
                                timestamp=now_utc().isoformat(), outcome="retrying").wire()
-    # A resubmission is a new attempt at the same investigation, with the same evidence: one Gemini call plus one retry.
+    # A resubmission picks up the same investigation, with the same evidence, before its Magnum DI call was made.
     await db.investigation_jobs.update_one({"owner_id": owner, "job_id": job_id}, {"$set": {"status": "queued", "failure": None, "lease_until": None, "fence": None,
                                                                                             "deadline_at": deadline, "epoch": case["epoch"], "work_epoch": case.get("work_epoch", case["epoch"]), "retry_at": None,
-                                                                                            "gemini_calls": 0, "resubmit_at": None},
+                                                                                            "resubmit_at": None},
                                                                                    "$push": {"retry_history": resubmitted}})
     await repo.cas(owner, case_id, {"revision": case["revision"]}, {"$set": {"status": "queued", "active_job_id": job_id, "active_turn_id": job["turn_id"]}}, bump=False)
     jobs.launch(owner, case_id, job_id)

@@ -1498,7 +1498,7 @@ def _env_label(model_str: str | None) -> str:
 
 
 # How each investigation was answered (cost routing): TC FlyBy's route, or Magnum DI's Gemini call.
-ANSWERED_BY_LABELS = {"teddy_official": "Official check", "teddy_kb": "ApolloSG KB", "teddy_search": "Web search", "magnum_di": "Gemini"}
+ANSWERED_BY_LABELS = {"tc_flyby_official": "Official check", "tc_flyby_kb": "ApolloSG KB", "tc_flyby_search": "Web search", "magnum_di": "Gemini"}
 _ROUTE_LABELS = {"triage_rules": "Higgins Triage rules", "official_source": "Official source", "apollo_kb": "ApolloSG KB",
                  "google_search": "Web search (TC FlyBy)"}
 
@@ -1532,13 +1532,13 @@ def _outcome_badge(key: str | None) -> str:
 
 def _routing_html(rows: list[dict], avg_cost: float) -> str:
     """Cost & performance measurement for Triage → TC FlyBy → Magnum DI over the period."""
-    routed = [r for r in rows if (r["routing"] or {}).get("teddy")]
+    routed = [r for r in rows if (r["routing"] or {}).get("tc_flyby")]
     n = len(routed)
-    resolved = sum(1 for r in routed if r["routing"]["teddy"].get("resolved"))
+    resolved = sum(1 for r in routed if r["routing"]["tc_flyby"].get("resolved"))
     pct = lambda part, whole: f"{(100 * part / whole):.0f}%" if whole else "—"  # noqa: E731
     total = lambda key: sum(r.get(key, 0) for r in rows)  # noqa: E731
-    cache_hits = sum(r["routing"]["teddy"].get("cacheHits", 0) for r in routed)
-    reused = sum(r["routing"]["teddy"].get("reusedOnRetry", 0) for r in routed)
+    cache_hits = sum(r["routing"]["tc_flyby"].get("cacheHits", 0) for r in routed)
+    reused = sum(r["routing"]["tc_flyby"].get("reusedOnRetry", 0) for r in routed)
     magnum_search_off = sum(1 for r in routed if (r["routing"].get("magnum") or {}) and not r["routing"]["magnum"].get("search"))
     from services.higgins import outcomes as case_outcomes
     outcomes: dict[str, dict] = {}
@@ -1565,8 +1565,8 @@ def _routing_html(rows: list[dict], avg_cost: float) -> str:
         {_stat_card(f'{n:,}', 'TC FlyBy Investigations')}
         {_stat_card(f'{resolved:,} ({pct(resolved, n)})', 'Resolved Without Magnum DI')}
         {_stat_card(pct(n - resolved, n), 'Magnum DI Invocation Rate')}
-        {_stat_card(f"{total('teddy_queries'):,} / {total('magnum_queries'):,}", 'Google Search Queries (Teddy / Magnum)')}
-        {_stat_card(f"{total('teddy_in'):,} / {total('teddy_out'):,}", 'Teddy Gemini Tokens (in / out)')}
+        {_stat_card(f"{total('flyby_queries'):,} / {total('magnum_queries'):,}", 'Search Queries (TC FlyBy / Magnum DI)')}
+        {_stat_card(f"{total('flyby_in'):,} / {total('flyby_out'):,}", 'TC FlyBy AI Tokens (in / out)')}
         {_stat_card(f"{total('magnum_in'):,} / {total('magnum_out'):,}", 'Magnum Gemini Tokens (in / out)')}
         {_stat_card(f"{total('magnum_search_calls'):,} / {total('magnum_calls') - total('magnum_search_calls'):,}", 'Magnum Calls with Search On / Off')}
         {_stat_card(f'{cache_hits + reused + magnum_search_off:,}', 'Repeated Searches Avoided')}
@@ -1600,18 +1600,18 @@ def _settled_reason_html(routing: dict | None, *, short: bool = False) -> str:
 
 def _routing_drilldown_html(case: dict | None) -> str:
     routing = (case or {}).get("routing") or {}
-    teddy = routing.get("teddy")
-    if not teddy:
+    flyby = routing.get("tc_flyby")
+    if not flyby:
         return ""
     magnum = routing.get("magnum") or {}
     checks = "".join(
         f"<tr><td>{html_mod.escape(c.get('kind', ''))}</td><td>{html_mod.escape(c.get('status', ''))}</td>"
         f"<td>{html_mod.escape(_ROUTE_LABELS.get(c.get('route') or '', {'needs_reasoning': 'Magnum DI', 'not_needed': 'Not needed'}.get(c.get('status'), '—')))}</td></tr>"
-        for c in teddy.get("checks", []))
-    issues = "<br>".join(f"{html_mod.escape(i.get('capability', ''))}: {html_mod.escape(i.get('text', '')[:200])}" for i in teddy.get("issues") or [])
+        for c in flyby.get("checks", []))
+    issues = "<br>".join(f"{html_mod.escape(i.get('capability', ''))}: {html_mod.escape(i.get('text', '')[:200])}" for i in flyby.get("issues") or [])
     magnum_line = (f"Called &middot; Google Search {'on' if magnum.get('search') else 'off'} &middot; {magnum.get('itemsSent', 0)} evidence items sent "
                    f"&middot; {magnum.get('searchQueries', 0)} search queries" if magnum else "Not called")
-    pattern = teddy.get("pattern") or {}
+    pattern = flyby.get("pattern") or {}
     pattern_line = (f"{html_mod.escape(pattern.get('key', ''))} &middot; {html_mod.escape(pattern.get('stage', ''))} match" if pattern else "No match")
     return f"""
     <h2>Cost Routing</h2>
@@ -1620,9 +1620,9 @@ def _routing_drilldown_html(case: dict | None) -> str:
             <tr><td style="color:var(--muted);width:180px;">Answered By</td><td>{_answered_by_badge(routing.get('answeredBy') or '')}</td></tr>
             <tr><td style="color:var(--muted);">Outcome</td><td>{_outcome_badge(routing.get('outcome'))}</td></tr>
             <tr><td style="color:var(--muted);">Why</td><td>{_settled_reason_html(routing)}</td></tr>
-            <tr><td style="color:var(--muted);">Message Type</td><td>{html_mod.escape(teddy.get('messageType') or 'unknown')}</td></tr>
+            <tr><td style="color:var(--muted);">Message Type</td><td>{html_mod.escape(flyby.get('messageType') or 'unknown')}</td></tr>
             <tr><td style="color:var(--muted);">ApolloSG KB Scam Pattern</td><td>{pattern_line}</td></tr>
-            <tr><td style="color:var(--muted);">TC FlyBy Search</td><td>{teddy.get('searchCalls', 0)} call(s) &middot; {teddy.get('searchQueries', 0)} queries &middot; {teddy.get('cacheHits', 0)} from cache</td></tr>
+            <tr><td style="color:var(--muted);">TC FlyBy Search</td><td>{flyby.get('searchCalls', 0)} call(s) &middot; {flyby.get('searchQueries', 0)} queries &middot; {flyby.get('cacheHits', 0)} from cache</td></tr>
             <tr><td style="color:var(--muted);">Magnum DI</td><td>{magnum_line}</td></tr>
             <tr><td style="color:var(--muted);">Sent To Magnum DI</td><td data-testid="magnum-issues">{issues or 'Nothing — TC FlyBy settled it'}</td></tr>
         </tbody>
@@ -1803,7 +1803,7 @@ def _di_transactions_html(records: list[dict]) -> str:
         response = r.get("response") or {}
         blocks += f"""
         <div class="s-card" style="margin-bottom:12px;" data-testid="di-transaction-{i}">
-            <div class="s-card-head"><strong>Transaction {i + 1}</strong> &nbsp; {'TC FlyBy search' if r.get('purpose') == 'teddy_search' else 'Magnum DI'} &middot; {_to_local(r.get('created_at'))}
+            <div class="s-card-head"><strong>Transaction {i + 1}</strong> &nbsp; {'TC FlyBy search' if r.get('purpose') == 'tc_flyby_search' else 'Magnum DI'} &middot; {_to_local(r.get('created_at'))}
                 &middot; {html_mod.escape(str(r.get('status') or 'not recorded'))}{(' (' + html_mod.escape(str(r['failure_code'])) + ')') if r.get('failure_code') else ''}
                 &middot; {'Simulated' if r.get('simulated') else 'Live'} &middot; {html_mod.escape(str(r.get('environment', '')))}</div>
             <table style="margin-top:8px;"><tbody>
@@ -1899,13 +1899,13 @@ async def investigations_cost_report(request: Request):
             "sources": {"$addToSet": "$extra.trigger_source"},
             # Cost routing: Magnum DI's call(s) and TC FlyBy's search call(s) are counted apart.
             "magnum_calls": {"$sum": {"$cond": [{"$eq": ["$purpose", "investigation"]}, 1, 0]}},
-            "teddy_calls": {"$sum": {"$cond": [{"$eq": ["$purpose", "teddy_search"]}, 1, 0]}},
+            "flyby_calls": {"$sum": {"$cond": [{"$eq": ["$purpose", "tc_flyby_search"]}, 1, 0]}},
             "magnum_in": {"$sum": {"$cond": [{"$eq": ["$purpose", "investigation"]}, {"$ifNull": ["$tokens.input", 0]}, 0]}},
             "magnum_out": {"$sum": {"$cond": [{"$eq": ["$purpose", "investigation"]}, {"$ifNull": ["$tokens.output", 0]}, 0]}},
-            "teddy_in": {"$sum": {"$cond": [{"$eq": ["$purpose", "teddy_search"]}, {"$ifNull": ["$tokens.input", 0]}, 0]}},
-            "teddy_out": {"$sum": {"$cond": [{"$eq": ["$purpose", "teddy_search"]}, {"$ifNull": ["$tokens.output", 0]}, 0]}},
+            "flyby_in": {"$sum": {"$cond": [{"$eq": ["$purpose", "tc_flyby_search"]}, {"$ifNull": ["$tokens.input", 0]}, 0]}},
+            "flyby_out": {"$sum": {"$cond": [{"$eq": ["$purpose", "tc_flyby_search"]}, {"$ifNull": ["$tokens.output", 0]}, 0]}},
             "magnum_queries": {"$sum": {"$cond": [{"$eq": ["$purpose", "investigation"]}, {"$ifNull": ["$search_queries", 0]}, 0]}},
-            "teddy_queries": {"$sum": {"$cond": [{"$eq": ["$purpose", "teddy_search"]}, {"$ifNull": ["$search_queries", 0]}, 0]}},
+            "flyby_queries": {"$sum": {"$cond": [{"$eq": ["$purpose", "tc_flyby_search"]}, {"$ifNull": ["$search_queries", 0]}, 0]}},
             "magnum_search_calls": {"$sum": {"$cond": [{"$and": [{"$eq": ["$purpose", "investigation"]},
                                                                  {"$eq": ["$extra.search_tool", True]}]}, 1, 0]}},
         }},
@@ -1925,12 +1925,12 @@ async def investigations_cost_report(request: Request):
 
     # Cases TC FlyBy settled without any Gemini call have no usage record, but they are investigations too.
     gemini_case_ids = [g["_id"][5:] for g in investigation_groups]
-    async for routed in db.investigation_cases.find({"routing.teddy.ranAt": {"$gte": start_utc, "$lte": end_utc},
+    async for routed in db.investigation_cases.find({"routing.tc_flyby.ranAt": {"$gte": start_utc, "$lte": end_utc},
                                                      "case_id": {"$nin": gemini_case_ids}}, {"_id": 0, "case_id": 1, "routing": 1}):
-        ran_at = routed["routing"]["teddy"]["ranAt"]
+        ran_at = routed["routing"]["tc_flyby"]["ranAt"]
         investigation_groups.append({"_id": f"case-{routed['case_id']}", "calls": 0, "ok": 0, "fail": 0, "input_tokens": 0, "output_tokens": 0,
                                      "thinking_tokens": 0, "cached_tokens": 0, "cost": 0.0, "first_call": ran_at, "last_call": ran_at,
-                                     "purposes": [], "models": ["teddy-flyby"], "sources": []})
+                                     "purposes": [], "models": ["tc-flyby"], "sources": []})
 
     # ── 3. Lookup investigation_cases and jobs for each case_id ──
     case_ids = [g["_id"][5:] for g in investigation_groups]  # strip "case-" prefix
@@ -2010,8 +2010,8 @@ async def investigations_cost_report(request: Request):
             "models": g["models"],
             "answered_by": _answered_by(case, g.get("magnum_calls", 0)),
             "routing": case.get("routing") or {},
-            **{k: g.get(k, 0) for k in ("magnum_calls", "teddy_calls", "magnum_in", "magnum_out", "teddy_in", "teddy_out",
-                                        "magnum_queries", "teddy_queries", "magnum_search_calls")},
+            **{k: g.get(k, 0) for k in ("magnum_calls", "flyby_calls", "magnum_in", "magnum_out", "flyby_in", "flyby_out",
+                                        "magnum_queries", "flyby_queries", "magnum_search_calls")},
         }
 
         # Apply filters
@@ -2130,10 +2130,9 @@ async def investigations_cost_report(request: Request):
             return f"{n / 1_000:.1f}K"
         return str(n)
 
-    # One Magnum DI investigation = one Gemini call (one retry allowed after a failed call).
-    # TC FlyBy's low-cost search call is counted separately below, under cost routing.
-    retried = sum(1 for r in report_rows if r["magnum_calls"] == 2)
-    over_limit = sum(1 for r in report_rows if r["magnum_calls"] > 2)
+    # One Magnum DI investigation = at most one Gemini call, never retried.
+    # TC FlyBy's search request is counted separately below, under cost routing.
+    over_limit = sum(1 for r in report_rows if r["magnum_calls"] > 1)
     magnum_cases = sum(1 for r in report_rows if r["magnum_calls"])
     avg_calls = total_calls / total_investigations if total_investigations else 0.0
     avg_cost = total_cost / total_investigations if total_investigations else 0.0
@@ -2148,8 +2147,7 @@ async def investigations_cost_report(request: Request):
     </div>
     <div class="alert {'alert-critical' if over_limit else 'alert-ok'}">
         <strong>One Magnum DI investigation = one Gemini call.</strong>
-        {magnum_cases - retried - over_limit:,} answered on the first call &middot; {retried:,} needed the one allowed retry &middot;
-        {over_limit:,} over the limit{' — investigate these cases' if over_limit else ''}.
+        {magnum_cases - over_limit:,} answered with their one call &middot; {over_limit:,} over the limit{' — investigate these cases' if over_limit else ''}.
         Gemini calls outside investigations this period: {unattr_calls:,} (${unattr_cost:.4f}).
     </div>
     {_routing_html(report_rows, avg_cost)}
@@ -3084,7 +3082,7 @@ _KB_TASKS: set = set()  # keeps a manual refresh alive until it finishes
 
 
 # ── Intelligence Reuse: what Apollo reused instead of paying to ask again ─────
-_REUSE_SITES = {"higgins_general_question": "Ask Higgins general question (ApolloSG's KB; no AI call)", "tc_flyby_search": "TC FlyBy targeted search (AI web search)",
+_REUSE_SITES = {"higgins_general_question": "Ask Higgins general question (ApolloSG's KB; no AI call)", "tc_flyby_search": "TC FlyBy targeted search (Brave web search; no AI call)",
                 "ipqs_phone": "Phone reputation (IPQualityScore)", "ipqs_url": "Link reputation (IPQualityScore)", "rdap": "Domain registration (RDAP)"}
 
 
@@ -4015,7 +4013,7 @@ _GEMINI_FEATURES = (
      "services/higgins/coordinator.py → run_turn()",
      "When TC FlyBy and what ApolloSG already knows can't settle an investigation."),
     ("tc_flyby", "TC FlyBy web search", "Narrow searches about a link, number, company, ABN, ACN or licence.",
-     "services/higgins/teddy/search.py → run()",
+     "services/higgins/tc_flyby/search.py → run()",
      "During an investigation, only for what no saved answer from the last 7 days covers."),
     ("model_test", "Test this model", "One fixed, made-up sample check of a provider and model, shaped like a Magnum DI call.",
      "services/higgins/model_test.py → run()",
@@ -4037,7 +4035,7 @@ def _starts(prefix: str) -> dict:
 _FEATURE_OF_RECORD = {"$switch": {"branches": [
     {"case": _starts("model-test-"), "then": "model_test"},
     {"case": {"$and": [{"$in": ["$purpose", ["investigation", "vision_investigation"]]}, _starts("case-")]}, "then": "magnum_di"},
-    {"case": {"$eq": ["$purpose", "teddy_search"]}, "then": "tc_flyby"},
+    {"case": {"$eq": ["$purpose", "tc_flyby_search"]}, "then": "tc_flyby"},
     {"case": {"$and": [{"$eq": ["$purpose", "ordinary_chat"]}, _starts("chat-")]}, "then": "ask_higgins"},
     {"case": {"$and": [{"$eq": ["$purpose", "ordinary_chat"]}, _starts("protection-")]}, "then": "protection"},
     {"case": _starts("page-crawl"), "then": "page_crawl"},

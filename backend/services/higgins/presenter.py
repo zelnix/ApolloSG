@@ -179,6 +179,15 @@ def investigation_follow_up(response: dict[str, Any], sources: list[dict[str, An
     return {"answer": answer.strip(), "intent": intent or "unanswered", "limitation": limitation, "newItems": mentioned}
 
 
+def stopped_follow_up(reason: Optional[str], established: list[str]) -> dict[str, Any]:
+    """A follow-up on a case whose one Magnum DI call didn't produce a result: why it stopped, and what TC FlyBy
+    established, word for word. No investigation is reopened and nothing is inferred."""
+    parts = [reason or "Magnum DI's one call for this case didn't produce a result, so there is no finished investigation to answer from.",
+             ("What TC FlyBy established:\n" + _bullets(established)) if established else "TC FlyBy didn't establish anything specific before that."]
+    return {"answer": "\n\n".join(parts).strip(), "intent": "unanswered", "limitation": True, "newItems": []}
+
+
+
 # ── Device / Apollo state ─────────────────────────────────────────────────────
 
 _DEVICE_INTENTS: list[tuple[str, re.Pattern]] = [(name, re.compile(pattern, re.I)) for name, pattern in [
