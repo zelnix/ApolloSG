@@ -17,8 +17,8 @@
  * - No AI calls.
  */
 import { recordActivity, recordActivities, hasTodayEntry, type ActivityEntry } from "@/src/store/activityLog";
-import { onPostureChange, type PostureChange, type PostureSnapshot } from "@/src/security/devicePosture";
-import type { ProtectionHealthSnapshot, GateHealthRecord } from "@/src/protection/healthTypes";
+import { onPostureChange, type PostureChange, type PostureSnapshot } from "@/src/security/postureMonitor";
+import type { ProtectionHealthSnapshot } from "@/src/protection/healthTypes";
 
 let _previousHealth: ProtectionHealthSnapshot | null = null;
 let _baselineRecorded = false;
