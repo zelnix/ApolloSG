@@ -9,7 +9,6 @@ import SendHorizontal from "lucide-react-native/icons/send-horizontal";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { InvestigationView } from "@/src/components/InvestigationView";
@@ -584,9 +583,9 @@ export default function Ask() {
         }}>
         {showWelcome ? <>
           <Text style={s.welcomePrompt} testID="higgins-welcome">What can I help you with? Ask me anything, or tap ⓘ to learn what I do.</Text>
-          <Animated.View key={rotation} entering={FadeIn.duration(350)} style={s.starters} testID="ask-suggestions">
+          <View style={s.starters} testID="ask-suggestions">
             {welcomeStarters.map((question, index) => <Pressable key={question} testID={`ask-suggestion-${index}`} style={s.starter} accessibilityRole="button" onPress={() => submit(question)} disabled={busy}><Text style={s.starterText} numberOfLines={2}>{question}</Text></Pressable>)}
-          </Animated.View>
+          </View>
         </> : null}
 
         {!investigationMode ? chatMessages.map((message) => message.role === "user"
