@@ -145,12 +145,12 @@ class TestDirectAnswerFirst:
 
 
 class TestNavigationForSharing:
-    """Sharing questions should navigate to Check a message, not Device capabilities."""
+    """Sharing questions lead to Ask Higgins, where every check starts — not Device capabilities."""
 
-    def test_sharing_navigates_to_message(self):
+    def test_sharing_navigates_to_ask_higgins(self):
         result = sharing_help("How do I share something into ApolloSG?")
         navigate = result.get("navigate", [])
-        assert "/message" in navigate, f"Expected /message in navigate, got {navigate}"
+        assert navigate == ["/(tabs)/ask"], f"Expected Ask Higgins in navigate, got {navigate}"
 
 
 class TestProductKnowledgeSelectsMinimum:

@@ -1,169 +1,207 @@
-# Golden-question regression suite for Higgins product knowledge and User Guide.
-# Tests the source hierarchy, Direct Answer First, and intent classification.
+"""The ApolloSG User Guide: genuine (every step names a real screen or button), shared with the app,
+and what Higgins answers "how do I…" questions from — direct answer first, never a scam article."""
+import asyncio
+import json
+import re
+from pathlib import Path
+
 import pytest
-from services.higgins.context_tools import classify_context
-from services.higgins.presenter import product_knowledge
-from services.higgins import user_guide
+
+from services.higgins import app_knowledge, chat, context_tools, presenter, user_guide
+
+ROOT = Path(__file__).resolve().parents[2]
+FRONTEND = ROOT / "frontend"
+GUIDE = json.loads(user_guide.GUIDE_PATH.read_text(encoding="utf-8"))
+ALL_TOPICS = [t for s in GUIDE["sections"] for t in s["topics"]]
 
 
-class TestUserGuideStructure:
-    """The User Guide has structured, searchable tasks."""
-
-    def test_guide_has_sections(self):
-        assert len(user_guide.GUIDE_SECTIONS) >= 8, "Guide must cover major ApolloSG sections"
-
-    def test_every_task_has_required_fields(self):
-        for task in user_guide.TASKS:
-            assert task.id, f"Task missing id"
-            assert task.name, f"Task {task.id} missing name"
-            assert task.section, f"Task {task.id} missing section"
-            assert task.questions, f"Task {task.id} missing questions"
-            assert task.what_it_does, f"Task {task.id} missing what_it_does"
-
-    def test_no_duplicate_ids(self):
-        ids = [t.id for t in user_guide.TASKS]
-        assert len(ids) == len(set(ids)), f"Duplicate task IDs: {[i for i in ids if ids.count(i) > 1]}"
-
-    def test_routes_are_valid(self):
-        """Tasks with routes should have sensible paths."""
-        for task in user_guide.TASKS:
-            if task.route:
-                assert task.route.startswith("/") or task.route.startswith("("), f"Task {task.id} route invalid: {task.route}"
+def _frontend_source() -> str:
+    text = "".join(p.read_text(errors="ignore") for folder in ("app", "src") for p in (FRONTEND / folder).rglob("*.ts*")
+                   if "/src/guide/" not in str(p))
+    return text.replace("\\u2014", "—").replace("\\u2026", "…").replace("&apos;", "'")
 
 
-class TestGoldenQuestions:
-    """Golden-question suite: common ApolloSG usage questions must produce correct answers."""
+# ── The guide itself ─────────────────────────────────────────────────────────
 
-    def test_sharing_procedure(self):
-        """'How do I share something into ApolloSG?' → sharing instructions, no privacy dump."""
-        result = product_knowledge("How do I share something into ApolloSG?", ["flows"], intent_label="sharing_help")
-        assert result is not None
-        assert "Share" in result["answer"]
-        assert "ApolloSG" in result["answer"]
-        # No privacy dump
-        assert "anonymous device ID" not in result["answer"].lower()
-        assert "retention" not in result["answer"].lower()
-        assert "encryption" not in result["answer"].lower()
-
-    def test_share_menu_troubleshoot(self):
-        """'Apollo isn't in my Share menu.' → troubleshooting/fallback."""
-        result = product_knowledge("Apollo isn't in my Share menu.", [], intent_label="sharing_help")
-        assert result is not None
-        assert "copy" in result["answer"].lower() or "paste" in result["answer"].lower()
-
-    def test_multi_intent_share_plus_privacy(self):
-        """'How do I share a screenshot and does it leave my phone?' → sharing + privacy."""
-        # The classifier should detect the sharing intent for the first half
-        plan = classify_context("How do I share a screenshot to ApolloSG and does it leave my phone?")
-        # Should recognize sharing intent (the primary intent)
-        assert plan.label == "sharing_help" or "privacy" in plan.knowledge_modules, \
-            f"Expected sharing_help or privacy, got {plan.label} with modules {plan.knowledge_modules}"
-
-    def test_where_to_check_message(self):
-        """'Where do I check a message?' → correct Apollo destination."""
-        tasks = user_guide.find_tasks("Where do I check a message?")
-        assert len(tasks) > 0
-        assert any(t.id == "check_message" for t in tasks), f"Expected check_message, got {[t.id for t in tasks]}"
-
-    def test_device_state_question(self):
-        """'Is message protection on for me?' → should route to device state, not User Guide."""
-        plan = classify_context("Is message protection on for me?")
-        # This is a device-state question, not a product-use question
-        assert plan.label != "sharing_help"
-
-    def test_case_question(self):
-        """'Why did Apollo flag this?' → should route to case/evidence, not User Guide."""
-        plan = classify_context("Why did Apollo flag this?")
-        assert plan.label != "sharing_help"
-        assert plan.label != "product_info"
-
-    def test_scam_education_question(self):
-        """'How do phishing scams work?' → KB/Learn, not User Guide product help."""
-        plan = classify_context("How do phishing scams work?")
-        # Should NOT be classified as product help
-        assert plan.label not in ("sharing_help",)
-
-    def test_unknown_feature(self):
-        """Unknown/non-existent feature → honest limitation, not fabricated answer."""
-        tasks = user_guide.find_tasks("How do I use the quantum teleporter feature?")
-        # Should return empty or very low-confidence matches
-        assert len(tasks) == 0 or all(t.id != "quantum_teleporter" for t in tasks)
-
-    def test_check_link_question(self):
-        tasks = user_guide.find_tasks("How do I check a link?")
-        assert any(t.id == "check_link" for t in tasks)
-
-    def test_check_file_question(self):
-        tasks = user_guide.find_tasks("How do I check a file?")
-        assert any(t.id == "check_file" for t in tasks)
-
-    def test_protections_question(self):
-        tasks = user_guide.find_tasks("What protections do I have?")
-        assert any(t.id == "protections" for t in tasks)
-
-    def test_ask_higgins_question(self):
-        tasks = user_guide.find_tasks("What can I ask Higgins?")
-        assert any(t.id == "ask_higgins" for t in tasks)
-
-    def test_settings_question(self):
-        tasks = user_guide.find_tasks("Where are settings?")
-        assert any(t.id == "settings" for t in tasks)
-
-    def test_sample_checks_question(self):
-        tasks = user_guide.find_tasks("What are sample checks?")
-        assert any(t.id == "sample_checks" for t in tasks)
+def test_app_bundles_an_exact_copy_of_the_guide():
+    copy = FRONTEND / "src/guide/userGuide.json"
+    assert copy.read_bytes() == user_guide.GUIDE_PATH.read_bytes(), "run: cd backend && python scripts/sync_user_guide.py"
 
 
-class TestSourceHierarchy:
-    """Higgins uses the correct authoritative source."""
-
-    def test_product_question_uses_guide_not_kb(self):
-        """A product-use question must not fall through to the scam KB."""
-        result = product_knowledge("How do I check a message?", [], intent_label="")
-        if result:
-            assert "phishing" not in result["answer"].lower() or "check" in result["answer"].lower()
-            assert result.get("task_id") or "/message" in str(result.get("navigate", []))
-
-    def test_privacy_question_still_works(self):
-        """Privacy questions must still get privacy answers."""
-        plan = classify_context("What does ApolloSG store?")
-        assert "privacy" in plan.knowledge_modules
-
-    def test_sharing_outranks_privacy(self):
-        """Sharing procedural question outranks generic privacy matching."""
-        plan = classify_context("How do I share something into ApolloSG?")
-        assert plan.label == "sharing_help"
-        assert "privacy" not in plan.knowledge_modules
+def test_every_topic_is_complete_and_unique():
+    ids = [t["id"] for t in ALL_TOPICS]
+    assert len(ids) == len(set(ids))
+    assert len(GUIDE["sections"]) >= 10
+    for t in ALL_TOPICS:
+        assert t["title"] and t["answer"], t["id"]
+        assert len(t["answer"]) <= 330, f"{t['id']}: the direct answer must stay short"
+        assert len(t.get("questions") or []) >= 3, f"{t['id']} needs common phrasings for Higgins"
 
 
-class TestDirectAnswerFirst:
-    """First paragraph independently answers the question."""
-
-    def test_sharing_starts_with_procedure(self):
-        result = product_knowledge("How do I share something into ApolloSG?", ["flows"], intent_label="sharing_help")
-        assert result is not None
-        first_para = result["answer"].split("\n\n")[0]
-        assert "share" in first_para.lower() or "Share" in first_para
-        assert len(first_para) < 300  # Concise first paragraph
-
-    def test_procedural_answer_concise(self):
-        """Simple procedural question answered in roughly 2-6 sentences."""
-        result = product_knowledge("How do I share something into ApolloSG?", ["flows"], intent_label="sharing_help")
-        assert result is not None
-        sentences = [s.strip() for s in result["answer"].replace("\n", " ").split(".") if s.strip()]
-        assert len(sentences) <= 8, f"Answer too verbose: {len(sentences)} sentences"
+def test_every_link_opens_a_real_screen_higgins_and_the_app_both_allow():
+    app_map = (FRONTEND / "src/higgins/appMap.ts").read_text()
+    for t in ALL_TOPICS:
+        for link in t.get("links") or []:
+            route = link["route"]
+            assert app_knowledge.valid_route(route), f"{t['id']}: {route} missing from NAV_ROUTES"
+            assert f'"{route}"' in app_map, f"{t['id']}: {route} missing from APOLLO_DESTINATIONS"
+            path = route.lstrip("/")
+            assert (FRONTEND / f"app/{path}.tsx").exists() or (FRONTEND / f"app/{path}/index.tsx").exists(), route
 
 
-class TestNoModuleDump:
-    """A keyword match must never mean 'display this whole module.'"""
+ALLOWED_EXAMPLES = {"Is this a scam?", "I want to check a link", "my phone is acting strangely", "was this you?", "Looks like a link"}
 
-    def test_flows_not_fully_dumped_for_specific_question(self):
-        result = product_knowledge("Where do I check a message?", ["flows"], intent_label="")
-        if result:
-            assert len(result["answer"]) < 1000, f"Answer too long for specific question: {len(result['answer'])} chars"
 
-    def test_privacy_not_fully_dumped_for_specific_question(self):
-        result = product_knowledge("Is my data stored on the server?", ["privacy"], intent_label="")
-        if result:
-            # Should not include ALL privacy bullets — only the relevant ones
-            assert len(result["answer"]) < 1500, f"Answer too long: {len(result['answer'])} chars"
+def test_every_quoted_button_or_label_exists_in_the_app():
+    """A quoted “label” is something the person will look for — it must be on screen (or be another guide topic)."""
+    source = _frontend_source()
+    titles = {t["title"] for t in ALL_TOPICS}
+    missing = []
+    for t in ALL_TOPICS:
+        texts = [t["answer"], *(t.get("steps") or []), *(t.get("notes") or []),
+                 *(d["heading"] for d in t.get("details") or []), *(d["text"] for d in t.get("details") or [])]
+        for text in texts:
+            for label in re.findall(r"“([^”]+)”", text):
+                core = label.split("…")[0].strip()
+                if label in titles or label in ALLOWED_EXAMPLES or core in source:
+                    continue
+                missing.append((t["id"], label))
+    assert not missing, missing
+
+
+def test_guide_never_sends_people_to_hidden_screens():
+    for t in ALL_TOPICS:
+        prose = " ".join([t["answer"], *(t.get("steps") or []), *(d["text"] for d in t.get("details") or [])])
+        assert "Check It" not in prose, t["id"]
+        for link in t.get("links") or []:
+            assert link["route"] not in ("/(tabs)/check-it", "/(tabs)/guard"), t["id"]
+
+
+# ── Higgins: finding the topic ───────────────────────────────────────────────
+
+@pytest.mark.parametrize("question,topic", [
+    ("How do I share something into ApolloSG?", "share-into"),
+    ("ApolloSG isn't in my share menu", "share-missing"),
+    ("How do I check a message?", "check-message"),
+    ("Where do I check a message?", "check-message"),
+    ("How do I check a phone number?", "check-number"),
+    ("How do I check a link?", "check-link"),
+    ("How do I check if a link is safe?", "check-link"),
+    ("How do I check a file?", "check-app-file"),
+    ("How do I check a screenshot?", "check-screenshot"),
+    ("How do I check my wifi?", "check-device"),
+    ("What can I ask Higgins?", "ask-higgins"),
+    ("Where are settings?", "settings"),
+    ("What are sample checks?", "sample-checks"),
+    ("Where do I see my past threats?", "threats-list"),
+    ("How do I delete a case?", "delete-cases"),
+    ("How do I delete my data?", "delete-data"),
+    ("Where is patrol history?", "patrol-history"),
+    ("How do I export my history?", "patrol-history"),
+    ("How do I connect Gmail?", "connect-gmail"),
+    ("How do I set up family sharing?", "family"),
+    ("How do I turn on call screening?", "call-screening"),
+    ("Can Apollo screen my calls?", "call-screening"),
+    ("How do I search my cases?", "search-cases"),
+    ("How do I trust a link?", "trusted-links"),
+    ("What does barking mean?", "apollo-states"),
+    ("how do i turn on notifications", "notifications"),
+    ("What does ApolloSG keep about me?", "privacy"),
+    ("how do I get help", "get-help"),
+    ("What is ApolloSG?", "what-is-apollosg"),
+])
+def test_product_questions_find_the_right_topic(question, topic):
+    found = user_guide.find_topics(question, limit=1)
+    assert found and found[0].id == topic, (question, [t.id for t in user_guide.find_topics(question)])
+
+
+@pytest.mark.parametrize("question", [
+    "How do I spot a phishing email?",
+    "How do I know if an email is really from my bank?",
+    "What should I do if I've been scammed?",
+    "How do phishing scams work?",
+    "How do I report a scam?",
+    "How do I protect myself from scams?",
+    "Someone called claiming to be my bank",
+    "I clicked a link I shouldn't have",
+    "What scams are going around right now?",
+    "Is my device protected?",
+    "Which protections aren't on yet?",
+    "What has Apollo found this week?",
+    "How do I use the quantum teleporter feature?",
+])
+def test_scam_and_state_questions_are_not_answered_from_the_guide(question):
+    assert user_guide.find_topics(question) == [], question
+
+
+@pytest.mark.parametrize("question,expected", [
+    ("How do I share something into ApolloSG?", True),
+    ("Where is patrol history?", True),
+    ("I can't find settings", True),
+    ("How do I spot a fake delivery text?", False),
+    ("How do I report a scam?", False),
+    ("Is this Wi-Fi safe to use?", False),
+])
+def test_procedural_questions_are_recognised(question, expected):
+    assert context_tools.procedural(question) is expected
+
+
+# ── Higgins: the answer ──────────────────────────────────────────────────────
+
+def test_answer_is_direct_first_then_numbered_steps_then_limits():
+    reply = user_guide.guide_answer("How do I delete a case?")
+    topic = user_guide.TOPIC_BY_ID["delete-cases"]
+    paragraphs = reply["answer"].split("\n\n")
+    assert paragraphs[0] == topic.answer
+    assert paragraphs[1].startswith("1. Open Threats")
+    assert paragraphs[-1].startswith("Note: Deleting needs a connection")
+    assert reply["navigate"] == ["/(tabs)/patrol"]
+
+
+def test_sharing_answer_is_the_procedure_not_a_dump():
+    reply = presenter.sharing_help("How do I share something into ApolloSG?")
+    assert reply["answer"].startswith("In the app where you see it, tap Share and choose ApolloSG.")
+    assert "1. Open the message" in reply["answer"]
+    assert len(reply["answer"]) < 900
+    for unrelated in ("phishing", "Scamwatch", "privacy", "Magnum"):
+        assert unrelated not in reply["answer"]
+    assert reply["navigate"] == ["/(tabs)/ask"]
+
+
+def test_sharing_trouble_gets_the_troubleshooting_topic():
+    reply = presenter.sharing_help("ApolloSG isn't in my share menu")
+    assert reply["answer"].startswith("Not every app offers Share")
+
+
+def _from_apollo(message: str):
+    plan = context_tools.classify_context(message)
+    return asyncio.run(chat._from_apollo("guide-test-device", message, plan, None))
+
+
+@pytest.mark.parametrize("question,topic", [
+    ("How do I share something into ApolloSG?", "share-into"),
+    ("How do I check a phone number?", "check-number"),
+    ("How do I turn on call screening?", "call-screening"),
+    ("Where is patrol history?", "patrol-history"),
+])
+def test_chat_answers_how_to_questions_from_the_guide_before_anything_else(question, topic):
+    result = _from_apollo(question)
+    assert result is not None
+    reply, label, provenance = result
+    assert label == "user_guide" and provenance == ["apollosg_user_guide"]
+    assert reply["topic_id"] == topic
+    assert reply["answer"].split("\n\n")[0] == user_guide.TOPIC_BY_ID[topic].answer
+
+
+@pytest.mark.parametrize("question", [
+    "How do I check a phone number?",
+    "How do I check a suspicious email?",
+    "Where do I check a message someone sent me?",
+])
+def test_how_to_questions_are_never_submitted_as_checks(question):
+    assert chat._items_to_check(question) == []
+
+
+def test_a_how_to_question_holding_a_real_link_or_number_is_still_checked():
+    assert chat._items_to_check("How do I check this link https://bit.ly/x1y2z3?") == [{"kind": "url", "value": "https://bit.ly/x1y2z3"}]
+    assert chat._items_to_check("Can you check this text: your parcel is held, pay the fee at our site now")[0]["kind"] == "text"

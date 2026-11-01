@@ -25,7 +25,7 @@ from services import reusable_intel as intel
 from services import sufficiency
 from services.higgins import app_knowledge, knowledge, pipeline_submit, presenter
 from services.higgins import context as memory
-from services.higgins import context_tools
+from services.higgins import context_tools, user_guide
 from services.higgins.contracts import Wire
 
 log = logging.getLogger("apollo.higgins.chat")
@@ -126,21 +126,32 @@ class ChatReply(Wire):
     retention: ChatRetention
 
 
+def _items_to_check(message: str) -> list[dict]:
+    """What a typed message asks Apollo to check. "How do I check a phone number?" asks how ApolloSG works:
+    only a real link, email address or number in such a question is something to check."""
+    if not pipeline_submit.detect_investigation_intent(message):
+        return []
+    items = pipeline_submit.extract_submittable_items(message)
+    if context_tools.procedural(message) and all(item["kind"] == "text" for item in items):
+        return []
+    return items
+
+
+
 async def reply(owner: str, conversation_id: str, turn_id: str, message: str, previous_turn_ids: list[str],
                 selected_patrol_record_id: str | None = None, device_snapshot: DeviceSnapshot | None = None,
                 selected_scam_alert_url: str | None = None) -> ChatReply:
     clean = redact_investigation_secrets(message).strip()
 
     # ── 1. Something specific to check → the shared investigation pipeline (never a pseudo-investigation here) ──
-    if pipeline_submit.detect_investigation_intent(clean):
-        items = pipeline_submit.extract_submittable_items(clean)
-        if items:
-            try:
-                result = await pipeline_submit.submit_to_investigation_pipeline(owner, clean, items)
-                return await _submitted(owner, conversation_id, turn_id, clean, result["case_id"], pipeline_submit.submitted_answer(items))
-            except Exception as exc:
-                log.warning("higgins_pipeline_submit_failed device=%s error=%s", owner[:12], type(exc).__name__)
-                # Fall through to normal chat if pipeline submission fails
+    items = _items_to_check(clean)
+    if items:
+        try:
+            result = await pipeline_submit.submit_to_investigation_pipeline(owner, clean, items)
+            return await _submitted(owner, conversation_id, turn_id, clean, result["case_id"], pipeline_submit.submitted_answer(items))
+        except Exception as exc:
+            log.warning("higgins_pipeline_submit_failed device=%s error=%s", owner[:12], type(exc).__name__)
+            # Fall through to normal chat if pipeline submission fails
 
     # ── 2. A scam alert the person opened → the source's own sections (0 AI calls) ──
     card = context_tools.alert_card_in(clean)
@@ -195,6 +206,11 @@ async def _from_apollo(owner: str, message: str, plan: context_tools.ContextPlan
                        snapshot: DeviceSnapshot | None, patrol_record_id: str | None = None) -> Optional[tuple[dict, str, list[str]]]:
     """What Apollo, Patrol, TC FlyBy, Magnum DI or the device already established — presented, never re-reasoned."""
     label = plan.label
+    # "How do I…" / "Where is…" is about using ApolloSG: the User Guide answers it directly, before any record or reading.
+    if label == "sharing_help" or context_tools.procedural(message):
+        guide = presenter.sharing_help(message) if label == "sharing_help" else user_guide.guide_answer(message)
+        if guide:
+            return guide, "user_guide", ["apollosg_user_guide"]
     if label == "patrol_record_context" and patrol_record_id:
         found = await context_tools.execute(owner, "get_recent_patrol_outcomes")
         record = next((item for item in found.get("items") or [] if item.get("recordId") == patrol_record_id), None)

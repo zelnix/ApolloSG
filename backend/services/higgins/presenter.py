@@ -391,34 +391,13 @@ def learn_article(article: dict[str, Any], max_chars: int = 1800) -> dict[str, A
 
 from services.higgins import user_guide
 
-# ── Sharing procedure ─────────────────────────────────────────────────────────
-_SHARING_ANSWER = (
-    "To share something into ApolloSG, open the message, link, screenshot or other item in the app "
-    "you're using, tap Share, then choose ApolloSG.\n\n"
-    "If ApolloSG isn't available in that app's Share menu, copy and paste the content into ApolloSG, "
-    "or take a screenshot and add that instead."
-)
-_SHARE_TROUBLESHOOT = (
-    "If ApolloSG isn't showing in your Share menu:\n"
-    "• Make sure ApolloSG is installed (not just a web shortcut).\n"
-    "• Some apps don't offer Share for every content type — use copy/paste or a screenshot.\n"
-    "• On Android, long-press ApolloSG in the share sheet to pin it to the top."
-)
+_SHARE_TROUBLE = re.compile(r"(?i)\b(?:isn'?t|not|doesn'?t|can'?t|cannot|missing|won'?t)\b")
 
 
 def sharing_help(question: str) -> dict[str, Any]:
-    """Direct procedure for sharing into ApolloSG. Concise, actionable, no dump."""
-    q = (question or "").lower()
-    # Troubleshooting: "not in my share menu" / "isn't showing"
-    if "isn't" in q or "not in" in q or "not showing" in q or "doesn't show" in q or "can't find" in q:
-        answer = _SHARING_ANSWER + "\n\n" + _SHARE_TROUBLESHOOT
-    # Screenshot-specific
-    elif "screenshot" in q:
-        answer = ("To send a screenshot to ApolloSG, take the screenshot first, then open it in your gallery or photos app, "
-                  "tap Share, and choose ApolloSG. Alternatively, open ApolloSG and tap + to add a screenshot from your photos.")
-    else:
-        answer = _SHARING_ANSWER
-    return {"answer": answer, "navigate": ["/message"], "limitation": False}
+    """Sharing into ApolloSG, from the User Guide: the procedure, or what to do when ApolloSG isn't in the Share menu."""
+    topic = "share-missing" if _SHARE_TROUBLE.search(question or "") else "share-into"
+    return user_guide.topic_reply(user_guide.TOPIC_BY_ID[topic])
 
 
 # ── Apollo product knowledge (refactored: select minimum facts, not whole modules) ──

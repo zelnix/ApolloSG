@@ -503,6 +503,18 @@ def about_apollo(message: str) -> bool:
     return bool(_ABOUT_APOLLO.search(message or ""))
 
 
+_PROCEDURAL_RE = re.compile(
+    r"(?i)^\W*(?:(?:hi|hey|ok|okay|so|higgins|please)\b[\s,]*)*"
+    r"(?:how\s+(?:do|can|should|would)\s+i\b|how\s+to\b|where\s+(?:do|can|should|would)\s+i\b|where\s+(?:is|are)\b|where'?s\b"
+    r"|i\s+can'?t\s+find\b|i\s+cannot\s+find\b)"
+)
+
+
+def procedural(message: str) -> bool:
+    """A "how do I…" / "where is…" question about using the app — not scam education ("how do I spot…")."""
+    return bool(_PROCEDURAL_RE.search(message or "")) and not _LEARN_RE.search(message or "")
+
+
 # ── Reader registry (unchanged) ──────────────────────────────────────────────
 
 READERS: dict[str, Callable[[str], Awaitable[dict]]] = {

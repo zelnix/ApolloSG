@@ -69,13 +69,16 @@ const ACKNOWLEDGEMENTS: Record<HigginsCheckCategory, string> = {
   device_internet: "Of course. Add anything you've noticed below and Apollo will check your device.",
 };
 
+/** "How do I check a link?" asks how ApolloSG works — Higgins answers it from the User Guide instead of opening a form. */
+const HOW_TO = /^\W*(?:how (?:do|can|should|would) i|how to|where (?:do|can|should|would) i|where (?:is|are)|where's)\b/i;
+
 /**
  * Returns the category to open, or null when the message is a question for Higgins to answer.
  * Requires both an intent phrase and a subject word; the earliest subject mentioned wins.
  */
 export function detectCheckIntent(message: string): CheckIntent | null {
   const text = message.trim();
-  if (!text) return null;
+  if (!text || HOW_TO.test(text)) return null;
   if (!INTENT_PATTERNS.some((p) => p.test(text))) return null;
 
   let best: { category: HigginsCheckCategory; index: number } | null = null;

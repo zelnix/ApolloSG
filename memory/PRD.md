@@ -1,5 +1,33 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## ApolloSG User Guide (searchable, prose) + Higgins answers "how do I…" from it (2026-11-01, session 3)
+
+**Owner's choices:** plan order as proposed; no screens removed for now (orphan cleanup on hold); no testing agent — pytest + node tests + screenshots.
+
+**One guide, two readers**
+- Canonical content: `backend/services/higgins/user_guide.json` (13 sections, 43 topics: answer · steps · details · notes · links · questions · keywords). Reviewed 2026-06.
+- App copy: `frontend/src/guide/userGuide.json` (byte-identical; `cd backend && python scripts/sync_user_guide.py` after editing). Test enforces parity.
+- Every step was checked against the real app: real tabs (Home, Threats, Ask Higgins, Alerts, Learn), ☰ menu, the ⊕ check button in Ask Higgins and its six forms, real button labels. A test checks every quoted “label” exists in the app source and every link is a real route in both NAV_ROUTES and APOLLO_DESTINATIONS. Hidden screens (Check It, old Your protections) are never referenced.
+
+**Frontend**
+- `app/user-guide/index.tsx`: search (title, keywords, questions, headings, body; prefix "shar" → share; all words must match; highlighted matches + snippet) and browse by section. "Ask Higgins about this" prefills Higgins (`prompt` param — the old `prefill` param did nothing).
+- `app/user-guide/[section].tsx`: full prose reader — direct answer, numbered steps, details, limitation notes, jump-to buttons that open the screen; scrolls to the chosen topic; "Next" section.
+- `src/guide/search.ts` (pure), `src/guide/guide.ts`. Removed old `app/user-guide.tsx` and empty `src/guideContent.ts`.
+- `checkIntent.ts`: "how do I / where do I / where is…" questions no longer open a check form — they go to Higgins for the guide answer.
+- `localResponder.ts` help_navigation now describes the real tabs + ☰ menu + ⊕ (was "Check It is the hub"), links User Guide + Home.
+- Route maps (both): added `/(tabs)/learn`, `/alerts`, `/patrol/search`, `/sample-checks`, `/user-guide`, `/privacy`; backend also `/(tabs)/protection`, `/how-apollo-checks`; `/(tabs)/ask` labelled "Ask Higgins".
+
+**Backend (Higgins)**
+- `user_guide.py` loads the JSON; `find_topics` (stop-words + Jaccard/coverage, threshold 0.5) → one topic; answer = direct answer, numbered steps, "Note:" limits; navigate = topic links.
+- `context_tools.procedural()` — how-do-I/where-is questions, excluding scam education (`_LEARN_RE`).
+- `chat._from_apollo`: procedural or sharing_help → User Guide first (label `user_guide`, provenance `apollosg_user_guide`), before records/device state.
+- `chat._items_to_check`: a how-to question is never submitted as an investigation unless it holds a real link/email/phone (found: "How do I check a phone number?" was being submitted as a 30-char text check).
+- `presenter.sharing_help` now uses guide topics share-into / share-missing (navigates to Ask Higgins, not `/message`).
+- Rule book: HIG-05 sub-rules, Ask Higgins step 2/3 + server-check rule updated; fixed two stale facts (server copy 1440 minutes; scam alerts 60 days); stamped.
+
+**Tests:** backend test_user_guide 66 + higgins/rulebook suites 307 passed; frontend userGuide.test.ts 7/7, full suite 1310/1312 — the 2 failures (carrierWarning.test.ts, tabBadges.test.ts) are pre-existing in files not touched. Pre-existing tsc error: `ApolloContext.tsx` checkCall uses undeclared `options` (lines ~1513/1526).
+
+
 ## Investigation expiry overhaul + Patrol History unified activity log + Threats screen detail fix (2026-11-01)
 
 ### Investigation Expiry Overhaul

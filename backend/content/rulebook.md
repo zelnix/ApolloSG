@@ -703,6 +703,8 @@ If the answer fails, the check fails honestly. The raw reply is kept only in the
 - **HIG-03** · A scam alert the person opened is shown in the source's own words
 - **HIG-04** · A Learn article is shown in its own words
 - **HIG-05** · Patrol records, the phone's live state, recent investigations and ApolloSG product knowledge are shown as they are
+  - A "how do I…" or "where is…" question about using ApolloSG is answered first from the ApolloSG User Guide — the same guide the app shows under ☰ → User Guide: the one topic that answers it, its direct answer first, then its steps and any limitation, with taps to the screens. Never a whole section, and never a scam article in its place.
+  - Scam-education questions ("how do I spot…", "how do I report…") are not product questions and still go to the KB.
 - **HIG-06** · ApolloSG's KB is quoted with publisher and link, labelled as general knowledge
 - **HIG-07** · An off-topic question gets a fixed reply, word for word
   - "I specialise in helping you stay safe from scams and cyber threats through ApolloSG. For that question, a general assistant would be a better fit. Is there anything security-related I can help with?"
@@ -1215,7 +1217,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 | Settings and preferences | Until the person deletes all their data or uninstalls ApolloSG |
 
 **On ApolloSG's server**
-- **Investigations:** the content is encrypted with a key used for nothing else, and the server's working copy expires 15 minutes after it opens. Retries and reads never extend it. The finished record lives on the phone; the server doesn't keep finished investigations.
+- **Investigations:** the content is encrypted with a key used for nothing else, and the server's working copy expires 1440 minutes after it opens (24 hours). Retries and reads never extend it. The finished record lives on the phone; the server doesn't keep finished investigations.
 - **The phone's copy, kept until the phone confirms it.** When a check finishes, the server keeps one copy for the phone that asked: the finished result, the exact text and links submitted, and who sent it, its subject and when it arrived. No clock removes it, not the 15-minute working copy and not the 24 hours: if the phone is offline, it waits. The phone saves its own copy, reads it back to check that it is complete, and only then tells the server; the server checks the phone named every part it holds, and only then deletes it. Sooner when the person deletes the check or all their data.
 - **Pictures and files:** everything submitted for a check (pictures, files and text) is deleted from the server within 24 hours of the investigation finishing, whether it was answered, failed or was cancelled. A check that is still running is never cut short: the 24 hours start when it finishes, and start again if a follow-up question sends it back to work. Most of it goes much sooner, as soon as the phone has saved the result or with the 15-minute working copy. The database removes it by itself at 24 hours, even if ApolloSG's own clean-up has stopped, and it is never served after that.
 - **The text of a message kept with a Threats record or investigation case** (its preview) is deleted 24 hours after it was kept, by every maintenance cycle — but never before the phone has confirmed it saved that record with its text. If the phone is offline, the 24 hours wait for it. Who sent it, its subject and the website stay: they are the identifiers the case is about.
@@ -1328,7 +1330,8 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 2. **"I want something checked."** The message has a check word *and* a subject word. The matching form opens, and the first subject mentioned wins. Higgins only says what to add, never a verdict. The person still supplies the item, and it goes through the full check.
    - Check words: check, checked, scan, investigate, verify, look at, have a look, "is this / that / it", scam, phishing, suspicious, legit, and safe to open / use / click / pay.
    - Subject words: screenshot, photo, picture, image or QR code; email, inbox or mailbox; message, text, SMS, call, caller, voicemail, number or WhatsApp; link, website, URL, web page, domain or site; app, file, attachment, download, APK or PDF; device, Wi-Fi, internet, network or router.
-3. **Where something is, or how to do something** ("where is…", "how do I turn on…", "take me to…", "which screen…") → Higgins on the server, who answers with a tap straight to the screen.
+   - A question that starts "how do I / how can I / how to / where do I / where is" never opens a form: it asks how ApolloSG works, so it goes to step 3.
+3. **Where something is, or how to do something** ("where is…", "how do I turn on…", "take me to…", "which screen…") → Higgins on the server, who answers from the ApolloSG User Guide with a tap straight to the screen.
 4. **This phone's state:** protection status, device health, website, call, text or app protection, the VPN, permissions, current issues or the last check → answered on the phone from its live reading. Nothing is sent.
 5. **Something suspicious, described without the form** ("is this a scam?", "I got a dodgy text", "someone called me…") → Higgins on the server.
 6. **About ApolloSG itself:** how ApolloSG works, who Higgins or Magnum DI is, the protections, finding your way around, or what Apollo's states mean → a fixed answer on the phone, with taps to the right screens.
@@ -1341,6 +1344,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 - The message has to ask plainly: "is this / could this be" with scam, phishing, fraud, legit, safe, fake, suspicious, malicious or dodgy; or check, investigate, look at, look into, scan, verify, inspect or analyse; or "should I / is it safe to" with click, open, respond, reply, call or trust.
 - *And* it has to hold something to check: a link, an email address, a phone number of 8 or more characters, or at least 30 characters of text.
 - If either is missing, the message is answered as a question. Missing a check is preferred to starting one by accident.
+- A "how do I… / where is…" question ("How do I check a phone number?") is answered as a question from the User Guide. It starts a check only when it holds a real link, email address or phone number.
 - Higgins then says the check has started, and offers "View Investigation". If the check can't be started, the message is answered as a question instead.
 
 **The + button: one form per kind of check**
@@ -1399,7 +1403,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 **What is shown**
 - Only items that have been read and explained. An item that hasn't been read yet is never shown as a scam alert.
 - Only specific scam campaigns and emerging patterns. General scam education goes to Learn with Higgins.
-- Only recent reports: an item dated more than 180 days ago is left out. An undated item stays, because its age can't be proven.
+- Only recent reports: an item dated more than 60 days ago is left out. An undated item stays, because its age can't be proven.
 - The most recent first, up to 50.
 - Each alert once: an article its feed lists twice is shown once, and a link a feed wraps in page code is read for the article's real address.
 - **Where an alert applies (no AI):** an alert is local to its source's country when its headline or summary names something only that country has: a national agency (FTC, IRS, HMRC, ATO…), a benefit, a payment service, an election, a state or its people. Naming another country as well makes it apply everywhere. Otherwise it applies everywhere.

@@ -1,0 +1,1022 @@
+{
+  "reviewed": "2026-06",
+  "sections": [
+    {
+      "id": "getting-started",
+      "title": "Getting started",
+      "summary": "What ApolloSG does, setting it up, and finding your way around.",
+      "topics": [
+        {
+          "id": "what-is-apollosg",
+          "title": "What ApolloSG does",
+          "answer": "ApolloSG helps protect you from scams and online threats. Apollo watches and checks things for you, TC FlyBy and Magnum DI investigate anything that needs a closer look, and Higgins explains what was found and shows you where to go.",
+          "details": [
+            {
+              "heading": "Who does what",
+              "text": "• Apollo — the watchdog. Watches, checks, blocks and records what happens on this device.\n• TC FlyBy — Apollo's quick investigator. Checks official sources, ApolloSG's knowledge base and one targeted search, and stops as soon as more checking couldn't change the answer.\n• Magnum DI — the deep investigator. Called in only when TC FlyBy can't settle something and a deeper look could change the answer.\n• Higgins — your guide. Explains results, answers questions about scams and about ApolloSG, and takes you to the right screen. Higgins doesn't investigate."
+            },
+            {
+              "heading": "No account needed",
+              "text": "ApolloSG doesn't ask for your name, email address or a password. It registers this phone with an anonymous device ID."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/home", "label": "Go to Home" }],
+          "questions": ["what is apollosg", "what does apollosg do", "what does this app do", "who does what in apollosg", "what is the difference between apollo and higgins"],
+          "keywords": ["about", "overview", "introduction", "apollo", "higgins", "roles", "watchdog", "investigator"]
+        },
+        {
+          "id": "setup",
+          "title": "Setting up ApolloSG",
+          "answer": "Setting up takes a few minutes: read the privacy statement, turn on the protections your phone allows, then let Apollo read your device's starting point.",
+          "steps": [
+            "Open ApolloSG and tap “Continue”.",
+            "Read the privacy statement, then tap “I understand — set up ApolloSG”.",
+            "ApolloSG offers each protection your phone allows, one at a time. Tap the button to turn it on, or “Not now” to skip it. “Skip the rest for now” skips the remaining ones.",
+            "Tap “Next: your first check”. Apollo reads this device's security settings — ApolloSG never assumes a new phone is clean.",
+            "When the first check finishes, you arrive on Home."
+          ],
+          "details": [
+            {
+              "heading": "Skipped a protection?",
+              "text": "You can turn it on at any time later. See “Turning a protection on or fixing one”."
+            }
+          ],
+          "notes": ["Website protection and message screening are offered on Android only."],
+          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
+          "questions": ["how do i set up apollosg", "how do i get started", "first time setup", "how do i start using apollosg", "what happens when i first open apollosg", "how do i set up the app"],
+          "keywords": ["setup", "set up", "first time", "onboarding", "install", "welcome", "begin", "getting started"]
+        },
+        {
+          "id": "getting-around",
+          "title": "Finding your way around",
+          "answer": "The five tabs along the bottom are Home, Threats, Ask Higgins, Alerts and Learn. Everything else is in the ☰ menu at the top right of most screens.",
+          "details": [
+            {
+              "heading": "The tabs",
+              "text": "• Home — Apollo's status, your protection and anything that needs you.\n• Threats — every case Apollo has opened, with its full details.\n• Ask Higgins — ask a question, or tap ⊕ to have something checked.\n• Alerts — current scam warnings from official sources (called Scam Alerts on tablets).\n• Learn — articles about scams and staying safe (called Learn with Higgins on tablets)."
+            },
+            {
+              "heading": "The ☰ menu",
+              "text": "Sample checks, User Guide, Settings, About ApolloSG, How Apollo checks, Privacy and Support."
+            },
+            {
+              "heading": "Other buttons you'll see",
+              "text": "• The bell opens your alerts: device settings that need attention, threats Apollo detected and alerts ApolloSG sent you.\n• ⓘ explains the screen you're on.\n• A number on the Threats tab shows how many cases need you. A number on the Alerts tab shows new serious scam alerts."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/home", "label": "Go to Home" }],
+          "questions": ["how do i find my way around", "how do i navigate the app", "where is everything", "what are the tabs", "where is the menu", "how do i use apollosg", "how does the app work"],
+          "keywords": ["navigate", "navigation", "tabs", "menu", "hamburger", "bottom bar", "layout", "find", "where"]
+        }
+      ]
+    },
+    {
+      "id": "home-protection",
+      "title": "Home and your protection",
+      "summary": "Reading Home, Apollo's states and how well you're protected.",
+      "topics": [
+        {
+          "id": "home",
+          "title": "The Home screen",
+          "answer": "Home shows what Apollo is doing right now, how well you're protected, and anything that needs your attention.",
+          "details": [
+            {
+              "heading": "Apollo's card",
+              "text": "The top card shows Apollo's state and Higgins' short summary of what needs you. When there's more than one thing, swipe the card or tap the dots to move between them. Tap the card to open that case."
+            },
+            {
+              "heading": "Your protection",
+              "text": "Shows your overall protection, with Apollo's protections on one side and your device's own protections on the other. Tap either side to open the Protections screen."
+            },
+            {
+              "heading": "Important for you and Recent activity",
+              "text": "“Important for you” lists up to three open threats, then the most important current scam alert. “Recent activity” shows the latest case Apollo recorded. “View all” opens Threats."
+            },
+            {
+              "heading": "A link on your clipboard",
+              "text": "If you've copied a link, Home may offer to check it before you open it."
+            },
+            {
+              "heading": "Refreshing",
+              "text": "Pull down on Home to fetch your newest cases."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/home", "label": "Go to Home" }],
+          "questions": ["what does the home screen show", "what is on the home page", "what does the main screen do", "what is the card at the top of home", "what is important for you"],
+          "keywords": ["home", "main screen", "dashboard", "home page", "important for you", "recent activity", "clipboard"]
+        },
+        {
+          "id": "apollo-states",
+          "title": "What Apollo's states mean",
+          "answer": "Apollo shows how concerned he is by how he behaves: Patrolling means nothing of concern was found, Growling a possible concern, Barking a significant concern, and Biting means a real block was confirmed.",
+          "details": [
+            {
+              "heading": "Every state",
+              "text": "• Patrolling — no concern was found in the checks that completed.\n• Sniffing — checks are still running; nothing is final yet.\n• Sniffing something — Apollo noticed something and is looking more closely.\n• Growling — a possible concern that needs caution or more investigation.\n• Barking — a significant concern that needs your attention.\n• Biting — an actual block, confirmed by the device's own evidence."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
+          "questions": ["what does barking mean", "what does growling mean", "what does patrolling mean", "what does biting mean", "what does sniffing mean", "what do apollo's states mean", "what do the dog states mean"],
+          "keywords": ["patrolling", "sniffing", "growling", "barking", "biting", "ears up", "states", "dog"]
+        },
+        {
+          "id": "protection-status",
+          "title": "Checking how well you're protected",
+          "answer": "Tap “Your protection” on Home to open the Protections screen. It gives one overall answer — from Well protected to Protection at risk — and shows each protection's real status.",
+          "steps": [
+            "On Home, tap the “Your protection” card.",
+            "Read the overall answer at the top.",
+            "Use the two tabs: “Apollo Protections” for ApolloSG's five protection areas, and “Device Protections” for your phone's own settings.",
+            "Tap an area to see its protections and what each one needs."
+          ],
+          "details": [
+            {
+              "heading": "The overall answer",
+              "text": "• Well protected\n• Mostly protected\n• Protection reduced\n• Protection at risk\n• Protection unknown — Apollo doesn't have enough readings yet."
+            },
+            {
+              "heading": "Apollo's five areas",
+              "text": "Websites & Links, Messages & Calls, Email & Accounts, Apps & Files, and Device & Internet."
+            },
+            {
+              "heading": "Checking again",
+              "text": "The row “Protection status checked … ago” shows when Apollo last read your protections. Tap it to check again. If a check didn't run, the screen says so and shows the age of the last successful reading."
+            },
+            {
+              "heading": "Just want a quick answer?",
+              "text": "Ask Higgins “Is my device protected?” for a summary from this phone's latest reading."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
+          "questions": ["where do i see my protections", "how do i check my protection status", "where is the protections screen", "what does protection reduced mean", "what does mostly protected mean", "what does well protected mean", "what does protection at risk mean"],
+          "keywords": ["protections", "protection status", "well protected", "mostly protected", "protection reduced", "at risk", "protections screen", "coverage"]
+        },
+        {
+          "id": "turn-on-protection",
+          "title": "Turning a protection on or fixing one",
+          "answer": "Open Protections from Home, tap the area, then tap the protection. ApolloSG shows what it needs and a button to fix it — often opening the right page in your phone's settings.",
+          "steps": [
+            "On Home, tap “Your protection”.",
+            "On the “Apollo Protections” tab, tap the area — for example Messages & Calls.",
+            "Tap the protection you want to turn on or fix.",
+            "Follow the button ApolloSG shows, then check again to confirm it's working."
+          ],
+          "details": [
+            {
+              "heading": "What each protection needs",
+              "text": "• Website protection (Android) — permission to run a private on-device VPN filter. Your browsing isn't sent anywhere.\n• Message screening (Android) — notification access. Apollo reads each new message notification as it arrives, never your SMS inbox.\n• Call screening — on Android, choose ApolloSG as your Caller ID & spam app. On iPhone, turn ApolloSG on in the iPhone Settings app under Phone → Call Blocking & Identification.\n• Email monitoring — connect Gmail with read-only access."
+            },
+            {
+              "heading": "Another way in",
+              "text": "☰ → Settings → Protection → “View all protections” lists every protection with its status and setup."
+            }
+          ],
+          "notes": ["Website protection and message screening are Android only."],
+          "links": [
+            { "route": "/(tabs)/protection", "label": "Open Protections" },
+            { "route": "/gates", "label": "View all protections" }
+          ],
+          "questions": ["how do i turn on a protection", "how do i turn on message screening", "how do i turn on website protection", "how do i fix a protection", "how do i enable a protection", "how do i switch on protection", "how do i turn on email monitoring"],
+          "keywords": ["turn on", "enable", "switch on", "fix", "permission", "vpn", "notification access", "message screening", "website protection"]
+        },
+        {
+          "id": "call-screening",
+          "title": "Call screening",
+          "answer": "On Android, ApolloSG can screen incoming calls once you choose it as your Caller ID & spam app. On iPhone, Apple doesn't let apps check calls as they ring, but once you turn ApolloSG on in Phone settings it can block numbers you've blocked or that are known high-risk.",
+          "steps": [
+            "On Home, tap “Your protection”.",
+            "On the “Apollo Protections” tab, tap “Messages & Calls”.",
+            "Tap “Call screening” and follow the button ApolloSG shows. On iPhone, the setting is in the iPhone Settings app under Phone → Call Blocking & Identification."
+          ],
+          "details": [
+            {
+              "heading": "Checking a number yourself",
+              "text": "You can check any number at any time — see “Checking a phone number or caller”."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
+          "questions": ["can apollosg screen my calls", "does apollosg screen calls", "how do i turn on call screening", "how do i set up call screening", "how does call screening work", "can apollosg block calls", "can apollosg screen calls on iphone"],
+          "keywords": ["call screening", "caller id", "spam app", "call blocking", "block calls", "incoming calls"]
+        },
+        {
+          "id": "device-protections",
+          "title": "Your device's own protections",
+          "answer": "The “Device Protections” tab on the Protections screen shows the security settings built into your phone, grouped into areas, and which ones need attention.",
+          "steps": [
+            "On Home, tap the device side of the “Your protection” card.",
+            "Read the counts: what needs attention, what needs checking, and what's protected.",
+            "Tap an area to see each setting and what to do."
+          ],
+          "details": [
+            {
+              "heading": "What ApolloSG can and can't read",
+              "text": "ApolloSG can read some of your phone's settings directly. Others it can't see, so it asks you to check them yourself and says so. These protections come from your phone's maker or operating system, not from ApolloSG."
+            }
+          ],
+          "links": [{ "route": "/device-protection", "label": "Open Device Protections" }],
+          "questions": ["what are device protections", "how do i check my phone's security settings", "where do i see my device settings", "what does my phone protect by itself", "where are device protections"],
+          "keywords": ["device protections", "phone settings", "screen lock", "updates", "built-in", "device security", "operating system"]
+        }
+      ]
+    },
+    {
+      "id": "checking",
+      "title": "Checking something suspicious",
+      "summary": "Messages, calls, links, emails, screenshots, apps, files and your device.",
+      "topics": [
+        {
+          "id": "start-a-check",
+          "title": "Checking something",
+          "answer": "Open Ask Higgins, tap ⊕ next to the message box, choose what you want checked, add it, then tap “Ask Higgins to investigate”.",
+          "steps": [
+            "Tap the Ask Higgins tab.",
+            "Tap ⊕ to the left of the message box.",
+            "Choose what you want checked: Screenshot or photo, Websites & Links, Messages & Calls, Email & Accounts, Apps & Files, or Device & Internet.",
+            "Paste or pick the item. You can add your own question, such as “Is this a scam?”.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "Quicker ways",
+              "text": "• Type what you want, such as “I want to check a link”, and Higgins opens the right form.\n• Share it straight from another app — see “Sharing something into ApolloSG”."
+            },
+            {
+              "heading": "Nothing is sent until you submit",
+              "text": "ApolloSG doesn't send anything until you tap “Ask Higgins to investigate”. Passwords, codes and the secret parts of links are removed first."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["how do i check something", "what can i check", "where do i go to check something", "how do i submit something to be checked", "how do i ask apollo to check something", "how do i start a check", "where do i check things"],
+          "keywords": ["check", "checks", "submit", "investigate", "plus button", "new check", "check it"]
+        },
+        {
+          "id": "check-message",
+          "title": "Checking a text or chat message",
+          "answer": "In Ask Higgins, tap ⊕, choose “Messages & Calls”, paste the message, then tap “Ask Higgins to investigate”.",
+          "steps": [
+            "Tap the Ask Higgins tab, then ⊕.",
+            "Choose “Messages & Calls”.",
+            "Paste the message. Including who sent it helps.",
+            "Add your own question if you like.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "Other ways",
+              "text": "• Share the message from your messaging app: tap Share, then choose ApolloSG.\n• Take a screenshot of the conversation and check it as a screenshot.\n• On Android, where ApolloSG offers “My messages”, you can pick a recent message instead of pasting it."
+            },
+            {
+              "heading": "What Apollo looks at",
+              "text": "The wording, any links and phone numbers in it, and known scam patterns."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["how do i check a message", "how do i check a text", "where do i paste a message", "how do i check an sms", "how do i check a whatsapp message", "where do i check a message", "how do i check a text message"],
+          "keywords": ["message", "text", "sms", "chat", "whatsapp", "messenger", "paste message"]
+        },
+        {
+          "id": "check-number",
+          "title": "Checking a phone number or caller",
+          "answer": "In Ask Higgins, tap ⊕, choose “Messages & Calls”, enter the phone number, then tap “Ask Higgins to investigate”.",
+          "steps": [
+            "Tap the Ask Higgins tab, then ⊕.",
+            "Choose “Messages & Calls”.",
+            "Type or paste the phone number. Adding what the caller said helps.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "Picking a recent caller",
+              "text": "On Android, where ApolloSG offers “Recent callers”, you can pick the number instead of typing it."
+            },
+            {
+              "heading": "Good to know",
+              "text": "A number's reputation can show risk, but it can't prove who is really calling — caller ID can be faked. If someone says they're from your bank, hang up and call the number on your card."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["how do i check a phone number", "how do i check a number", "how do i check a caller", "how do i look up a number", "where do i check a phone number", "how do i check who called me"],
+          "keywords": ["phone number", "number", "caller", "call", "missed call", "spam call", "caller id"]
+        },
+        {
+          "id": "check-link",
+          "title": "Checking a link or website",
+          "answer": "In Ask Higgins, tap ⊕, choose “Websites & Links”, paste the link, then tap “Ask Higgins to investigate”. Apollo checks where the link really leads before you open it.",
+          "steps": [
+            "Tap the Ask Higgins tab, then ⊕.",
+            "Choose “Websites & Links”.",
+            "Paste the link or web address.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "Copying a link without opening it",
+              "text": "Press and hold the link in the message, email or browser, then choose Copy."
+            },
+            {
+              "heading": "Other ways",
+              "text": "• After you copy a link, Home may offer to check it.\n• From a browser, tap Share and choose ApolloSG."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["how do i check a link", "how do i check a url", "how do i check a website", "where do i check a website", "where do i paste a link", "how do i check a web address"],
+          "keywords": ["link", "url", "website", "web address", "site", "domain", "shortened link"]
+        },
+        {
+          "id": "check-email",
+          "title": "Checking an email or account alert",
+          "answer": "In Ask Higgins, tap ⊕, choose “Email & Accounts”, paste the email (or pick it with “My email” if Gmail is connected), then tap “Ask Higgins to investigate”.",
+          "steps": [
+            "Tap the Ask Higgins tab, then ⊕.",
+            "Choose “Email & Accounts”.",
+            "Paste the email, or tap “My email” to pick one from a connected Gmail inbox.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "Include the sender",
+              "text": "Pasting the From and Subject lines along with the message helps Apollo check who really sent it."
+            },
+            {
+              "heading": "Account alerts",
+              "text": "Use the same option for sign-in codes, password-reset warnings and “was this you?” messages."
+            },
+            {
+              "heading": "Sharing from your mail app",
+              "text": "Tap Share (or forward to another app) and choose ApolloSG. Shared .eml email files are read on this device with their full headers."
+            }
+          ],
+          "links": [
+            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
+            { "route": "/settings/email-accounts", "label": "Email accounts" }
+          ],
+          "questions": ["how do i check an email", "how do i check a suspicious email", "how do i check an account alert", "how do i check a login alert", "where do i paste an email", "how do i check a password reset email"],
+          "keywords": ["email", "mail", "inbox", "account alert", "login alert", "password reset", "sign in code", "eml"]
+        },
+        {
+          "id": "check-screenshot",
+          "title": "Checking a screenshot, photo or QR code",
+          "answer": "In Ask Higgins, tap ⊕, choose “Screenshot or photo”, pick the image from “My photos”, take one with “Camera” or choose it from “Files”, then tap “Ask Higgins to investigate”.",
+          "steps": [
+            "Tap the Ask Higgins tab, then ⊕.",
+            "Choose “Screenshot or photo”.",
+            "Tap “My photos”, “Camera” or “Files” and pick the image.",
+            "Add your own question if you like.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "Before anything is sent",
+              "text": "ApolloSG looks for things like passwords and codes in the picture and blacks them out on a copy. Only the copy is sent; your original stays on this device."
+            },
+            {
+              "heading": "Good for",
+              "text": "Screenshots of messages, social media posts or websites, photos of letters, and QR codes."
+            },
+            {
+              "heading": "Camera turned off?",
+              "text": "You can still pick an image from your photos, or tap “Open Settings” to allow ApolloSG to use the camera."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["how do i check a screenshot", "can i check a photo", "how do i check an image", "how do i check a qr code", "how do i scan a qr code", "how do i check a picture"],
+          "keywords": ["screenshot", "photo", "picture", "image", "camera", "qr code", "letter", "scan"]
+        },
+        {
+          "id": "check-app-file",
+          "title": "Checking an app or a file",
+          "answer": "In Ask Higgins, tap ⊕, choose “Apps & Files”, type the app's name or pick a file with “My files” (or an app with “Installed apps” on Android), then tap “Ask Higgins to investigate”.",
+          "steps": [
+            "Tap the Ask Higgins tab, then ⊕.",
+            "Choose “Apps & Files”.",
+            "Type the app's name, or tap “My files” or “Installed apps” to pick one.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "What Apollo looks at",
+              "text": "For an app, where it came from and what it's allowed to do. For a file, its signature and contents. Files up to 10 MB can be checked."
+            },
+            {
+              "heading": "Watch out for",
+              "text": "Double extensions like Invoice.pdf.exe, and apps (APK files) from outside the official app store."
+            }
+          ],
+          "notes": ["“Installed apps” is available on Android only."],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["how do i check an app", "how do i check a file", "how do i check an attachment", "how do i check a download", "how do i check an apk", "how do i check a document"],
+          "keywords": ["app", "application", "apk", "file", "attachment", "download", "pdf", "document", "installed apps"]
+        },
+        {
+          "id": "check-device",
+          "title": "Checking your device and internet connection",
+          "answer": "In Ask Higgins, tap ⊕, choose “Device & Internet”, describe anything you've noticed if you like, then tap “Ask Higgins to investigate”.",
+          "steps": [
+            "Tap the Ask Higgins tab, then ⊕.",
+            "Choose “Device & Internet”.",
+            "Describe what you've noticed, if anything — for example “my phone is acting strangely”.",
+            "Tap “Ask Higgins to investigate”."
+          ],
+          "details": [
+            {
+              "heading": "Your phone's settings at a glance",
+              "text": "The Device Protections tab on the Protections screen shows the settings Apollo last read."
+            }
+          ],
+          "links": [
+            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
+            { "route": "/device-protection", "label": "Open Device Protections" }
+          ],
+          "questions": ["how do i check my device", "how do i check my phone", "how do i check my internet", "how do i check my wifi", "how do i run a device check", "how do i check my network"],
+          "keywords": ["device", "phone", "internet", "wifi", "wi-fi", "network", "connection", "router", "device check"]
+        },
+        {
+          "id": "after-submit",
+          "title": "What happens after you submit something",
+          "answer": "Apollo's rules check it first. If they settle it, you get the answer straight away; if not, TC FlyBy investigates, and Magnum DI looks deeper only when that could change the answer.",
+          "details": [
+            {
+              "heading": "While it's being checked",
+              "text": "Progress shows in Ask Higgins. Magnum DI may ask you one question — answer it in the message box."
+            },
+            {
+              "heading": "The result",
+              "text": "You'll see the findings, how sure Apollo is and what to do next. If Apollo's rules find a threat, a Threat Case opens in Threats."
+            },
+            {
+              "heading": "Follow-up questions",
+              "text": "Ask about the result in the message box. Higgins answers from the finished findings — a finished investigation isn't reopened. To check something new, start a new check."
+            },
+            {
+              "heading": "Where results are kept",
+              "text": "The findings are saved on this device. ApolloSG's server copy is cleaned up within 24 hours, and you can still read the saved findings afterwards. “Clear this investigation” removes it."
+            }
+          ],
+          "links": [
+            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
+            { "route": "/how-apollo-checks", "label": "How Apollo checks" }
+          ],
+          "questions": ["what happens after i submit something", "what happens when i check something", "how do investigations work", "what happens after triage", "how long are results kept", "can i ask about a result"],
+          "keywords": ["investigation", "triage", "tc flyby", "magnum di", "result", "findings", "follow-up", "progress"]
+        }
+      ]
+    },
+    {
+      "id": "sharing",
+      "title": "Sharing into ApolloSG",
+      "summary": "Sending something from another app straight into a check.",
+      "topics": [
+        {
+          "id": "share-into",
+          "title": "Sharing something into ApolloSG",
+          "answer": "In the app where you see it, tap Share and choose ApolloSG. ApolloSG shows what it received and waits for you to confirm before checking anything.",
+          "steps": [
+            "Open the message, link, email, screenshot or file in the app you're using.",
+            "Tap Share.",
+            "Choose ApolloSG from the list.",
+            "ApolloSG opens “Shared with ApolloSG” and says what it looks like — for example “Looks like a link”.",
+            "Tap “Check as …” to check it. If ApolloSG guessed wrong, pick another option under “Not that? Check it as…”."
+          ],
+          "details": [
+            {
+              "heading": "Which app it arrived in",
+              "text": "For a message, ApolloSG asks which app it arrived in, so your case shows where it came from. Tap the app, or “I'm not sure — check it anyway”."
+            },
+            {
+              "heading": "What you can share",
+              "text": "Text and chat messages, links, emails (including .eml email files), pictures and files — several files at once, too."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["how do i share something into apollosg", "how do i share to apollosg", "how can i send something to apollosg", "how do i share a message to apollosg", "can i share something from another app", "how do i get something into apollosg for checking", "how do i share a link to apollosg", "how do i send a screenshot to apollosg"],
+          "keywords": ["share", "sharing", "share sheet", "share menu", "send to apollosg", "another app", "forward"]
+        },
+        {
+          "id": "share-missing",
+          "title": "ApolloSG isn't in the Share menu",
+          "answer": "Not every app offers Share for every kind of item. When ApolloSG isn't listed, copy and paste the item into a check, or take a screenshot and check that instead.",
+          "details": [
+            {
+              "heading": "Things to try",
+              "text": "• Share works with the installed ApolloSG app, not a browser version.\n• Scroll the share list or tap “More”. On Android you can press and hold ApolloSG to pin it near the top.\n• Try sharing a different way — some apps let you share a link but not a message, or the other way round."
+            },
+            {
+              "heading": "Always works",
+              "text": "Copy the text or link, then in Ask Higgins tap ⊕ and paste it. Or take a screenshot and choose “Screenshot or photo”."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["apollosg isn't in my share menu", "apollosg is not showing in share", "i can't find apollosg in share", "the share menu doesn't show apollosg", "why can't i share to apollosg", "apollosg missing from share sheet"],
+          "keywords": ["share menu", "missing", "not showing", "not listed", "can't share", "share sheet"]
+        }
+      ]
+    },
+    {
+      "id": "threats",
+      "title": "Threats and cases",
+      "summary": "Your cases, Threat Cases, Patrol history, searching, deleting and trusting links.",
+      "topics": [
+        {
+          "id": "threats-list",
+          "title": "The Threats screen",
+          "answer": "Threats lists every case Apollo has opened for you — blocked links, suspicious messages, calls and investigations. Tap any case to see its full details.",
+          "details": [
+            {
+              "heading": "Filter and sort",
+              "text": "Use the filter button to show All, Investigating, Blocked, Resolved or No threat. The sort button switches between Latest first, Oldest first and Strongest evidence."
+            },
+            {
+              "heading": "Case labels",
+              "text": "Each case shows its status: Needs you, Investigating, Blocked, Keeping watch, Not fully checked, Handled or No threat."
+            },
+            {
+              "heading": "Also on Threats",
+              "text": "The line under the title shows when Apollo last checked. “Patrol history” is the full record of what Apollo has done; “Family alerts” shows alerts from family members you watch. The number on the Threats tab is how many cases need you."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
+          "questions": ["where are my threats", "where do i see my past threats", "where do i see my cases", "how do i view my threat cases", "where are my previous checks", "where are my results"],
+          "keywords": ["threats", "cases", "threat list", "results", "past checks", "previous checks", "needs you", "filter", "sort"]
+        },
+        {
+          "id": "threat-case",
+          "title": "Reading a Threat Case",
+          "answer": "Tap a case in Threats to open its Threat Case. “Findings Brief” explains what happened and what to do, “Evidence” shows what ApolloSG received, and “History” shows each step in order.",
+          "details": [
+            {
+              "heading": "The tabs",
+              "text": "• Findings Brief — what Apollo found, why it matters and what to do next.\n• Evidence — the original item as it arrived, and what was checked.\n• History — each step, in order.\n• DI — Magnum DI's full report, when Magnum DI investigated."
+            },
+            {
+              "heading": "What you can do",
+              "text": "Depending on the case: “Ask Higgins to explain”, “Block this destination”, “Trust this exact link”, “Mark as contained” or “Close Case”. On the Evidence tab, “Share” sends a summary of the case and “Copy facts & sources” copies it. A closed case can be opened again with “Reopen case”."
+            },
+            {
+              "heading": "Sample checks",
+              "text": "Cases from sample checks are labelled “Sample Check”."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
+          "questions": ["how do i read a threat case", "what is the findings brief", "where is the evidence", "how do i close a case", "how do i mark a case as contained", "how do i reopen a case", "how do i share a case", "how do i block a website"],
+          "keywords": ["threat case", "case", "findings brief", "evidence", "history", "di report", "close case", "contained", "reopen", "block", "share case"]
+        },
+        {
+          "id": "search-cases",
+          "title": "Searching your cases",
+          "answer": "On Threats, tap the search icon at the top and type a sender, a website or words from the message.",
+          "details": [
+            {
+              "heading": "How search works",
+              "text": "Search looks through your open cases on this device. Phone numbers match with or without the country code, and words can be in any order."
+            }
+          ],
+          "links": [{ "route": "/patrol/search", "label": "Search cases" }],
+          "questions": ["how do i search my cases", "how do i find a case", "how do i search threats", "how do i find a message in my cases", "how do i search for a sender"],
+          "keywords": ["search", "find", "look up", "sender", "website", "words"]
+        },
+        {
+          "id": "delete-cases",
+          "title": "Deleting cases",
+          "answer": "On Threats, tap “Select”, tick the cases you want to remove (or tap “Select all”), tap “Delete”, then confirm.",
+          "steps": [
+            "Open Threats and tap “Select”.",
+            "Tick each case you want to remove, or tap “Select all”.",
+            "Tap “Delete”, then confirm."
+          ],
+          "details": [
+            {
+              "heading": "What's removed",
+              "text": "Each case is deleted with its linked records and investigations, from this device and from ApolloSG's service."
+            },
+            {
+              "heading": "Patrol history",
+              "text": "You can delete individual records from Patrol history the same way: tap “Select”, choose them, then delete."
+            }
+          ],
+          "notes": ["Deleting needs a connection. If ApolloSG can't reach its service, nothing is deleted."],
+          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
+          "questions": ["how do i delete a case", "how do i delete threats", "how do i remove a case", "how do i clear my threats", "how do i delete a check", "how do i delete old cases"],
+          "keywords": ["delete", "remove", "clear", "select", "select all", "erase"]
+        },
+        {
+          "id": "patrol-history",
+          "title": "Patrol history",
+          "answer": "Patrol history is the full record of what Apollo has done on this device. Open it from Threats → “Patrol history”.",
+          "details": [
+            {
+              "heading": "Filters",
+              "text": "All, Checks, Detections, Protection and Device. Checks include ones where nothing was found. Device shows changes such as screen lock, VPN and Private DNS."
+            },
+            {
+              "heading": "Export",
+              "text": "Tap “Export” to make a PDF of your history to share or save."
+            },
+            {
+              "heading": "How long it's kept",
+              "text": "Activity is kept on this device for 90 days."
+            }
+          ],
+          "links": [{ "route": "/patrol/history", "label": "Open Patrol history" }],
+          "questions": ["where is my history", "where is patrol history", "how do i see my check history", "how do i export my history", "where is the activity log", "what has apollo done"],
+          "keywords": ["history", "patrol history", "activity log", "record", "export", "pdf", "past activity"]
+        },
+        {
+          "id": "trusted-links",
+          "title": "Trusting a link",
+          "answer": "If Apollo flagged a link you know is genuine, open its case and tap “Trust this exact link”. Trust covers that one exact link and never overrides a confirmed threat.",
+          "details": [
+            {
+              "heading": "Managing trusted links",
+              "text": "☰ → Settings → Accounts & family → “Trusted links” lists them. Tap “Remove” to stop trusting one."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
+          "questions": ["how do i trust a link", "how do i whitelist a website", "how do i remove a trusted link", "where are my trusted links", "how do i allow a website"],
+          "keywords": ["trust", "trusted links", "whitelist", "allow", "safe list", "false positive"]
+        }
+      ]
+    },
+    {
+      "id": "higgins",
+      "title": "Ask Higgins",
+      "summary": "Asking Higgins questions about scams, results and ApolloSG.",
+      "topics": [
+        {
+          "id": "ask-higgins",
+          "title": "Asking Higgins a question",
+          "answer": "Open the Ask Higgins tab, type your question in the message box and tap send. Higgins answers from Apollo's own records, this phone's readings, this guide and ApolloSG's trusted knowledge.",
+          "details": [
+            {
+              "heading": "What to ask",
+              "text": "• How to do something in ApolloSG, or where to find it.\n• What a result or a state means.\n• Whether your protections are on.\n• How a scam works and how to stay safe.\n• What to do if you think you've been scammed."
+            },
+            {
+              "heading": "Honest answers",
+              "text": "Higgins doesn't guess. When ApolloSG's trusted knowledge doesn't cover something, he says so. Higgins doesn't investigate — checks go to Apollo's investigators."
+            },
+            {
+              "heading": "Handy buttons",
+              "text": "Suggestion chips give you a quick start. Links under an answer take you straight to the screen. ⓘ explains what Higgins does, and the bin icon clears your chat history."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
+          "questions": ["what can i ask higgins", "how do i talk to higgins", "how do i ask higgins a question", "how do i chat with higgins", "how do i clear my chat", "how do i delete my higgins chat"],
+          "keywords": ["higgins", "ask", "question", "chat", "assistant", "conversation", "clear chat"]
+        }
+      ]
+    },
+    {
+      "id": "alerts-learn",
+      "title": "Scam Alerts and Learn",
+      "summary": "Official scam warnings, articles, and the bell.",
+      "topics": [
+        {
+          "id": "scam-alerts",
+          "title": "Scam Alerts",
+          "answer": "The Alerts tab shows current scam campaigns reported by recognised government and official cyber-security sources in Australia, the USA, the UK and the EU.",
+          "details": [
+            {
+              "heading": "Using the list",
+              "text": "Filter by region — All, Australia, USA, UK, EU or Global. Pull down to refresh. Tap an alert to read it in full, with a link to the official source."
+            },
+            {
+              "heading": "Emerging patterns",
+              "text": "Techniques showing up across several reports, before there's a single named campaign."
+            },
+            {
+              "heading": "From your family",
+              "text": "Alerts a family member sent you appear under “Sent by your family”."
+            },
+            {
+              "heading": "The number on the tab",
+              "text": "Counts new High and Extreme alerts you haven't seen yet."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/scams", "label": "Open Scam Alerts" }],
+          "questions": ["what are scam alerts", "where do i see scam alerts", "where are government scam warnings", "how do i filter scam alerts", "what does the number on alerts mean"],
+          "keywords": ["scam alerts", "alerts tab", "government warnings", "advisories", "campaigns", "region", "emerging patterns"]
+        },
+        {
+          "id": "learn",
+          "title": "Learn with Higgins",
+          "answer": "The Learn tab has articles and guides about scams and staying safe. Search, or filter by topic, audience and article type, then tap an article to read it.",
+          "details": [
+            {
+              "heading": "Ask about an article",
+              "text": "At the end of an article, tap “Ask Higgins about this” to ask questions about it."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/learn", "label": "Open Learn" }],
+          "questions": ["where are the articles", "how do i learn about scams", "where is learn with higgins", "how do i search articles", "where are the guides"],
+          "keywords": ["learn", "articles", "guides", "education", "tips", "library", "reading"]
+        },
+        {
+          "id": "alerts-bell",
+          "title": "The bell: your alerts",
+          "answer": "Tap the bell at the top of the screen to see your alerts: device settings that need attention, threats Apollo detected, and alerts ApolloSG has sent you.",
+          "details": [
+            {
+              "heading": "A dot on the bell",
+              "text": "If security alerts can't reach this phone, the bell shows a warning dot. See “Security alerts on your phone”."
+            }
+          ],
+          "links": [{ "route": "/alerts", "label": "Open alerts" }],
+          "questions": ["what is the bell", "where are my notifications", "where do i see my alerts", "what does the bell icon do", "where are past alerts"],
+          "keywords": ["bell", "notifications", "alerts list", "alert history", "warning dot"]
+        }
+      ]
+    },
+    {
+      "id": "settings-alerts",
+      "title": "Settings and alerts",
+      "summary": "Finding Settings, security alerts, quiet hours and app options.",
+      "topics": [
+        {
+          "id": "settings",
+          "title": "Finding Settings",
+          "answer": "Tap ☰ at the top right of most screens, then “Settings”.",
+          "details": [
+            {
+              "heading": "What's in Settings",
+              "text": "• Protection — View all protections.\n• Alerts — security alert permission, Notification check, Preview an alert, Quiet hours and the kinds of alerts you get.\n• Accounts & family — Email accounts, Family sharing and Trusted links.\n• Your data — My personal data, What ApolloSG stores and Clear Patrol history.\n• App — Battery saver, Show why each result was settled, Minimise ApolloSG and Retrofit new enhancements.\n• Diagnostics — Feed health and Debug logs.\n• Help & about — Get help with ApolloSG, How to share into ApolloSG, About ApolloSG and Rule book.\n• Policies & assurance — Privacy policy, Privacy statement, Third-party services and Compliance matrix."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
+          "questions": ["where are settings", "how do i open settings", "where do i change settings", "where is the settings menu", "how do i change my preferences"],
+          "keywords": ["settings", "preferences", "options", "configure", "menu"]
+        },
+        {
+          "id": "notifications",
+          "title": "Security alerts on your phone",
+          "answer": "Go to ☰ → Settings → Alerts. Tap “Allow security alerts” if they're off, and use “Notification check” to confirm alerts can reach this phone.",
+          "steps": [
+            "Tap ☰, then “Settings”.",
+            "Under Alerts, tap “Allow security alerts” if it's shown.",
+            "Tap “Notification check” to confirm alerts reach this phone.",
+            "If alerts are blocked, tap “Open notification settings” and allow them for ApolloSG."
+          ],
+          "details": [
+            {
+              "heading": "Choosing what you're told about",
+              "text": "Barking and Biting alerts are always on. You can switch Sniffing & Growling, New Scam Alerts and Learn with Higgins on or off."
+            },
+            {
+              "heading": "Quiet hours",
+              "text": "Turn on “Quiet hours” to hold gentle alerts until the morning. Urgent threat and family alerts still come through straight away."
+            },
+            {
+              "heading": "See an example",
+              "text": "“Preview an alert” shows exactly how an alert looks on this phone."
+            }
+          ],
+          "links": [
+            { "route": "/(tabs)/settings", "label": "Open Settings" },
+            { "route": "/notification-check", "label": "Notification check" }
+          ],
+          "questions": ["how do i turn on notifications", "i'm not getting alerts", "how do i set quiet hours", "how do i turn off scam alert notifications", "how do i test notifications", "why am i not getting notifications", "how do i turn on alerts"],
+          "keywords": ["notifications", "alerts", "push", "quiet hours", "notification check", "preview", "sound"]
+        },
+        {
+          "id": "app-options",
+          "title": "Battery saver and other app options",
+          "answer": "☰ → Settings → App has “Battery saver”, which reduces animation and checks status less often without changing your protection status, and “Show why each result was settled”, which adds one line naming the rule that settled each result.",
+          "details": [
+            {
+              "heading": "Also here",
+              "text": "“Minimise ApolloSG” moves the app to the background. “Retrofit new enhancements” brings past investigations up to the latest report format."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
+          "questions": ["how do i turn on battery saver", "how do i save battery", "what is retrofit new enhancements", "how do i see why a result was settled", "how do i minimise apollosg"],
+          "keywords": ["battery", "battery saver", "low power", "minimise", "retrofit", "result reasons"]
+        }
+      ]
+    },
+    {
+      "id": "accounts-family",
+      "title": "Email and family",
+      "summary": "Connecting Gmail and sharing alerts with family.",
+      "topics": [
+        {
+          "id": "connect-gmail",
+          "title": "Connecting your Gmail",
+          "answer": "Go to ☰ → Settings → Accounts & family → “Email accounts” and connect your Gmail. Access is read-only, ApolloSG never sends email for you, and you can disconnect at any time.",
+          "details": [
+            {
+              "heading": "What it's for",
+              "text": "Once connected, Apollo can check the mailbox for phishing and impersonation, and you can pick emails with “My email” when you check one."
+            },
+            {
+              "heading": "Account status",
+              "text": "Each account shows Active, Checking now, Monitoring off, Needs attention or Not connected."
+            }
+          ],
+          "links": [{ "route": "/settings/email-accounts", "label": "Email accounts" }],
+          "questions": ["how do i connect gmail", "how do i connect my email", "how do i disconnect gmail", "how do i add an email account", "how do i turn on email monitoring"],
+          "keywords": ["gmail", "email account", "connect", "disconnect", "mailbox", "email monitoring", "google"]
+        },
+        {
+          "id": "family",
+          "title": "Family sharing",
+          "answer": "Family sharing lets a trusted family member who also uses ApolloSG receive your serious alerts. Set it up in ☰ → Settings → Accounts & family → “Family sharing”.",
+          "details": [
+            {
+              "heading": "Pairing",
+              "text": "Create a code and give it to your family member to enter in their app. A code works once and expires after 15 minutes."
+            },
+            {
+              "heading": "What they see",
+              "text": "Your Barking and Biting alerts appear in their app, plus a calm weekly check-in — how many things Apollo checked and how many alerts — never what you checked."
+            },
+            {
+              "heading": "Watching someone",
+              "text": "Alerts from people you watch appear in Threats → “Family alerts”."
+            }
+          ],
+          "links": [{ "route": "/family", "label": "Family sharing" }],
+          "questions": ["how do i set up family sharing", "how do i add a family member", "how do i share alerts with family", "how do i pair with a family member", "how do i stop family sharing", "where are family alerts"],
+          "keywords": ["family", "family sharing", "pair", "code", "guardian", "parent", "trusted person", "weekly check-in"]
+        }
+      ]
+    },
+    {
+      "id": "privacy",
+      "title": "Privacy and your data",
+      "summary": "What ApolloSG keeps, your personal details and deleting your data.",
+      "topics": [
+        {
+          "id": "privacy",
+          "title": "What ApolloSG keeps and shares",
+          "answer": "ApolloSG has no account, no advertising tracking and needs no email address. Checks start on your phone, and only what an assessment needs is sent — for that one assessment.",
+          "details": [
+            {
+              "heading": "Key facts",
+              "text": "• An anonymous device ID instead of an account.\n• Passwords, verification codes and the secret parts of links are removed before anything is sent.\n• Cases keep a summary and safe references, not full messages, screenshots or files.\n• Background access — like message screening or a connected mailbox — each needs its own opt-in."
+            },
+            {
+              "heading": "Read more",
+              "text": "☰ → Privacy explains the principles. Settings → “Privacy statement” lists exactly what leaves your phone and when. Settings → “What ApolloSG stores” shows everything ApolloSG holds."
+            }
+          ],
+          "links": [
+            { "route": "/privacy-data", "label": "What ApolloSG stores" },
+            { "route": "/privacy-disclosure", "label": "Privacy statement" }
+          ],
+          "questions": ["what does apollosg store", "is my data private", "what information does apollosg share", "does anything leave my device", "who can see my data", "what does apollosg keep about me", "what personal data does apollosg collect", "where is the privacy policy"],
+          "keywords": ["privacy", "data", "store", "collect", "share", "anonymous", "tracking", "leave my device"]
+        },
+        {
+          "id": "delete-data",
+          "title": "Deleting all your ApolloSG data",
+          "answer": "Go to ☰ → Settings → Your data → “What ApolloSG stores”, scroll to “Delete my ApolloSG data”, type the confirmation word, tap “Delete My ApolloSG Data”, then “Yes, delete everything”.",
+          "details": [
+            {
+              "heading": "What happens",
+              "text": "Everything is erased on ApolloSG's service and on this device, and ApolloSG returns to its welcome screen. You can set it up fresh at any time."
+            }
+          ],
+          "notes": ["This can't be undone."],
+          "links": [{ "route": "/privacy-data", "label": "What ApolloSG stores" }],
+          "questions": ["how do i delete my data", "how do i delete everything", "how do i erase my account", "how do i reset apollosg", "how do i remove all my data", "how do i start over"],
+          "keywords": ["delete data", "erase", "reset", "remove everything", "wipe", "delete account", "start over"]
+        },
+        {
+          "id": "personal-data",
+          "title": "Adding your personal details",
+          "answer": "In ☰ → Settings → Your data → “My personal data”, add your names, phone numbers, email addresses and home addresses so Apollo can protect them.",
+          "links": [{ "route": "/settings/personal-data", "label": "My personal data" }],
+          "questions": ["how do i add my personal data", "where do i add my phone number", "what is my personal data for", "how do i add my email address to apollosg"],
+          "keywords": ["personal data", "my details", "names", "numbers", "addresses", "identity"]
+        },
+        {
+          "id": "clear-history",
+          "title": "Clearing Patrol history",
+          "answer": "In ☰ → Settings → Your data, tap “Clear Patrol history”, then “Clear history”. This hides Patrol items on this device and asks ApolloSG's service to hide synced summaries. Trusted links are kept.",
+          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
+          "questions": ["how do i clear patrol history", "how do i clear my history", "how do i hide my history"],
+          "keywords": ["clear history", "hide history", "patrol history"]
+        }
+      ]
+    },
+    {
+      "id": "more",
+      "title": "Sample checks and the rules",
+      "summary": "Trying ApolloSG with samples, and the rules Apollo follows.",
+      "topics": [
+        {
+          "id": "sample-checks",
+          "title": "Trying a sample check",
+          "answer": "Open ☰ → “Sample checks”, choose a kind — Messages, Emails, Links, Files, Calls or Apps — and pick a sample. Apollo runs the same real check a genuine submission gets.",
+          "details": [
+            {
+              "heading": "Good to know",
+              "text": "A Threat Case opens only if Apollo's rules find a threat, and it's labelled “Sample Check”. Sample checks are kept out of the intelligence Apollo builds from real checks."
+            }
+          ],
+          "links": [{ "route": "/sample-checks", "label": "Open Sample checks" }],
+          "questions": ["what are sample checks", "how do i try a sample", "how do i test apollosg", "how do i run a sample check", "can i see an example check"],
+          "keywords": ["sample", "samples", "test", "try", "demo", "example", "practice"]
+        },
+        {
+          "id": "how-apollo-checks",
+          "title": "How Apollo checks (the rules)",
+          "answer": "☰ → “How Apollo checks” explains the rules Apollo, TC FlyBy, Magnum DI and Higgins follow and what each result means. Settings → “Rule book” has every rule in full.",
+          "links": [
+            { "route": "/how-apollo-checks", "label": "How Apollo checks" },
+            { "route": "/settings/rule-book", "label": "Rule book" }
+          ],
+          "questions": ["what rules does apollo follow", "where is the rule book", "how does apollo decide", "how does apollo check things", "what does each result mean"],
+          "keywords": ["rules", "rule book", "how apollo checks", "decisions", "results"]
+        }
+      ]
+    },
+    {
+      "id": "platforms",
+      "title": "Android and iPhone",
+      "summary": "What works on each kind of phone.",
+      "topics": [
+        {
+          "id": "platform",
+          "title": "Android and iPhone differences",
+          "answer": "Every manual check works on both Android and iPhone. Some automatic protections depend on what the phone allows: website protection and message screening are Android only.",
+          "details": [
+            {
+              "heading": "Android only",
+              "text": "• Website protection — a private on-device VPN filter that blocks known dangerous websites.\n• Message screening — checks new message notifications as they arrive.\n• Picking from your installed apps, recent messages or recent callers, where ApolloSG offers it."
+            },
+            {
+              "heading": "Calls",
+              "text": "On Android, ApolloSG can screen incoming calls once you choose it as your Caller ID & spam app. On iPhone, Apple doesn't let apps check calls as they ring; once you turn ApolloSG on under Phone → Call Blocking & Identification, it can block numbers you've blocked or that are known high-risk."
+            },
+            {
+              "heading": "On both",
+              "text": "Checks in Ask Higgins, sharing into ApolloSG, Threats, Scam Alerts, Learn, Family sharing and connecting Gmail."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
+          "questions": ["does apollosg work on iphone", "what's different on iphone", "why can't i turn on website protection on iphone", "which features are android only", "what works on android"],
+          "keywords": ["android", "iphone", "ios", "apple", "samsung", "platform", "difference", "not available"]
+        }
+      ]
+    },
+    {
+      "id": "help",
+      "title": "Help and troubleshooting",
+      "summary": "Getting help, and what to do when something isn't working.",
+      "topics": [
+        {
+          "id": "get-help",
+          "title": "Getting help",
+          "answer": "Open ☰ → “Support”. You can copy a support summary, email ApolloSG Support or export a diagnostic report. You can also ask Higgins.",
+          "details": [
+            {
+              "heading": "What Support shows",
+              "text": "Your app and device details, Apollo's protection and services status, and recent investigation results — useful when you contact support."
+            }
+          ],
+          "links": [
+            { "route": "/support", "label": "Open Support" },
+            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" }
+          ],
+          "questions": ["how do i get help", "how do i contact support", "how do i email support", "something isn't working", "apollosg isn't working", "where is support"],
+          "keywords": ["help", "support", "contact", "email support", "problem", "diagnostic", "bug", "not working"]
+        },
+        {
+          "id": "check-stuck",
+          "title": "A check is taking a long time or stopped",
+          "answer": "Investigations can take a little while, and progress shows in Ask Higgins. If one can't finish, ApolloSG says why and offers “Retry”.",
+          "details": [
+            {
+              "heading": "If it still won't finish",
+              "text": "Check your internet connection, then retry. Your saved findings stay on this device. If it keeps failing, open ☰ → Support."
+            }
+          ],
+          "links": [
+            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
+            { "route": "/support", "label": "Open Support" }
+          ],
+          "questions": ["my check is stuck", "the check is taking too long", "the investigation won't finish", "why is my check taking so long", "the investigation failed"],
+          "keywords": ["stuck", "slow", "taking long", "failed", "retry", "loading", "waiting"]
+        },
+        {
+          "id": "protection-problem",
+          "title": "A protection says it needs attention",
+          "answer": "Open Protections from Home, then tap the area and the protection. ApolloSG explains what's wrong and shows a button to fix it.",
+          "details": [
+            {
+              "heading": "“This check didn't run”",
+              "text": "If the latest reading failed, the Protections screen says so and shows how old the last successful reading is — it isn't confirmation of how things are now. Tap “Protection status checked …” to try again."
+            },
+            {
+              "heading": "More help",
+              "text": "On a protection that needs help, tap “Ask Higgins for more help”."
+            }
+          ],
+          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
+          "questions": ["a protection needs attention", "why does my protection say permission required", "my protection is off", "website protection isn't working", "call screening isn't working", "how do i fix permission required"],
+          "keywords": ["needs attention", "permission required", "not working", "off", "problem", "fix protection"]
+        }
+      ]
+    }
+  ]
+}

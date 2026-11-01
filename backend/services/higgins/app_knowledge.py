@@ -32,10 +32,12 @@ NAV_ROUTES: dict[str, str] = {
     "/(tabs)/home": "Home",
     "/(tabs)/patrol": "Threats",
     "/(tabs)/scams": "Scam Alerts",
-    "/(tabs)/ask": "Higgins",
+    "/(tabs)/ask": "Ask Higgins",
     "/(tabs)/settings": "Settings",
     "/(tabs)/check-it": "Check It",
     "/(tabs)/guard": "Your protections",
+    "/(tabs)/protection": "Protections",
+    "/(tabs)/learn": "Learn",
     # Manual checks
     "/message": "Check a message",
     "/check": "Check a website link",
@@ -62,8 +64,15 @@ NAV_ROUTES: dict[str, str] = {
     # Learning and alerts
     "/higgins/learning": "Learn with Higgins",
     "/higgins/scams": "Scam Alerts",
+    "/how-apollo-checks": "How Apollo checks",
+    "/alerts": "Your alerts",
     # Protections
     "/gates": "All protections",
+    # Records, samples and help
+    "/patrol/search": "Search cases",
+    "/sample-checks": "Sample checks",
+    "/user-guide": "User Guide",
+    "/privacy": "Privacy",
     # Settings and policies
     "/settings/personal-data": "My personal data",
     "/settings/email-accounts": "Email accounts",

@@ -80,12 +80,12 @@ const KNOWLEDGE_RESPONSES: Record<LocalKnowledgeIntent, string> = {
 
   help_navigation:
     "Here's the whole app:\n\n" +
-    "• **Home** — your protection status and anything needing attention.\n" +
-    "• **Threats** — every threat Apollo found or you checked. Tap one for the full case and evidence.\n" +
-    "• **Scam Alerts** — current campaigns from government and cyber-authority feeds.\n" +
-    "• **Higgins** (here) — ask me anything; the + button submits something for a check.\n" +
-    "• **Settings** — protections, alerts, accounts and family, your data, and the privacy statement.\n\n" +
-    "**Check It** is the hub for every manual check: a message, a website link, a file, a number, a QR code, an email, an app, an account alert, your device or your internet.",
+    "• **Home** — Apollo's status, your protection and anything that needs you.\n" +
+    "• **Threats** — every case Apollo has opened. Tap one for the full case and evidence.\n" +
+    "• **Ask Higgins** (here) — ask me anything; tap ⊕ next to the message box to have something checked.\n" +
+    "• **Alerts** — current scam warnings from government and official cyber-security sources.\n" +
+    "• **Learn** — articles about scams and staying safe.\n\n" +
+    "Everything else — Sample checks, the User Guide, Settings, About, Privacy and Support — is in the **☰ menu** at the top right.",
 
   explain_alert:
     "Apollo tells you how worried it is by how it behaves:\n\n" +
@@ -103,7 +103,7 @@ const KNOWLEDGE_LINKS: Record<LocalKnowledgeIntent, NavLink[]> = {
   what_is_higgins: navLinks("/higgins/learning"),
   what_is_magnum_di: navLinks("/how-apollo-checks", "/(tabs)/check-it"),
   explain_feature: navLinks("/gates"),
-  help_navigation: navLinks("/(tabs)/check-it", "/(tabs)/settings"),
+  help_navigation: navLinks("/user-guide", "/(tabs)/home"),
   explain_alert: navLinks("/(tabs)/patrol"),
 };
 
