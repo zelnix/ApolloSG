@@ -43,6 +43,7 @@ import { getShareIntake } from "@/src/share/shareIntake";
 import { PhonePickers, type RecentSms } from "@/src/security/phonePickers";
 import { SourceHero } from "@/src/components/SourceHero";
 import { SourcePickerSheet } from "@/src/components/SourcePickerSheet";
+import { findSampleText } from "@/src/sampleChecks";
 import { simulation } from "@/src/simulation";
 
 const useStyles = makeStyles((c) => ({
@@ -191,10 +192,15 @@ export default function CheckMessage() {
       void run(String(sharedText), params.sender ? String(params.sender) : "", fromInbox ? "inbox" : "shared", fromInbox && params.receivedAt ? String(params.receivedAt) : null);
     }
   }, [sharedText, params.sender, ready, setupDone]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Preview only: a sample chosen elsewhere (Threats → Try a sample check) runs exactly as picking it here does.
+  // A sample chosen from Sample Checks or preview runs exactly as picking from the real inbox does.
   useEffect(() => {
-    const m = params.sample ? simulation.texts.find((x) => x.id === params.sample) : undefined;
-    if (!m || !ready || !setupDone || autoRan.current) return;
+    if (!params.sample || !ready || !setupDone || autoRan.current) return;
+    // Try production sample data first, then fall back to preview simulation
+    const prodSample = findSampleText(params.sample);
+    const m = prodSample
+      ? { sender: prodSample.sender, text: prodSample.text }
+      : (() => { const sim = simulation.texts.find((x) => x.id === params.sample); return sim ? { sender: sim.sender, text: sim.text } : undefined; })();
+    if (!m) return;
     autoRan.current = true;
     setSender(m.sender); setText(m.text);
     void run(m.text, m.sender, "inbox", null, true);

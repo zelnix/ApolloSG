@@ -32,6 +32,7 @@ import { AppDeviceSdk, sdkPermissionsToApp, type InstalledAppRef } from "@/src/s
 import { NativeCallFailed } from "@/src/security/nativeDiagnostics";
 import { SourceHero } from "@/src/components/SourceHero";
 import { SourcePickerSheet } from "@/src/components/SourcePickerSheet";
+import { findSampleApp } from "@/src/sampleChecks";
 import { simulation } from "@/src/simulation";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -128,16 +129,19 @@ export default function CheckApp() {
     finally { setAppsLoading(false); }
   };
   const pickApp = (app: InstalledAppRef) => { setName(app.appName); setPickedPackage(app.packageId); setSource("not_sure"); setPerms([]); setPickerOpen(false); setAppQuery(""); setSampled(false); };
-  // A preview sample app fills the same answers a person would give, exactly as the installed-apps sheet does.
+  // A sample app fills the same answers a person would give, exactly as the installed-apps sheet does.
   const applySampleApp = (id: string) => {
-    const a = simulation.apps.find((x) => x.id === id);
+    const prodSample = findSampleApp(id);
+    const a = prodSample
+      ? { appName: prodSample.appName, developer: prodSample.developer, packageId: prodSample.packageId, source: prodSample.source, purpose: prodSample.purpose, permissions: prodSample.permissions }
+      : simulation.apps.find((x) => x.id === id);
     if (!a) return;
     setName(a.appName); setDeveloper(a.developer); setPickedPackage(a.packageId);
     setSource(a.source); setPurpose(a.purpose); setPerms(a.permissions);
     setSampled(true);
     setAutoRun(a.appName);
   };
-  // Preview only: a sample chosen elsewhere (Threats → Try a sample check) runs exactly as picking it here does.
+  // A sample chosen from Sample Checks (or preview) runs exactly as picking it here does.
   const sampleRan = React.useRef(false);
   useEffect(() => {
     if (!params.sample || !ready || !setupDone || sampleRan.current) return;

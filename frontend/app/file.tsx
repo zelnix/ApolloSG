@@ -25,6 +25,7 @@ import { sha256Hex } from "@/src/store/originalEmail";
 import { type PatrolEvent } from "@/src/domain/types";
 import { SourceHero } from "@/src/components/SourceHero";
 import { SourcePickerSheet } from "@/src/components/SourcePickerSheet";
+import { findSampleFile } from "@/src/sampleChecks";
 import { simulation } from "@/src/simulation";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -137,8 +138,12 @@ export default function CheckFile() {
   // Preview only: a sample chosen elsewhere (Threats → Try a sample check) runs exactly as picking it here does.
   const sampleRan = useRef(false);
   useEffect(() => {
-    const f = params.sample ? simulation.files.find((x) => x.id === params.sample) : undefined;
-    if (!f || !ready || !setupDone || sampleRan.current) return;
+    if (!params.sample || !ready || !setupDone || sampleRan.current) return;
+    const prodSample = findSampleFile(params.sample);
+    const f = prodSample
+      ? { id: prodSample.id, name: prodSample.name, mime: prodSample.mime, content: prodSample.content, probes: prodSample.description }
+      : simulation.files.find((x) => x.id === params.sample);
+    if (!f) return;
     sampleRan.current = true;
     void checkSimulatedFile(f);
   }, [params.sample, ready, setupDone]); // eslint-disable-line react-hooks/exhaustive-deps

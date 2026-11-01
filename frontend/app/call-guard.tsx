@@ -33,6 +33,7 @@ import { Body, Button } from "@/src/components/ui";
 import { buildCallRiskCheckResult } from "@/src/domain/callRiskCheckResultAdapter";
 import { issueContext, type HigginsIssueContext } from "@/src/domain/higginsHandoff";
 import { SourcePickerSheet } from "@/src/components/SourcePickerSheet";
+import { findSampleCall } from "@/src/sampleChecks";
 import { simulation } from "@/src/simulation";
 import { type CallRiskResult, useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -218,10 +219,12 @@ export default function CheckNumber() {
   // Preview only: a sample caller chosen elsewhere (Threats → Try a sample check) runs exactly as picking it here does.
   const sampleRan = useRef(false);
   useEffect(() => {
-    const c = params.sample ? simulation.calls.find((x) => x.id === params.sample) : undefined;
-    if (!c || sampleRan.current) return;
+    if (!params.sample || sampleRan.current) return;
+    const prodSample = findSampleCall(params.sample);
+    const number = prodSample?.number ?? simulation.calls.find((x) => x.id === params.sample)?.number;
+    if (!number) return;
     sampleRan.current = true;
-    void runInvestigation(c.number, true);
+    void runInvestigation(number, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.sample]);
 

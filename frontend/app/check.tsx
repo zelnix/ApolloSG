@@ -9,6 +9,7 @@ import Clock from "lucide-react-native/icons/clock";
 import Link2 from "lucide-react-native/icons/link-2";
 import Search from "lucide-react-native/icons/search";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { findSampleLink } from "@/src/sampleChecks";
 import { simulation } from "@/src/simulation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -199,13 +200,15 @@ export default function CheckLink() {
   useEffect(() => {
     if (sharedUrl && ready && setupDone && !autoRan.current) { autoRan.current = true; void run(String(sharedUrl)); }
   }, [sharedUrl, ready, setupDone, run]);
-  // Preview only: a sample link (Threats → Try a sample check) is checked exactly as a pasted link, tagged Simulated.
+  // A sample link (from Sample Checks or preview) is checked exactly as a pasted link.
   useEffect(() => {
-    const sample = params.sample ? simulation.links.find((x) => x.id === params.sample) : undefined;
-    if (!sample || !ready || !setupDone || autoRan.current) return;
+    if (!params.sample || !ready || !setupDone || autoRan.current) return;
+    const prodSample = findSampleLink(params.sample);
+    const url = prodSample?.url ?? simulation.links.find((x) => x.id === params.sample)?.url;
+    if (!url) return;
     autoRan.current = true;
-    setInput(sample.url);
-    void run(sample.url, true);
+    setInput(url);
+    void run(url, true);
   }, [params.sample, ready, setupDone, run]);
 
   if (ready && !setupDone) return <Redirect href="/onboarding" />;
