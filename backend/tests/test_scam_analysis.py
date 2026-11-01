@@ -41,9 +41,10 @@ class TestPreFilter:
         assert not sa._obviously_not_an_alert({"url": "https://x/news-and-alerts/ato-impersonation", "title": "Scam alert: ATO and myGov impersonation"})
 
 
-def _analysis(tier, severity, relevance):
-    return {"tier": tier, "severity": severity, "australianRelevance": relevance, "australianRelevanceReason": "",
-            "severityReason": "r", "confidence": "high", "facts": {}, "sections": {}, "analysisVersion": sa.ANALYSIS_VERSION}
+def _analysis(tier, severity, relevance, verified_ongoing=False, verified_evidence=""):
+    return {"tier": tier, "severity": severity, "audience": "consumer", "australianRelevance": relevance, "australianRelevanceReason": "",
+            "severityReason": "r", "confidence": "high", "facts": {}, "sections": {}, "analysisVersion": sa.ANALYSIS_VERSION,
+            "verifiedOngoing": verified_ongoing, "verifiedOngoingEvidence": verified_evidence, "verifiedOngoingAt": None}
 
 
 class TestGrowlRule:
@@ -52,10 +53,19 @@ class TestGrowlRule:
         return {"source_id": "scamwatch", "title": "Scam alert: X", "url": "https://x/news-and-alerts/x", "summary": "s",
                 "content_type": "official_advice", "trust_status": "recognised_government", "last_checked_at": now_utc()}
 
-    def test_confirmed_au_high_growls_even_without_date(self):
+    def test_confirmed_au_high_with_ongoing_growls(self):
+        """An undated confirmed-AU high alert growls only when it has verified ongoing activity."""
+        from core.db import now_utc
+        built = ga._alert(self._row(), {"name": "Scamwatch"},
+                          _analysis("specific_scam", "HIGH", "confirmed", verified_ongoing=True, verified_evidence="Scammers are actively targeting."),
+                          now_utc())
+        assert built["growling"] is True and built["severity"] == "HIGH"
+
+    def test_confirmed_au_high_without_ongoing_does_not_growl(self):
+        """An undated confirmed-AU high alert without verified ongoing activity does not growl."""
         from core.db import now_utc
         built = ga._alert(self._row(), {"name": "Scamwatch"}, _analysis("specific_scam", "HIGH", "confirmed"), now_utc())
-        assert built["growling"] is True and built["severity"] == "HIGH"
+        assert built["growling"] is False
 
     def test_education_never_growls(self):
         from core.db import now_utc

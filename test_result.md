@@ -3825,3 +3825,152 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "SMOKE TEST COMPLETE ✅ - Backend is healthy after frontend-only changes. Both requested endpoints verified: (1) GET /api/health returns 200 with correct schema (status:'ok', service:'apollo-v1'), (2) POST /api/patrol/delete returns 401 for unauthenticated requests (auth protection working). Backend logs show normal operation with recent API requests being served successfully. No issues detected. Test file: /app/backend_smoke_test.py (2/2 tests passed)."
+
+## 2026-11-01 Alert Selection Rules Correction Testing
+
+backend:
+  - task: "Corrected alert-selection rules in scam_analysis.py - sentencing/arrests/prosecution classified as news"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 33 regression tests in test_alert_selection_rules.py PASSED. News exclusion rules working correctly: (1) Sentencing headlines classified as 'news', not alerts. (2) Russian actor arrest classified as 'news'. (3) Farm equipment prosecution classified as 'news'. (4) Prosecution with active warning stays as 'specific_scam'. (5) News is not sent to general_education. All test cases passed."
+
+  - task: "Severity not inflated by advice - 'immediately report' never produces EXTREME severity"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Severity inflation prevention working correctly. (1) 'Immediately report...' advice does not produce EXTREME severity. (2) 'Immediately contact...' advice does not produce EXTREME severity. (3) Genuine urgent threats (without advice context) can still reach EXTREME. All test cases passed."
+
+  - task: "Overseas news without AU evidence excluded from feed"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Overseas news exclusion working correctly. (1) US sentencing not marked as 'everywhere'. (2) Overseas scam without AU mention has relevance != 'confirmed'. (3) Unknown relevance stays out of feed. All test cases passed."
+
+  - task: "Undated items require verified ongoing activity"
+    implemented: true
+    working: true
+    file: "backend/services/government_alerts.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Freshness rules working correctly. (1) Recent alerts (30 days) are eligible. (2) Old alerts (90 days) without ongoing activity excluded. (3) Old alerts with verified ongoing activity stay eligible. (4) Undated items without ongoing excluded. (5) Undated items with ongoing included. (6) Rechecking old article does not make it current. All test cases passed."
+
+  - task: "Badge and growl use same eligibility as feed"
+    implemented: true
+    working: true
+    file: "backend/services/government_alerts.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Growl eligibility rules working correctly. (1) Eligible HIGH alerts growl. (2) Ineligible old alerts do not growl. (3) Education never growls. (4) News never growls. All test cases passed."
+
+  - task: "Genuine Australian warnings and global consumer threats still appear"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Australian warnings and global threats working correctly. (1) Scamwatch consumer warnings classified as 'specific_scam' with australianRelevance='confirmed'. (2) AU source defaults to AU relevant. (3) Global phishing campaigns classified as 'specific_scam' with relevance in ('confirmed', 'potential'). (4) Global romance scams classified correctly. (5) Overseas source mentioning Australia has relevance='confirmed'. All test cases passed."
+
+  - task: "60-day recency cutoff (was 180 days)"
+    implemented: true
+    working: true
+    file: "backend/services/government_alerts.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: RECENCY_CUTOFF is set to timedelta(days=60) on line 80 of government_alerts.py. Freshness tests confirm 60-day cutoff is enforced correctly."
+
+  - task: "ANALYSIS_VERSION bumped to 7 for reanalysis"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: ANALYSIS_VERSION is set to 7 on line 28 of scam_analysis.py with comment '7 = corrected eligibility, freshness, classification and severity rules'. This ensures cached items get reanalysed."
+
+  - task: "Verified ongoing activity keywords detection"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Verified ongoing keyword detection working correctly. (1) Active in advice sentences not counted as verified. (2) Active in navigation text not counted as verified. (3) Active in threat description IS verified. (4) Historical quotes not counted as verified. All test cases passed."
+
+  - task: "Preparedness advice exclusion"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Preparedness exclusion working correctly. (1) Preparedness headlines classified as 'general_education'. (2) Preparedness with active alert stays as 'specific_scam'. All test cases passed."
+
+  - task: "Deterministic scam analysis tests"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 10 tests in test_scam_analysis.py PASSED. (1) Unclear items classified as safe education. (2) Organisation advisories never consumer alerts. (3) Active consumer warnings quote the source. (4) Sections only hold source's own sentences. (5) Pre-filter excludes fragment URLs and nav titles. (6) Real alert titles pass pre-filter. (7) Growl rules working correctly for confirmed AU high alerts with/without ongoing activity. All test cases passed."
+
+  - task: "Backend health endpoint verification"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: GET /api/health returns 200 with correct schema: {schemaVersion: 1, status: 'ok', service: 'apollo-v1', checkedAt: timestamp}. Backend starts cleanly after fixing MongoDB index conflict (pre-existing infrastructure issue, not related to alert rules)."
+
+test_plan:
+  current_focus:
+    - "Verify corrected alert-selection rules in scam_analysis.py and government_alerts.py"
+    - "Run test_alert_selection_rules.py (33 regression tests)"
+    - "Run test_scam_analysis.py (existing tests)"
+    - "Verify backend health endpoint"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "ALERT SELECTION RULES TESTING COMPLETE ✅ - All tests PASSED. (1) test_alert_selection_rules.py: 33/33 tests PASSED covering news exclusion, severity inflation prevention, overseas news exclusion, freshness rules, growl eligibility, Australian warnings, global threats, verified ongoing keywords, and preparedness exclusion. (2) test_scam_analysis.py: 10/10 tests PASSED covering deterministic analysis, pre-filter, and growl rules. (3) ANALYSIS_VERSION confirmed as 7 (line 28 of scam_analysis.py). (4) RECENCY_CUTOFF confirmed as 60 days (line 80 of government_alerts.py). (5) Backend health endpoint returns 200 with correct schema. All key rules verified: sentencing/arrests/prosecution classified as 'news', 'immediately report' advice never produces EXTREME severity, overseas news without AU evidence excluded, undated items require verified ongoing activity, badge and growl use same eligibility as feed, genuine Australian warnings and global consumer threats still appear, 60-day recency cutoff enforced, ANALYSIS_VERSION bumped to 7. No issues found. Minor infrastructure note: Fixed pre-existing MongoDB index conflict (temporary_evidence_expiry_ttl) to allow backend startup - not related to alert rules."

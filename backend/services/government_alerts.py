@@ -72,11 +72,14 @@ async def cleanup_stale_records() -> dict:
     return {"candidates_removed": candidates_removed, "runs_removed": runs_removed}
 
 
-RECENCY_CUTOFF = timedelta(days=180)  # 6 months: a specific alert older than this is not "recent".
-# Rationale: scam campaigns evolve. Intelligence older than 6 months is unlikely to represent
-# the current form of a campaign. Officially confirmed ongoing threats should be re-published
-# by their source within this window; re-appearance in the feed triggers a fresh check.
-# Previously 455 days — reduced per intelligence freshness review (§5).
+# ── Freshness rules ───────────────────────────────────────────────────────────
+# Default publication window: 60 days. Older warnings are kept ONLY when the analysis
+# recorded verified ongoing activity evidence (verifiedOngoing=true) that describes the
+# actual consumer threat. Rechecking an old article does not make its warning current.
+# Undated items: require verified ongoing activity; otherwise excluded.
+RECENCY_CUTOFF = timedelta(days=60)
+# Extended window for warnings with verified ongoing campaign evidence
+VERIFIED_ONGOING_CUTOFF = timedelta(days=365)
 
 
 def _parse_reported(value: str | None) -> datetime | None:
@@ -94,8 +97,43 @@ def _month_year(dt: datetime | None) -> str:
     return dt.strftime("%B %Y") if dt else "Date not stated"
 
 
+# ── Single eligibility rule ───────────────────────────────────────────────────
+# The same relevance, audience and freshness checks for the feed, badge and Apollo state.
+def is_eligible(built: dict, now: datetime) -> bool:
+    """Return True if an alert is eligible for the feed, badge and Apollo state.
+    This is the ONE eligibility gate — used everywhere, not just in the feed."""
+    tier = built.get("tier", "general_education")
+    # Only specific_scam and emerging_pattern are alerts
+    if tier not in ("specific_scam", "emerging_pattern"):
+        return False
+    # Audience: only consumer alerts
+    if built.get("audience") != "consumer":
+        return False
+    # Relevance: must be relevant to Australia (confirmed or verified global applicable)
+    relevance = built.get("australianRelevance", "unknown")
+    if relevance == "overseas_only":
+        return False
+    if relevance == "unknown":
+        return False
+    # relevance is "confirmed" or "potential" (potential = verified global consumer threat)
+    # Freshness
+    effective = built.get("effectiveDate")
+    verified_ongoing = built.get("verifiedOngoing", False)
+    if effective:
+        age = now - effective
+        if age > RECENCY_CUTOFF:
+            # Older than 60 days: only keep if verified ongoing AND within the extended window
+            if not verified_ongoing or age > VERIFIED_ONGOING_CUTOFF:
+                return False
+    else:
+        # Undated: require verified ongoing activity evidence
+        if not verified_ongoing:
+            return False
+    return True
+
+
 def _alert(row: dict, source: dict, analysis: dict, now: datetime) -> dict:
-    """Build one consumer alert from a feed item + its cached AI analysis. Only facts the analysis
+    """Build one consumer alert from a feed item + its cached analysis. Only facts the analysis
     extracted from the source are shown; nothing is invented here."""
     published = _aware(row.get("published_at"))
     reported = _parse_reported(analysis.get("reportedDate"))
@@ -106,19 +144,28 @@ def _alert(row: dict, source: dict, analysis: dict, now: datetime) -> dict:
     relevance = analysis.get("australianRelevance", "unknown")
     relevance_reason = analysis.get("australianRelevanceReason") or ""
     source_name = _source_name(row["source_id"], source.get("name"))
-    # Where it applies: everywhere, or only in its source's country when it names something only that country has.
+    # Where it applies
     applies, named = scam_analysis.applies_in(row.get("title") or "", row.get("summary") or "", region)
     applies_label = scam_intel.REGION_LABEL.get(applies, applies)
     place = f"the {applies_label}" if applies_label.startswith(("United ", "European ")) else applies_label
-    applies_reason = f'It names "{named}", which is specific to {place}.' if named else "It doesn't name anything specific to one country."
-    if applies not in ("everywhere", "AU"):  # local to another country: it can't reach Australia, so it never growls
+    if applies == "unknown":
+        applies_reason = "No evidence of Australian applicability or global consumer threat."
+    elif applies == "global":
+        applies_reason = "This is a global consumer threat that can affect people in Australia."
+    elif named:
+        applies_reason = f'It names "{named}", which is specific to {place}.'
+    else:
+        applies_reason = f"Published by an Australian authority." if applies == "AU" else "It doesn't name anything specific to one country."
+    if applies not in ("AU", "global", "unknown") and applies != "everywhere":
         relevance, relevance_reason = "overseas_only", f"Only applies in {place}. {applies_reason}"
+    # Verified ongoing activity (recorded separately from refresh time)
+    verified_ongoing = analysis.get("verifiedOngoing", False)
+    verified_ongoing_evidence = analysis.get("verifiedOngoingEvidence", "")
+    verified_ongoing_at = analysis.get("verifiedOngoingAt")
     fresh = bool(effective and (now - effective) <= RECENCY_CUTOFF)
-    # A specific High/Extreme campaign growls when there's real Australian exposure. Confirmed-AU campaigns
-    # growl regardless of date (official AU sources are often undated listings); overseas "potential"
-    # techniques must still be recent so a stale overseas bulletin can't hold Apollo growling.
-    growling = (analysis.get("tier") == "specific_scam" and severity in ("HIGH", "EXTREME")
-                and (relevance == "confirmed" or (relevance == "potential" and fresh)))
+    # Growl rule: same eligibility as the feed. A specific High/Extreme campaign growls when it passes
+    # the full eligibility check (relevance + freshness + audience).
+    growling = False  # set after eligibility check below
     higgins = {
         "whatHappened": sections.get("whatHappened") or (row.get("summary") or row.get("title") or ""),
         "whyGrowling": analysis.get("severityReason") or "",
@@ -131,20 +178,25 @@ def _alert(row: dict, source: dict, analysis: dict, now: datetime) -> dict:
         "dateLabel": _month_year(effective),
         "url": row.get("url"),
     }
-    return {
+    built = {
         "title": row["title"], "url": row["url"], "summary": row["summary"], "source": source_name,
         "sourceUrl": (source.get("canonical_base_urls") or [None])[0], "sourceType": row["content_type"], "sourceTrust": row["trust_status"],
         "publishedAt": published, "updatedAt": _aware(row.get("updated_at")), "lastCheckedAt": _aware(row["last_checked_at"]),
         "reportedDate": analysis.get("reportedDate") or "", "effectiveDate": effective, "dateLabel": _month_year(effective),
         "ageLabel": _month_year(effective),
         "region": region, "regionLabel": scam_intel.REGION_LABEL.get(region, region),
-        "tier": analysis.get("tier", "general_education"), "facts": analysis.get("facts") or {},
+        "tier": analysis.get("tier", "general_education"), "audience": analysis.get("audience", "consumer"), "facts": analysis.get("facts") or {},
         "severity": severity, "severityReason": analysis.get("severityReason") or "", "severityConfidence": analysis.get("confidence") or "low",
         "sourceSeverity": row.get("source_severity"),
         "australianRelevance": relevance, "australianRelevanceReason": relevance_reason,
-        "appliesIn": applies, "appliesInLabel": "Everywhere" if applies == "everywhere" else applies_label, "appliesInReason": applies_reason,
-        "growling": growling, "higgins": higgins,
+        "appliesIn": applies, "appliesInLabel": "Everywhere" if applies in ("everywhere", "global") else applies_label, "appliesInReason": applies_reason,
+        "verifiedOngoing": verified_ongoing, "verifiedOngoingEvidence": verified_ongoing_evidence, "verifiedOngoingAt": verified_ongoing_at,
+        "growling": False, "higgins": higgins,
     }
+    # Apply the single eligibility rule for growling — same gate as the feed and badge
+    if is_eligible(built, now) and severity in ("HIGH", "EXTREME") and analysis.get("tier") == "specific_scam":
+        built["growling"] = True
+    return built
 
 
 async def alert_by_url(url: str) -> dict | None:
@@ -170,31 +222,28 @@ async def snapshot(limit: int = 50) -> dict:
         feed_states[feed["feed_id"]] = {"status": status, "source": _source_name(feed["source_id"], source.get("name")), "sourceUrl": (source.get("canonical_base_urls") or [None])[0],
             "sourceType": feed["content_type"], "lastSuccessAt": success, "lastCheckedAt": _aware(row.get("last_checked_at")) if row else None,
             "errorType": row.get("error") if latest_failed else None}
-    # Scan a wide window of items (not just `limit`) so a consumer alert with no publish date but a
-    # recent reported date is never hidden behind more-recent general-education items; `limit` caps OUTPUT.
     rows = await db.learning_feed_items.find({}, {"_id": 0, "fingerprint": 0, "candidate_id": 0, "expires_at": 0}).sort("published_at", -1).limit(200).to_list(200)
     alerts: list[dict] = []; emerging: list[dict] = []; pending = 0; stale = 0
-    shown_urls: set[str] = set()  # each official address is one alert, even when a feed lists it twice
+    shown_urls: set[str] = set()
     for row in rows:
         analysis = row.get("scam_analysis")
         if not analysis or analysis.get("analysisVersion") != scam_analysis.ANALYSIS_VERSION:
-            pending += 1  # not yet analysed — never shown as a scam alert until its facts are verified
+            pending += 1
             continue
         if row["url"] in shown_urls:
             continue
         shown_urls.add(row["url"])
         source = sources.get(row["source_id"], {})
         built = _alert(row, source, analysis, now)
-        # Only recent reports belong in the feed: drop specific/emerging items whose stated date is older
-        # than the recency cutoff. Items with no determinable date are kept (staleness can't be proven).
-        if built["effectiveDate"] and (now - built["effectiveDate"]) > RECENCY_CUTOFF:
-            stale += 1
+        # Apply the single eligibility rule
+        if not is_eligible(built, now):
+            if built["effectiveDate"] and (now - built["effectiveDate"]) > RECENCY_CUTOFF:
+                stale += 1
             continue
         if built["tier"] == "specific_scam":
             alerts.append(built)
         elif built["tier"] == "emerging_pattern":
             emerging.append(built)
-        # general_education is intentionally excluded from the alerts feed (it belongs in Learn with Higgins).
     # Most recent first; undated items sort last.
     _key = lambda it: it["effectiveDate"] or datetime.min.replace(tzinfo=timezone.utc)
     alerts.sort(key=_key, reverse=True); emerging.sort(key=_key, reverse=True)

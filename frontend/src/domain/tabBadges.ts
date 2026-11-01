@@ -16,15 +16,37 @@ export function countNeedingYou(events: PatrolEvent[]): number {
   return count;
 }
 
-export interface BadgeAlert { url: string; severity: string; appliesIn: string }
+export interface BadgeAlert { url: string; severity: string; appliesIn: string; australianRelevance: string; tier: string; verifiedOngoing?: boolean; effectiveDate?: string | null }
 const SEVERE = new Set(["HIGH", "EXTREME"]);
+const ELIGIBLE_TIERS = new Set(["specific_scam", "emerging_pattern"]);
+const ELIGIBLE_RELEVANCE = new Set(["confirmed", "potential"]);
+const RECENCY_DAYS = 60;
 
-/** Scam Alerts tab: High and Extreme alerts for this country (or everywhere) the person hasn't seen yet. */
+/** Single eligibility rule: same relevance, audience and freshness checks as the feed and Apollo state.
+ *  Includes verified global consumer threats applicable to Australia — not just "confirmed". */
+function isEligible(alert: BadgeAlert): boolean {
+  if (!ELIGIBLE_TIERS.has(alert.tier)) return false;
+  if (!ELIGIBLE_RELEVANCE.has(alert.australianRelevance)) return false;
+  // Freshness
+  if (alert.effectiveDate) {
+    const age = Date.now() - Date.parse(alert.effectiveDate);
+    if (age > RECENCY_DAYS * 86_400_000) {
+      // Older than 60 days: only keep if verified ongoing
+      if (!alert.verifiedOngoing) return false;
+    }
+  } else {
+    // Undated: require verified ongoing activity
+    if (!alert.verifiedOngoing) return false;
+  }
+  return true;
+}
+
+/** Scam Alerts tab: High and Extreme eligible alerts the person hasn't seen yet. */
 export function countNewSevereAlerts(alerts: BadgeAlert[], seen: ReadonlySet<string>, home: string): number {
   const counted = new Set<string>();
   for (const alert of alerts) {
     if (!SEVERE.has(alert.severity) || seen.has(alert.url)) continue;
-    if (alert.appliesIn !== "everywhere" && alert.appliesIn !== home) continue;
+    if (!isEligible(alert)) continue;
     counted.add(alert.url);
   }
   return counted.size;

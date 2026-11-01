@@ -2,11 +2,13 @@
 
 Reads one official advisory (its headline, summary and, where reachable, the full article from its own
 source URL) and applies fixed, reviewable rules to the source's own words:
-  1. audience and tier (consumer scam warning, emerging pattern or general education);
+  1. audience and tier (consumer scam warning, emerging pattern, general education, or news/prosecution);
   2. urgency from words the source itself uses ("urgent", "active", "warning", ...) or the source's own
      severity — the reason always quotes the sentence that triggered it;
   3. Australian relevance from the source's region or an explicit mention of Australia;
-  4. Higgins' sections: every sentence is copied verbatim from the source. A section the source doesn't
+  4. verified ongoing activity — must describe the consumer threat itself, not navigation, advice,
+     historical quotation or unrelated text;
+  5. Higgins' sections: every sentence is copied verbatim from the source. A section the source doesn't
      support stays empty, so the app says the source doesn't cover it rather than filling the gap.
 Nothing is invented, summarised or rewritten, and no model is called. Each item is analysed once and the
 result is cached on the feed item.
@@ -23,10 +25,10 @@ from services.outbound import OutboundBlocked, public_get
 
 logger = logging.getLogger("apollo")
 
-ANALYSIS_VERSION = 6  # 6 = deterministic rules on the source's own words (no Gemini)
+ANALYSIS_VERSION = 7  # 7 = corrected eligibility, freshness, classification and severity rules
 _MAX_ARTICLE_CHARS = 14000
 
-TIERS = {"specific_scam", "emerging_pattern", "general_education"}
+TIERS = {"specific_scam", "emerging_pattern", "general_education", "news"}
 SEVERITIES = {"LOW", "MODERATE", "HIGH", "EXTREME"}
 RELEVANCES = {"confirmed", "potential", "overseas_only", "unknown"}
 AUDIENCES = {"consumer", "organisation"}
@@ -38,11 +40,50 @@ _TREND = re.compile(r"\b(on the rise|rise in|rising|increase in|increasing|surge
 _EDUCATION = re.compile(r"\b(tips?|how to|guide|guidance|learn|awareness week|basics|explained|what is|steps to|protect yourself|annual report|statistics|data shows?)\b", re.I)
 _ALERT = re.compile(r"\b(warn(?:s|ing|ings)?|alert|beware|be on the lookout)\b", re.I)
 _ACTIVE = re.compile(r"\b(active(?:ly)?|ongoing|currently|right now|circulating|targeting|being sent|being used)\b", re.I)
-_URGENT = re.compile(r"\b(urgent(?:ly)?|immediately|critical|serious harm|significant losses)\b", re.I)
+_URGENT = re.compile(r"\b(urgent(?:ly)?|critical|serious harm|significant losses)\b", re.I)
 _AUSTRALIA = re.compile(r"\b(Australia|Australians?|New South Wales|NSW|Victoria|Queensland|Tasmania|South Australia|Western Australia|Northern Territory|myGov|Medicare|Centrelink|Scamwatch)\b")
 _PLACES = re.compile(r"\b(Australia|New South Wales|NSW|Victoria|Queensland|Tasmania|South Australia|Western Australia|Northern Territory|Canberra|Sydney|Melbourne|Brisbane|Perth|Adelaide|Hobart|Darwin|United States|USA|United Kingdom|England|Scotland|Wales|Europe|European Union|New Zealand|Canada)\b")
 _WATCH = re.compile(r"\b(be wary|beware|watch (?:out )?for|look out|be suspicious|signs? of|red flags?|may (?:claim|say|ask|pretend|appear)|pretend(?:s|ing)? to be|pos(?:e|es|ing) as|impersonat\w+|claim(?:s|ing)? to be|asks? you to|will ask|might ask|unexpected|out of the blue|too good to be true)\b", re.I)
-_DO = re.compile(r"^(?:do not|don't|never|always|report|contact|call|visit|check|block|delete|change|stop|hang up|go to|if you(?:'ve| have| think| are)|protect|keep|use|turn on|enable|update|ignore|verify)\b|\b(you should|we recommend|we encourage|we urge|make sure)\b", re.I)
+_DO = re.compile(r"^(?:do not|don't|never|always|report|contact|call|visit|check|block|delete|change|stop|hang up|go to|if you(?:'ve| have| think| are)|protect|keep|use|turn on|enable|update|ignore|verify|immediately report|immediately contact|immediately call|immediately change)\b|\b(you should|we recommend|we encourage|we urge|make sure)\b", re.I)
+
+# ── News / prosecution / non-warning exclusions ──────────────────────────────
+# These are NEWS, not alerts or education. Sentencing, arrests, prosecutions, takedowns, general news
+# about past events. Excluded from alerts without being sent to Learn (general_education).
+_NEWS_PROSECUTION = re.compile(
+    r"\b(sentenced|sentencing|sentence[ds]?\s+to|plead(?:s|ed)?\s+guilty|convicted|conviction|"
+    r"guilty\s+(?:plea|verdict)|prison|jail(?:ed)?|imprison(?:ed|ment)|"
+    r"arrest(?:s|ed)?|charged\b|charged\s+(?:with|in|for|over)|indictment|indicted|"
+    r"prosecution|prosecut(?:ed|or)|extradited|"
+    r"taken? down|shut down|dismantled|seized|confiscated|"
+    r"pleaded|arraigned|remanded)\b", re.I
+)
+
+# Preparedness advice without a current consumer warning: "be prepared", safety checklists, etc.
+_PREPAREDNESS = re.compile(
+    r"\b(prepar(?:e|ed|edness|ing)|be ready|safety checklist|emergency plan|"
+    r"disaster preparedness|be prepared|preparation|readiness)\b", re.I
+)
+
+# ── Verified ongoing activity (not just keyword presence) ─────────────────────
+# "active", "ongoing", "currently" must describe the actual consumer threat in the article.
+# Navigation, advice, historical quotations and unrelated text do not qualify.
+def _has_verified_active_threat(sentences: list[str]) -> tuple[bool, str]:
+    """Return (True, the sentence) when a sentence describes a consumer threat as currently active.
+    The sentence must contain BOTH a consumer-threat keyword AND an activity keyword,
+    and must NOT be advice/instruction text."""
+    for sentence in sentences:
+        if not _ACTIVE.search(sentence):
+            continue
+        if not _CONSUMER.search(sentence):
+            continue
+        # Exclude advice/instruction sentences: "If you see this, immediately report..."
+        if _DO.match(sentence):
+            continue
+        # Exclude historical/past-tense reporting: "In 2019, scammers were actively..."
+        if re.match(r"^In \d{4}", sentence):
+            continue
+        return True, sentence
+    return False, ""
 
 
 def _words(body: str) -> re.Pattern:
@@ -51,8 +92,9 @@ def _words(body: str) -> re.Pattern:
 
 
 # ── Where an alert applies (no AI) ────────────────────────────────────────────
-# An alert applies everywhere unless its headline or summary names something only its source's country has: a
-# national agency, benefit, payment service, election, state or its people ("FTC" makes an FTC alert US-only).
+# An alert from an AU source defaults to relevant to Australia.
+# A non-AU source requires evidence of Australian applicability or a documented global consumer threat.
+# Unknown relevance stays out of the default feed.
 _US_STATES = ("alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|hawaii|idaho|illinois|indiana|iowa|"
               "kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|"
               "new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|"
@@ -78,22 +120,46 @@ _COUNTRY = {
     "CA": _words(r"(?i:canada|canadians?)"), "EU": _words(r"(?i:europe|european union)"),
 }
 
+# Global consumer threats: scam types that are inherently cross-border and apply to Australians
+# even when the source doesn't mention Australia by name.
+_GLOBAL_THREAT = re.compile(
+    r"\b(phishing|smishing|vishing|romance scam|investment scam|cryptocurrency scam|"
+    r"tech support scam|sextortion|online shopping scam|identity theft|"
+    r"gift card scam|advance fee|419 scam|lottery scam|prize scam|"
+    r"business email compromise|BEC|dating scam|catfishing|"
+    r"ransomware|malware|trojan|keylogger)\b", re.I
+)
+
 
 def applies_in(title: str, summary: str, region: str) -> tuple[str, str]:
-    """("everywhere", "") or (the source's country, the words that make it local to it)."""
+    """Return (country_code, evidence_text) or ("everywhere", "") for verified global threats."""
     head = f"{title}. {summary}"
+    # AU sources default to relevant to Australia
+    if region == "AU":
+        return "AU", ""
     local = _LOCAL_TO.get(region)
     found = local.search(head) if local else None
-    if not found or any(pattern.search(head) for other, pattern in _COUNTRY.items() if other != region):
-        return "everywhere", ""
-    return region, found.group(0)
+    if found:
+        # Check if it also names another country (spans countries)
+        others = [pattern.search(head) for other, pattern in _COUNTRY.items() if other != region]
+        if not any(others):
+            return region, found.group(0)
+    # Not local to any specific country — check for Australian mention
+    au_mention = _AUSTRALIA.search(head)
+    if au_mention:
+        return "AU", au_mention.group(0)
+    # No AU mention and no local term — only include if it's a verified global consumer threat
+    if _GLOBAL_THREAT.search(head):
+        return "global", ""
+    # Unknown relevance — stays out
+    return "unknown", ""
 
 
 _SOURCE_SEVERITY = {"critical": "EXTREME", "extreme": "EXTREME", "high": "HIGH", "medium": "MODERATE", "moderate": "MODERATE", "low": "LOW"}
 _MONTHS = {m: i for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"], 1)}
 _DAY_DATE = re.compile(r"\b(\d{1,2}) (January|February|March|April|May|June|July|August|September|October|November|December) (20\d\d)\b")
 _MONTH_DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December) (20\d\d)\b")
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'‘“(])")
+_SENTENCE_END = re.compile(r'(?<=[.!?])\s+(?=[A-Z0-9"\u2018\u2019\u201c\u201d(])')
 
 
 class _TextExtractor(HTMLParser):
@@ -165,11 +231,25 @@ def _reported_date(published, text: str) -> str:
     return f"{month.group(2)}-{_MONTHS[month.group(1).lower()]:02d}" if month else ""
 
 
-def _classify(head: str, content_type: str | None) -> tuple[str, str]:
+def _classify(head: str, content_type: str | None, sentences: list[str]) -> tuple[str, str]:
+    """Classify the item. Returns (audience, tier).
+    Tiers: specific_scam, emerging_pattern, general_education, news.
+    News = sentencing, arrests, prosecutions — excluded from alerts and Learn."""
     consumer = len(_CONSUMER.findall(head))
     organisation = len(_ORGANISATION.findall(head))
     audience = "organisation" if organisation and organisation >= consumer else "consumer"
     if audience != "consumer" or not consumer:
+        return audience, "general_education"
+    # ── News / prosecution: these are NOT alerts and NOT education ──
+    # Only classify as news if there's no separate current consumer warning in the same article.
+    if _NEWS_PROSECUTION.search(head):
+        # Check if a separate current consumer warning exists alongside the prosecution report
+        has_active, _ = _has_verified_active_threat(sentences)
+        has_warning = bool(_ALERT.search(head))
+        if not (has_active and has_warning):
+            return audience, "news"
+    # ── Preparedness advice without a current consumer warning ──
+    if _PREPAREDNESS.search(head) and not _ALERT.search(head) and not _ACTIVE.search(head):
         return audience, "general_education"
     if _TREND.search(head):
         return audience, "emerging_pattern"
@@ -180,20 +260,39 @@ def _classify(head: str, content_type: str | None) -> tuple[str, str]:
 
 _LABEL = {"EXTREME": "Extreme", "HIGH": "High", "MODERATE": "Moderate", "LOW": "Low"}
 
+# ── Advice detection for severity ─────────────────────────────────────────────
+# A sentence that is advice/instruction (starts with imperative, contains "you should", "we recommend",
+# or "immediately report/contact/call/change") must not increase severity.
+_ADVICE_CONTEXT = re.compile(
+    r"^(?:immediately\s+(?:report|contact|call|change|stop|block|delete|hang|visit|check|go|verify|update|enable|turn)|"
+    r"report\b|contact\b|call\b|if you|you should|we (?:recommend|encourage|urge)|make sure)",
+    re.I,
+)
+
 
 def _severity(tier: str, sentences: list[str], source_severity: str | None) -> tuple[str, str]:
-    """Fixed rules on the source's own words; the reason quotes the sentence that triggered the rating."""
-    if tier == "general_education":
-        return "LOW", "This is general guidance from the source, not a warning about a current scam."
+    """Fixed rules on the source's own words; the reason quotes the sentence that triggered the rating.
+    Advice containing 'immediately' must not increase severity."""
+    if tier in ("general_education", "news"):
+        if tier == "general_education":
+            return "LOW", "This is general guidance from the source, not a warning about a current scam."
+        return "LOW", "This is a news report, not a current consumer warning."
     mapped = _SOURCE_SEVERITY.get(str(source_severity or "").strip().lower())
     if mapped:
         return mapped, f'The source itself rates this "{source_severity}".'
-    urgent, active, alert = _first(_URGENT, sentences), _first(_ACTIVE, sentences), _first(_ALERT, sentences)
-    if tier == "specific_scam" and urgent and active:
-        quoted = f'"{urgent}"' + (f' and "{active}"' if active != urgent else "")
+    # Find urgent and active sentences, excluding advice context
+    urgent_sentence = ""
+    for sentence in sentences:
+        if _URGENT.search(sentence) and not _ADVICE_CONTEXT.match(sentence):
+            urgent_sentence = sentence
+            break
+    active_sentence = _first(_ACTIVE, sentences)
+    alert_sentence = _first(_ALERT, sentences)
+    if tier == "specific_scam" and urgent_sentence and active_sentence:
+        quoted = f'"{urgent_sentence}"' + (f' and "{active_sentence}"' if active_sentence != urgent_sentence else "")
         return "EXTREME", f"Rated Extreme because the source says {quoted}"
-    if tier == "specific_scam" and (active or alert):
-        return "HIGH", f'Rated High because the source says "{active or alert}"'
+    if tier == "specific_scam" and (active_sentence or alert_sentence):
+        return "HIGH", f'Rated High because the source says "{active_sentence or alert_sentence}"'
     return "MODERATE", "Rated Moderate: the source describes a scam but doesn't say it is active or urgent."
 
 
@@ -204,14 +303,21 @@ def analyse(item: dict, article: str = "") -> dict:
     sentences = _sentences(f"{head} {article}")
     source_name = item.get("_source_name") or item.get("source_id") or "the source"
     region = item.get("_source_region") or ""
-    audience, tier = _classify(head, item.get("content_type"))
+    audience, tier = _classify(head, item.get("content_type"), sentences)
     severity, severity_reason = _severity(tier, sentences, item.get("source_severity"))
     australia = _first(_AUSTRALIA, sentences)
+
+    # ── Verified ongoing activity ──
+    has_active, active_sentence = _has_verified_active_threat(sentences)
+
     if region == "AU":
         relevance, relevance_reason = "confirmed", f"Published by {source_name}, an Australian authority."
     elif australia:
         relevance, relevance_reason = "confirmed", f'The source says "{australia}"'
-    elif tier != "general_education":
+    elif tier == "specific_scam" and has_active:
+        # Verified global consumer threat applicable to Australia
+        relevance, relevance_reason = "potential", f"Reported overseas by {source_name}. Verified active: \"{active_sentence}\""
+    elif tier != "general_education" and tier != "news":
         relevance, relevance_reason = "potential", f"Reported overseas by {source_name}; it doesn't mention Australia."
     else:
         relevance, relevance_reason = "unknown", ""
@@ -220,7 +326,7 @@ def analyse(item: dict, article: str = "") -> dict:
     where = _matching(_PLACES, sentences, 2, used)
     watch = _matching(_WATCH, sentences, 4, used | set(where))
     todo = _matching(_DO, sentences, 4, used | set(where) | set(watch))
-    if tier == "general_education":
+    if tier in ("general_education", "news"):
         means = ""
     elif relevance == "confirmed":
         means = f"{source_name} has reported this for people in Australia."
@@ -231,6 +337,8 @@ def analyse(item: dict, article: str = "") -> dict:
         "tier": tier, "audience": audience, "severity": severity, "severityReason": severity_reason,
         "confidence": "high" if article else ("medium" if summary else "low"),
         "australianRelevance": relevance, "australianRelevanceReason": relevance_reason, "reportedDate": reported,
+        "verifiedOngoing": has_active, "verifiedOngoingEvidence": active_sentence if has_active else "",
+        "verifiedOngoingAt": now_utc() if has_active else None,
         "facts": {"who": "", "what": what_happened[:600], "how": "", "where": " ".join(where)[:600], "when": reported,
                   "whatCriminalsWant": "", "evidence": ""},
         "sections": {"whatHappened": what_happened[:900], "whereHappening": " ".join(where)[:900], "whatItMeansForYou": means,
@@ -265,6 +373,7 @@ _SKIPPED_ANALYSIS = {
     "tier": "general_education", "audience": "consumer", "severity": "LOW",
     "severityReason": "This is a navigation or index link from the source site, not a report of a specific scam.",
     "confidence": "high", "australianRelevance": "unknown", "australianRelevanceReason": "", "reportedDate": "",
+    "verifiedOngoing": False, "verifiedOngoingEvidence": "", "verifiedOngoingAt": None,
     "facts": {k: "" for k in ("who", "what", "how", "where", "when", "whatCriminalsWant", "evidence")},
     "sections": {k: "" for k in ("whatHappened", "whereHappening", "whatItMeansForYou", "whatToWatch", "whatToDo")},
     "method": "deterministic_source_rules", "analysisVersion": ANALYSIS_VERSION,
