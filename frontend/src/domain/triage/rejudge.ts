@@ -111,17 +111,19 @@ export function rejudgeEvent(e: PatrolEvent, kept: OriginalSource | null, now: s
     why = [...analysis.why, ...guard.why, ...phoneWhyLines(phones)];
   }
 
-  if (triage.outcome === old.outcome && state === e.state) return null;
+  // A closed case (handled, trusted or resolved) keeps its closure — state, status and closing time — apart from the
+  // findings: a re-judge updates the findings only, so a handled case stays handled and is never reopened.
+  const wasClosed = closed(e);
+  if (triage.outcome === old.outcome && (wasClosed || state === e.state)) return null;
   const noun = e.category === "email" ? "email" : "text message";
   const resting = state === "resting";
-  // A closed case (handled, trusted or resolved) stays closed: a re-judge never reopens it. A case now clear closes.
-  const wasClosed = closed(e);
   return {
     ...e, ...words,
     headline: words.headline || (triage.incompleteChecks?.length ? `Not every check could run on this ${noun}` : `No threat found in this ${noun}`),
-    state, why: [REJUDGED_LINE, ...why],
-    status: resting || wasClosed ? "resolved" : "active",
-    resolved_at: wasClosed ? (e.resolved_at ?? now) : resting ? now : null,
+    why: [REJUDGED_LINE, ...why],
+    state: wasClosed ? e.state : state,
+    status: wasClosed ? e.status : resting ? "resolved" : "active",
+    resolved_at: wasClosed ? e.resolved_at : resting ? now : null,
     triage_investigation: { ...triage, rejudgedUnder: REJUDGE_VERSION },
     triage_history: [...(e.triage_history ?? []), old],
   };

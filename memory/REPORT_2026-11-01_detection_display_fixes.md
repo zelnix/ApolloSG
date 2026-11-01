@@ -93,15 +93,14 @@ runs and 4 screenshots.
   - Saved answers from the old matching are cleared once, on the next start.
 - **Proof:** `test_threat_feeds.py` and `test_safe_browsing_counts_only_for_the_exact_address`.
 
-## Your rule 2(a): ApolloSG's held copies are deleted after 24 hours
-- **On the server:** the text of a message kept with a record or case is deleted 24 hours after it was kept.
+## Your rule 2(a), as corrected by your later rule: only the server's copies are deleted after 24 hours
+- **On the server:** the text of a message kept with a record or case is deleted 24 hours after it was kept, and only once the phone has confirmed it saved a complete copy. If the phone is offline, the server waits.
   - The clean-up runs about every 20 seconds as part of the server's regular maintenance.
   - Who sent it, the subject and the website stay. What Apollo found stays.
-- **On the phone:** Apollo deletes its copies 24 hours after they were made. This covers original texts, email details, .eml files and pictures.
-  - It checks when the app opens, when it comes back on screen, every 5 minutes while open, and whenever a copy is read.
-  - A case whose copy was deleted says "ApolloSG deleted its copy of the original 24 hours after it was checked. What Apollo found is kept above."
+- **On the phone:** nothing is deleted after 24 hours. Your device's evidence (the original text, headers, .eml files and pictures) stays until you delete it.
+  - This corrects the first version of this report. That version said the phone also deleted its copies after 24 hours, which went against your rule. The phone-side deletion has since been removed.
   - The message itself in Gmail or Messages is never touched.
-- **Proof:** `test_held_copies_older_than_24_hours_are_deleted_and_identifiers_kept`, `test_the_24_hour_sweep_runs_with_every_maintenance_cycle`, `heldCopies.test.ts`, and the `triageRejudge.test.ts` test "an original kept for more than 24 hours is gone".
+- **Proof:** `test_held_copies_older_than_24_hours_are_deleted_and_identifiers_kept`, `test_device_pickup.py`, `evidenceRetention.test.ts` and `heldCopies.test.ts`. The `triageRejudge.test.ts` test "an original kept on the phone for more than 24 hours is still there" shows the phone keeps its copy.
 
 ## Also fixed (you approved this)
 - **"Handled" label:** a case you handled showed "No threat" on a phone that only had the server's copy. It now shows "Handled". A case closed with nothing found still shows "No threat".
@@ -119,7 +118,7 @@ runs and 4 screenshots.
   - One expects at least 2,932 records in the preview database. Most were deleted in the 29 October clean-up.
   - The other is the "moneysmart" source name above.
 - **Server-only cases after the app syncs:** in the preview, a case the phone only received from the server later shows the server's short privacy summary. It also did this before this work, and the wording of that summary is now correct.
-- **Phones need a new build:** on an installed phone, the 24-hour deletion runs only after you make a new build. In the preview it works now.
+- **Phones need a new build:** an installed phone confirms its saved copies only after you make a new build. Until then, the server keeps its copies.
 
 ## Work since the last publish
 Your last publish was most likely before 14:59 UTC on 29 October. Production had the case-delete tool then, but not the Screens page. I can't see the publish history, so everything below may still need publishing:
@@ -139,6 +138,6 @@ Your last publish was most likely before 14:59 UTC on 29 October. Production had
 
 ## What you need to do
 - **Publish** to get all of this onto the live app.
-  - On its first start, the live server re-checks past cases under the new rules. Closed cases stay closed.
-  - It also clears answers saved under the old web-address matching, then starts the 24-hour clean-up.
-- **Make a new build** for the phone side (the 24-hour deletion on the phone and the Threat Domain List change).
+  - On its first start, the live server re-checks past cases under the new rules. A closed case keeps its alert level, its status and when it was closed. Only its findings change.
+  - It also clears answers saved under the old web-address matching, then starts deleting the server's copies 24 hours after they were made, once the phone has confirmed it saved its own.
+- **Make a new build** for the phone side. This covers the phone saving and confirming its copies, and the Threat Domain List change. There is no 24-hour deletion on the phone.

@@ -8,6 +8,7 @@ import { evaluateTriage } from "../src/domain/triage/engine.ts";
 import { emailTriageEvidence, messageTriageEvidence } from "../src/domain/triage/evidence.ts";
 import { REJUDGE_VERSION, emailPatrolState, rejudgeCandidate, rejudgeEvent } from "../src/domain/triage/rejudge.ts";
 import { REJUDGED_LINE } from "../src/domain/luddish/present.ts";
+import { handled } from "../src/domain/patrolStatus.ts";
 import type { TriageInvestigationRecord } from "../src/domain/triage/contract.ts";
 import type { PatrolEvent } from "../src/domain/types.ts";
 import type { OriginalSource } from "../src/store/originalSource.ts";
@@ -75,8 +76,21 @@ test("a case the person already handled stays handled", () => {
   const next = rejudgeEvent(event({ triage_investigation: old, state: "ears_up", status: "resolved", resolved_at: "2026-10-30T02:00:00.000Z" }), kept(text), NOW);
   assert.ok(next);
   assert.equal(next!.triage_investigation!.outcome, "POSSIBLE_THREAT_IDENTIFIED");
+  assert.equal(next!.state, "ears_up", "the closure is kept apart from the findings");
   assert.equal(next!.status, "resolved");
   assert.equal(next!.resolved_at, "2026-10-30T02:00:00.000Z");
+});
+
+test("a case the person handled stays handled when the current rules find less: only its findings change", () => {
+  const old = flagged(evaluateTriage(messageTriageEvidence({ analysis: analyseMessage("Microsoft", CODE_DELIVERY) })));
+  const handledAt = "2026-10-30T02:00:00.000Z";
+  const before = event({ triage_investigation: old, state: "growling", status: "resolved", resolved_at: handledAt });
+  assert.ok(handled(before));
+  const next = rejudgeEvent(before, kept(CODE_DELIVERY, "Microsoft"), NOW);
+  assert.ok(next, "its findings are updated");
+  assert.equal(next!.triage_investigation!.outcome, "NO_THREAT_IDENTIFIED");
+  assert.deepEqual([next!.state, next!.status, next!.resolved_at], ["growling", "resolved", handledAt], "the person's closure is untouched");
+  assert.ok(handled(next!), "still the person's decision, never relabelled as Apollo's own");
 });
 
 test("a case Apollo had already closed is never reopened by a re-judge, even when the current rules find more", () => {
@@ -84,6 +98,7 @@ test("a case Apollo had already closed is never reopened by a re-judge, even whe
   const old = { ...evaluateTriage(messageTriageEvidence({ analysis: analyseMessage("", text) })), outcome: "NO_THREAT_IDENTIFIED" as const, rulesMet: [] };
   const next = rejudgeEvent(event({ triage_investigation: old, state: "resting", status: "resolved", resolved_at: "2026-10-30T02:00:00.000Z" }), kept(text), NOW);
   assert.ok(next);
+  assert.equal(next!.state, "resting");
   assert.equal(next!.status, "resolved");
   assert.equal(next!.resolved_at, "2026-10-30T02:00:00.000Z");
 });

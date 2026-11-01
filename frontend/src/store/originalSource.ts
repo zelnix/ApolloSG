@@ -3,7 +3,7 @@
 // the phone (owner's rule, 2026-11-01). A later supply of headers or text only fills in what the saved copy is missing
 // (domain/originalMerge.ts). A note left where an earlier version of ApolloSG deleted a copy after 24 hours is
 // replaced by the next copy saved for that case.
-import { enrichOriginal, sameOriginal } from "@/src/domain/originalMerge";
+import { enrichOriginal, mergeCopies, sameOriginal } from "@/src/domain/originalMerge";
 import { storage } from "@/src/utils/storage";
 
 export type OriginalSourceKind = "email" | "text" | "link" | "website" | "screenshot" | "call" | "app" | "file" | "account" | "device" | "network";
@@ -57,6 +57,12 @@ export async function saveOriginalSource(caseKeys: (string | null | undefined)[]
 export async function getOriginalSource(caseKey: string): Promise<OriginalSource | null> {
   const found = await read(caseKey);
   return !found || "deletedAt" in found ? null : found;
+}
+
+/** The case's original from every key it is kept under (its record first, then its investigation), as one copy. */
+export async function getCaseOriginal(caseKeys: (string | null | undefined)[]): Promise<OriginalSource | null> {
+  const keys = [...new Set(caseKeys.filter((k): k is string => !!k))];
+  return mergeCopies(await Promise.all(keys.map((k) => getOriginalSource(k))));
 }
 
 /** When an earlier version of ApolloSG deleted its copy of this case's original after 24 hours; null when it didn't. */

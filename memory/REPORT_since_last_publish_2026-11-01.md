@@ -91,7 +91,8 @@ These are the 7 cost changes from your cost review, plus what makes them work.
 5. **Daily spending limits.**
    - $5.00 a day in total for all AI calls and paid searches.
    - Automatic checks (mailbox monitoring, recovery, advisories, health checks) may use up to $2.00 of that.
-   - Each call's cost is reserved before it's sent, so the limit can't be overspent. A call that would go over is refused and nothing is sent.
+   - Each call's estimated cost is reserved before it's sent, in one step that concurrent calls can't get around. A call whose estimate would go over is refused and nothing is sent.
+   - **This is an estimated spending guard, not a guaranteed billing ceiling.** After a call, its reservation is replaced by the cost the provider reported, with no second check against the limit. If a call costs more than its estimate, the day's total can go over the limit by the difference. The estimate assumes 3 characters per input token, a fixed allowance for each picture or audio part, and 5 model searches, and a provider can bill more than that. Once the total is over the limit, every further call is refused until the next day or until the limit is raised.
    - An admin can change both limits on the new **Admin → AI budget** setting.
 6. **Full usage records.** Each AI call and paid search records:
    - the model, purpose, time, device, case and job
@@ -163,12 +164,15 @@ Full detail and proof: `/app/memory/REPORT_2026-11-01_detection_display_fixes.md
 3. An investigation that can't decide is "Not fully checked", with no alert. It never lowers a threat Apollo found another way.
 4. No more fixed cut-off points in text.
 5. A "not" cancels a request only when it really applies to that request.
-6. Nothing reopens a case you closed or handled.
+6. Nothing reopens a case you closed or handled. (Corrected 1 Nov: the server's re-check kept the status and closing time, but it still changed the record's alert level. A case you had handled could then look like one Apollo closed itself. Now the whole closure stays exactly as it was: the alert level, the status and the time it was closed. Only the findings and their wording are updated. This applies on the server and on the phone.)
 7. A threat-list or Google Safe Browsing match counts only for the exact address.
 
 **Your 2 rules:**
 - **1(a):** checks that couldn't decide never alert and never hide another threat.
-- **2(a):** ApolloSG deletes its own held copies after 24 hours, on the server and the phone.
+- **2(a), as corrected by your later rule:**
+  - ApolloSG's server copies are deleted 24 hours after they were made, and only once the phone has confirmed it saved a complete copy of its own.
+  - Your device's evidence (the original text, headers, .eml files and pictures) stays until you delete it.
+  - There is no 24-hour deletion on the phone.
 
 **Also fixed:**
 - "PhishTank" lost its capital letter.
@@ -178,23 +182,43 @@ Full detail and proof: `/app/memory/REPORT_2026-11-01_detection_display_fixes.md
 **Proof:**
 - Before and after tests: the proof tests fail on the old code and pass now.
 - 4 screenshots.
-- All 1,321 app tests pass. 1,621 server tests pass and 2 fail; both failures are older than this work.
+- All 1,321 app tests passed at the time. 1,621 server tests passed and 2 failed, both older than this work. The current counts are in section 5.
 
 ## 3. What happens on the live app when you Publish
 These steps run by themselves, once, when the live server first starts:
 1. Records saved under the name "Teddy" move to the TC FlyBy names.
-2. Past cases are re-checked under the current rules. Cases you closed or handled stay closed.
+2. Past cases are re-checked under the current rules. A case you closed or handled keeps its alert level, its status and when it was closed. Only its findings and their wording are updated.
 3. Threat-list entries are updated to exact addresses. Old saved lookups from the old matching are cleared.
-4. The daily spending limits ($5 total, $2 for automatic checks) and the rule against repeated work switch on.
-5. The 24-hour deletion of held copies starts, about every 20 seconds.
+4. The daily spending limits switch on: $5 in total, with $2 for automatic checks. They are an estimated guard, as described in 2.4. The rule against repeated work switches on too.
+5. The 24-hour deletion of the server's copies starts, checking about every 20 seconds. A copy is deleted only after the phone has confirmed it saved its own.
 
-**For the phone side, you also need a new build.** This covers the 24-hour deletion on the phone and the Threat Domain List changes (2.2).
+**For the phone side, you also need a new build.** This covers:
+- the phone saving, checking and confirming its copy of each case
+- the Threat Domain List changes (2.2)
+
+Until phones have the new build, the server keeps its copies. There is no 24-hour deletion on the phone.
 
 ## 4. Not done, or still open
 - **"moneysmart" source name:** one government scam alert still names its source "moneysmart". You chose not to fix this.
-- **2 old server tests fail:**
-  - One needs records from before the 29 October clean-up.
-  - The other is the "moneysmart" name above.
+- **1 old server test fails:** the "moneysmart" name above. (The preview-data test that needed records from before the 29 October clean-up now re-runs the migration without saving and passes.)
 - **Never tried for real:** the Brave key and the new spending limits haven't been used with a paid call yet.
 - **Not compiled here:** the Threat Domain List's phone-side Android changes. The next Android build will compile them.
 - **Testing agent:** not run on any of this work, as you chose.
+
+## 5. Corrections after your code review (1 November)
+**What you reviewed:** you checked commit e294425 on GitHub main, made at 03:26 UTC. The work below came after it and isn't on GitHub yet. To review it there, save to GitHub first.
+
+| Your finding | Status now |
+|---|---|
+| Phone copies deleted after 24 hours | **Removed from this report.** The phone has no 24-hour deletion. Server copies are deleted 24 hours after they were made, and only once the phone has confirmed it saved its own. Your device's evidence stays until you delete it. |
+| A re-check can reopen closed cases | **Fixed on the server and the phone.** The re-check now reads each record's alert level, status and closing time, and never changes them on a closed record. Only the findings and their wording change. A case you handled stays handled. Proof: `test_a_rejudge_never_reopens_a_closed_triage_record` and 2 tests in `triageRejudge.test.ts`. |
+| Spending limits can't be overspent | **Reworded.** It is an estimated spending guard, not a guaranteed billing ceiling (see 2.4). The rule book and the code's own description now say the same. |
+| Missing source headers: an incomplete copy wins, and a copy is saved only once | **Fixed.** A copy is no longer saved only once: headers that arrive later fill in what is missing. Every screen now reads a case's copies under all of its keys as one copy. An incomplete copy under one key can no longer hide headers saved under another. The first copy's own text and time stay exactly as they were. Proof: `evidenceRetention.test.ts`. |
+
+**Tests now, in this workspace:**
+- **App:** 1,291 of 1,291 pass.
+  - This is fewer than the 1,321 reported earlier because the tests for the phone's 24-hour deletion were removed along with that deletion.
+  - In your environment, 6 test files failed to load. Those tests use ApolloSG's native build plugins, which need `@expo/config-plugins`. That package comes with the app's installed dependencies.
+- **Server:** 1,628 pass. 1 fails: the "moneysmart" source name you chose not to fix.
+
+**Not verified here:** native compilation of the Threat Domain List, live secrets, paid calls, and production deployment history.

@@ -11,7 +11,9 @@ What changed and what it means for records already filed:
     page with another query: listings stored under the earlier page key are re-keyed, and reputation answers reached
     under the earlier matching are cleared (again under ":3", when a listing without a query stopped covering one).
 A record that opened an investigation keeps its state and status: that case's own result is what every screen shows.
-A record already closed (handled, trusted or resolved) stays closed: a re-judge changes its words, never reopens it.
+A record already closed (handled, trusted or resolved) stays closed: its closure — state, status and closing time — is
+kept apart from the findings. A re-judge updates the findings and their words, never the closure, so a case the person
+handled stays handled (services/patrol_status.handled) and is never reopened.
 """
 from __future__ import annotations
 
@@ -82,7 +84,7 @@ async def _patrol_records() -> int:
     changed = 0
     async for doc in db.patrol_events.find({"adapter_label": TRIAGE_ADAPTER, "triage_investigation": {"$ne": None}}, {"_id": 1, "device_id": 1,
                                            "category": 1, "investigation_case_id": 1, "triage_investigation": 1, "source_metadata": 1,
-                                           "occurred_at": 1, "status": 1, "resolved_at": 1}):
+                                           "occurred_at": 1, "state": 1, "status": 1, "resolved_at": 1}):
         wire = rejudged(doc["triage_investigation"])
         update: dict = {"triage_investigation": wire, "source_metadata": await _source_of(doc), "updated_at": now_utc()}
         text = patrol_text(wire, doc.get("category") or "")
@@ -90,9 +92,9 @@ async def _patrol_records() -> int:
             # The case's own result is what the screens show; only the words of this record change.
             text = {k: v for k, v in text.items() if k not in ("state", "status")}
         elif closed(doc):
-            # A record already closed — handled or trusted by the person, or resolved — stays closed: a re-judge never
-            # reopens it and never clears when it was closed.
-            text = {k: v for k, v in text.items() if k != "status"}
+            # A record already closed — handled or trusted by the person, or resolved — keeps its closure (state, status
+            # and closing time) exactly as it was; only its findings and their words change.
+            text = {k: v for k, v in text.items() if k not in ("state", "status")}
         else:
             update["resolved_at"] = doc.get("occurred_at") if text["status"] == "resolved" else None
         update.update(text)

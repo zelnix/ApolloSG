@@ -28,6 +28,12 @@ export function enrichOriginal(existing: OriginalSource, incoming: OriginalSourc
   };
 }
 
+/** One case's copies, kept under its different keys (its record, its investigation), read as one: the first copy, with
+ *  what it lacks filled in from the others. An incomplete copy under one key never hides headers kept under another. */
+export function mergeCopies(copies: (OriginalSource | null | undefined)[]): OriginalSource | null {
+  return copies.reduce<OriginalSource | null>((out, c) => (c ? (out ? enrichOriginal(out, c) : c) : out), null);
+}
+
 /** Whether two saved originals hold exactly the same thing (so an enrichment that adds nothing writes nothing). */
 export function sameOriginal(a: OriginalSource, b: OriginalSource): boolean {
   return JSON.stringify(a) === JSON.stringify(b);

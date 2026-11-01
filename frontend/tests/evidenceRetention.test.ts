@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { enrichOriginal, sameOriginal } from "../src/domain/originalMerge.ts";
+import { enrichOriginal, mergeCopies, sameOriginal } from "../src/domain/originalMerge.ts";
 import { missingParts, originalFromPickup, pickupIdentifiers, savedReport, type PickupOriginal } from "../src/domain/pickupCheck.ts";
 import type { OriginalSource } from "../src/store/originalSource";
 
@@ -67,3 +67,15 @@ test("only a complete copy, read back from the phone, is confirmed — the same 
   assert.deepEqual(missingParts(savedReport({ text: "Pay at https://auspost-redeliver.top/pay", fields: [] }, ORIGINALS, false), { originals: ORIGINALS, source: {} }, false), [],
     "a link inside the saved text counts as saved");
 });
+
+test("an incomplete copy kept under the record's key never hides headers kept under the investigation's key", () => {
+  // Saved by an earlier version that wrote each key only once: the record's copy has no headers, the case's has them.
+  const merged = mergeCopies([PASTED, null, HEADERS]);
+  assert.ok(merged);
+  assert.equal(merged.text, PASTED.text, "the record's own evidence comes first and stays as it was");
+  assert.equal(merged.capturedAt, PASTED.capturedAt);
+  assert.deepEqual(merged.fields?.map((f) => f.value), ["AusPost <track@auspost-help.co>", "Your parcel is held", "2026-10-30T08:55:00.000Z"]);
+  assert.equal(mergeCopies([null, HEADERS]), HEADERS, "a single copy is read as it is");
+  assert.equal(mergeCopies([null, undefined]), null);
+});
+

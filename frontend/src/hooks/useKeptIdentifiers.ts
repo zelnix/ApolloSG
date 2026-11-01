@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { keptIdentifiers, type KeptIdentifiers } from "@/src/domain/homeHeroBrief";
 import type { PatrolEvent } from "@/src/domain/types";
-import { getOriginalSource, subscribeOriginalSource } from "@/src/store/originalSource";
+import { getCaseOriginal, subscribeOriginalSource } from "@/src/store/originalSource";
 
 export function useKeptIdentifiers(event: Pick<PatrolEvent, "event_id" | "investigation_case_id">): KeptIdentifiers | null {
   const [kept, setKept] = useState<KeptIdentifiers | null>(null);
@@ -12,7 +12,7 @@ export function useKeptIdentifiers(event: Pick<PatrolEvent, "event_id" | "invest
   useEffect(() => {
     let active = true;
     const load = () => void (async () => {
-      const src = (await getOriginalSource(eventId)) ?? (caseId ? await getOriginalSource(caseId) : null);
+      const src = await getCaseOriginal([eventId, caseId]);
       if (active) setKept(keptIdentifiers(src));
     })();
     load();

@@ -4680,3 +4680,13 @@ Report: `/app/memory/REPORT_2026-11-01_evidence_retention.md`; proof: `/app/test
 - `domain/emailRecord.ts`: one email record for Home + Threat Case, "Not provided", never the SMS icon for email.
 - AT10 (test_retrofit_acceptance) now reruns the migration dry and checks 0 errors + no duplicate record_ids.
 - Tests: frontend 1289/1289; backend 1628 pass, 1 known failure ("moneysmart", owner declined).
+
+## Code-review corrections (2026-11-01, owner reviewed GitHub e294425) — DONE
+- Re-judge keeps a closed record's closure (state, status, resolved_at) apart from findings: backend `triage/rejudge._patrol_records`
+  (projects `state`, drops state+status for `closed`), phone `domain/triage/rejudge.ts` (wasClosed keeps state/status/resolved_at).
+  MARKER stays `:3` / REJUDGE_VERSION `:2` (never run in production; production last published 29–30 Oct).
+- `ai_budget`: documented as an ESTIMATED spending guard (settle has no second limit check); rule book updated + re-stamped.
+- Incomplete-source precedence: `originalSource.getCaseOriginal(keys)` + `originalMerge.mergeCopies` — every reader (Home, search,
+  Threat Case, SourceSummaryCard, EvidenceArtefactCard, useKeptIdentifiers, email upgrade) merges all keys, first copy as base.
+- Reports corrected: no 24 h deletion on the phone (REPORT_since_last_publish §5, REPORT_2026-11-01_detection_display_fixes).
+- Tests: frontend 1291/1291, tsc clean; backend 1628 pass, 1 known ("moneysmart").

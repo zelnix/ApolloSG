@@ -16,6 +16,7 @@ from services import correlation, held_copies, investigation_projector as projec
 from services.higgins import repository as repo
 from services.higgins.contracts import HigginsResponse, ProviderResult, TurnCommit
 from services.triage.rejudge import _patrol_records
+from services.patrol_status import handled
 
 
 async def _committed(owner: str, *, outcome: str, assessment: str, attention: str, submission: str | None = None) -> dict:
@@ -129,9 +130,16 @@ async def test_a_rejudge_never_reopens_a_closed_triage_record():
     wire = {"outcome": "LIMITED_UNABLE_TO_DETERMINE", "rules": [], "incompleteChecks": [],
             "coverageGaps": [{"code": "INSUFFICIENT_EVIDENCE", "detail": "Not enough to decide."}]}
     open_wire = {**wire}
+    # Filed as needing a look only because the email's headers were missing: the current rules find nothing to act on.
+    header_gap = {"outcome": "LIMITED_UNABLE_TO_DETERMINE", "incompleteChecks": [],
+                  "rules": [{"id": "EMAIL-AUTH", "class": "DETECT", "title": "Sender authentication", "result": "coverage_gap",
+                             "coverageGap": "EMAIL_HEADERS_UNAVAILABLE", "evidence": []}],
+                  "coverageGaps": [{"code": "EMAIL_HEADERS_UNAVAILABLE", "detail": "No headers."}]}
     await db.patrol_events.insert_many([
         _device_record(owner, f"closed-{uuid.uuid4().hex[:8]}", adapter_label=TRIAGE_ADAPTER, state="ears_up", status="resolved",
                        resolved_at=closed_at, triage_investigation=wire),
+        _device_record(owner, f"handled-{uuid.uuid4().hex[:8]}", category="email", adapter_label=TRIAGE_ADAPTER, state="growling",
+                       status="resolved", resolved_at=closed_at, triage_investigation=header_gap),
         _device_record(owner, f"open-{uuid.uuid4().hex[:8]}", adapter_label=TRIAGE_ADAPTER, state="ears_up", status="active",
                        triage_investigation=open_wire)])
     await _patrol_records()
@@ -139,6 +147,11 @@ async def test_a_rejudge_never_reopens_a_closed_triage_record():
     try:
         assert rows["closed"]["status"] == "resolved", "a re-judge changes words, never reopens"
         assert abs((rows["closed"]["resolved_at"].replace(tzinfo=None) - closed_at.replace(tzinfo=None)).total_seconds()) < 1, "its closing time stays"
+        h = rows["handled"]
+        assert h["triage_investigation"]["outcome"] == "NO_THREAT_IDENTIFIED", "its findings are updated"
+        assert (h["state"], h["status"]) == ("growling", "resolved"), "the person's closure is kept apart from the findings"
+        assert abs((h["resolved_at"].replace(tzinfo=None) - closed_at.replace(tzinfo=None)).total_seconds()) < 1
+        assert handled(h), "still the person's decision, never relabelled as Apollo's own"
         assert rows["open"]["status"] == "active", "an open record is still filed as the rules say"
     finally:
         await db.patrol_events.delete_many({"device_id": owner})

@@ -16,7 +16,7 @@ import { MATCH_LABEL, MIN_QUERY, openCases, searchCases, type CaseMatch, type Ca
 import { eventBrief, keptIdentifiers } from "@/src/domain/homeHeroBrief";
 import { STATUS_COLORS, STATUS_LABELS, formatDateTime, threatCaseStatus } from "@/src/domain/threatCase";
 import { useApollo } from "@/src/store/ApolloContext";
-import { getOriginalSource, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { getCaseOriginal, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
 import { goBackOrHome } from "@/src/utils/navigation";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -96,7 +96,7 @@ export default function CaseSearchScreen() {
   useEffect(() => {
     let active = true;
     const load = () => void Promise.all(cases.map(async (e) => {
-      const src = (await getOriginalSource(e.event_id)) ?? (e.investigation_case_id ? await getOriginalSource(e.investigation_case_id) : null);
+      const src = await getCaseOriginal([e.event_id, e.investigation_case_id]);
       return [e.event_id, src] as const;
     })).then((pairs) => { if (active) setOriginals(Object.fromEntries(pairs)); });
     load();

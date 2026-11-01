@@ -32,7 +32,7 @@ import { NumberDetails } from "./NumberDetails";
 import type { ApolloState, PatrolEvent } from "@/src/domain/types";
 import type { CaseOrigin, EvidenceItem } from "@/src/investigation/types";
 import { listImageEvidence, subscribeImageEvidence, type ImageEvidenceRecord } from "@/src/store/imageEvidence";
-import { getOriginalSource, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { getCaseOriginal, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
 import { fonts, makeStyles, radius, spacing, useTheme, type ThemeColors } from "@/src/theme";
 
 type Icon = React.ComponentType<{ size: number; color: string }>;
@@ -137,8 +137,7 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
     const keys = keyList ? keyList.split("|") : [];
     let live = true;
     const load = async () => {
-      let found: OriginalSource | null = null;
-      for (const key of keys) { found = await getOriginalSource(key).catch(() => null); if (found) break; }
+      const found = await getCaseOriginal(keys).catch(() => null);
       const pictures = new Map<string, ImageEvidenceRecord>();
       for (const key of keys) for (const r of await listImageEvidence(key).catch(() => [])) pictures.set(r.id, r);
       if (live) { setOriginal(found); setImages([...pictures.values()]); }

@@ -39,7 +39,7 @@ import {
   STATUS_COLORS,
 } from "@/src/domain/threatCase";
 import { ProtectionChangeBanner } from "@/src/components/device/ProtectionChangeBanner";
-import { getOriginalSource, subscribeOriginalSource } from "@/src/store/originalSource";
+import { getCaseOriginal, subscribeOriginalSource } from "@/src/store/originalSource";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { useProtectionPosture } from "@/src/protection/useProtectionPosture";
@@ -250,7 +250,7 @@ export default function Home() {
   React.useEffect(() => {
     let active = true;
     const load = () => void Promise.all(keptCases.map(async (e) => {
-      const src = (await getOriginalSource(e.event_id)) ?? (e.investigation_case_id ? await getOriginalSource(e.investigation_case_id) : null);
+      const src = await getCaseOriginal([e.event_id, e.investigation_case_id]);
       return [e.event_id, keptIdentifiers(src)] as const;
     })).then((pairs) => { if (active) setKept(Object.fromEntries(pairs)); });
     load();

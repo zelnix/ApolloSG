@@ -6,9 +6,13 @@ Two limits, both changeable by an admin (routers/admin.py → /api/admin/ai-budg
     automated  — how much of that total automatic checks (mailbox monitoring, recovery, advisories, health checks)
                  may use (default $2.00). It sits INSIDE the total, never on top of it.
 
-Before each paid call its estimated cost is reserved against today's ledger in one atomic update: the update matches
-only while reserved + estimate stays within the limit(s), so concurrent calls can never overspend between them. After
-the call the reservation is settled to the actual cost from the usage the provider reported. When the billing outcome
+An ESTIMATED spending guard, not a guaranteed billing ceiling. Before each paid call its estimated cost is reserved
+against today's ledger in one atomic update: the update matches only while reserved + estimate stays within the
+limit(s), so concurrent calls can't jointly reserve more than the limit. After the call the reservation is settled to
+the actual cost from the usage the provider reported, with no second limit check: when the actual cost is higher than
+the estimate (estimate_call_usd's assumptions — 3 characters a token, a fixed allowance per image or audio part,
+SEARCH_ALLOWANCE searches — can be exceeded), the day's total can go over the limit by that difference, and further
+calls are refused until the next day or a higher limit. When the billing outcome
 isn't known (a timeout, a dropped connection, an answer with no usage) the full estimate stays reserved — that is the
 allowance kept for calls that may have been billed — until reconcile() is given the actual cost. A call refused before
 it could be billed (rejected request, rate limit) releases its reservation.
@@ -190,9 +194,10 @@ async def reconcile(reservation_id: str, actual_usd: float) -> bool:
 
 # ── Estimating one AI call before it is sent ────────────────────────────────
 def estimate_call_usd(model: str, provider: str, payload_audit: dict, *, web_search: bool, max_output_tokens: int) -> float:
-    """A cautious upper estimate: the request's text (3 characters a token, rounded up) plus each image or audio part,
-    the most output the call may produce at the dearer of the output and thinking rates, and SEARCH_ALLOWANCE searches
-    when web search is attached."""
+    """An estimate, not an enforced maximum: the request's text (3 characters a token, rounded up) plus each image or
+    audio part (BINARY_PART_TOKENS), the most output the call may produce at the dearer of the output and thinking
+    rates, and SEARCH_ALLOWANCE searches when web search is attached. The provider can bill more input tokens or
+    searches than this assumes."""
     from services.gemini_usage import SEARCH_QUERY_USD, pricing_for
     rates = pricing_for(model)
     chars = int(payload_audit.get("system_chars") or 0) + int(payload_audit.get("total_text_chars") or 0)

@@ -53,7 +53,7 @@ import { ShareWithFamily } from "@/src/components/ShareWithFamily";
 import { FamilyNotes } from "@/src/components/FamilyNotes";
 import { comparableChecks, compareDeviceChecks, type DeviceCheckProgress } from "@/src/domain/deviceCheckProgress";
 import { getInvestigation, type DeviceInvestigation } from "@/src/investigation/deviceStore";
-import { getOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { getCaseOriginal, getOriginalSource, type OriginalSource } from "@/src/store/originalSource";
 import { goBackOrHome } from "@/src/utils/navigation";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -311,7 +311,7 @@ function RecheckCase({ event }: { event: PatrolEvent }) {
         if (outcome.notice) showToast(outcome.notice, "neutral");
         openResult(outcome.event, "ApolloSG re-checked the website and found nothing to flag this time.");
       } else if (plan.kind === "message") {
-        const original = await getOriginalSource(event.event_id).catch(() => null);
+        const original = await getCaseOriginal([event.event_id, event.investigation_case_id]).catch(() => null);
         const text = (original?.text ?? "").trim();
         if (!text) {
           showToast("ApolloSG can't re-check this one here — the original message isn't stored with this case. Open the Text or Email check and submit it again.", "growling");
@@ -506,12 +506,13 @@ export default function ThreatCaseScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   // The item itself, as held on this device. Nothing here comes from the server's minimised copy.
   const [original, setOriginal] = useState<OriginalSource | null>(null);
+  const investigationId = event?.investigation_case_id ?? null;
   useEffect(() => {
     let active = true;
     if (!id) return;
-    void getOriginalSource(id).then((o) => { if (active) setOriginal(o); }).catch(() => undefined);
+    void getCaseOriginal([id, investigationId]).then((o) => { if (active) setOriginal(o); }).catch(() => undefined);
     return () => { active = false; };
-  }, [id]);
+  }, [id, investigationId]);
 
   if (ready && !setupDone) return <Redirect href="/onboarding" />;
 

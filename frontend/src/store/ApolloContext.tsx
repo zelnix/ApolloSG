@@ -86,7 +86,7 @@ import type { HealthTrigger } from "@/src/protection/healthTypes";
 import { APP_VERSION } from "@/src/config/buildInfo";
 import { isVerifiedDesktopFlowDrop } from "@/src/security/desktopEvidence";
 import { startPostureMonitor, updatePostureInputs, stopPostureMonitor } from "@/src/security/postureMonitor";
-import { getOriginalSource, saveOriginalSource, type OriginalSourceInput } from "@/src/store/originalSource";
+import { getCaseOriginal, getOriginalSource, saveOriginalSource, type OriginalSourceInput } from "@/src/store/originalSource";
 import { pickUpCase, pickupsDone, rememberPickups } from "@/src/investigation/pickup";
 
 // ── Privacy-safe notification diagnostic logger ──────────────────────────
@@ -1224,7 +1224,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     let previous = input.upgradeEventId ? eventsRef.current.find((e) => e.event_id === input.upgradeEventId) ?? null : null;
     let upgradeMismatch = false;
     if (previous) {
-      const before = await getOriginalSource(previous.event_id);
+      const before = await getCaseOriginal([previous.event_id, previous.investigation_case_id]);
       const field = (label: string) => before?.fields?.find((f) => f.label === label)?.value ?? undefined;
       // A pasted copy keeps its From/Subject lines inside the text — read them the way the engine does.
       const prior = parseEmail(before?.text ?? "", { from: field("From"), subject: field("Subject") });

@@ -36,7 +36,7 @@ import { purposeLimitedUrl, redactInvestigationSecrets } from "@/src/domain/priv
 import { readEmailBody } from "@/src/domain/triage/emailOriginal";
 import { listImageEvidence, removeOriginal, subscribeImageEvidence, type ImageEvidenceRecord } from "@/src/store/imageEvidence";
 import { readKeptOriginalEmail } from "@/src/store/originalEmail";
-import { getOriginalSource, originalSourceDeletedAt, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { getCaseOriginal, originalSourceDeletedAt, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
 import { HELD_COPY_DELETED } from "@/src/domain/heldCopies";
 import { shareEvidencePack, type PackSummary } from "@/src/utils/evidencePack";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -167,10 +167,8 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
   useEffect(() => {
     const keys = keyList ? keyList.split("|") : [];
     const load = async () => {
-      for (const key of keys) {
-        const found = await getOriginalSource(key).catch(() => null);
-        if (found) { setSrc(found); setDeletedAt(null); return; }
-      }
+      const found = await getCaseOriginal(keys).catch(() => null);
+      if (found) { setSrc(found); setDeletedAt(null); return; }
       // Where ApolloSG's copy was deleted after its 24 hours, say so rather than showing nothing.
       let gone: string | null = null;
       for (const key of keys) { gone = gone ?? (await originalSourceDeletedAt(key).catch(() => null)); }
