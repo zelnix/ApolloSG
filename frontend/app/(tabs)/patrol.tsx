@@ -16,7 +16,7 @@ import Camera from "lucide-react-native/icons/camera";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
 import Clock from "lucide-react-native/icons/clock";
-import Ellipsis from "lucide-react-native/icons/ellipsis";
+
 import FileText from "lucide-react-native/icons/file-text";
 import Globe from "lucide-react-native/icons/globe";
 import Link2 from "lucide-react-native/icons/link-2";
@@ -40,15 +40,13 @@ import {
   threatCaseStatus,
   STATUS_LABELS,
   STATUS_COLORS,
-  categoryLabel,
   formatDateTime,
   isSimulated,
   threatCaseId,
   threatCases as allThreatCases,
   type ThreatCaseStatus,
 } from "@/src/domain/threatCase";
-import { presentEvent } from "@/src/domain/luddish/present";
-import type { KeptIdentifiers } from "@/src/domain/homeHeroBrief";
+import { eventBrief } from "@/src/domain/homeHeroBrief";
 import { useKeptIdentifiers } from "@/src/hooks/useKeptIdentifiers";
 import type { PatrolEvent, SourceMetadata } from "@/src/domain/types";
 import { InfoButton, type ScreenInfo } from "@/src/components/InfoButton";
@@ -62,7 +60,6 @@ import { SourcePickerSheet, type SourceChoice } from "@/src/components/SourcePic
 import { Button, Pill } from "@/src/components/ui";
 import { simulation } from "@/src/simulation";
 import ShieldAlert from "lucide-react-native/icons/shield-alert";
-import { subjectRowLabel } from "@/src/domain/threatSubject";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -90,26 +87,6 @@ function sourceIcon(cat: string, meta?: SourceMetadata | null) {
     case "account": return { Icon: Shield, bg: "rgba(217,119,6,0.1)", fg: "#92400E", label: "Account" };
     default: return { Icon: Shield, bg: "rgba(107,114,128,0.1)", fg: "#374151", label: "Security" };
   }
-}
-
-function cardTitle(event: PatrolEvent, kept: KeptIdentifiers | null): string {
-  const meta = event.source_metadata;
-  if (meta?.subject) return meta.subject;
-  // An email you submitted is named by its own subject, kept with the original on this device.
-  if (event.category === "email" && kept?.subject) return kept.subject;
-  const said = presentEvent(event).title;
-  if (said) return said;
-  if (meta?.preview) return meta.preview;
-  if (event.indicator_host) return event.indicator_host;
-  return categoryLabel(event.category) + " threat detected";
-}
-
-function cardSubtitle(event: PatrolEvent): string {
-  // Name the actual website, caller, sender, app or file on every row. Recorded identifiers only.
-  const named = subjectRowLabel(event);
-  if (named) return named;
-  const preview = event.source_metadata?.preview;
-  return preview ?? "";
 }
 
 
@@ -171,8 +148,8 @@ const useStyles = makeStyles((c) => ({
   cardTopRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   cardIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   cardWords: { gap: 2, marginTop: 2 },
-  cardTitle: { fontFamily: fonts.textMedium, fontSize: 15, color: c.onSurface, lineHeight: 21 },
-  cardSubtitle: { fontFamily: fonts.text, fontSize: 12, color: c.onSurfaceSecondary },
+  cardTitle: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface, lineHeight: 20 },
+  cardSubtitle: { fontFamily: fonts.text, fontSize: 13, color: c.onSurfaceSecondary, lineHeight: 18 },
   cardMeta: { flex: 1, fontFamily: fonts.text, fontSize: 12, color: c.muted },
   cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, marginTop: 2 },
   cardAction: { flexDirection: "row", alignItems: "center", gap: 4 },
@@ -197,8 +174,7 @@ function ThreatCard({ event, isNew, onPress, selecting = false, selected = false
   const si = sourceIcon(event.category, event.source_metadata);
   const IconEl = si.Icon;
   const kept = useKeptIdentifiers(event);
-  const title = cardTitle(event, kept);
-  const subtitle = cardSubtitle(event);
+  const brief = eventBrief(event, new Date(), kept, "card");
   const statusColor = STATUS_COLORS[status];
 
   return (
@@ -221,8 +197,8 @@ function ThreatCard({ event, isNew, onPress, selecting = false, selected = false
         </View>
       </View>
       <View style={s.cardWords}>
-        <Text style={s.cardTitle} numberOfLines={3}>{title}</Text>
-        {subtitle ? <Text style={s.cardSubtitle} numberOfLines={1}>{subtitle}</Text> : null}
+        <Text style={s.cardTitle} numberOfLines={4}>{brief.line1}</Text>
+        <Text style={s.cardSubtitle} numberOfLines={3}>{brief.line2}</Text>
       </View>
       {event.evidence_profile ? <EvidenceBadge profile={event.evidence_profile} testID={`threat-card-${event.event_id}-evidence`} /> : null}
       <SettledByBadge event={event} testID={`threat-card-${event.event_id}-settled`} />
