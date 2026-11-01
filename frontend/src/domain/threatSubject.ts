@@ -20,11 +20,8 @@ export interface ThreatSubject {
   name: string;
 }
 
-const MAX_NAME = 42;
-
-function clip(value: string): string {
-  const v = value.trim();
-  return v.length > MAX_NAME ? `${v.slice(0, MAX_NAME - 1)}…` : v;
+function named(value: string): string {
+  return value.trim();
 }
 
 /** Reduce a link to the domain a person can recognise: no scheme, no "www.", no path or query.
@@ -36,8 +33,8 @@ export function shortDomain(raw: string | null | undefined): string | null {
   const host = withoutScheme.split(/[/?#]/)[0].replace(/^www\./i, "").replace(/:\d+$/, "");
   if (!host) return null;
   // Only treat it as a host when it looks like one; otherwise keep the original text.
-  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(host)) return clip(host.toLowerCase());
-  return clip(value);
+  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(host)) return named(host.toLowerCase());
+  return named(value);
 }
 
 /** The specific subject of this event, or null when Apollo recorded no identifier for it. */
@@ -48,26 +45,26 @@ export function threatSubject(event: PatrolEvent): ThreatSubject | null {
   switch (event.category) {
     case "email": {
       const sender = (meta?.sender ?? "").trim() || brand;
-      if (sender) return { kind: "email_sender", name: clip(sender) };
+      if (sender) return { kind: "email_sender", name: named(sender) };
       break;
     }
     case "message": {
       const sender = (meta?.sender ?? "").trim() || brand;
-      if (sender) return { kind: "message_sender", name: clip(sender) };
+      if (sender) return { kind: "message_sender", name: named(sender) };
       break;
     }
     case "call": {
       const caller = (event.local_indicator ?? "").trim() || (meta?.sender ?? "").trim();
-      if (caller) return { kind: "caller", name: clip(caller) };
+      if (caller) return { kind: "caller", name: named(caller) };
       break;
     }
     case "file": {
       const file = (meta?.attachment_names ?? []).find((n) => !!n && n.trim().length > 0);
-      if (file) return { kind: "file", name: clip(file) };
+      if (file) return { kind: "file", name: named(file) };
       break;
     }
     case "app": {
-      if (brand) return { kind: "app", name: clip(brand) };
+      if (brand) return { kind: "app", name: named(brand) };
       break;
     }
     default:
@@ -77,7 +74,7 @@ export function threatSubject(event: PatrolEvent): ThreatSubject | null {
   // Any category can carry a recorded destination — a link, a sinkholed host, a blocked domain.
   const host = shortDomain(meta?.url ?? event.local_indicator ?? event.indicator_host);
   if (host) return { kind: "website", name: host };
-  if (brand) return { kind: "message_sender", name: clip(brand) };
+  if (brand) return { kind: "message_sender", name: named(brand) };
   return null;
 }
 

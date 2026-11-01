@@ -6,7 +6,8 @@ import { analyseMessage } from "../src/domain/messageAnalysis.ts";
 import { buildEmailProfile } from "../src/domain/triage/emailEvidence.ts";
 import { evaluateTriage } from "../src/domain/triage/engine.ts";
 import { emailTriageEvidence, messageTriageEvidence } from "../src/domain/triage/evidence.ts";
-import { REJUDGED_LINE, REJUDGE_VERSION, emailPatrolState, rejudgeCandidate, rejudgeEvent } from "../src/domain/triage/rejudge.ts";
+import { REJUDGE_VERSION, emailPatrolState, rejudgeCandidate, rejudgeEvent } from "../src/domain/triage/rejudge.ts";
+import { REJUDGED_LINE } from "../src/domain/luddish/present.ts";
 import type { TriageInvestigationRecord } from "../src/domain/triage/contract.ts";
 import type { PatrolEvent } from "../src/domain/types.ts";
 import type { OriginalSource } from "../src/store/originalSource.ts";
@@ -76,6 +77,21 @@ test("a case the person already handled stays handled", () => {
   assert.equal(next!.triage_investigation!.outcome, "POSSIBLE_THREAT_IDENTIFIED");
   assert.equal(next!.status, "resolved");
   assert.equal(next!.resolved_at, "2026-10-30T02:00:00.000Z");
+});
+
+test("a case Apollo had already closed is never reopened by a re-judge, even when the current rules find more", () => {
+  const text = "Your parcel is held. Reply with your card number and CVV to pay the customs fee.";
+  const old = { ...evaluateTriage(messageTriageEvidence({ analysis: analyseMessage("", text) })), outcome: "NO_THREAT_IDENTIFIED" as const, rulesMet: [] };
+  const next = rejudgeEvent(event({ triage_investigation: old, state: "resting", status: "resolved", resolved_at: "2026-10-30T02:00:00.000Z" }), kept(text), NOW);
+  assert.ok(next);
+  assert.equal(next!.status, "resolved");
+  assert.equal(next!.resolved_at, "2026-10-30T02:00:00.000Z");
+});
+
+test("an original kept for more than 24 hours is gone: the case isn't re-judged from it", () => {
+  const old = flagged(evaluateTriage(messageTriageEvidence({ analysis: analyseMessage("Microsoft", CODE_DELIVERY) })));
+  const stale = { ...kept(CODE_DELIVERY, "Microsoft"), capturedAt: "2026-10-31T02:59:00.000Z" };
+  assert.equal(rejudgeEvent(event({ triage_investigation: old }), stale, NOW), null);
 });
 
 test("an email that only mentions a brand is no longer read as that brand", () => {

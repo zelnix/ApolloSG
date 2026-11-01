@@ -67,17 +67,28 @@ _CATEGORY_LABEL = {
 SUMMARY_WHY = "ApolloSG's servers keep only this privacy-protected summary, not the content that was checked."
 
 
-def summary_narrative(category, state, verified) -> dict:
+def summary_narrative(category, state, verified, outcome=None) -> dict:
     """The fixed wording of the privacy-protected summary the server keeps of a device's check.
 
     It says what was checked and the result at a high level. It never says where a copy is kept: every Threat Case
-    belongs to the device that detected it, and this summary is part of that same case."""
+    belongs to the device that detected it, and this summary is part of that same case. `outcome`: the investigation
+    outcome the record carries — a resting record whose investigation couldn't decide is not fully checked, never
+    "nothing unusual"."""
     state_phrase = _STATE_PHRASE.get(state, "a result")
     cat_label = _CATEGORY_LABEL.get(category, category)
+    a_cat = f"{'an' if cat_label[:1].lower() in 'aeiou' else 'a'} {cat_label}"
+    if state == 'resting' and outcome == 'unable_to_determine' and not verified:
+        return {
+            'headline': f'Apollo checked {a_cat} but couldn\u2019t settle it',
+            'what_happened': f'Apollo checked {a_cat}. Nothing was found to act on, but not every check could settle it.',
+            'why': [SUMMARY_WHY],
+            'what_to_do': "Nothing found to act on. This isn't confirmation that it's safe.",
+        }
     return {
-        'headline': f'Apollo blocked a suspicious {cat_label}' if verified else f'Apollo flagged a {cat_label} for review',
+        # The result it recorded, never a posture ("flagged for review"): the summary holds no content to quote.
+        'headline': f'Apollo blocked a suspicious {cat_label}' if verified else f'Apollo checked {a_cat} and found {state_phrase}',
         'what_happened': (f'Apollo blocked a suspicious {cat_label} using its on-device filter.' if verified
-                          else f'Apollo checked a {cat_label} and found {state_phrase}.'),
+                          else f'Apollo checked {a_cat} and found {state_phrase}.'),
         'why': ['The connection was blocked based on verified threat intelligence.' if verified else SUMMARY_WHY],
         'what_to_do': (f"Don't act on this {cat_label} — don't tap links, reply, call back or pay — until you've "
                        "confirmed it through a contact you already trust." if state == 'barking'
@@ -89,7 +100,7 @@ def refresh_summary(doc: dict) -> dict:
     """Show a stored privacy summary in the current wording (records written earlier carried location wording)."""
     if not isinstance(doc, dict) or doc.get('adapter_label') != SUMMARY_ADAPTER:
         return doc
-    return {**doc, **summary_narrative(doc.get('category'), doc.get('state'), doc.get('verified_block') is True)}
+    return {**doc, **summary_narrative(doc.get('category'), doc.get('state'), doc.get('verified_block') is True, doc.get('investigation_outcome'))}
 
 
 def minimal_patrol(body, verified):
@@ -98,6 +109,7 @@ def minimal_patrol(body, verified):
     payload.pop('client_submission_id', None)  # server-owned: set only by the investigation projector
     payload.pop('detection_updated_at', None)  # server-owned: set only when new detection evidence arrives
     payload.pop('investigation_completed_at', None)  # server-owned: set only by the investigation projector
+    payload.pop('investigation_outcome', None)  # server-owned: set only by the investigation projector
     e = body.enforcement_evidence
     safe_refs = []
     for ref in body.supporting_references[:6]:

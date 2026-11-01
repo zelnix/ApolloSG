@@ -50,9 +50,46 @@ def _clauses(text: str) -> list[str]:
     return [c.strip() for c in _CLAUSE.split(text or "") if c and c.strip()]
 
 
+# What may stand between a negation and the ask it governs: nothing but "ever"/"please"/"under any circumstances"
+# ("Never, ever share …"), or an "ask you to" construction ("No one from CommBank will ever ask you to send …",
+# "you should never be asked to share …"). Anything else — "Do not delay, send me …", "was not changed, send me …" —
+# means the negation belongs to something else, and the ask stands.
+_GOVERNS = re.compile(
+    r"^(?:\s*,?\s*(?:ever|you|please|again|under any circumstances)\s*,?)*\s*$"
+    r"|^(?:\s+[\w'’-]+){0,6}?\s+(?:(?:will|would|should|shall|can|could|may|might|must)\s+)?(?:ever\s+)?(?:be\s+)?"
+    r"(?:ask|asks|asked|request|requests|requested|require|requires|required|want|wants|need|needs|expect|expects|expected)"
+    r"(?:\s+(?:you|anyone|customers|members|that you|for))?(?:\s+to)?\s*$", re.I)
+_WORD_START = re.compile(r"\b\w")
+
+
+def negated_before(before: str) -> bool:
+    """The text just before an ask holds a negation that governs it: the nearest one in the same clause, with only
+    what _GOVERNS allows in between. Used by every reader of requests (Higgins Triage on the phone and in a case,
+    TC FlyBy's patterns), so "Do not delay, send me your password" is a request everywhere."""
+    clause = _CLAUSE.split(before)[-1] if before else ""
+    last = None
+    for last in _NEGATION.finditer(clause):
+        pass
+    return bool(last) and bool(_GOVERNS.match(clause[last.end():]))
+
+
 def _negated(clause: str, match: re.Match) -> bool:
-    """A negation before the ask, in the same clause: "never share", "we will never ask you to send"."""
-    return bool(_NEGATION.search(clause[: match.start()]))
+    """A negation that governs this ask, in its clause."""
+    return negated_before(clause[: match.start()])
+
+
+def ask_in(pattern: re.Pattern, clause: str) -> tuple[re.Match | None, bool]:
+    """The first ask in the clause that isn't negated, else (the first negated one, True), else (None, False). Every
+    starting point is tried, so a negated ask earlier in the clause never hides a real one after it."""
+    negated = None
+    for start in _WORD_START.finditer(clause):
+        m = pattern.match(clause, start.start())
+        if not m:
+            continue
+        if not _negated(clause, m):
+            return m, False
+        negated = negated or m
+    return negated, negated is not None
 
 
 def read(text: str) -> dict:
@@ -62,7 +99,7 @@ def read(text: str) -> dict:
 
     def mark(kind: str, clause: str) -> None:
         out[kind] = True
-        out["quotes"].setdefault(kind, clause[:200])
+        out["quotes"].setdefault(kind, clause)
 
     for clause in _clauses(text):
         if _DELIVERY.search(clause):
@@ -70,10 +107,10 @@ def read(text: str) -> dict:
         if _NOTICE.search(clause):
             mark("security_notice", clause)
         for kind, pattern in (("secret_request", _SECRET_ASK), ("code_request", _CODE_ASK), ("card_request", _CARD_ASK)):
-            m = pattern.search(clause)
+            m, negated = ask_in(pattern, clause)
             if not m:
                 continue
-            if _negated(clause, m):
+            if negated:
                 mark("negated_advice", clause)
             elif kind == "secret_request" and _PASSWORD_CHOICE.search(clause) and not re.search(r"\b(?:current|old|existing)\s+password\b", clause, re.I):
                 mark("sign_in_request", clause)          # choosing a new password is done on the site, not disclosed
@@ -81,11 +118,11 @@ def read(text: str) -> dict:
                 continue                                  # "Use this code …": the code is the reader's to use
             else:
                 mark(kind, clause)
-        m = _CARD_ENTRY.search(clause)
-        if m and not out["card_request"] and not _negated(clause, m):
+        m, negated = ask_in(_CARD_ENTRY, clause)
+        if m and not out["card_request"] and not negated:
             mark("payment_detail_update", clause)
-        m = _SIGN_IN.search(clause)
-        if m and not _negated(clause, m):
+        m, negated = ask_in(_SIGN_IN, clause)
+        if m and not negated:
             mark("sign_in_request", clause)
     return out
 

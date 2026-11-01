@@ -9,7 +9,8 @@
 // Pure + unit-tested.
 
 import { briefed, firstFinding, needsYou } from "../domain/caseBriefing.ts";
-import { say } from "../domain/luddish/present.ts";
+import { luddishText } from "../domain/luddish/index.ts";
+import { firstReason, reasonInSentence } from "../domain/luddish/present.ts";
 import { shortDomain } from "../domain/threatSubject.ts";
 import type { PatrolEvent } from "../domain/types";
 import type { LocalAlert } from "./notifications";
@@ -38,27 +39,16 @@ export function decodeHtmlEntities(text: string): string {
   });
 }
 
-export const TITLE_MAX = 65;
-export const BODY_MAX = 178;
-
 function tidy(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function clip(text: string, max: number): string {
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max - 1);
-  const space = cut.lastIndexOf(" ");
-  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,.;:—–-]+$/, "")}…`;
-}
-
-/** The notification presentation boundary — call once, on the finished alert, right before the OS. */
+/** The notification presentation boundary — call once, on the finished alert, right before the OS. Every line goes
+ *  through Higgins Luddish here (the title as a headline), so no alert, whoever composed it, reaches the person in
+ *  other words than the app's (the server does the same: services/notification_text.present_push). Nothing is cut
+ *  short: only the OS's own display limit ever shortens a notification. */
 export function presentAlertText(alert: LocalAlert): LocalAlert {
-  return {
-    ...alert,
-    title: clip(tidy(decodeHtmlEntities(alert.title)), TITLE_MAX),
-    body: clip(tidy(decodeHtmlEntities(alert.body)), BODY_MAX),
-  };
+  return { ...alert, title: luddishText(tidy(decodeHtmlEntities(alert.title)), true), body: luddishText(tidy(decodeHtmlEntities(alert.body))) };
 }
 
 // ── The short summary ────────────────────────────────────────────────────────
@@ -98,33 +88,42 @@ export function notificationSubject(event: PatrolEvent): string {
 
 const inSentence = (subject: string) => subject.replace(/^The /, "the ");
 const OPEN = "Open ApolloSG to see what I found.";
+const OPEN_IN_SENTENCE = "open ApolloSG to see what I found.";
 
 /** The case's own briefing, short: its first finding (which always names its subject) and, when the case owes the
  *  person a decision (caseBriefing.needsYou, as Home and Threats decide it), that it does. Null when the event has no
  *  Higgins Case Briefing. */
 function briefingSummary(event: PatrolEvent): string | null {
   const b = briefed(event);
-  return b ? `Higgins: ${say(firstFinding(b))}${needsYou(event) ? " This needs your decision." : ""} ${OPEN}` : null;
+  return b ? `Higgins: ${firstFinding(b)}${needsYou(event) ? " This needs your decision." : ""} ${OPEN}` : null;
 }
 
-/** The short, specific notification body for an event. */
-export function notificationSummary(event: PatrolEvent): string {
-  const briefed = briefingSummary(event);
-  if (briefed) return briefed;
+/** The summary before Luddish: the briefing's first finding, else the subject, the recorded state and the first
+ *  concrete thing Apollo recorded about it. Mirror of backend services/notification_text._composed. */
+function composed(event: PatrolEvent): string {
+  const briefedText = briefingSummary(event);
+  if (briefedText) return briefedText;
   const subject = notificationSubject(event);
+  const reason = firstReason(event);
+  const because = reason ? `: ${reasonInSentence(reason)}` : "";
   switch (event.state) {
     case "biting": return `Higgins: Apollo blocked ${inSentence(subject)}. ${OPEN}`;
-    case "barking": return `Higgins: ${subject} looks like a scam. Don't act on it — ${OPEN.charAt(0).toLowerCase()}${OPEN.slice(1)}`;
-    case "growling": return `Higgins: ${subject} has signs that need checking. ${OPEN}`;
+    case "barking": return `Higgins: ${subject} looks like a scam${because}. Don't act on it — ${OPEN_IN_SENTENCE}`;
+    case "growling": return `Higgins: ${subject} has ${reason ? "a warning sign" : "signs that need checking"}${because}. ${OPEN}`;
     default:
       // A Limited result is never presented as safe.
       return event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE"
-        ? `Higgins: I couldn't fully check ${inSentence(subject)}. Treat it with caution — ${OPEN.charAt(0).toLowerCase()}${OPEN.slice(1)}`
-        : `Higgins: ${subject} needs a closer look. ${OPEN}`;
+        ? `Higgins: I couldn't fully check ${inSentence(subject)}${because}. Treat it with caution — ${OPEN_IN_SENTENCE}`
+        : `Higgins: ${subject} needs a closer look${because}. ${OPEN}`;
   }
+}
+
+/** The short, specific notification body for an event, in Higgins Luddish (the server words its pushes the same way). */
+export function notificationSummary(event: PatrolEvent): string {
+  return luddishText(composed(event));
 }
 
 /** The body for "ApolloSG completed an investigation". */
 export function completedSummary(event: PatrolEvent): string {
-  return briefingSummary(event) ?? `Higgins: I've finished checking ${inSentence(notificationSubject(event))}. ${OPEN}`;
+  return luddishText(briefingSummary(event) ?? `Higgins: I've finished checking ${inSentence(notificationSubject(event))}. ${OPEN}`);
 }

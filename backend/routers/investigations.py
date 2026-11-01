@@ -158,7 +158,7 @@ def _build_source_metadata(gate: str | None, submissions: list, question: str) -
         }
     if has_text:
         first_text = next((s.value for s in submissions if s.kind == "text"), None)
-        preview = first_text[:160] if first_text else None
+        preview = first_text or None
         src_type = gate if gate in ("text", "call", "app", "file", "account", "device", "network") else "text"
         return {
             "type": src_type,

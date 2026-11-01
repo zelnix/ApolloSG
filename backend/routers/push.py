@@ -293,11 +293,12 @@ async def push_test(request: Request, body: Optional[PushTestIn] = None):
     return JSONResponse(statuses[0], status_code=202)
 
 
-async def push_owner_alert(event: PatrolEvent) -> None:
+async def push_owner_alert(event: PatrolEvent, *, briefing=None, source: dict | None = None) -> None:
     """Tell the protected person the moment Apollo barks/bites while the app is closed.
     Growling is a non-urgent nudge → held until the quiet window ends rather than dropped.
     Respects per-category notification preferences: barking/biting always send;
-    sniffing/growling can be disabled by the user."""
+    sniffing/growling can be disabled by the user. `briefing` / `source`: the case's Higgins Case Briefing and its
+    recorded source identifiers, so the push names the same finding and subject the app shows."""
     try:
         # Map event state to notification category
         if event.state in ("barking", "biting"):
@@ -311,7 +312,7 @@ async def push_owner_alert(event: PatrolEvent) -> None:
             return
 
         # A purpose-built short summary — the full Higgins explanation stays in the Threat Case.
-        message = owner_alert_summary(event)
+        message = owner_alert_summary(event, briefing=briefing, source=source)
         if event.state in ("growling", "sniffing", "ears_up"):
             verb = "Apollo is sniffing" if event.state == "sniffing" else "Apollo is growling"
             data = {"title": verb, "message": message, "action_url": f"/patrol/{event.event_id}", **PUSH_GROWL}

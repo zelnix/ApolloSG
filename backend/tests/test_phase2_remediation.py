@@ -50,5 +50,5 @@ def test_new_scams_sources_and_fallback_are_recognised_government_only():
 def test_history_is_persisted_by_the_projector_before_case_cleanup():
     projector = (ROOT / "backend" / "services" / "investigation_projector.py").read_text()
     assert "higgins_investigation_history.update_one" in projector
-    assert '"conclusion": overview[:600]' in projector
+    assert '"conclusion": overview,' in projector
     assert '"deleted": False' in projector

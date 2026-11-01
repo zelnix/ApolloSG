@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { involvedIn, shortText, summaryText, summaryWire, type FamilySummary } from "../src/domain/familySummary.ts";
+import { involvedIn, summaryText, summaryWire, type FamilySummary } from "../src/domain/familySummary.ts";
 
 const auspost: FamilySummary = {
   eventId: "evt-12345678", state: "barking", result: "Confirmed scam or threat",
@@ -28,9 +28,11 @@ test("a call shares its number; a website shares only its address", () => {
   assert.match(summaryText({ ...auspost, involved: { label: "Number", value: "+61 400 000 000" } }, "now"), /Number involved: \+61 400 000 000\n/);
 });
 
-test("a long answer is cut where a sentence ends; the wire carries only the summary fields", () => {
-  assert.equal(shortText("First sentence here. Second sentence is longer than the limit allows.", 30), "First sentence here.");
-  assert.equal(shortText("", 30), "");
+test("the wire carries only the summary fields, each whole", () => {
+  const long = { ...auspost, whatHappened: `${"Apollo found a lookalike address. ".repeat(40)}Don't act on it.`, whatToDo: "Don't open the link. ".repeat(30).trim() };
+  const wire = summaryWire(long);
+  assert.equal(wire.what_happened, long.whatHappened);
+  assert.equal(wire.what_to_do, long.whatToDo);
   assert.deepEqual(Object.keys(summaryWire(auspost)).sort(),
     ["case_ref", "event_id", "headline", "involved", "involved_label", "occurred_at", "result", "state", "what_happened", "what_to_do"]);
 });

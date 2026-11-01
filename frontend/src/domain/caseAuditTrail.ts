@@ -143,7 +143,7 @@ export function caseAuditTrail(input: {
   // Follow-up questions answered from the finished investigation's record.
   (investigation?.turns ?? []).slice(1).forEach((t, i) => entries.push({
     id: `followup-${i}`, at: t.committedAt, title: "Follow-up answered", tone: "check",
-    description: `You asked: "${t.question.length > 100 ? `${t.question.slice(0, 100)}…` : t.question}"`,
+    description: `You asked: "${t.question}"`,
   }));
 
   const lock = caseId && investigation?.response ? lockEntry(investigation, trace, event) : null;

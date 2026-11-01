@@ -36,7 +36,8 @@ import { purposeLimitedUrl, redactInvestigationSecrets } from "@/src/domain/priv
 import { readEmailBody } from "@/src/domain/triage/emailOriginal";
 import { listImageEvidence, removeOriginal, subscribeImageEvidence, type ImageEvidenceRecord } from "@/src/store/imageEvidence";
 import { readKeptOriginalEmail } from "@/src/store/originalEmail";
-import { getOriginalSource, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { getOriginalSource, originalSourceDeletedAt, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { HELD_COPY_DELETED } from "@/src/domain/heldCopies";
 import { shareEvidencePack, type PackSummary } from "@/src/utils/evidencePack";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -160,6 +161,7 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [deletedAt, setDeletedAt] = useState<string | null>(null);
   const keyList = caseKeys.filter((k): k is string => !!k).join("|");
 
   useEffect(() => {
@@ -167,8 +169,12 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
     const load = async () => {
       for (const key of keys) {
         const found = await getOriginalSource(key).catch(() => null);
-        if (found) { setSrc(found); return; }
+        if (found) { setSrc(found); setDeletedAt(null); return; }
       }
+      // Where ApolloSG's copy was deleted after its 24 hours, say so rather than showing nothing.
+      let gone: string | null = null;
+      for (const key of keys) { gone = gone ?? (await originalSourceDeletedAt(key).catch(() => null)); }
+      setDeletedAt(gone);
       setSrc(null);
     };
     void load();
@@ -231,6 +237,19 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
     finally { setBusy(false); }
   }, [records, packTitle, packDate, packSummary, source]);
 
+  if (src !== undefined && !source && deletedAt) {
+    return (
+      <View style={s.card} testID={`${testID}-deleted`}>
+        <View style={s.header}>
+          <View style={s.iconWrap}><Info size={20} color={colors.onSurface} /></View>
+          <View style={s.headerInfo}>
+            <Text style={s.title}>Original Source</Text>
+            <Text style={s.subtitle} testID={`${testID}-deleted-note`}>{HELD_COPY_DELETED}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
   if (src === undefined || !source || !view || !shown) return null;
 
   const url = mode === "redacted" && source.url ? purposeLimitedUrl(source.url) : source.url ?? null;

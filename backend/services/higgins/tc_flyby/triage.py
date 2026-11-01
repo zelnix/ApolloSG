@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 
 from services.higgins.brand_domains import registrable
 from services.higgins.indicators import BRANDS, read_indicators
+from services.triage.requests import negated_before
 
 # ── Entity patterns ──────────────────────────────────────────────────────────
 ABN_RE = re.compile(r"\bABN[\s:#.]*((?:\d[\s-]?){10}\d)\b", re.I)
@@ -68,8 +69,8 @@ RED_FLAG_CLAIM = re.compile(
 
 # ── Requests and instructions ────────────────────────────────────────────────
 # Each is a request construction (a verb bound to what it asks for), never a lone keyword. A negated one
-# ("we will never ask for your password") is not a request.
-NEGATION = re.compile(r"\b(?:never|won'?t|will\s+not|don'?t|do\s+not|doesn'?t|does\s+not|not|no\s+one)\b[^.?!\n]{0,30}$", re.I)
+# ("we will never ask for your password") is not a request; a negation that belongs to something else ("Do not
+# delay, send …") never cancels one (services/triage/requests.negated_before).
 REQUESTS: tuple[tuple[str, str], ...] = (
     ("payment", r"(?:\b(?:send|transfer|pay|deposit|wire|lend|loan)\b|\b(?:must|should|needs?\s+to|to)\s+be\s+(?:paid|transferred|deposited)\b|\bpayable\s+to\b)"
                 r"[^.?!\n]{0,60}?(?:\$\s?\d|\bmoney\b|\bfunds\b|\bcash\b|\bpayment\b|\bfees?\b"
@@ -209,7 +210,7 @@ def _companies(text: str) -> list[str]:
 
 def _claims(text: str) -> list[str]:
     sentences = [s.strip() for s in SENTENCE_SPLIT.split(text) if s.strip()]
-    return _dedupe([s[:220] for s in sentences if CLAIM_RE.search(s)])
+    return _dedupe([s for s in sentences if CLAIM_RE.search(s)])
 
 
 def _brands(text: str) -> list[tuple[str, str]]:
@@ -264,11 +265,11 @@ def _requests(text: str, ent: "Entities") -> list[dict]:
     sentences, routes, out = _sentences(text), _routes(ent), []
     for kind, pattern in REQUESTS:
         for match in re.finditer(pattern, text, re.I):
-            if NEGATION.search(text[max(0, match.start() - 40):match.start()]):
+            if negated_before(text[:match.start()]):
                 continue
             context = _context(match.start(), sentences)
             targets = [v for k, v in routes if _mentions(k, v, context)] or [v for k, v in routes if k in _TARGET_FALLBACK.get(kind, ())]
-            out.append({"type": kind, "quote": " ".join(match.group(0).split())[:120], "context": context[:240], "targets": _dedupe(targets)})
+            out.append({"type": kind, "quote": " ".join(match.group(0).split()), "context": context, "targets": _dedupe(targets)})
             break
     return out
 
@@ -293,7 +294,7 @@ def _relationships(text: str, ent: "Entities") -> list[dict]:
             found += [("company_licence", company, f"{kind} {number}", sentence) for kind, number in ent.licences if number in numbers]
             found += [("person_company", person, company, sentence) for person in ent.people if person.lower() in low]
     unique = list(dict.fromkeys(found))
-    return [{"kind": k, "a": a, "b": b, "context": s[:200]} for k, a, b, s in unique][:12]
+    return [{"kind": k, "a": a, "b": b, "context": s} for k, a, b, s in unique][:12]
 
 
 def extract(text: str) -> Entities:

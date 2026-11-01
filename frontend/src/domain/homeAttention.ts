@@ -7,7 +7,7 @@ import type { GatePresentation } from "./gates";
 import type { EventCategory, PatrolEvent } from "./types";
 import { briefed, needsYou } from "./caseBriefing.ts";
 import { isActive } from "./stateMachine.ts";
-import { incompleteOnly, presentEvent, say } from "./luddish/present.ts";
+import { firstReason, notFullyChecked, presentEvent, say } from "./luddish/present.ts";
 
 export interface AttentionItem {
   id: string;
@@ -45,9 +45,9 @@ function describeEventBrief(e: PatrolEvent): string {
   if (cat === "call" && indicator) return `Call from ${indicator}`;
   if (cat === "message" && sender) return `Text from ${sender}`;
   if ((cat === "link" || cat === "website" || cat === "known_threat") && indicator)
-    return `Site: ${indicator.length > 40 ? indicator.slice(0, 39) + "…" : indicator}`;
-  const hl = (e.headline || "").trim();
-  if (hl && hl.length <= 50) return hl;
+    return `Site: ${indicator}`;
+  const hl = say(e.headline, true);
+  if (hl) return hl;
   return gateForCategory(cat);
 }
 
@@ -90,8 +90,8 @@ export function buildHomeAttention(input: { gates: GatePresentation[]; events: P
   // 2) Active events — any state that Apollo is reacting to and the person should see.
   //    barking = needs a decision (highest), growling / ears_up = Apollo is unsure and worth a look.
   const activeAttention = input.events
-    // A check that couldn't run is not a threat: it is never an attention item.
-    .filter((e) => isActive(e) && !incompleteOnly(e) && (e.state === "barking" || e.state === "growling" || e.state === "ears_up"))
+    // A check that couldn't run, or an investigation that couldn't decide, is not a threat: never an attention item.
+    .filter((e) => isActive(e) && !notFullyChecked(e) && (e.state === "barking" || e.state === "growling" || e.state === "ears_up"))
     .sort((a, b) => {
       const rank = (s: typeof a.state) => (s === "barking" ? 3 : s === "growling" ? 2 : s === "ears_up" ? 1 : 0);
       const r = rank(b.state) - rank(a.state);
@@ -112,17 +112,20 @@ export function buildHomeAttention(input: { gates: GatePresentation[]; events: P
     // Build an evidence-specific title rather than generic "Email Gate looks suspicious".
     const specificLabel = briefing ? shown.title : describeEventBrief(e);
     // "needs your decision" only when the case owes the person one, with its concrete reason.
+    // What the record found, never a posture ("flagged by Apollo"): the title says what its state means, the problem
+    // falls back to the first concrete reason Apollo recorded.
+    const reason = firstReason(e);
     const title = decision
       ? `${specificLabel} — needs your decision`
-      : e.state === "growling" || e.state === "barking"
-        ? `${specificLabel} — flagged by Apollo`
-        : `${specificLabel} — worth a look`;
+      : e.state === "barking" ? `${specificLabel} — looks like a scam`
+        : e.state === "growling" ? `${specificLabel} — has a warning sign`
+          : `${specificLabel} — worth a look`;
     items.push({
       id: `event:${e.event_id}`,
       kind: "event",
       gate,
       title,
-      problem: problem || "Apollo flagged something that needs your attention.",
+      problem: problem || reason || "Open the case to see what Apollo recorded.",
       higgins,
       actionLabel: "Open investigation",
       route: `/patrol/${encodeURIComponent(e.event_id)}`,

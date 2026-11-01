@@ -37,6 +37,49 @@ export function incompleteOnly(event: Pick<PatrolEvent, "triage_investigation" |
 
 export const INCOMPLETE_TITLE = "Not every check could run";
 export const INCOMPLETE_TODO = "Nothing found to act on. Because some checks couldn't run, this isn't a confirmation that it's safe.";
+/** An investigation that couldn't decide either way, with no concrete actionable concern left (backend
+ *  services/investigation_projector.NOT_FULLY_CHECKED_TODO, word for word). */
+export const INCONCLUSIVE_TODO = "Nothing found to act on. This isn't confirmation that it's safe.";
+export const REJUDGED_LINE = "Apollo checked this again under its updated rules, using the original kept on this device.";
+
+/** An investigation that ended without deciding, filed as not fully checked: no warning and no alert (its result
+ *  says so — caseBriefing.caseResult notFullyChecked — and nothing established apart from it, a verified block or a
+ *  listed link, keeps it raised). */
+export function inconclusive(event: Pick<PatrolEvent, "investigation_outcome" | "state" | "case_briefing">): boolean {
+  if (event.state !== "resting") return false;
+  return event.case_briefing ? !!event.case_briefing.notFullyChecked : event.investigation_outcome === "unable_to_determine";
+}
+
+/** Not every check could run, or the investigation couldn't decide either way: never a detected threat, never safe. */
+export function notFullyChecked(event: Pick<PatrolEvent, "triage_investigation" | "investigation_case_id" | "investigation_outcome" | "state" | "case_briefing">): boolean {
+  return incompleteOnly(event) || inconclusive(event);
+}
+
+// Lines a record carries that say how it was kept or checked, never what was found (backend patrol_policy.SUMMARY_WHY
+// and the investigation placeholder, word for word).
+const NOT_A_REASON = new Set([
+  REJUDGED_LINE,
+  "ApolloSG's servers keep only this privacy-protected summary, not the content that was checked.",
+  "The investigation is still running.",
+]);
+
+// The ordinary words a reason starts with. Anything else (a name: "PhishTank lists …", "Google Safe Browsing …") keeps
+// its capital inside a sentence.
+const ORDINARY_START = /^(?:The|This|That|These|Those|A|An|It|Its|Their|There|One|Some|No|Nothing|Someone|Asks|Uses|Claims|Says|Contains|Links|Sends|Comes|Pretends|Wants|Mentions|Offers|Promises|Threatens|Requests|Tells|Gives|Points|Goes|Leads|Looks|Has|Is|Was|Matches|Names|Shows|Appears)\b/;
+
+/** A reason inside a sentence ("…, asks for a one-time code"): no closing stop, and its first word lower-cased only
+ *  when it is an ordinary word, never a name. Mirror: backend services/notification_text._in_sentence. */
+export function reasonInSentence(reason: string): string {
+  const r = reason.replace(/[.!?…]+$/, "").trim();
+  return ORDINARY_START.test(r) ? r[0].toLowerCase() + r.slice(1) : r;
+}
+
+/** The first concrete thing Apollo recorded about the event — a rule it met, a finding — in Luddish; null when it
+ *  recorded none. Home and notifications name this instead of a posture ("a possible threat", "be careful"). */
+export function firstReason(event: Pick<PatrolEvent, "why">): string | null {
+  const raw = (event.why ?? []).find((w) => clean(w) && !NOT_A_REASON.has(clean(w)));
+  return raw ? say(raw) || null : null;
+}
 
 /** The event's words for any screen: its Higgins Case Briefing's when it has one, else what Apollo recorded. */
 export function presentEvent(event: PatrolEvent): PresentedEvent {
@@ -46,6 +89,6 @@ export function presentEvent(event: PatrolEvent): PresentedEvent {
     title: say(b?.headline ?? (incomplete ? INCOMPLETE_TITLE : event.headline), true),
     summary: say(b?.summary ?? event.what_happened),
     why: (event.why ?? []).map((w) => say(w)).filter(Boolean),
-    whatToDo: say(incomplete ? INCOMPLETE_TODO : (b?.recommendedAction?.instruction ?? event.what_to_do), true),
+    whatToDo: say(incomplete ? INCOMPLETE_TODO : inconclusive(event) ? INCONCLUSIVE_TODO : (b?.recommendedAction?.instruction ?? event.what_to_do), true),
   };
 }

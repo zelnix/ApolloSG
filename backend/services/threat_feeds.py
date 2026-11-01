@@ -87,12 +87,10 @@ def url_parts(raw: str) -> tuple[str, str] | None:
 
 
 def page_keys(url: str) -> list[str]:
-    """The listing keys that name this exact page: the page with its query, and the page without one (a listing that
-    names no query names the page whatever query follows it)."""
+    """The one listing key that names this exact page: host, path and query, exactly. A listing of a page without a
+    query names only that address — "/login" never covers "/login?id=2", and "/login?id=1" never covers "/login"."""
     parts = url_parts(url)
-    if not parts:
-        return []
-    return list(dict.fromkeys([parts[1], parts[1].split("?", 1)[0]]))
+    return [parts[1]] if parts else []
 
 
 def parent_domains(host: str) -> list[str]:

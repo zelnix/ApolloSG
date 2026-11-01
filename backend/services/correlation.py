@@ -58,9 +58,13 @@ async def _lists(host: str, urls: list[str]) -> list[dict]:
     return rows
 
 
-def _safe_browsing(pg: dict, host: str) -> list[dict]:
+def _safe_browsing(pg: dict, host: str, urls: list[str]) -> list[dict]:
+    """Google Safe Browsing's answer for exactly this link (one of the check's own addresses, or the website's home
+    page), never for another address that merely contains the website's name."""
+    wanted = {parts[1] for parts in (threat_feeds.url_parts(u) for u in [*urls, f"http://{host}/"]) if parts}
     for url, info in pg["safe_browsing"].items():
-        if host in url.lower() and info.get("verdict") in ("malicious", "clean"):
+        parts = threat_feeds.url_parts(url)
+        if parts and parts[1] in wanted and info.get("verdict") in ("malicious", "clean"):
             return [_row("Google Safe Browsing", "listed" if info["verdict"] == "malicious" else "not listed",
                          detail=", ".join(info.get("threat_types") or []), lastConfirmed=info.get("queried_at"))]
     return []
@@ -92,7 +96,7 @@ async def _link(check, plan_: Plan, pg: dict, owner: str) -> dict:
     owner_ = official_domain(host)
     if owner_:
         rows.append(_row("ApolloSG official-domain register", f"{owner_[0]}'s official domain"))
-    rows += _safe_browsing(pg, host)
+    rows += _safe_browsing(pg, host, check.urls)
     rows += await _lists(host, check.urls)
     domain = registrable(host)
     for match in pg["advisories"] + plan_.advisories:

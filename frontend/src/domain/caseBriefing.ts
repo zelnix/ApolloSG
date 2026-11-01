@@ -30,6 +30,8 @@ export interface EventBriefing {
   verdict?: string | null;
   verdictCode?: string | null;
   severity?: ApolloState | null;
+  /** caseResult.notFullyChecked, carried for the same reason. */
+  notFullyChecked?: boolean;
 }
 
 const clean = (text: string | null | undefined) => (text ?? "").replace(/\s+/g, " ").trim();
@@ -44,25 +46,37 @@ export interface CaseResult {
   verdict: string | null;
   verdictCode: string | null;
   tone: ReturnType<typeof outcomeTone>;
-  /** How serious: the attention the result recorded (urgent/action needed → barking, review → growling, none → resting). */
+  /** How serious: the attention the result recorded (urgent/action needed → barking, review → growling, none → resting).
+   *  A result that is notFullyChecked is resting: no warning and no alert. */
   severity: ApolloState;
   /** The result found nothing of concern, so the case closes on its own. */
   noConcern: boolean;
+  /** The result couldn't decide either way and left nothing concrete to act on: no urgent or action-needed attention,
+   *  and no decision owed with a recorded reason. The case is filed as not fully checked: it closes with no warning
+   *  and no alert, stays in history, and is never called safe. Mirror: backend investigation_projector.inconclusive. */
+  notFullyChecked: boolean;
   from: "briefing" | "response";
 }
 
 const passed = (response: HigginsResponse): CaseBriefing | null => (response.briefing?.fidelity?.status === "PASS" ? response.briefing : null);
 
+const UNDECIDED = "unable_to_determine";
+
 export function caseResult(response: HigginsResponse): CaseResult {
   const b = passed(response);
   const code = b ? b.statusCode : response.outcome ?? null;
   const attention = b?.attention ?? response.attention;
+  const actionLevel = attention === "urgent" || attention === "action_needed";
+  const owed = b ? b.userActionRequired && !!clean(b.actionReason)
+    : response.completion === "waiting_user" && !!clean(response.question?.reasonNeeded);
+  const notFullyChecked = code === UNDECIDED && !actionLevel && !owed;
   return {
     verdict: (b?.status || null) ?? outcomeLabel(code),
     verdictCode: code,
     tone: outcomeTone(code),
-    severity: attention === "urgent" || attention === "action_needed" ? "barking" : attention === "review" ? "growling" : "resting",
+    severity: notFullyChecked ? "resting" : actionLevel ? "barking" : attention === "review" ? "growling" : "resting",
     noConcern: code ? code === "no_scam_indicators" : response.assessment === "no_concern_found_within_scope",
+    notFullyChecked,
     from: b ? "briefing" : "response",
   };
 }
@@ -74,7 +88,8 @@ export function threatResult(event: Pick<PatrolEvent, "case_briefing">, response
   const b = event.case_briefing;
   if (!b || !b.severity) return null;
   const code = b.verdictCode ?? null;
-  return { verdict: b.verdict ?? null, verdictCode: code, tone: outcomeTone(code), severity: b.severity, noConcern: code === "no_scam_indicators", from: b.from };
+  return { verdict: b.verdict ?? null, verdictCode: code, tone: outcomeTone(code), severity: b.severity, noConcern: code === "no_scam_indicators",
+    notFullyChecked: !!b.notFullyChecked, from: b.from };
 }
 
 /** One finding exactly as the result recorded it — the briefing's (with its stance) when it passed, else the
@@ -110,7 +125,7 @@ export function caseFindings(response: HigginsResponse): CaseFinding[] {
 export function eventBriefing(response: HigginsResponse): EventBriefing | null {
   const b: CaseBriefing | null | undefined = response.briefing;
   const result = caseResult(response);
-  const carried = { verdict: result.verdict, verdictCode: result.verdictCode, severity: result.severity };
+  const carried = { verdict: result.verdict, verdictCode: result.verdictCode, severity: result.severity, notFullyChecked: result.notFullyChecked };
   if (b && b.fidelity?.status === "PASS") {
     const reason = clean(b.actionReason);
     return {

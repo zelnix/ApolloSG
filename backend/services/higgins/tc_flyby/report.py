@@ -217,7 +217,7 @@ def _result(plan_: Plan, checks: list[Check], *, overview: str, found: list[dict
             reason: str | None, actions: list[dict], uncertainties: list[str], extra_sources: list[str] = ()) -> dict:
     lines = "\n".join(f"- {f['text']}" for f in found) or "- Nothing beyond what's listed under what isn't certain."
     return {
-        "overview": overview[:900],
+        "overview": overview,
         "explanationMarkdown": f"**What was found**\n{lines}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How Apollo checked**\n{how}",
         "assessment": outcomes.ASSESSMENT[outcome], "outcome": outcome, "attention": attention, "attentionReason": reason,
         "findings": found[:8], "uncertainties": uncertainties[:4], "scope": _scope(plan_, _routes(checks)),
@@ -392,11 +392,11 @@ def knowledge_answer(check: Check, route: str, presented: str, source_ids: list[
         body = presented
     else:
         lead = next((f for f in check.facts if f.get("class") == "live_evidence"), None)
-        overview = (lead["text"] if lead else "Here's what a targeted search found.")[:600]
+        overview = lead["text"] if lead else "Here's what a targeted search found."
         sources = "\n".join(f"- {s['title']} — {s['url']}" for f in check.facts for s in (f.get("source") or {}).get("all") or [])
         body = f"{overview}\n\nSources:\n{sources}" if sources else overview
     return {
-        "overview": overview[:900],
+        "overview": overview,
         "explanationMarkdown": f"{body}\n\n**How ApolloSG answered**\nTC FlyBy answered this with {ROUTE_LABEL[route]}. It's general information, "
                                "not a finding about anything you've submitted.",
         "assessment": "no_concern_found_within_scope", "outcome": None, "attention": "none", "attentionReason": None, "findings": [],

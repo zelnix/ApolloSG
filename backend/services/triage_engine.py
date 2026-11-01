@@ -875,9 +875,9 @@ def _asked(pattern: re.Pattern, text: str) -> Optional[str]:
     """The first clause that asks this of the reader (a negated one — "never pay …" — doesn't)."""
     from services.triage import requests as rq
     for clause in rq._clauses(text):
-        m = pattern.search(clause)
-        if m and not rq._negated(clause, m):
-            return clause[:200]
+        m, negated = rq.ask_in(pattern, clause)
+        if m and not negated:
+            return clause
     return None
 
 

@@ -4640,3 +4640,28 @@ Verdict: 3 blockers, 6 warnings, 8 manual checks.
 - Re-judge (`services/triage/rejudge.py`, startup, once per catalogue version; device mirror `src/domain/triage/rejudge.ts`):
   preview run → 6 Patrol records re-judged, 17,827 listings re-keyed, 21 reputation answers + 20 cached triage results cleared.
   Production runs it on the next Publish. Tests at end of last session: backend 1580 pass, frontend 1277 pass (not re-run here, owner's choice).
+
+## The 7 remaining flaws + 2 product rules, verified with proof (2026-11-01) — DONE
+Owner rejected the previous completion claim; this session finished and proved each fix. Full report (owner-facing):
+`/app/memory/REPORT_2026-11-01_detection_display_fixes.md`; proof logs + screenshots: `/app/test_reports/owner_fixes_proof/`.
+1. Notifications: `notification_text.present_push` / `presentAlertText` route every line through Higgins Luddish (parity
+   `content/luddish.json`); alerts name the first concrete reason (`firstReason` / `_reason`); names keep capitals
+   (`reasonInSentence` / `_in_sentence`, ordinary-word start list).
+2. Home hero (`homeHeroBrief.ts`): no "possible threat"/"flagged"/"Be careful"; first reason, else STATE_FINDING; long step →
+   "See Higgins' steps in the case". Hero preview clip 28.
+3. Inconclusive (`investigation_projector.inconclusive`): unable_to_determine with no actionable concern → resting/resolved,
+   `investigation_outcome`, NOT_FULLY_CHECKED_TODO, no push; never lowers an established threat (verified block / LINK-01), which
+   keeps its own why/what_to_do. Projector `why` never falls back to the scope. Ended cases unable_to_determine → resting.
+   Privacy summary of such a record: "Apollo checked a … but couldn't settle it" (`summary_narrative(outcome=)`).
+4. Hard-coded cuts removed (notifications, family summary, projector, TC FlyBy, triage requests); model limits raised.
+5. Negation: `services/triage/requests.negated_before` used by triage, TC FlyBy patterns, triage_engine; TS mirror.
+6. Closed records never reopened: re-judge (`MARKER …:3`, `patrol_status.closed`), projector (`patrol_status.handled`).
+7. Exact URLs: `threat_feeds.page_keys` exact only; `correlation._safe_browsing` exact address/home page only.
+- Rule 2(a) 24 h: server `services/held_copies.sweep` (maintenance step `held_copies_24h`, unsets source_metadata.preview);
+  phone `domain/heldCopies.ts` + `store/heldCopySweep.ts` (start, foreground, every 5 min, on read).
+- Owner-approved extra: `patrolRecords.ts` keeps a closed record's raw state → "Handled", never "No threat" (closed Biting → barking).
+- Declined by owner: scam alert source slug "moneysmart". Testing agent NOT run (owner's choice).
+- Tests: frontend 1321/1321, tsc clean; backend 1621 pass, 2 pre-existing data-dependent failures (test_retrofit_acceptance
+  AT10 after the 29 Oct wipe; test_scams_date_sorting "moneysmart"). New: tests/test_owner_fixes_proof.py (12), heldCopies.test.ts.
+- Rule book updated + stamped. Teddy: no live references in code/DB (only legacy rename migration + old-prefix reader).
+- Production: needs Publish (re-judge :3, reputation cache clear, 24 h sweep) and a new build for the phone-side sweep.

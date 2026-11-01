@@ -63,7 +63,7 @@ def test_openphish_lines_become_exact_pages():
     rows = tf.parse_openphish([b"https://a.example/x\n\nnot a url\nhttp://b.example/\n"])
     assert [r["key"] for r in rows] == ["a.example/x", "b.example/"], "a listed home page is a page, never the website"
     assert all(r["threat_type"] == "SOCIAL_ENGINEERING" and not r["whole_site"] for r in rows)
-    assert tf.page_keys("https://www.a.example/x?id=2#top") == ["a.example/x?id=2", "a.example/x"]
+    assert tf.page_keys("https://www.a.example/x?id=2#top") == ["a.example/x?id=2"], "the exact page and its query, nothing broader"
     assert tf.page_keys("https://b.example") == ["b.example/"]
 
 
@@ -168,11 +168,13 @@ async def test_link_checks_report_each_list_as_match_clear_or_not_checked(scratc
     await _fresh(scratch, "phishtank", "openphish", "acma-blocked-gambling", "asic-investor-alerts", "spamhaus-drop-v4")
 
     by_name = lambda sources: {s.name: s for s in sources}  # noqa: E731
-    page = by_name(await tf.listing_sources("www.phish.example", "https://www.phish.example/login?x=1"))
+    page = by_name(await tf.listing_sources("www.phish.example", "https://www.phish.example/login#top"))
     assert page["phishtank"].status == "match" and "PhishTank" in page["phishtank"].detail
     assert page["openphish"].status == "clear" and page["acma_blocked_gambling"].status == "clear"
     assert page["spamhaus_drop"].status in ("clear", "unavailable")  # depends on this host's DNS; never a match
 
+    with_query = by_name(await tf.listing_sources("phish.example", "https://phish.example/login?x=1"))
+    assert with_query["phishtank"].status == "clear", "a listing without a query names only that address, never the page with a query"
     other_page = by_name(await tf.listing_sources("phish.example", "https://phish.example/elsewhere"))
     assert other_page["phishtank"].status == "clear", "an exact page listing never names the whole site"
     assert "this exact address" in page["phishtank"].detail and "whole website" not in page["phishtank"].detail

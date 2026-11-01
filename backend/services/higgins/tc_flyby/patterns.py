@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 
 from core.db import db
-from services.higgins.tc_flyby.triage import NEGATION
+from services.triage.requests import negated_before
 from services.kb_sources import TIER_1
 
 log = logging.getLogger("apollo.tc_flyby.patterns")
@@ -422,13 +422,13 @@ class PatternMatch:
 
 
 def _quote(match: re.Match) -> str:
-    return " ".join(match.group(0).split())[:90]
+    return " ".join(match.group(0).split())
 
 
 def _find(regex: str, text: str) -> re.Match | None:
     """The first match that isn't negated ("we will never ask for your password")."""
     for match in re.finditer(regex, text, re.I):
-        if not NEGATION.search(text[max(0, match.start() - 40):match.start()]):
+        if not negated_before(text[:match.start()]):
             return match
     return None
 

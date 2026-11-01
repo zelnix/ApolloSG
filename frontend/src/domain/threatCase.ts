@@ -10,7 +10,7 @@
  */
 
 import { needsYou } from "./caseBriefing.ts";
-import { incompleteOnly } from "./luddish/present.ts";
+import { notFullyChecked } from "./luddish/present.ts";
 import { investigatorName } from "./messageVoice.ts";
 import type {
   ApolloState,
@@ -80,8 +80,9 @@ export type ThreatCaseStatus =
   | "monitoring";
 
 export function threatCaseStatus(event: PatrolEvent): ThreatCaseStatus {
-  // Checks that couldn't run are an incomplete check, never a threat and never "no threat".
-  if (incompleteOnly(event) && !event.verified_block) return "not_fully_checked";
+  // Checks that couldn't run, or an investigation that couldn't decide with nothing concrete to act on, are a case
+  // not fully checked: never a threat and never "no threat".
+  if (notFullyChecked(event) && !event.verified_block) return "not_fully_checked";
   if (event.resolved_at) {
     if (event.state === "resting") return "no_threat";
     return "resolved";

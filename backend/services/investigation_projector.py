@@ -12,6 +12,7 @@ record an indicator from actual intake/evidence, Patrol does not manufacture one
 """
 from __future__ import annotations
 
+import re
 import uuid
 
 from pymongo import UpdateOne
@@ -24,6 +25,7 @@ from routers.push import push_owner_alert
 from services import rulebook
 from services.higgins import outcomes
 from services.higgins import repository as repo
+from services.patrol_status import handled
 
 # The placeholder a case's record carries while its investigation runs: states only that Apollo is looking.
 _RUNNING = {
@@ -55,6 +57,35 @@ def _dog_state(response) -> str:
     if response.attention in ("urgent", "action_needed"):
         return "barking"
     return "growling"
+
+
+#: What an investigation that couldn't decide either way says to do (frontend luddish/present.ts INCONCLUSIVE_TODO).
+NOT_FULLY_CHECKED_TODO = "Nothing found to act on. This isn't confirmation that it's safe."
+_RANK = {"resting": 0, "sniffing": 1, "ears_up": 2, "growling": 3, "barking": 4, "biting": 5}
+
+
+def inconclusive(response) -> bool:
+    """The investigation couldn't decide either way and left no concrete actionable concern: no urgent or
+    action-needed attention, and no decision its briefing (one that passed its Fidelity Check) or Magnum DI's pending
+    question asks the person to make. Mirror of frontend caseBriefing.caseResult notFullyChecked."""
+    b = response.briefing if response.briefing is not None and response.briefing.fidelity.status == "PASS" else None
+    owed = (b.user_action_required and (b.action_reason or "").strip()) if b is not None else (
+        response.completion == "waiting_user" and response.question is not None and (response.question.reason_needed or "").strip())
+    return response.outcome == "unable_to_determine" and response.attention in ("none", "review") and not owed
+
+
+def established_threat(event: dict | None) -> bool:
+    """A threat established apart from the investigation, which an inconclusive answer never lowers: a verified block,
+    or a threat list naming the item's link (LINK-01)."""
+    if not event:
+        return False
+    return bool(event.get("verified_block")) or "LINK-01" in ((event.get("triage_investigation") or {}).get("rulesMet") or [])
+
+
+def _first_sentence(text: str) -> str:
+    """A headline: the overview's first sentence, whole."""
+    clean = " ".join((text or "").split())
+    return (re.split(r"(?<=[.!?])\s", clean) or [clean])[0]
 
 
 async def _resolve_intake_metadata(case: dict) -> dict:
@@ -117,22 +148,41 @@ async def _project(rows: list[dict]) -> int:
             continue
         latest = max(turns, key=lambda turn: turn.committed_at)
         response = latest.response
-        state = _dog_state(response)
-        existing = await db.patrol_events.find_one({"device_id": case["owner_id"], "investigation_case_id": case["case_id"], "deleted_at": None}, {"_id": 0, "event_id": 1})
+        fields = {"_id": 0, "event_id": 1, "state": 1, "status": 1, "resolved_at": 1, "verified_block": 1, "triage_investigation": 1,
+                  "why": 1, "what_to_do": 1}
+        existing = await db.patrol_events.find_one({"device_id": case["owner_id"], "investigation_case_id": case["case_id"], "deleted_at": None}, fields)
         if not existing and case.get("client_submission_id"):
             # One record per check: the device filed its own patrol event for this material before
             # (or just after) the case opened. Update THAT event rather than filing a server twin.
             existing = await db.patrol_events.find_one(
-                {"device_id": case["owner_id"], "event_id": case["client_submission_id"], "deleted_at": None},
-                {"_id": 0, "event_id": 1})
+                {"device_id": case["owner_id"], "event_id": case["client_submission_id"], "deleted_at": None}, fields)
+        # An investigation that couldn't decide, with no concrete actionable concern left, is not fully checked: no
+        # warning and no alert. A threat established apart from it (a verified block, a listed link) is never lowered.
+        not_fully_checked = inconclusive(response) and not established_threat(existing)
+        state = "resting" if not_fully_checked else _dog_state(response)
+        kept_raised = established_threat(existing) and _RANK.get(existing.get("state"), 0) > _RANK[state]
+        if kept_raised:
+            state = existing["state"]
         # Not synced yet (TC FlyBy often answers before the device's copy of its record reaches the server):
         # file under the device's own event id, so when that copy arrives it is the same record, never a twin.
         event_id = (existing["event_id"] if existing else case.get("client_submission_id")
                     or str(uuid.uuid5(uuid.NAMESPACE_URL, f"apollo-patrol:{case['owner_id']}:{case['case_id']}")))
         category = patrol_category((case.get("gates") or ["text"])[0])
-        findings = [redact_investigation_secrets(finding.text)[:400] for finding in response.findings[:6]]
+        findings = [redact_investigation_secrets(finding.text) for finding in response.findings[:6]]
         action = response.actions[0].instruction if response.actions else "Review the investigation details in Patrol."
         overview = redact_investigation_secrets(response.overview)
+        briefing = response.briefing if response.briefing is not None and response.briefing.fidelity.status == "PASS" else None
+        headline = redact_investigation_secrets(briefing.headline) if briefing else _first_sentence(overview)
+        if not_fully_checked:
+            # Kept in history, with what couldn't be established, and never called safe.
+            findings = [redact_investigation_secrets(u) for u in response.uncertainties] or findings
+            action = NOT_FULLY_CHECKED_TODO
+        elif kept_raised:
+            # The threat established apart from the investigation is what the record is about: its own reasons and,
+            # when the investigation proposed no step, its own step.
+            findings = findings or list(existing.get("why") or [])
+            if not response.actions:
+                action = existing.get("what_to_do") or _CONCERN_TODO
 
         # Resolve indicators from actual intake data — never from Gemini's prose
         indicators = await _resolve_intake_metadata(case)
@@ -142,14 +192,16 @@ async def _project(rows: list[dict]) -> int:
             {"owner_id": case["owner_id"], "history_id": history_id},
             {"$set": {"owner_id": case["owner_id"], "history_id": history_id, "case_id": case["case_id"], "case_start": case["created_at"],
                       "last_update": latest.committed_at, "status": "completed" if case.get("status") == "complete" else case.get("status", "active"),
-                      "gates": case.get("gates", []), "attention": response.attention, "conclusion": overview[:600], "deleted": False,
+                      "gates": case.get("gates", []), "attention": response.attention, "conclusion": overview, "deleted": False,
                       "updated_at": now_utc()}, "$setOnInsert": {"created_at": now_utc()}}, upsert=True,
         )
         document = {
             "event_id": event_id, "device_id": case["owner_id"], "category": category, "state": state,
-            "status": "resolved" if state == "resting" else "active", "headline": overview[:160],
-            "what_happened": overview[:600], "why": findings or [redact_investigation_secrets(response.scope)[:400]],
-            "what_to_do": redact_investigation_secrets(action)[:400],
+            "status": "resolved" if state == "resting" else "active", "headline": headline,
+            # What it found, never how it was checked: the scope is not a reason, and Home and alerts name the first reason.
+            "what_happened": overview, "why": findings,
+            "what_to_do": redact_investigation_secrets(action),
+            "investigation_outcome": response.outcome,
             # Real intake metadata only — never manufactured from Gemini's prose
             "indicator_host": indicators["indicator_host"],
             "indicator_digest": None,
@@ -174,13 +226,17 @@ async def _project(rows: list[dict]) -> int:
             "deleted_at": None, "created_at": now_utc(), "updated_at": now_utc(),
         }
         created_at = document.pop("created_at")
+        if existing and handled(existing):
+            # The person handled or trusted this record: an investigation's answer never reopens it.
+            document.pop("status")
+            document.pop("resolved_at")
         # Where the evidence came from, and where it was processed, are written only when the server files the record
         # itself: an investigation never changes what this device recorded (server processing is not a source).
         on_insert = {"created_at": created_at, "evidence_provenance": server_evidence_source(case.get("source_metadata")),
                      "processing_source": "apollosg_servers"}
         upsert = await db.patrol_events.update_one({"device_id": case["owner_id"], "event_id": event_id}, {"$set": document, "$setOnInsert": on_insert}, upsert=True)
         if upsert.upserted_id and state != "resting":
-            await push_owner_alert(PatrolEvent.from_mongo({**document, **on_insert}))
+            await push_owner_alert(PatrolEvent.from_mongo({**document, **on_insert}), briefing=briefing, source=case.get("source_metadata"))
         changed = await db.investigation_cases.update_one(
             {"owner_id": case["owner_id"], "case_id": case["case_id"], "response_revision": case["response_revision"],
              "$or": [{"patrol_projected_revision": {"$exists": False}}, {"patrol_projected_revision": {"$lt": case["response_revision"]}}]},
@@ -252,12 +308,12 @@ async def project_case_started(case: dict) -> bool:
 # ── An investigation that ended without its result reaching Patrol ─────────────────────────────────
 _ENDED = {"expired", "deleted", "cancelled", "failed"}
 _OUTCOME_STATE = {"no_scam_indicators": "resting", "concerning": "growling", "likely_scam": "barking",
-                  "confirmed_threat": "barking", "unable_to_determine": "ears_up"}
+                  "confirmed_threat": "barking", "unable_to_determine": "resting"}
 _OUTCOME_ATTENTION = {"no_scam_indicators": "none", "concerning": "review", "likely_scam": "action_needed",
                       "confirmed_threat": "urgent", "unable_to_determine": "review"}
 _OUTCOME_TODO = {
     "no_scam_indicators": "Nothing more to do. If anything about it feels off, contact the person or organisation using details you already have.",
-    "unable_to_determine": "Treat it with caution, and contact the person or organisation using details you already have.",
+    "unable_to_determine": NOT_FULLY_CHECKED_TODO,
 }
 _CONCERN_TODO = "Don't reply, call back or follow its instructions. Contact the organisation using details you already have."
 _AGAIN = "Run the check again if you still need an answer."
@@ -274,7 +330,7 @@ def ended_view(case: dict | None) -> dict:
         return {"outcome": outcome, "headline": outcomes.LABELS[outcome],
                 "what_happened": reason["sentence"] if reason else f"{outcomes.LABELS[outcome]}.", "why": [],
                 "what_to_do": _OUTCOME_TODO.get(outcome, _CONCERN_TODO), "state": _OUTCOME_STATE[outcome],
-                "status": "resolved" if outcome == "no_scam_indicators" else "active"}
+                "status": "resolved" if _OUTCOME_STATE[outcome] == "resting" else "active"}
     if not case:
         said = "This investigation is no longer on Apollo's servers, and its result isn't part of this record."
         return {"outcome": None, "headline": "Investigation no longer available", "what_happened": said, "why": [], "what_to_do": _AGAIN}
@@ -294,8 +350,8 @@ async def project_ended_cases(limit: int = 300) -> int:
     investigating this" forever. A device that holds the full result still applies it over this."""
     events = await db.patrol_events.find(
         {"deleted_at": None, "investigation_case_id": {"$ne": None}, "investigation_completed_at": None, "occurred_at": {"$type": "date"}},
-        {"_id": 0, "event_id": 1, "device_id": 1, "investigation_case_id": 1, "state": 1, "headline": 1,
-         "what_happened": 1, "why": 1, "what_to_do": 1}).sort("occurred_at", 1).limit(limit).to_list(limit)
+        {"_id": 0, "event_id": 1, "device_id": 1, "investigation_case_id": 1, "state": 1, "status": 1, "headline": 1,
+         "what_happened": 1, "why": 1, "what_to_do": 1, "verified_block": 1, "triage_investigation": 1}).sort("occurred_at", 1).limit(limit).to_list(limit)
     if not events:
         return 0
     cases = {c["case_id"]: c for c in await db.investigation_cases.find(
@@ -313,13 +369,20 @@ async def project_ended_cases(limit: int = 300) -> int:
         patch: dict = {"investigation_completed_at": ended_at, "updated_at": now}
         if view["outcome"]:
             patch.update({k: view[k] for k in ("headline", "what_happened", "why", "what_to_do", "state", "status")})
-            if view["status"] == "resolved":
+            patch["investigation_outcome"] = view["outcome"]
+            if established_threat(event) and _RANK.get(event.get("state"), 0) > _RANK[view["state"]]:
+                # An answer that doesn't settle it never lowers a threat established apart from it.
+                patch.update(state=event["state"], status="active", what_to_do=_CONCERN_TODO)
+            if handled(event):
+                # The person handled or trusted this record: it is never reopened.
+                patch.pop("status")
+            elif patch["status"] == "resolved":
                 patch["resolved_at"] = ended_at
             history_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"apollo-history:{case['owner_id']}:{case['case_id']}"))
             history_ops.append(UpdateOne({"owner_id": case["owner_id"], "history_id": history_id}, {"$setOnInsert": {
                 "owner_id": case["owner_id"], "history_id": history_id, "case_id": case["case_id"], "case_start": case.get("created_at") or ended_at,
                 "last_update": ended_at, "status": "completed", "gates": case.get("gates", []), "attention": _OUTCOME_ATTENTION[view["outcome"]],
-                "conclusion": view["what_happened"][:600], "deleted": False, "created_at": now, "updated_at": now}}, upsert=True))
+                "conclusion": view["what_happened"], "deleted": False, "created_at": now, "updated_at": now}}, upsert=True))
         else:
             # Only the "still running" wording is replaced; anything else the record says stays.
             patch.update({k: view[k] for k in ("headline", "what_happened", "what_to_do") if event.get(k) == _RUNNING[k]})

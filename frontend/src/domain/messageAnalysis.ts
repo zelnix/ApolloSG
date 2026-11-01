@@ -5,7 +5,7 @@
 
 import type { ApolloState } from "./types";
 import { OFFICIAL_DOMAINS, registrableDomain as brandRegistrableDomain } from "./brand.ts";
-import { negated, clauses, readRequests } from "./requestSignals.ts";
+import { askIn, clauses, readRequests } from "./requestSignals.ts";
 
 export type Scenario = "M01" | "M02" | "M03" | "M04" | "M05" | "M06" | "M07" | "M08" | "M09" | "M10" | "M11" | "M12" | "M13" | "M14" | "M15" | "M16" | "M17" | "M18";
 
@@ -169,7 +169,7 @@ function rebateClaim(text: string): string | null {
 const IDENTITY_ASK = /\b(?:send|provide|confirm|verify|reply with|enter|upload|submit|give|tell)\b[^.!?]{0,40}\b(?:date of birth|medicare (?:number|card)|passport|driver'?s? licen[cs]e|tax file number|tfn)\b/i;
 /** Some clause asks this of the reader (a negated one — "never send …" — doesn't). */
 function askedIn(text: string, pattern: RegExp): boolean {
-  return clauses(text).some((c) => { const m = pattern.exec(c); return !!m && !negated(c, m.index); });
+  return clauses(text).some((c) => { const { match, negated } = askIn(pattern, c); return !!match && !negated; });
 }
 
 export function extractSignals(sender: string, text: string): MessageSignals {

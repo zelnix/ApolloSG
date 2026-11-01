@@ -477,10 +477,11 @@ class ShareThreatIn(BaseModel):
     device_id: str = Field(min_length=8, max_length=64)
     event_id: str = Field(min_length=8, max_length=64)
     state: ApolloState
-    result: str = Field(min_length=1, max_length=60)
-    headline: str = Field(min_length=1, max_length=200)
-    what_happened: str = Field(default="", max_length=600)
-    what_to_do: str = Field(default="", max_length=400)
+    # The same room a Patrol record has (core/models.PatrolEventIn): the summary is sent whole, never cut short.
+    result: str = Field(min_length=1, max_length=200)
+    headline: str = Field(min_length=1, max_length=1000)
+    what_happened: str = Field(default="", max_length=6000)
+    what_to_do: str = Field(default="", max_length=2000)
     involved_label: Optional[Literal["Website", "Number"]] = None
     involved: Optional[str] = Field(default=None, max_length=253)
     case_ref: str = Field(default="", max_length=40)

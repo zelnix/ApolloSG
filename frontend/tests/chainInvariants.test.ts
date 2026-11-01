@@ -162,7 +162,10 @@ test("every screen says the case result's verdict and severity — for every out
     // The result itself: a briefing that failed its Fidelity Check never decides anything.
     assert.equal(r.verdict, LABEL[o], at);
     assert.equal(r.verdictCode, o, at);
-    assert.equal(r.severity, SEVERITY[a], at);
+    // An investigation that couldn't decide, with nothing concrete to act on, is not fully checked: no warning, no alert.
+    const undecided = o === "unable_to_determine" && (a === "review" || a === "none");
+    assert.equal(r.notFullyChecked, undecided, at);
+    assert.equal(r.severity, undecided ? "resting" : SEVERITY[a], at);
     assert.equal(r.from, b === "pass" ? "briefing" : "response", at);
 
     // Findings Brief (Ask Higgins and a threat).
@@ -182,8 +185,11 @@ test("every screen says the case result's verdict and severity — for every out
 
     // Status: closed on its own only when nothing was found; "Needs you" only with the recorded reason.
     const status = threatCaseStatus(event);
-    if (r.noConcern) assert.equal(status, r.severity === "resting" ? "no_threat" : "resolved", at);
+    if (r.notFullyChecked) assert.equal(status, "not_fully_checked", at);
+    else if (r.noConcern) assert.equal(status, r.severity === "resting" ? "no_threat" : "resolved", at);
     else assert.equal(status, event.case_briefing?.userActionRequired ? "attention" : "monitoring", at);
+    // Closed on its own only when nothing was found or it is not fully checked; never "No threat" when undecided.
+    assert.equal(!!event.resolved_at, r.noConcern || r.notFullyChecked, at);
     assert.equal(r.noConcern, o === "no_scam_indicators", at);
 
     // Home hero.

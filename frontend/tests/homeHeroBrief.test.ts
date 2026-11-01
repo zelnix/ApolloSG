@@ -50,13 +50,13 @@ test("the finding is the case's own status; Unable to determine is never shown a
 
 test("a call names the number; Higgins Triage's short step is used when there is no briefing", () => {
   const b = eventBrief(event({ category: "call", local_indicator: "+61 448 221 905", what_to_do: "Hang up. Then call the bank on the number on your card." }), NOW);
-  assert.equal(b.line1, "Call from +61 448 221 905, detected as a possible threat.");
+  assert.equal(b.line1, "Call from +61 448 221 905, looks like a scam.", "with nothing more specific recorded, what its state means — never 'a possible threat'");
   assert.equal(b.line2, "28 Oct, 4:42 pm. Hang up.");
 });
 
 test("while TC FlyBy or Magnum DI is still working the hero says to be careful, never 'Action required'", () => {
   const b = eventBrief(event({ category: "message", investigation_case_id: "c1", what_to_do: "Don't reply to this message or call any number in it until you've checked." }), NOW);
-  assert.equal(b.line1, "Text message (no # found), detected as a possible threat.");
+  assert.equal(b.line1, "Text message (no # found), looks like a scam.");
   assert.equal(b.line2, "28 Oct, 4:42 pm. Be careful until Higgins has finished.");
   assert.ok(!/action required/i.test(b.line1 + b.line2));
 });
@@ -67,7 +67,7 @@ test("a text names its number: recorded on the case, kept with the original, or 
   assert.equal(eventBrief(sms, NOW, kept).line1, "Text message: \u201CGood morning! It's UNI\uFB01ed\u2026\u201D from 0419 841 238, detected as concerning.");
   assert.equal(eventBrief(sms, NOW, { ...kept!, sender: null }).line1, "Text message: \u201CGood morning! It's UNI\uFB01ed\u2026\u201D (no # found), detected as concerning.");
   assert.equal(eventBrief({ ...sms, source_metadata: { type: "text", sender: "+61 448 221 905" } }, NOW).line1, "Text message from +61 448 221 905, detected as concerning.");
-  assert.equal(eventBrief(event({ category: "call" }), NOW).line1, "Call (no # found), detected as a possible threat.");
+  assert.equal(eventBrief(event({ category: "call" }), NOW).line1, "Call (no # found), looks like a scam.");
 });
 
 test("an 'Important for you' card has the hero's structure with more room for detail", () => {
@@ -78,11 +78,22 @@ test("an 'Important for you' card has the hero's structure with more room for de
   assert.equal(card.line2, eventBrief(sms, NOW, kept).line2, "the same date and recommendation as the hero");
 });
 
-test("a long Triage step falls back to 'Be careful'; a verified block needs nothing", () => {
-  assert.match(eventBrief(event({ category: "message", source_metadata: { type: "text", preview: "Your parcel is waiting, pay the fee now" }, what_to_do: "Don't reply to this message or call any number in it until you've checked." }), NOW).line2, /\. Be careful\.$/);
+test("Home names the first concrete thing Apollo recorded, never a vague 'possible threat' or 'Be careful'", () => {
+  const sms = event({ category: "message", state: "growling", source_metadata: { type: "text", sender: "+61 448 221 905", preview: "Your parcel is waiting, pay the fee now" },
+    why: ["ApolloSG's servers keep only this privacy-protected summary, not the content that was checked.", "Asks for a one-time code."],
+    what_to_do: "Don't reply to this message or call any number in it until you've checked with the company using details you already have." });
+  const hero = eventBrief(sms, NOW);
+  assert.equal(hero.line1, "Text message: \u201CYour parcel is waiting, pay\u2026\u201D from +61 448 221 905, asks for a one-time code.");
+  assert.equal(hero.line2, "28 Oct, 4:42 pm. See Higgins' steps in the case.", "a step too long for the hero is never cut: the hero points to it");
+  assert.equal(eventBrief(sms, NOW, null, "card").line2, "28 Oct, 4:42 pm. Don't reply to this message or call any number in it until you've checked with the company using details you already have.");
+  for (const b of [hero, eventBrief(sms, NOW, null, "card"), eventBrief(event({ category: "email" }), NOW)]) {
+    assert.doesNotMatch(b.line1 + b.line2, /possible threat|flagged|Be careful\./);
+  }
   const blocked = eventBrief(event({ category: "website", state: "biting", indicator_host: "paypal-secure.top", verified_block: true, enforcement_evidence: {} as never }), NOW);
   assert.equal(blocked.line1, "Website: paypal-secure.top, blocked by Apollo.");
   assert.equal(blocked.line2, "28 Oct, 4:42 pm. No action needed.");
+  const listed = eventBrief(event({ category: "link", local_indicator: "https://paypa1-secure.top/login", why: ["PhishTank lists this exact address."] }), NOW);
+  assert.equal(listed.line1, "Link: paypa1-secure.top, PhishTank lists this exact address.", "a reason that starts with a name keeps its capital");
 });
 
 test("an email you submitted is named from the original kept on this device", () => {

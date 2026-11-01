@@ -87,6 +87,7 @@ import { APP_VERSION } from "@/src/config/buildInfo";
 import { isVerifiedDesktopFlowDrop } from "@/src/security/desktopEvidence";
 import { startPostureMonitor, updatePostureInputs, stopPostureMonitor } from "@/src/security/postureMonitor";
 import { getOriginalSource, saveOriginalSource, type OriginalSourceInput } from "@/src/store/originalSource";
+import { HELD_COPY_SWEEP_MS, sweepHeldCopies } from "@/src/store/heldCopySweep";
 import { listEvidence } from "@/src/investigation/client";
 
 // ── Privacy-safe notification diagnostic logger ──────────────────────────
@@ -971,6 +972,8 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
           await saveOriginalSource([ev.event_id, caseId], {
             kind: meta?.type ?? (urls.length && !texts.length ? "link" : "text"), fields,
             text: texts.length ? texts.join("\n\n") : null, url: urls.length ? urls.join("\n") : null, origin: "investigation",
+            // Its 24 hours count from when it was checked, not from this download (domain/heldCopies.ts).
+            capturedAt: ev.occurred_at,
           });
         } catch { /* investigation unavailable or expired — Evidence explains the original wasn't saved */ }
       }
@@ -1023,6 +1026,17 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', s => { if (s === 'active') void retry(); });
     return () => { clearInterval(timer); sub.remove(); };
   }, [deviceId, ready]);
+  // ApolloSG's held copies on this phone (original texts, email fields, .eml files, pictures) are deleted 24 hours
+  // after they were made, whether or not their case is opened again (store/heldCopySweep.ts).
+  useEffect(() => {
+    if (!ready) return;
+    const sweep = () => void sweepHeldCopies(eventsRef.current).catch((error) => console.warn("[Apollo] held-copy sweep failed:", error));
+    sweep(); const timer = setInterval(sweep, HELD_COPY_SWEEP_MS);
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') sweep(); });
+    return () => { clearInterval(timer); sub.remove(); };
+  }, [ready]);
+
+
 
   const upsertEvent = useCallback(async (input: PatrolEvent, original?: OriginalSourceInput) => {
     // Threat Scent: link this event to related recent events (same brand/host within 30 min).

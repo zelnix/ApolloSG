@@ -149,7 +149,7 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
         if len(targets) > 1:
             # Moving within the same site (or between one organisation's own domains) is how sites work, not a warning sign.
             same = brand_domains.same_organisation(_host_of(url), _host_of(targets[-1]))
-            check.facts.append(fact(f"The link {url[:120]} redirects to {targets[-1][:120]}" + (", on the same site." if same else "."),
+            check.facts.append(fact(f"The link {url} redirects to {targets[-1]}" + (", on the same site." if same else "."),
                                     "neutral" if same else "weak", topic="redirect",
                                     source=source_ref("Apollo redirect expansion", authority="independent", basis="HTTP redirect chain recorded by Apollo")))
         for target in targets:

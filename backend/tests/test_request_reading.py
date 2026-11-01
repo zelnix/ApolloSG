@@ -11,6 +11,9 @@ SAFE = [
     ("never share", "Reminder: we will never ask for your password, PIN or one-time code by email or phone. Never share your password."),
     ("discussion", "Five tips for creating a strong password, and why password managers help."),
     ("newsletter", "Read this week's stories. Manage your preferences or unsubscribe at any time."),
+    ("no one will ask", "No one from CommBank will ever ask you to send your password or NetCode."),
+    ("never, under any circumstances", "Never, under any circumstances, share your password with anyone."),
+    ("never be asked", "You should never be asked to read out your verification code."),
 ]
 SUSPICIOUS = [
     ("password disclosure", "Your mailbox is full. Reply with your email password so IT can increase your quota.", "secret_request"),
@@ -19,6 +22,11 @@ SUSPICIOUS = [
     ("read out code", "Hi, it's Telstra. Read me the verification code we texted you so I can fix your account.", "code_request"),
     ("code then read it back", "I've sent you a six-digit security code, read it back to me so I can fix your account.", "code_request"),
     ("card details", "Your parcel is held. Reply with your card number and CVV to pay the customs fee.", "card_request"),
+    # A negation that belongs to something else never cancels the ask after it.
+    ("unrelated negation first", "Do not delay, send me your password.", "secret_request"),
+    ("negated event first", "Your password was not changed, send me your current password.", "secret_request"),
+    ("don't worry", "Don't worry, just reply with the verification code we sent.", "code_request"),
+    ("negated ask, then a real one", "Don't share it with anyone else, but send me your password now.", "secret_request"),
 ]
 
 

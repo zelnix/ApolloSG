@@ -45,3 +45,22 @@ test("C24 consumer event state comes from the server Patrol record", () => {
   const event = patrolRecordToEvent(record);
   assert.equal(event.state, "biting"); assert.equal(event.verified_block, true); assert.equal(event.patrol_record?.logicalIssueKey, "issue-1");
 });
+
+test("a case the person handled reads Handled from the server's record, never No threat", async () => {
+  const { threatCaseStatus, STATUS_LABELS } = await import("../src/domain/threatCase.ts");
+  const base = { recordId: "record-2", logicalIssueKey: "issue-2", revision: 3, supersedes: null, sourceEventId: "event-2", sourceType: "device_assessment",
+    category: "email", headline: "Apollo checked an email and found a possible concern", summary: "x", effectiveReason: "recorded_resolution",
+    observedBlockReference: null, assessmentReference: "event-2", investigationCaseId: null, scenarioContext: null,
+    freshness: { observedAt: "2026-11-01T00:00:00Z", projectedAt: "2026-11-01T00:00:01Z", status: "current" }, outageContext: null,
+    resolution: { status: "resolved", resolvedAt: "2026-11-01T00:10:00Z" }, duplicateOf: null, duplicateReason: null,
+    occurredAt: "2026-11-01T00:00:00Z", updatedAt: "2026-11-01T00:10:00Z",
+    event: { event_id: "event-2", device_id: "device-123", category: "email", state: "growling", status: "resolved", headline: "x", what_happened: "x", why: [], what_to_do: "x", indicator_host: null, indicator_digest: null, verified_block: false, adapter_label: "Apollo", occurred_at: "2026-11-01T00:00:00Z", resolved_at: "2026-11-01T00:10:00Z" } };
+  const handled = patrolRecordToEvent({ ...base, rawState: "growling", effectiveState: "resolved" } satisfies PatrolRecord);
+  assert.equal(handled.state, "growling");
+  assert.equal(STATUS_LABELS[threatCaseStatus(handled)], "Handled");
+  const clean = patrolRecordToEvent({ ...base, rawState: "resting", effectiveState: "resolved" } satisfies PatrolRecord);
+  assert.equal(STATUS_LABELS[threatCaseStatus(clean)], "No threat", "a case closed with nothing found is still No threat");
+  const claimed = patrolRecordToEvent({ ...base, rawState: "biting", effectiveState: "resolved" } satisfies PatrolRecord);
+  assert.equal(claimed.state, "barking", "a closed Biting claim is never restored as Biting");
+  assert.equal(claimed.verified_block, false);
+});

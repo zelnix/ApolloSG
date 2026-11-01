@@ -91,7 +91,7 @@ class TestPatrolCallEvents:
         updated = _mk_event(device_id, event_id, headline="Verification code request", scenario="C03")
         r = api_client.post(f"{BASE_URL}/api/patrol/events", json=updated)
         assert r.status_code == 200
-        assert r.json()["headline"] == "Apollo flagged a phone call for review"
+        assert r.json()["headline"] == "Apollo checked a phone call and found a problem that needs your attention"
         assert r.json()["scenario"] == "C03"
 
     def test_call_event_with_claimed_brand(self, api_client, device_id):

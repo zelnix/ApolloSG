@@ -276,10 +276,10 @@ class PatrolEventIn(BaseModel):
     category: Literal["link", "website", "connection", "known_threat", "protection", "system", "message", "call", "app", "device", "account", "email", "file", "family"]
     state: ApolloState
     status: EventStatus
-    headline: str = Field(max_length=160)
-    what_happened: str = Field(max_length=600)
+    headline: str = Field(max_length=1000)
+    what_happened: str = Field(max_length=6000)
     why: list[str] = Field(default_factory=list, max_length=12)
-    what_to_do: str = Field(max_length=400)
+    what_to_do: str = Field(max_length=2000)
     indicator_host: Optional[str] = Field(default=None, max_length=253)
     indicator_digest: Optional[str] = Field(default=None, max_length=64)
     verified_block: bool = False
@@ -320,6 +320,10 @@ class PatrolEventIn(BaseModel):
     # projector. Until it is set the case is genuinely still being investigated, so the app never reports a finished
     # case as running.
     investigation_completed_at: Optional[datetime] = None
+    # The outcome that investigation recorded (services/higgins/outcomes.py), exactly as recorded. Server-owned like
+    # investigation_completed_at: "unable_to_determine" on a resting record is an investigation filed as not fully
+    # checked (services/investigation_projector.inconclusive).
+    investigation_outcome: Optional[str] = Field(default=None, max_length=40)
     # The evidence model (core/evidence_model.py), kept apart: what supplied the evidence (never a server), where
     # Apollo's checks ran, whether evidence is missing, and the privacy state of what the record holds. A device may
     # send only its own evidence source; patrol_policy.minimal_patrol sets the rest for a synced summary.
@@ -351,7 +355,7 @@ class PatrolEventPatch(BaseModel):
     # verified_block is deliberately NOT patchable here: the only legitimate way to set it is via
     # POST /patrol/events with enforcement_evidence attached, re-derived server-side every time
     # (see _derive_verified_block in routers/patrol.py). A bare PATCH must never flip it.
-    what_to_do: Optional[str] = Field(default=None, max_length=400)
+    what_to_do: Optional[str] = Field(default=None, max_length=2000)
     resolved_at: Optional[datetime] = None
 
 

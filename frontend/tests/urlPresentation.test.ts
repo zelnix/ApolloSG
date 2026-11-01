@@ -69,7 +69,7 @@ test("Home: web addresses become their website before the sentence is capped", (
   } as unknown as PatrolEvent;
   assert.equal(findingSentence(event), "Apollo flagged the link ebay.com.au which redirects to ebay.com.au.");
   const voice = read("../src/domain/higginsHomeVoice.ts");
-  assert.match(voice, /const text = domainOnly\(\(event\.what_happened \|\| ""\)\.trim\(\)\);[\s\S]*const capped = cleaned\.length > 170/);
+  assert.match(voice, /const text = domainOnly\(\(event\.what_happened \|\| ""\)\.trim\(\)\);[\s\S]*return cleaned\.charAt\(0\)\.toUpperCase\(\) \+ cleaned\.slice\(1\);/);
   assert.match(voice, /const primaryProblem = domainOnly\(/);
   // "Important for you" and the hero name a link by its website only (homeHeroBrief → shortDomain), never the raw address.
   assert.match(read("../src/domain/homeHeroBrief.ts"), /const host = shortDomain\(m\?\.url \?\? e\.local_indicator \?\? e\.indicator_host\);/);

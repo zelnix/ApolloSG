@@ -129,7 +129,7 @@ class TestGuardianReplyFlow:
         match = [d for d in docs if d["event_id"] == eid]
         assert len(match) == 1, f"protected should see ack: {docs}"
         assert match[0]["ack_label"] == "I called them"
-        assert match[0]["headline"] == "Apollo flagged a known threat for review"
+        assert match[0]["headline"] == "Apollo checked a known threat and found a problem that needs your attention"
         assert "Dog is barking" not in match[0]["headline"]  # raw local narrative never leaves Patrol
 
     def test_08_ack_wrong_guardian_404(self, s):

@@ -50,11 +50,10 @@ test("no recorded identifier yields no subject and the plain state line", () => 
   assert.equal(stateHeadline("growling", null), "Apollo is growling");
 });
 
-test("long identifiers are clipped", () => {
+test("long identifiers are kept whole, never cut short", () => {
   const long = "a".repeat(80) + "@example.com";
   const subject = threatSubject(ev({ category: "email", source_metadata: { type: "email", sender: long } }))!;
-  assert.ok(subject.name.length <= 42);
-  assert.ok(subject.name.endsWith("…"));
+  assert.equal(subject.name, long);
 });
 
 test("row labels name the kind of thing for lists", async () => {

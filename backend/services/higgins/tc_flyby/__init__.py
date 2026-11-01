@@ -243,12 +243,12 @@ async def _kb_stage(plan_: Plan, text: str) -> None:
                     check.status, check.open_issue = "needs_reasoning", "A general question that needs reasoning rather than a lookup."
             elif check.kind == "claim":
                 if RED_FLAG_CLAIM.search(check.subject):
-                    check.facts.append(fact(f"The material promises “{check.subject[:160]}”. Scamwatch lists “over-the-top promises of big returns” "
+                    check.facts.append(fact(f"The material promises “{check.subject}”. Scamwatch lists “over-the-top promises of big returns” "
                                             "as a warning sign of investment scams.", "anomaly", topic="claim",
                                             source=source_ref("Scamwatch (ACCC)", url="https://www.scamwatch.gov.au/types-of-scams/investment-scams",
                                                               basis="Scamwatch's published warning signs of investment scams")))
                 else:
-                    check.facts.append(fact(f"The material makes a financial claim: “{check.subject[:160]}”.", "neutral", topic="claim"))
+                    check.facts.append(fact(f"The material makes a financial claim: “{check.subject}”.", "neutral", topic="claim"))
                 for entry in _current(await knowledge.related(check.subject))[:2]:
                     check.facts.append(_kb_fact(entry, f"{entry.get('publisher')} on claims like this: “{entry.get('title')}”"))
                 check.status, check.route = "resolved", "apollo_kb"

@@ -1,6 +1,6 @@
 // What a threat's "Send to family" shares: the result, what happened, what to do and the website or number
-// involved. Never the original message, its full links or its pictures. Pure: no React, no native imports.
-import { sentences } from "./luddish/patterns.ts";
+// involved — each whole, never cut short. Never the original message, its full links or its pictures. Pure: no React,
+// no native imports.
 
 export interface Involved { label: "Website" | "Number"; value: string }
 
@@ -14,18 +14,6 @@ export interface FamilySummary {
   involved: Involved | null;
   caseRef: string;
   occurredAt: string;
-}
-
-/** Whole sentences up to `max` characters, so a long answer is cut where a sentence ends. */
-export function shortText(text: string, max: number): string {
-  const clean = text.trim();
-  if (!clean) return "";
-  let out = "";
-  for (const s of sentences(clean)) {
-    if ((out ? out.length + 1 : 0) + s.length > max) break;
-    out = out ? `${out} ${s}` : s;
-  }
-  return out || `${clean.slice(0, max - 1).trimEnd()}…`;
 }
 
 /** The website or number a threat involved: a call's number, else the website's address (never the full link). */
@@ -51,12 +39,13 @@ export function summaryText(s: FamilySummary, when: string): string {
   ].filter(Boolean).join("\n");
 }
 
-/** What Apollo sends to linked family in the app. */
+/** What Apollo sends to linked family in the app: the summary whole (backend routers/family.ShareThreatIn has the
+ *  same room a Patrol record has). */
 export function summaryWire(s: FamilySummary) {
   return {
-    event_id: s.eventId, state: s.state, result: s.result.slice(0, 60), headline: s.headline.slice(0, 200),
-    what_happened: s.whatHappened.slice(0, 600), what_to_do: s.whatToDo.slice(0, 400),
-    involved_label: s.involved?.label ?? null, involved: s.involved?.value.slice(0, 253) ?? null,
-    case_ref: s.caseRef.slice(0, 40), occurred_at: s.occurredAt,
+    event_id: s.eventId, state: s.state, result: s.result, headline: s.headline,
+    what_happened: s.whatHappened, what_to_do: s.whatToDo,
+    involved_label: s.involved?.label ?? null, involved: s.involved?.value ?? null,
+    case_ref: s.caseRef, occurred_at: s.occurredAt,
   };
 }

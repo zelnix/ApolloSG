@@ -8,7 +8,7 @@
 import type { AttentionItem } from "./homeAttention";
 import type { HomeVoice } from "./higginsHomeVoice";
 import { sentences } from "./luddish/patterns.ts";
-import { incompleteOnly, say } from "./luddish/present.ts";
+import { firstReason, incompleteOnly, reasonInSentence, say } from "./luddish/present.ts";
 import { looksLikeInternalCode } from "./messageVoice.ts";
 import { shortDomain } from "./threatSubject.ts";
 import type { ApolloState, PatrolEvent } from "./types";
@@ -60,7 +60,7 @@ const NO_NUMBER_SAID: Record<"hero" | "card", string> = { hero: "no # found", ca
 export type BriefRoom = "hero" | "card";
 const WHOLE = Number.MAX_SAFE_INTEGER;
 const LIMIT: Record<BriefRoom, { sender: number; subject: number; emailSubject: number; preview: number; number: number; name: number; headline: number }> = {
-  hero: { sender: 28, subject: 30, emailSubject: 32, preview: 26, number: 24, name: 30, headline: 40 },
+  hero: { sender: 28, subject: 30, emailSubject: 32, preview: 28, number: 24, name: 30, headline: 40 },
   card: { sender: WHOLE, subject: WHOLE, emailSubject: WHOLE, preview: WHOLE, number: WHOLE, name: WHOLE, headline: WHOLE },
 };
 
@@ -97,6 +97,12 @@ const STATUS_FINDING: Record<string, string> = {
 const blocked = (e: PatrolEvent) => !!(e.verified_block && e.enforcement_evidence);
 const investigating = (e: PatrolEvent) => !!(e.investigation_case_id ?? e.patrol_record?.investigationCaseId) && !e.investigation_completed_at;
 
+/** What the state means, when Apollo recorded nothing more specific (never a posture such as "flagged"). */
+const STATE_FINDING: Partial<Record<ApolloState, string>> = {
+  biting: "blocked by Apollo", barking: "looks like a scam", growling: "has a warning sign", ears_up: "is being looked at",
+  sniffing: "is being checked",
+};
+
 function finding(e: PatrolEvent): string {
   // The case result's verdict — the one the Findings Brief shows (caseBriefing.caseResult).
   const status = clean(e.case_briefing?.verdict ?? e.case_briefing?.status).toLowerCase();
@@ -104,20 +110,25 @@ function finding(e: PatrolEvent): string {
   if (blocked(e)) return "blocked by Apollo";
   if (incompleteOnly(e)) return "not every check could run";
   if (e.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE") return "not confirmed safe";
-  if (e.state === "barking" || e.state === "growling" || e.state === "biting") return "detected as a possible threat";
-  if (e.state === "ears_up") return "flagged for a closer look";
-  return "flagged by Apollo";
+  // The first concrete thing Apollo recorded about it ("asks for a one-time code"), in Luddish.
+  const reason = firstReason(e);
+  if (reason) return reasonInSentence(reason);
+  return STATE_FINDING[e.state] ?? "checked by Apollo";
 }
 
-/** Higgins' recommendation for the case: its Case Briefing's recommended action, else Apollo's own short step. */
-function action(e: PatrolEvent): string {
+/** Higgins' recommendation for the case: its Case Briefing's recommended action, else Apollo's own first step. */
+const HERO_STEP = 70;
+function action(e: PatrolEvent, room: BriefRoom): string {
   const recommended = say(e.case_briefing?.recommendedAction?.label, true);
   if (recommended) return noStop(recommended);
   if (blocked(e)) return "No action needed";
   if (investigating(e)) return "Be careful until Higgins has finished";
   if (clean(e.case_briefing?.verdict ?? e.case_briefing?.status).toLowerCase() === "no scam indicators found") return "No action needed";
+  // Apollo's own first step, whole. The hero's second line has room for about two rows: a longer step stays in the
+  // case, and the hero points there instead of cutting it short.
   const step = sentences(say(e.what_to_do, true))[0];
-  return step && step.length <= 40 && !looksLikeInternalCode(step) ? noStop(step) : "Be careful";
+  if (step && !looksLikeInternalCode(step) && (room === "card" || step.length <= HERO_STEP)) return noStop(step);
+  return step ? "See Higgins' steps in the case" : "Open the case to see what Apollo found";
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -137,7 +148,7 @@ export function eventBrief(e: PatrolEvent, now: Date = new Date(), kept: KeptIde
   const source = from === NO_NUMBER ? ` (${NO_NUMBER_SAID[room]})` : from ? ` from ${from}` : "";
   const line1 = `${type}${what ? `: ${what}` : ""}${source}${what || from ? "," : ""} ${finding(e)}.`;
   const when = heroWhen(e.occurred_at, now);
-  return { id: `event:${e.event_id}`, line1, line2: `${when ? `${when}. ` : ""}${action(e)}.`, route: `/patrol/${encodeURIComponent(e.event_id)}` };
+  return { id: `event:${e.event_id}`, line1, line2: `${when ? `${when}. ` : ""}${action(e, room)}.`, route: `/patrol/${encodeURIComponent(e.event_id)}` };
 }
 
 /** The cases the hero shows, in order: the one Apollo is reacting to first, then every other case needing the person. */

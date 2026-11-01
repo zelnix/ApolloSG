@@ -224,6 +224,8 @@ export interface PatrolEvent {
   /** Who settled that investigation: "magnum_di" or a TC FlyBy route ("tc_flyby_official", "tc_flyby_kb",
    *  "tc_flyby_search"). Device-local, copied from the committed result; absent when not recorded. */
   investigation_answered_by?: string | null;
+  /** The outcome the case's investigation recorded (no_scam_indicators … unable_to_determine), never guessed. */
+  investigation_outcome?: string | null;
   /** An outside source behind that investigation was simulated in the preview (copied from the committed result).
    *  Device-local. Everything else ran exactly as in production; this only tags the case. */
   investigation_simulated?: boolean;

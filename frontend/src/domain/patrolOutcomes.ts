@@ -1,7 +1,7 @@
 import { caseCardText, needsYou } from "./caseBriefing.ts";
 import { STATE_RANK } from "./stateMachine.ts";
 import { humanizeReason, resultChip } from "./messageVoice.ts";
-import { incompleteOnly, presentEvent } from "./luddish/present.ts";
+import { inconclusive, incompleteOnly, notFullyChecked, presentEvent } from "./luddish/present.ts";
 import type { UserAction } from "./userActions.ts";
 import type { ApolloState, PatrolEvent } from "./types.ts";
 
@@ -50,7 +50,7 @@ export function projectPatrolOutcomes(events: PatrolEvent[]): PatrolOutcome[] {
     // RELIABILITY FIX: When the user has resolved/trusted an event, the display state must
     // reflect that — not the original threat level. The raw event.state is preserved for history,
     // but the OUTCOME state must show the event as handled so it leaves "Needs you" and enters "Resolved".
-    const isResolved = event.status === "resolved" || event.status === "trusted" || !!event.resolved_at || incompleteOnly(event);
+    const isResolved = event.status === "resolved" || event.status === "trusted" || !!event.resolved_at || notFullyChecked(event);
     const shown = presentEvent(event);
     const rawState: PatrolState = event.state === "sniffing" ? "ears_up" : event.state === "biting" && !event.verified_block ? "barking" : event.state;
     const state: PatrolState = isResolved ? "resting" : rawState;
@@ -58,8 +58,8 @@ export function projectPatrolOutcomes(events: PatrolEvent[]): PatrolOutcome[] {
     const existing = outcomes.find((outcome) => outcome.outcomeId === key && Math.abs(Date.parse(outcome.occurredAt) - time) <= WINDOW_MS);
     if (!existing) {
       outcomes.push({ outcomeId: key, category: category(event), state, title: title(event, state), summary: shown.summary, occurredAt: event.occurred_at, source: source(event), repeatCount: 1,
-        result: incompleteOnly(event) ? "Not fully checked" : isResolved ? (event.status === "trusted" ? "Trusted" : "Handled") : result(state),
-        resultBasis: incompleteOnly(event) ? "Some checks couldn't run. Nothing found to act on." : isResolved ? (event.status === "trusted" ? "You trusted this exact item." : "You marked this event as handled.") : humanizeReason(event.patrol_record?.effectiveReason, state),
+        result: notFullyChecked(event) ? "Not fully checked" : isResolved ? (event.status === "trusted" ? "Trusted" : "Handled") : result(state),
+        resultBasis: incompleteOnly(event) ? "Some checks couldn't run. Nothing found to act on." : inconclusive(event) ? "Apollo couldn't decide either way. Nothing found to act on." : isResolved ? (event.status === "trusted" ? "You trusted this exact item." : "You marked this event as handled.") : humanizeReason(event.patrol_record?.effectiveReason, state),
         whyThisRating: shown.why.slice(0, 4), whatToDo: shown.whatToDo, primaryAction: isResolved ? undefined : actionFor(event, state), secondaryActions: [], event });
       continue;
     }

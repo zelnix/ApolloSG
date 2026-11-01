@@ -30,9 +30,7 @@ test("evidence that isn't on this device is never summarised", () => {
   assert.equal(findingSentence(ev({ evidence_representation: "privacy_summary", what_happened: "Apollo found something." })), null);
 });
 
-test("a very long sentence is clipped at a word boundary", () => {
+test("a very long sentence is kept whole, never cut short", () => {
   const long = `Apollo found ${"a very suspicious thing ".repeat(20)}somewhere.`;
-  const stated = findingSentence(ev({ what_happened: long }))!;
-  assert.ok(stated.length <= 171);
-  assert.ok(stated.endsWith("…"));
+  assert.equal(findingSentence(ev({ what_happened: long })), long);
 });

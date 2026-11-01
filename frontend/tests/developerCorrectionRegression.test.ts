@@ -211,7 +211,7 @@ section("Home prioritisation");
   const attention = buildHomeAttention({ gates: [], events: [ev] });
   const voice = buildHomeVoice({ resolution, attention, gates: [], capabilities: [] });
   assert(
-    voice.text.includes("needs your decision") || voice.text.includes("needs your action") || voice.text.includes("barking"),
+    voice.text.includes("needs your decision") || voice.text.includes("signs of a scam") || voice.text.includes("barking"),
     `T17: Barking → urgent language (text: ${voice.text})`,
   );
   assert(voice.ctaRoute.includes("patrol/"), "T17b: Links to investigation");

@@ -115,7 +115,7 @@ class TestSharedEvents:
         events = r2.json()
         match = [e for e in events if e["event_id"] == event_id]
         assert len(match) == 1, f"expected shared event, got {events}"
-        assert match[0]["headline"] == "Apollo flagged a known threat for review"
+        assert match[0]["headline"] == "Apollo checked a known threat and found a problem that needs your attention"
         assert "Threat detected" not in match[0]["headline"]
         assert match[0]["from_label"] == "Alex"
 

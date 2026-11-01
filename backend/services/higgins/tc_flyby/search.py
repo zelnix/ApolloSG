@@ -155,7 +155,7 @@ def _quote(check: Check, result: dict, source: dict, *, warning: bool = False) -
     hit = next((p for p in pieces if names(check, p) and (not warning or _WARNING_WORDS.search(p))), None) \
         or next((p for p in pieces if names(check, p)), pieces[0] if pieces else source["title"])
     publisher = (kb_sources.source_for(result["url"]).publisher if kb_sources.source_for(result["url"]) else source["domain"])
-    return f"{publisher} ({source['domain']}): “{hit[:280]}”"
+    return f"{publisher} ({source['domain']}): “{hit}”"
 
 
 def _own_site(check: Check, domain: str) -> bool:
@@ -181,7 +181,7 @@ def read(check: Check, results: list[dict], brands: list[str]) -> dict:
     def answer(status: str, picked: list[tuple[dict, dict]], *, warning: bool = False) -> dict:
         ordered = sorted(picked, key=lambda rs: {"official": 0, "independent": 1}.get(rs[1]["authority"], 2))
         lead = ordered[0]
-        return {"status": _pick(check.statuses, status), "fact": _quote(check, lead[0], lead[1], warning=warning)[:600],
+        return {"status": _pick(check.statuses, status), "fact": _quote(check, lead[0], lead[1], warning=warning),
                 "sources": [s for _, s in ordered][:4]}
 
     def nothing(searched_for: str) -> dict:
@@ -308,26 +308,26 @@ async def run(checks: list[Check], *, correlation_id: str, trigger_source: str |
     for check in to_ask:
         if check is not chosen:
             out["answers"][check.id] = _unavailable(check, "one_search_per_case",
-                                                    f"TC FlyBy runs one web search per case. It went to {chosen.subject[:120]}, so {check.subject[:120]} wasn't searched.")
+                                                    f"TC FlyBy runs one web search per case. It went to {chosen.subject}, so {check.subject} wasn't searched.")
 
     q = query(chosen)
     if q is None:
-        out["answers"][chosen.id] = _unavailable(chosen, "personal_details", f"{chosen.subject[:120]} wasn't searched: {_why('personal_details')}.")
+        out["answers"][chosen.id] = _unavailable(chosen, "personal_details", f"{chosen.subject} wasn't searched: {_why('personal_details')}.")
         out["status"] = "unavailable"
         return out
     key = lookup_key(chosen)
 
     async def search_once() -> dict:
         if not brave_search.configured():
-            return _unavailable(chosen, "not_configured", f"{chosen.subject[:120]} wasn't searched: {_why('not_configured')}.")
+            return _unavailable(chosen, "not_configured", f"{chosen.subject} wasn't searched: {_why('not_configured')}.")
         if not await _claim_case_search(correlation_id):
-            return _unavailable(chosen, "one_search_used", f"{chosen.subject[:120]} wasn't searched: {_why('one_search_used')}.")
+            return _unavailable(chosen, "one_search_used", f"{chosen.subject} wasn't searched: {_why('one_search_used')}.")
         await intel.count(SITE, "sufficiency_unknown", "external_call_required")
         try:
             results = await brave_search.search(q, correlation_id=correlation_id, trigger_source=trigger_source, device_id=owner,
                                                 case_id=correlation_id.removeprefix("case-"))
         except brave_search.SearchUnavailable as exc:
-            return _unavailable(chosen, exc.reason, f"{chosen.subject[:120]} wasn't searched: {_why(exc.reason)}.")
+            return _unavailable(chosen, exc.reason, f"{chosen.subject} wasn't searched: {_why(exc.reason)}.")
         out.update(calls=1, queries=1, provider="brave")
         answer = read(chosen, results, brands or [])
         if await store(chosen, answer):
@@ -342,7 +342,7 @@ async def run(checks: list[Check], *, correlation_id: str, trigger_source: str |
             return _reused(decision.reuse[0]) if decision.known else None
         answer = await intel.once(intel.cache_id(key, intel.BRAVE_SEARCH, intel.TC_FLYBY_LOOKUP, False), search_once, reuse=reuse)
         if answer is None:
-            answer = _unavailable(chosen, "lookup_running", f"{chosen.subject[:120]} wasn't searched: {_why('lookup_running')}.")
+            answer = _unavailable(chosen, "lookup_running", f"{chosen.subject} wasn't searched: {_why('lookup_running')}.")
         elif answer.get("reused"):
             out["cacheHits"] += 1
     out["answers"][chosen.id] = answer

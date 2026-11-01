@@ -39,31 +39,58 @@ export type RequestReading = Record<RequestKind, boolean> & { quotes: Partial<Re
 
 export const clauses = (text: string): string[] => (text ?? "").split(CLAUSE).map((c) => (c ?? "").trim()).filter(Boolean);
 
-/** A negation before the ask, in the same clause: "never share", "we will never ask you to send". */
+// What may stand between a negation and the ask it governs: nothing but "ever"/"please"/"under any circumstances"
+// ("Never, ever share …"), or an "ask you to" construction ("No one from CommBank will ever ask you to send …",
+// "you should never be asked to share …"). Anything else — "Do not delay, send me …", "was not changed, send me …" —
+// means the negation belongs to something else, and the ask stands. Mirror of requests.py _GOVERNS.
+const GOVERNS = new RegExp(String.raw`^(?:\s*,?\s*(?:ever|you|please|again|under any circumstances)\s*,?)*\s*$`
+  + String.raw`|^(?:\s+[\w'’-]+){0,6}?\s+(?:(?:will|would|should|shall|can|could|may|might|must)\s+)?(?:ever\s+)?(?:be\s+)?`
+  + String.raw`(?:ask|asks|asked|request|requests|requested|require|requires|required|want|wants|need|needs|expect|expects|expected)`
+  + String.raw`(?:\s+(?:you|anyone|customers|members|that you|for))?(?:\s+to)?\s*$`, "i");
+const NEGATION_ALL = new RegExp(NEGATION.source, "gi");
+
+/** A negation that governs the ask at `at`: the nearest one before it, with only what GOVERNS allows in between. */
 export function negated(clause: string, at: number): boolean {
-  return NEGATION.test(clause.slice(0, at));
+  const before = clause.slice(0, at);
+  const last = [...before.matchAll(NEGATION_ALL)].pop();
+  return !!last && GOVERNS.test(before.slice((last.index ?? 0) + last[0].length));
+}
+
+/** The first ask in the clause that isn't negated, else the first negated one; every starting point is tried, so a
+ *  negated ask earlier in the clause never hides a real one after it. Mirror of requests.py ask_in. */
+export function askIn(pattern: RegExp, clause: string): { match: RegExpExecArray | null; negated: boolean } {
+  const sticky = new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, "") + "y");
+  let negatedHit: RegExpExecArray | null = null;
+  for (const start of clause.matchAll(/\b\w/g)) {
+    sticky.lastIndex = start.index ?? 0;
+    const m = sticky.exec(clause);
+    if (!m) continue;
+    if (!negated(clause, m.index)) return { match: m, negated: false };
+    negatedHit ??= m;
+  }
+  return { match: negatedHit, negated: !!negatedHit };
 }
 
 /** What the text asks of the reader, clause by clause, with the clause that shows each one. */
 export function readRequests(text: string): RequestReading {
   const out: RequestReading = { secret_request: false, code_request: false, card_request: false, payment_detail_update: false,
     sign_in_request: false, code_delivery: false, security_notice: false, negated_advice: false, quotes: {} };
-  const mark = (kind: RequestKind, clause: string) => { out[kind] = true; out.quotes[kind] ??= clause.slice(0, 200); };
+  const mark = (kind: RequestKind, clause: string) => { out[kind] = true; out.quotes[kind] ??= clause; };
   for (const clause of clauses(text)) {
     if (DELIVERY.test(clause)) mark("code_delivery", clause);
     if (NOTICE.test(clause)) mark("security_notice", clause);
     for (const [kind, pattern] of [["secret_request", SECRET_ASK], ["code_request", CODE_ASK], ["card_request", CARD_ASK]] as const) {
-      const m = pattern.exec(clause);
+      const { match: m, negated: isNegated } = askIn(pattern, clause);
       if (!m) continue;
-      if (negated(clause, m.index)) mark("negated_advice", clause);
+      if (isNegated) mark("negated_advice", clause);
       else if (kind === "secret_request" && PASSWORD_CHOICE.test(clause) && !/\b(?:current|old|existing)\s+password\b/i.test(clause)) mark("sign_in_request", clause);
       else if (kind === "code_request" && DELIVERY.test(clause) && !SENT_BACK.test(clause)) continue;
       else mark(kind, clause);
     }
-    const entry = CARD_ENTRY.exec(clause);
-    if (entry && !out.card_request && !negated(clause, entry.index)) mark("payment_detail_update", clause);
-    const signIn = SIGN_IN.exec(clause);
-    if (signIn && !negated(clause, signIn.index)) mark("sign_in_request", clause);
+    const entry = askIn(CARD_ENTRY, clause);
+    if (entry.match && !out.card_request && !entry.negated) mark("payment_detail_update", clause);
+    const signIn = askIn(SIGN_IN, clause);
+    if (signIn.match && !signIn.negated) mark("sign_in_request", clause);
   }
   return out;
 }

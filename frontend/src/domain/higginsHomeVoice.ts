@@ -11,6 +11,7 @@
 import type { AttentionItem } from "./homeAttention";
 import type { GatePresentation } from "./gates";
 import { briefed, firstFinding, needsYou } from "./caseBriefing.ts";
+import { firstReason } from "./luddish/present.ts";
 import { hasRecordedFindings } from "./caseFacts.ts";
 import { sentences } from "./luddish/patterns.ts";
 import { subjectDescriptor, threatSubject } from "./threatSubject.ts";
@@ -49,8 +50,8 @@ export function findingSentence(event: PatrolEvent): string | null {
   if (!stated) return null;
   const cleaned = stated.replace(/^(in it,|here,|in this case,)\s*/i, "").trim();
   if (!cleaned) return null;
-  const capped = cleaned.length > 170 ? `${cleaned.slice(0, 169).replace(/\s+\S*$/, "")}…` : cleaned;
-  return capped.charAt(0).toUpperCase() + capped.slice(1);
+  // Whole: the sentence Apollo recorded is never cut short.
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
 /** A finding in its Higgins Case Briefing's own words: the headline, then its first finding (subject always named).
@@ -61,6 +62,15 @@ export function briefedLine(event: PatrolEvent | undefined): string | null {
 }
 
 const sentence = (text: string) => (/[.!?…]$/.test(text) ? text : `${text}.`);
+const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const lowerFirst = (text: string) => (/^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text);
+
+/** "The text from AusPost: asks for a one-time code." — what was checked and the first concrete thing Apollo recorded
+ *  about it; null when it recorded nothing specific. Never a posture ("Apollo flagged …"). */
+function concreteLine(event: PatrolEvent | undefined, what: string): string | null {
+  const reason = event ? firstReason(event) : null;
+  return reason ? `${capitalised(what)}: ${sentence(lowerFirst(reason))}` : null;
+}
 
 
 /** Human label for every Capability id, used when assembling the dynamic affected-gate list. */
@@ -231,12 +241,10 @@ export function buildHomeVoice(input: {
       // title and the what-to-do steps live in the case itself — the hero must stay glanceable.
       const stated = primaryBriefed ?? (primary.event ? findingSentence(primary.event) : null);
       const subject = primary.event ? threatSubject(primary.event) : null;
-      const what = subject ? subjectDescriptor(subject) : `something in the ${primary.gate} check`;
+      const what = subject ? subjectDescriptor(subject) : `the ${primary.gate} check`;
       const text = stated
-        ? stated
-        : state === "barking"
-          ? `Apollo found ${what}. It needs your decision.`
-          : `Apollo flagged ${what}.`;
+        ?? concreteLine(primary.event, what)
+        ?? (state === "barking" ? `Apollo found signs of a scam in ${what}.` : `Apollo found a warning sign in ${what}.`);
       return {
         text,
         ctaLabel: "View what Apollo found",
@@ -251,10 +259,10 @@ export function buildHomeVoice(input: {
       const secondBrief = domainOnly((second.problem || second.title || "").trim());
       const secondBriefed = briefedLine(second.event);
       const text = primaryBriefed || secondBriefed
-        ? `${primaryBriefed ?? sentence(`Apollo flagged ${primaryProblem || `something in ${primary.gate}`}`)} Also: ${secondBriefed ?? sentence(secondBrief || second.gate)} I'll walk you through both, starting with the most urgent.`
+        ? `${primaryBriefed ?? sentence(primaryProblem || `Apollo found a concern in ${primary.gate}`)} Also: ${secondBriefed ?? sentence(secondBrief || second.gate)} I'll walk you through both, starting with the most urgent.`
         : primaryProblem
-          ? `Apollo flagged ${primaryProblem}. There's also a concern about ${secondBrief || second.gate}. I'll walk you through both, starting with the most urgent.`
-          : `Apollo has flagged concerns in ${primary.gate} and ${second.gate}. I'll walk you through both.`;
+          ? `${sentence(capitalised(primaryProblem))} There's also a concern about ${secondBrief || second.gate}. I'll walk you through both, starting with the most urgent.`
+          : `Apollo found concerns in ${primary.gate} and ${second.gate}. I'll walk you through both.`;
       return {
         text,
         ctaLabel: "View what Apollo found",
@@ -267,8 +275,8 @@ export function buildHomeVoice(input: {
     const text = primaryBriefed
       ? `${primaryBriefed} There are other concerns too — I'll walk you through everything in Threats, starting with the most urgent.`
       : primaryProblem
-        ? `Apollo flagged ${primaryProblem}, along with other concerns. Let's start with the most urgent — I'll walk you through everything in Threats.`
-        : `Apollo has flagged several security concerns. Let's start with the most urgent.`;
+        ? `${sentence(capitalised(primaryProblem))} There are other concerns too. Let's start with the most urgent — I'll walk you through everything in Threats.`
+        : `Apollo found several security concerns. Let's start with the most urgent.`;
     return {
       text,
       ctaLabel: "View in Threats",

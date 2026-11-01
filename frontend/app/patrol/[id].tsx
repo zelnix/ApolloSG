@@ -48,7 +48,7 @@ import { RelatedCases } from "@/src/components/report/RelatedCases";
 import { ServerCopyNote } from "@/src/components/ServerCopyNote";
 import { buildReport, plainReport, shownPlainEnglish, stepText, type Report } from "@/src/domain/reportSections";
 import { luddishReport } from "@/src/domain/luddish";
-import { involvedIn, shortText, type FamilySummary } from "@/src/domain/familySummary";
+import { involvedIn, type FamilySummary } from "@/src/domain/familySummary";
 import { ShareWithFamily } from "@/src/components/ShareWithFamily";
 import { FamilyNotes } from "@/src/components/FamilyNotes";
 import { comparableChecks, compareDeviceChecks, type DeviceCheckProgress } from "@/src/domain/deviceCheckProgress";
@@ -192,8 +192,8 @@ function BriefContent({ event, status, verdict, shownWhatToDo, original, investi
   const summary: FamilySummary = {
     eventId: event.event_id, state: event.state, result: verdict.label ?? STATUS_LABELS[status],
     headline: presentEvent(event).title || (report.answer[0] ?? "A threat Apollo found"),
-    whatHappened: shortText(report.answer.join(" "), 400),
-    whatToDo: shortText(scrubMessage(note ?? (noAction ? "Nothing to do." : action)), 300),
+    whatHappened: report.answer.join(" ").trim(),
+    whatToDo: scrubMessage(note ?? (noAction ? "Nothing to do." : action)).trim(),
     involved: involvedIn(event), caseRef: threatCaseId(event), occurredAt: event.occurred_at,
   };
 

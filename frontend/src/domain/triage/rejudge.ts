@@ -7,6 +7,8 @@ import { analyseEmail } from "../emailAnalysis.ts";
 import { patrolSafeSummary } from "../investigation.ts";
 import { analyseMessage } from "../messageAnalysis.ts";
 import { NATIVE_PROTECTION_PROVENANCE } from "../nativeClassification.ts";
+import { heldCopyExpired } from "../heldCopies.ts";
+import { closed } from "../patrolStatus.ts";
 import { phoneIncompleteChecks, phoneTriageReputation, phoneWhyLines } from "../phoneNumbers.ts";
 import { STATE_RANK } from "../stateMachine.ts";
 import type { ApolloState, PatrolEvent } from "../types";
@@ -16,10 +18,10 @@ import { CATALOGUE_VERSION, type TriageInvestigationRecord, type TriageOutcome }
 import type { EmailEvidenceProfile } from "./emailEvidence.ts";
 import { evaluateTriage } from "./engine.ts";
 import { emailTriageEvidence, messageTriageEvidence } from "./evidence.ts";
+import { REJUDGED_LINE } from "../luddish/present.ts";
 
 /** Runs once per rule catalogue version (and per change to this re-judge). */
-export const REJUDGE_VERSION = `${CATALOGUE_VERSION}:1`;
-export const REJUDGED_LINE = "Apollo checked this again under its updated rules, using the original kept on this device.";
+export const REJUDGE_VERSION = `${CATALOGUE_VERSION}:2`;
 
 /** The routed link result the record holds ("… handed to the Link Gate, which found: POSSIBLE_THREAT_IDENTIFIED"). */
 function recordedLinkOutcome(t: TriageInvestigationRecord): TriageOutcome | null {
@@ -67,7 +69,8 @@ export function rejudgeCandidate(e: PatrolEvent): boolean {
 /** The case as the current rules judge it from its kept original, or null when nothing would change. */
 export function rejudgeEvent(e: PatrolEvent, kept: OriginalSource | null, now: string = new Date().toISOString()): PatrolEvent | null {
   const old = e.triage_investigation;
-  const text = kept?.text?.trim();
+  // ApolloSG's copy of the original is kept for 24 hours only: past that, the case isn't re-judged.
+  const text = kept && !heldCopyExpired(kept.capturedAt, Date.parse(now)) ? kept.text?.trim() : null;
   if (!rejudgeCandidate(e) || !old || !kept || !text) return null;
 
   const linkOutcome = recordedLinkOutcome(old);
@@ -112,14 +115,14 @@ export function rejudgeEvent(e: PatrolEvent, kept: OriginalSource | null, now: s
   if (triage.outcome === old.outcome && state === e.state) return null;
   const noun = e.category === "email" ? "email" : "text message";
   const resting = state === "resting";
-  // A case the person already handled stays handled; a case that is now clear is resolved.
-  const handled = e.status === "resolved" && e.state !== "resting";
+  // A closed case (handled, trusted or resolved) stays closed: a re-judge never reopens it. A case now clear closes.
+  const wasClosed = closed(e);
   return {
     ...e, ...words,
     headline: words.headline || (triage.incompleteChecks?.length ? `Not every check could run on this ${noun}` : `No threat found in this ${noun}`),
     state, why: [REJUDGED_LINE, ...why],
-    status: resting || handled ? "resolved" : "active",
-    resolved_at: resting || handled ? (e.resolved_at ?? now) : null,
+    status: resting || wasClosed ? "resolved" : "active",
+    resolved_at: wasClosed ? (e.resolved_at ?? now) : resting ? now : null,
     triage_investigation: { ...triage, rejudgedUnder: REJUDGE_VERSION },
     triage_history: [...(e.triage_history ?? []), old],
   };
