@@ -41,6 +41,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
             ("investigation_events", ["owner_id"]),
             ("investigation_evidence", ["owner_id"]),
             ("investigation_content_chunks", ["owner_id"]),
+            ("investigation_device_pickups", ["owner_id"]),
             ("investigation_reports", ["owner_id"]),
             ("investigation_jobs", ["owner_id", "device_id"]),
             ("investigation_owners", ["owner_id"]),

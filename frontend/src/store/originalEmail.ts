@@ -1,8 +1,7 @@
 // The original email (.eml / original source) exactly as received — kept on THIS PHONE only, never uploaded.
 // Higgins Triage reads it here; only the minimal structured findings travel with an investigation.
 // Native: a file in the app's document folder. Web preview: browser storage, up to a size limit.
-// Kept for 24 hours from when it was kept (domain/heldCopies.ts), then deleted — on access and by the clean-up sweep —
-// and earlier with the case and on full data wipe.
+// Kept until the person deletes it, the check, or all their data: no clock deletes it (owner's rule, 2026-11-01).
 import * as Crypto from "expo-crypto";
 import * as DocumentPicker from "expo-document-picker";
 import * as FS from "expo-file-system/legacy";
@@ -11,7 +10,6 @@ import { Platform } from "react-native";
 import {
   MAX_ORIGINAL_BYTES, b64ToBinary, binaryToBase64, bytesToBinary, looksLikeRawEmail, parseOriginalEmail, utf8ToBinary, type ParsedOriginal,
 } from "@/src/domain/triage/emailOriginal";
-import { heldCopyExpired } from "@/src/domain/heldCopies";
 import { storage } from "@/src/utils/storage";
 
 export interface OriginalEmailRecord { caseKeys: string[]; sha256: string; bytes: number; uri: string | null; createdAt: string }
@@ -77,7 +75,6 @@ export async function keepOriginalEmail(caseKeys: (string | null | undefined)[],
   const keys = caseKeys.filter((k): k is string => !!k);
   if (!keys.length) return false;
   try {
-    await sweepOriginalEmails();
     const all = await readIndex();
     const existing = all.find((r) => r.sha256 === sha256);
     if (existing) {
@@ -104,7 +101,6 @@ export async function keepOriginalEmail(caseKeys: (string | null | undefined)[],
 
 /** The exact bytes of the original email kept for any of these case keys (a binary string), or null when none is kept. */
 export async function readKeptOriginalEmail(caseKeys: string[]): Promise<string | null> {
-  await sweepOriginalEmails();
   const record = (await readIndex()).find((r) => r.caseKeys.some((k) => caseKeys.includes(k)));
   if (!record) return null;
   try {
@@ -117,18 +113,7 @@ export async function readKeptOriginalEmail(caseKeys: string[]): Promise<string 
 }
 
 export async function listOriginalEmails(caseKey: string): Promise<OriginalEmailRecord[]> {
-  await sweepOriginalEmails();
   return (await readIndex()).filter((r) => r.caseKeys.includes(caseKey));
-}
-
-/** Deletes every original email kept for more than 24 hours. */
-export async function sweepOriginalEmails(now: number = Date.now()): Promise<number> {
-  const all = await readIndex();
-  const due = all.filter((r) => heldCopyExpired(r.createdAt, now));
-  if (!due.length) return 0;
-  for (const r of due) await remove(r);
-  await writeIndex(all.filter((r) => !due.includes(r)));
-  return due.length;
 }
 
 async function remove(record: OriginalEmailRecord) {

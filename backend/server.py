@@ -64,6 +64,8 @@ async def lifespan(_: FastAPI):
 
     await migrate_and_index()
     await investigation_repository.ensure_indexes()
+    from services import device_pickup
+    await device_pickup.ensure_indexes()
     await report_store.ensure_indexes()
     await system_health_jobs.ensure_indexes()
     await higgins_context.ensure_indexes()

@@ -31,6 +31,7 @@ async function investigationImageMeta(uri: string, gate?: SanitizationReceipt): 
 }
 import type { CreateCase, DeviceProfile, DeviceResult, EvidenceItem, InvestigationCase, InvestigationEvent, Job, SourceReference, TurnCommit } from "./types";
 import type { FollowUpAnswer } from "@/src/higgins/followUp";
+import type { PickupOriginal, PickupSource, SavedParts } from "@/src/domain/pickupCheck";
 
 /** Generate a UUID key with robust fallback for environments where expo-crypto's randomUUID isn't available. */
 export function safeUUID(): string {
@@ -69,7 +70,14 @@ export function getEvidence(caseId: string, evidenceId: string) { return apiGet<
 /** Returns the URL for fetching evidence content bytes (images, files). Must be fetched with auth headers. */
 export function evidenceContentUrl(caseId: string, evidenceId: string) { return `${API_BASE}/investigations/${caseId}/evidence/${evidenceId}/content`; }
 export function deleteCase(caseId: string) { return apiDelete<void>(`/investigations/${caseId}`); }
-export function confirmCommit(caseId: string) { return apiPost<{ purged: boolean; status: string; removedAt?: string | null }>(`/investigations/${caseId}/confirm-commit`, "investigation", {}); }
+export function confirmCommit(caseId: string, saved?: SavedParts) { return apiPost<{ purged: boolean; status: string; removedAt?: string | null }>(`/investigations/${caseId}/confirm-commit`, "investigation", saved ? { saved } : {}); }
+/** What the server keeps for this phone until the phone confirms it saved its own copy (investigation/pickup.ts). */
+export interface HeldCopy {
+  caseId: string; held: true; heldAt: string;
+  case: InvestigationCase; turns: TurnCommit[]; sources: SourceReference[]; evidence: EvidenceItem[];
+  originals: PickupOriginal[]; source: PickupSource;
+}
+export function getPickup(caseId: string) { return apiGet<HeldCopy | { caseId: string; held: false; working: boolean }>(`/investigations/${caseId}/pickup`); }
 export function submitTurn(caseId: string, body: { expectedRevision: number; turnId: string; message: string; answerToQuestionId: string | null; evidenceIds: string[] }, key: string, signal?: AbortSignal) {
   // A follow-up on a finished investigation comes back answered from its record, with no job (no Magnum DI call).
   return postWithKey<{ job: Job | null; followUp?: FollowUpAnswer; caseRevision: number }>(`/investigations/${caseId}/turns`, body, key, signal);

@@ -561,7 +561,7 @@ export default function ThreatCaseScreen() {
         <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.xs }}>
           <SourceSummaryCard origin={event.origin ?? investigation?.origin} at={event.occurred_at}
             caseKeys={[event.event_id, event.investigation_case_id, event.patrol_record?.investigationCaseId]}
-            event={event} evidence={investigation?.evidenceItems} simulated={isSimulated(event)} testID="tc-source-summary" />
+            event={event} evidence={investigation?.evidenceItems} gates={investigation?.gates} simulated={isSimulated(event)} testID="tc-source-summary" />
         </View>
 
         {/* Tab bar */}

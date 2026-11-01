@@ -7,7 +7,6 @@ import { analyseEmail } from "../emailAnalysis.ts";
 import { patrolSafeSummary } from "../investigation.ts";
 import { analyseMessage } from "../messageAnalysis.ts";
 import { NATIVE_PROTECTION_PROVENANCE } from "../nativeClassification.ts";
-import { heldCopyExpired } from "../heldCopies.ts";
 import { closed } from "../patrolStatus.ts";
 import { phoneIncompleteChecks, phoneTriageReputation, phoneWhyLines } from "../phoneNumbers.ts";
 import { STATE_RANK } from "../stateMachine.ts";
@@ -69,8 +68,8 @@ export function rejudgeCandidate(e: PatrolEvent): boolean {
 /** The case as the current rules judge it from its kept original, or null when nothing would change. */
 export function rejudgeEvent(e: PatrolEvent, kept: OriginalSource | null, now: string = new Date().toISOString()): PatrolEvent | null {
   const old = e.triage_investigation;
-  // ApolloSG's copy of the original is kept for 24 hours only: past that, the case isn't re-judged.
-  const text = kept && !heldCopyExpired(kept.capturedAt, Date.parse(now)) ? kept.text?.trim() : null;
+  // The copy of the original kept on this phone (kept until the person deletes it).
+  const text = kept?.text?.trim() || null;
   if (!rejudgeCandidate(e) || !old || !kept || !text) return null;
 
   const linkOutcome = recordedLinkOutcome(old);

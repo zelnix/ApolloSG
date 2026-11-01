@@ -5,8 +5,8 @@ import { ApiError } from "@/src/api/client";
 import { storage } from "@/src/utils/storage";
 import { dlog } from "@/src/utils/dlog";
 import { forgetCase } from "./caseIndex";
-import { commitInvestigation, enqueueConfirmCommit, dequeueConfirmCommit, pendingConfirmCommits, deleteInvestigation, getInvestigation, recordServerCopyRemoved, type DeviceInvestigation } from "./deviceStore";
-import { serverLeavesBy } from "@/src/domain/serverCopyNote";
+import { enqueueConfirmCommit, dequeueConfirmCommit, pendingConfirmCommits, deleteInvestigation, getInvestigation } from "./deviceStore";
+import { pickUpCase } from "./pickup";
 import { deleteImageEvidenceFor } from "@/src/store/imageEvidence";
 import { deleteReportProgress } from "@/src/store/reportProgress";
 import { deleteOriginalSource } from "@/src/store/originalSource";
@@ -43,34 +43,18 @@ function finishedWithNewMaterial(response: HigginsResponse, sources: SourceRefer
   return { ...answer, question: input.question, answer: `${note}${answer.answer}` };
 }
 
-/** Device-local commit handshake: a finished investigation (not one waiting for the person's answer) is
- *  committed to permanent device storage, then the server is told to purge its copy. Idempotent. Also
- *  runs when the app attaches to a case that was already answered — TC FlyBy often settles a case
- *  before the app starts following it, and without this the result would never reach the device. */
+/** Device-local commit handshake: a finished investigation (not one waiting for the person's answer) is saved to
+ *  permanent device storage with its original, read back, and only then is the server told it may delete its copy
+ *  (investigation/pickup.ts). Idempotent. Also runs when the app attaches to a case that was already answered —
+ *  TC FlyBy often settles a case before the app starts following it. Anything not yet confirmed is queued for retry. */
 async function commitAnswered(caseId: string, caseData: InvestigationCase, question: string): Promise<void> {
   if (!caseData.response || caseData.response.question || caseData.status === "failed") return;
+  // Already on this device at this revision: nothing new to keep (an unconfirmed copy is already queued).
+  if ((await getInvestigation(caseId).catch(() => null))?.response?.revision === caseData.response.revision) return;
   try {
-    // Already on this device at this revision: nothing new to keep.
-    if ((await getInvestigation(caseId).catch(() => null))?.response?.revision === caseData.response.revision) return;
-    const [turnsData, sourcesData] = await Promise.all([api.listTurns(caseId), api.listSources(caseId)]);
-    let evidenceItems: import("./types").EvidenceItem[] = [];
-    try { evidenceItems = (await api.listEvidence(caseId)).items; } catch { /* evidence metadata is optional */ }
-    const snapshot: DeviceInvestigation = {
-      caseId, gates: caseData.gates ?? [], status: caseData.status,
-      createdAt: caseData.createdAt, completedAt: caseData.updatedAt,
-      question,
-      response: caseData.response, sources: sourcesData.items,
-      turns: turnsData.items, evidenceItems,
-      patrolEventId: null, committedAt: new Date().toISOString(), answeredBy: caseData.answeredBy ?? null, settledReason: caseData.settledReason ?? null,
-      ...(caseData.simulated ? { simulated: true } : {}),
-      serverCopy: { removedAt: null, leavesBy: serverLeavesBy(caseData) },
-      origin: caseData.origin ?? null,
-    };
-    await commitInvestigation(snapshot);
-    // Tell the server to purge — failures are queued for retry. A confirmed removal time goes on the result's note.
-    try { const { removedAt } = await api.confirmCommit(caseId); if (removedAt) await recordServerCopyRemoved(caseId, removedAt); }
-    catch { await enqueueConfirmCommit(caseId); }
-  } catch { /* local commit failed — server data remains as recovery fallback */ }
+    const outcome = await pickUpCase(caseId, { question });
+    if (outcome === "waiting" || outcome === "incomplete") await enqueueConfirmCommit(caseId);
+  } catch { await enqueueConfirmCommit(caseId); }
 }
 
 const UNDELETED_KEY = "apollo.investigation.undeleted";
@@ -112,9 +96,9 @@ export function useInvestigation(boundOperationId?: string | null) {
       catch (error: unknown) { if (error instanceof ApiError && (error.status === 404 || error.status === 410)) await forgetDeletion(id); }
     }
     update({ undeleted: (await pendingDeletions())[0] ?? null });
-    // Also flush pending confirm-commits (device committed locally but server purge failed)
+    // Also retry confirmations not yet made (the phone's copy wasn't saved, checked or confirmed yet)
     for (const caseId of await pendingConfirmCommits()) {
-      try { const { removedAt } = await api.confirmCommit(caseId); if (removedAt) await recordServerCopyRemoved(caseId, removedAt); await dequeueConfirmCommit(caseId); }
+      try { const outcome = await pickUpCase(caseId); if (outcome === "confirmed" || outcome === "nothing_held") await dequeueConfirmCommit(caseId); }
       catch (error: unknown) { if (error instanceof ApiError && (error.status === 404 || error.status === 410)) await dequeueConfirmCommit(caseId); }
     }
   }, []);

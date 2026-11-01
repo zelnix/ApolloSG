@@ -28,7 +28,7 @@ CONFIRM = "DELETE ALL CASES"
 
 DELETED_COLLECTIONS = (
     "patrol_records",
-    "investigation_cases", "investigation_events", "investigation_evidence", "investigation_content_chunks",
+    "investigation_cases", "investigation_events", "investigation_evidence", "investigation_content_chunks", "investigation_device_pickups",
     "investigation_reports", "investigation_jobs", "investigation_turn_commits", "investigation_uploads",
     "investigation_upload_chunks", "investigation_idempotency", "investigation_device_requests",
     "investigation_cleanup", "investigation_settings_plans", "di_transactions", "triage_investigations", "triage_results",

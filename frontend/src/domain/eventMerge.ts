@@ -15,9 +15,19 @@
  * 4. A server record with no local version (e.g. after a reinstall) is taken as-is. It is still this device's
  *    own case: records are per device, and server processing never changes where a case began.
  */
-import type { PatrolEvent } from "./types";
+import type { PatrolEvent, SourceMetadata } from "./types";
 import { evidenceModel } from "./evidenceModel.ts";
 import { STATE_RANK } from "./stateMachine.ts";
+
+const missingValue = (v: unknown) => v === null || v === undefined || v === "" || (Array.isArray(v) && !v.length);
+/** This device's recorded identifiers, with any it lacks filled in from the server's record. Never overwritten. */
+export function enrichMetadata(local: SourceMetadata | null | undefined, remote: SourceMetadata | null | undefined): SourceMetadata | null | undefined {
+  if (!local) return remote ?? local;
+  if (!remote) return local;
+  const out: Record<string, unknown> = { ...local };
+  for (const [k, v] of Object.entries(remote)) if (missingValue(out[k]) && !missingValue(v)) out[k] = v;
+  return out as unknown as SourceMetadata;
+}
 
 export interface MergeResult {
   events: PatrolEvent[];
@@ -100,7 +110,9 @@ export function mergeLocalAndRemoteEvents(
         what_happened: localIsDetailed ? local.what_happened : remote.what_happened,
         why: localIsDetailed ? local.why : remote.why,
         what_to_do: localIsDetailed ? local.what_to_do : remote.what_to_do,
-        // Keep local-only fields.
+        // Keep local-only fields. The record's identifiers (sender, subject, received date, text) are this device's
+        // own where it recorded them; the server's copy fills in only what this device didn't record.
+        source_metadata: enrichMetadata(local.source_metadata, remote.source_metadata),
         local_indicator: local.local_indicator ?? remote.local_indicator,
         origin: local.origin ?? remote.origin,
         claimed_brand: local.claimed_brand ?? remote.claimed_brand,

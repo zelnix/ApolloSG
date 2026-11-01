@@ -87,8 +87,7 @@ import { APP_VERSION } from "@/src/config/buildInfo";
 import { isVerifiedDesktopFlowDrop } from "@/src/security/desktopEvidence";
 import { startPostureMonitor, updatePostureInputs, stopPostureMonitor } from "@/src/security/postureMonitor";
 import { getOriginalSource, saveOriginalSource, type OriginalSourceInput } from "@/src/store/originalSource";
-import { HELD_COPY_SWEEP_MS, sweepHeldCopies } from "@/src/store/heldCopySweep";
-import { listEvidence } from "@/src/investigation/client";
+import { pickUpCase, pickupsDone, rememberPickups } from "@/src/investigation/pickup";
 
 // ── Privacy-safe notification diagnostic logger ──────────────────────────
 // Records notification failures with enough detail to distinguish permission,
@@ -436,6 +435,8 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
   // Latest events, updated synchronously so back-to-back upserts (e.g. resolving a whole incident) never
   // operate on a stale snapshot and overwrite each other.
   const eventsRef = useRef<PatrolEvent[]>([]);
+  // Threats records this phone has told the server it saved with their text (this session).
+  const savedAcked = useRef(new Set<string>());
   const alertedStates = useRef(new Map<string, ApolloState>());
   useEffect(() => { eventsRef.current = events; }, [events]);
   const persistEvents = useCallback(async (next: PatrolEvent[]) => {
@@ -917,7 +918,15 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     const removed = new Set(removedRemote.data?.eventIds ?? []);
     const local = removed.size ? eventsRef.current.filter((e) => !removed.has(e.event_id)) : eventsRef.current;
     const { events: merged } = mergeLocalAndRemoteEvents(local, remoteConverted);
-    void persistEvents(merged);
+    // Once this phone has saved a record with its text, the server's copy of that text may go at its 24 hours
+    // (backend services/held_copies.py) — never before. Only records whose text this phone now holds are named.
+    const holding = new Map(merged.map((e) => [e.event_id, !!e.source_metadata?.preview?.trim()]));
+    const saved = remoteConverted.filter((r) => r.source_metadata?.preview?.trim() && holding.get(r.event_id) && !savedAcked.current.has(r.event_id)).map((r) => r.event_id);
+    void persistEvents(merged).then(() => {
+      if (!saved.length) return;
+      return apiPost<{ confirmed: number }>("/patrol/saved", "patrol_saved", { eventIds: saved.slice(0, 500) })
+        .then(() => saved.forEach((id) => savedAcked.current.add(id)));
+    }).catch(() => undefined);
   }, [remoteEvents.data, removedRemote.data, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // An administrator removed every threat case: clear this device's copies from before it, once per reset.
@@ -934,50 +943,36 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     })().catch(() => undefined);
   }, [caseWipe.data, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Server-investigated sources (monitored email, captured texts, Higgins submissions): download the exact
-  // original once while the investigation still holds it (server copies expire after 24 h) and keep it on device.
-  const originalTried = useRef(new Set<string>());
+  // Every case this phone knows that an investigation checked (monitored email, captured texts, Higgins submissions):
+  // what the server kept for this phone — the result, the exact original and its headers — is saved here, read back,
+  // and only then confirmed, so the server may delete its copy (investigation/pickup.ts). Until then the server keeps
+  // it, however long this phone is offline. Retried when cases change, when the app comes back and every minute.
+  const pickupBusy = useRef(false);
   useEffect(() => {
     if (!ready || !deviceId) return;
-    const pending = events.filter((e) => e.investigation_case_id && !originalTried.current.has(e.event_id));
-    if (!pending.length) return;
-    void (async () => {
-      const token = await getDeviceToken();
-      if (!token) return;
-      for (const ev of pending) {
-        originalTried.current.add(ev.event_id);
-        const caseId = ev.investigation_case_id!;
-        try {
-          if (await getOriginalSource(ev.event_id) || await getOriginalSource(caseId)) continue;
-          const { items } = await listEvidence(caseId);
-          const roots = items.filter((i) => i.origin === "user_submission" && !i.parentId && i.availability === "available" && (i.kind === "text" || i.kind === "url"));
-          if (!roots.length) continue;
-          const parts: { kind: string; body: string }[] = [];
-          for (const item of roots) {
-            const res = await fetch(`${API_BASE}/investigations/${caseId}/evidence/${item.id}/content`, { headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) parts.push({ kind: item.kind, body: await res.text() });
+    const run = () => {
+      if (pickupBusy.current) return;
+      pickupBusy.current = true;
+      void (async () => {
+        const done = new Set(await pickupsDone());
+        const fresh: string[] = [];
+        for (const ev of eventsRef.current) {
+          const caseId = ev.investigation_case_id ?? ev.patrol_record?.investigationCaseId;
+          if (!caseId || done.has(caseId) || fresh.includes(caseId)) continue;
+          try {
+            const outcome = await pickUpCase(caseId, { event: ev });
+            if (outcome === "confirmed" || outcome === "nothing_held") fresh.push(caseId);
+          } catch (error: unknown) {
+            if (error instanceof ApiError && (error.status === 404 || error.status === 410)) fresh.push(caseId);
+            else if (!(error instanceof ApiError)) break; // offline: try again later
           }
-          if (!parts.length) continue;
-          const meta = ev.source_metadata;
-          const fields = [
-            meta?.sender ? { label: "From", value: meta.sender } : null,
-            meta?.reply_to ? { label: "Reply-to", value: meta.reply_to } : null,
-            meta?.subject ? { label: "Subject", value: meta.subject } : null,
-            meta?.received_at ? { label: "Received", value: new Date(meta.received_at).toLocaleString() } : null,
-            meta?.provider ? { label: "Mailbox", value: meta.provider } : null,
-            ...(meta?.attachment_names ?? []).map((name) => ({ label: "Attachment", value: name })),
-          ].filter((f): f is { label: string; value: string } => !!f);
-          const texts = parts.filter((p) => p.kind === "text").map((p) => p.body);
-          const urls = parts.filter((p) => p.kind === "url").map((p) => p.body);
-          await saveOriginalSource([ev.event_id, caseId], {
-            kind: meta?.type ?? (urls.length && !texts.length ? "link" : "text"), fields,
-            text: texts.length ? texts.join("\n\n") : null, url: urls.length ? urls.join("\n") : null, origin: "investigation",
-            // Its 24 hours count from when it was checked, not from this download (domain/heldCopies.ts).
-            capturedAt: ev.occurred_at,
-          });
-        } catch { /* investigation unavailable or expired — Evidence explains the original wasn't saved */ }
-      }
-    })();
+        }
+        if (fresh.length) await rememberPickups(fresh);
+      })().catch((error) => console.warn("[Apollo] saving the server's copies failed:", error)).finally(() => { pickupBusy.current = false; });
+    };
+    run(); const timer = setInterval(run, 60_000);
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') run(); });
+    return () => { clearInterval(timer); sub.remove(); };
   }, [events, ready, deviceId]);
   useEffect(() => {
     if (!remoteTrust.data) return;
@@ -1026,15 +1021,6 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', s => { if (s === 'active') void retry(); });
     return () => { clearInterval(timer); sub.remove(); };
   }, [deviceId, ready]);
-  // ApolloSG's held copies on this phone (original texts, email fields, .eml files, pictures) are deleted 24 hours
-  // after they were made, whether or not their case is opened again (store/heldCopySweep.ts).
-  useEffect(() => {
-    if (!ready) return;
-    const sweep = () => void sweepHeldCopies(eventsRef.current).catch((error) => console.warn("[Apollo] held-copy sweep failed:", error));
-    sweep(); const timer = setInterval(sweep, HELD_COPY_SWEEP_MS);
-    const sub = AppState.addEventListener('change', s => { if (s === 'active') sweep(); });
-    return () => { clearInterval(timer); sub.remove(); };
-  }, [ready]);
 
 
 

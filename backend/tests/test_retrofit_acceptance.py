@@ -118,10 +118,15 @@ async def test_10_migration_idempotent():
     if not report:
         pytest.skip("Migration report not found — retrofit not run")
     assert report.get("errors", -1) == 0, f"Migration had {report.get('errors')} errors"
-    total = await db.patrol_records.count_documents({})
-    assert total >= report["records_reviewed"], \
-        f"Record count {total} should be >= reviewed {report['records_reviewed']}"
-    print(f"  ✓ AT10: Migration report found, 0 errors, {total} current records (>= {report['records_reviewed']} reviewed)")
+    # Records the owner deleted since the first run legitimately lower the count, so rerun it (dry) on today's data.
+    from scripts.retrofit_historical_records import run_migration
+    rerun = await run_migration(dry_run=True)
+    assert rerun["errors"] == 0, f"Rerun had {rerun['errors']} errors"
+    dupes = await db.patrol_records.aggregate([
+        {"$group": {"_id": "$record_id", "n": {"$sum": 1}}}, {"$match": {"n": {"$gt": 1}}}, {"$limit": 5},
+    ]).to_list(5)
+    assert not dupes, f"Duplicated records: {dupes}"
+    print(f"  ✓ AT10: rerun reviewed {rerun['records_reviewed']} records, 0 errors, no duplicates")
 
 
 async def test_11_distinguish_historic_from_new():

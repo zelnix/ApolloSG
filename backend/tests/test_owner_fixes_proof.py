@@ -144,17 +144,18 @@ async def test_a_rejudge_never_reopens_a_closed_triage_record():
         await db.patrol_events.delete_many({"device_id": owner})
 
 
-# ── Requirement 2(a): ApolloSG's held copies are deleted 24 hours after they were made ──
+# ── Requirement 2(a): ApolloSG's server copies are deleted 24 hours after they were made, once the phone has saved its own ──
 
 async def test_held_copies_older_than_24_hours_are_deleted_and_identifiers_kept():
     owner, now = f"proof-{uuid.uuid4().hex[:8]}", now_utc()
     old, fresh = now - timedelta(hours=24, minutes=1), now - timedelta(hours=23)
     meta = lambda at: {"sender": "+61 448 221 905", "subject": "Parcel", "preview": "Your parcel is waiting, pay the fee now", "submitted_at": at}  # noqa: E731
-    await db.patrol_events.insert_many([_device_record(owner, "held-old", source_metadata=meta(old)),
-                                        _device_record(owner, "held-new", source_metadata=meta(fresh)),
-                                        _device_record(owner, "held-notime", occurred_at=old, source_metadata={**meta(None), "submitted_at": None})])
+    # Each record here has been confirmed saved by the phone (tests/test_device_pickup.py covers one that hasn't).
+    await db.patrol_events.insert_many([_device_record(owner, "held-old", source_metadata=meta(old), device_saved_at=now),
+                                        _device_record(owner, "held-new", source_metadata=meta(fresh), device_saved_at=now),
+                                        _device_record(owner, "held-notime", occurred_at=old, source_metadata={**meta(None), "submitted_at": None}, device_saved_at=now)])
     case_id = f"held-{uuid.uuid4().hex[:8]}"
-    await db.investigation_cases.insert_one({"owner_id": owner, "case_id": case_id, "created_at": old, "deleted": True,
+    await db.investigation_cases.insert_one({"owner_id": owner, "case_id": case_id, "created_at": old, "deleted": True, "device_saved_at": now,
                                              "source_metadata": {"sender": "a@b.co", "preview": "text"}})
     try:
         await held_copies.sweep(now)

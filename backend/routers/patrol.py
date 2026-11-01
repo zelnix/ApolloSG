@@ -17,7 +17,7 @@ from core.models import EnforcementEvidenceIn, PatrolEvent, PatrolEventIn, Patro
 from routers.family import notify_guardians
 from routers.push import push_owner_alert
 from services.patrol_policy import packet_verified, minimal_patrol, refresh_summary, revalidate_stored_patrol
-from services import case_wipe, loop_cleanup, patrol_records
+from services import case_wipe, held_copies, loop_cleanup, patrol_records
 
 router = APIRouter()
 
@@ -219,6 +219,19 @@ async def removed_patrol_events(request: Request):
     owner = request.state.device["device_id"]
     reasons = [loop_cleanup.REMOVED_REASON, case_wipe.REMOVED_REASON]
     return {"eventIds": await db.patrol_events.distinct("event_id", {"device_id": owner, "removed_reason": {"$in": reasons}})}
+
+
+class SavedOnDeviceIn(BaseModel):
+    eventIds: list[str] = Field(default_factory=list, max_length=500)
+
+
+@router.post("/patrol/saved")
+async def saved_on_device(body: SavedOnDeviceIn, request: Request):
+    """The phone saved these records with their text and checked them: the server's copy of the text may now go at its
+    24 hours (services/held_copies.py). Until then it waits for the phone, however long it is offline."""
+    owner = request.state.device["device_id"]
+    ids = [i for i in body.eventIds if isinstance(i, str) and 0 < len(i) <= 128]
+    return {"confirmed": await held_copies.saved_on_device(owner, ids)}
 
 
 @router.get("/patrol/wipe")

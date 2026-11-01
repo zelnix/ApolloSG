@@ -11,6 +11,7 @@ import { Image, Platform, Pressable, Text, View } from "react-native";
 import { InertEmailView } from "./InertEmailView";
 import type { ArtefactView } from "@/src/domain/evidencePresentation";
 import { linksIn } from "@/src/domain/evidencePresentation";
+import { NOT_PROVIDED } from "@/src/domain/emailRecord";
 import { inertEmailNote, type InertEmail } from "@/src/domain/inertEmail";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -199,13 +200,13 @@ export function EmailArtefact({ view, body, images, email, onViewImage, tab, s }
       <View style={s.emailFrom}>
         <Avatar name={view.sender} s={s} />
         <View style={s.headerInfo}>
-          <Text style={s.headerName} numberOfLines={2}>{view.sender ?? "Sender not captured"}</Text>
+          <Text style={s.headerName} numberOfLines={2}>{view.sender ?? `From: ${NOT_PROVIDED}`}</Text>
           {view.recipient ? <Text style={s.headerMeta}>To: {view.recipient}</Text> : null}
-          {view.occurredAt ? <Text style={s.headerMeta}>{view.occurredAt}</Text> : null}
+          <Text style={s.headerMeta}>{view.occurredAt ?? `Received: ${NOT_PROVIDED}`}</Text>
         </View>
       </View>
       <View style={s.emailBody}>
-        {view.subject ? <Text style={s.subject} selectable>{view.subject}</Text> : null}
+        <Text style={s.subject} selectable>{view.subject ?? `Subject: ${NOT_PROVIDED}`}</Text>
         {/* The email as it appeared (its HTML, inert). Its text only when the kept original has no HTML part. */}
         {email ? <>
           <InertEmailView email={email} style={s.emailView} testID="evidence-artefact-email-html" />
@@ -288,7 +289,7 @@ export function PostArtefact({ view, body, url, images, onViewImage, s }: Layout
       <View style={s.postHeader}>
         <Avatar name={view.sender ?? view.platform} s={s} />
         <View style={s.headerInfo}>
-          <Text style={s.headerName}>{view.sender ?? view.platform ?? "Account not captured"}</Text>
+          <Text style={s.headerName}>{view.sender ?? view.platform ?? `Account: ${NOT_PROVIDED}`}</Text>
           <Text style={s.headerMeta}>{[view.platform, view.occurredAt].filter(Boolean).join(" · ")}</Text>
         </View>
       </View>

@@ -3,6 +3,7 @@
 // detected it. When the record doesn't say, the heading says neither. The preview is the material itself, shortened:
 // the original kept on the device, else what the case recorded at intake. Pure: no React, no storage.
 import { describeArtefact } from "./evidencePresentation.ts";
+import { emailLines, emailRecord, isEmailCase, NOT_PROVIDED } from "./emailRecord.ts";
 import { CAPABILITY_LABELS } from "./protectionAreas.ts";
 import type { GateId } from "./gates";
 import type { EvidenceItem, CaseOrigin } from "../investigation/types";
@@ -102,17 +103,17 @@ const SHOWN_FIELD = /^(from|sender|number|caller|contact|subject)$/i;
 /** Text as written with its paragraphs kept: blank lines between paragraphs stay (one each). */
 const asParagraphs = (text: string) => text.replace(/\r\n?/g, "\n").split("\n").map((l) => l.replace(/[ \t]+/g, " ").trim()).join("\n")
   .replace(/\n{3,}/g, "\n\n").trim();
-/** An email's summary is its sender and subject only; its text (links removed) waits behind the expand button. */
-const emailHead = (sender: string | null | undefined, subject: string | null | undefined) =>
-  [sender ? `From ${sender}` : null, subject ? `Subject: ${subject}` : null];
-const emailPreview = (head: (string | null)[], text: string | null | undefined) => {
+/** An email's summary is its sender and subject only ("Not provided" where not recorded); its text (links removed)
+ *  waits behind the expand button. */
+const emailPreview = (head: string[], text: string | null | undefined) => {
   const { lines, fullLines } = compose(head, null, false);
   return { lines, fullLines, body: text ? asParagraphs(withoutLinks(text)) || null : null };
 };
 const TIME_FIELD = /^(received|date|sent|time|captured|when)$/i;
 
-/** The original kept on the device, shortened: an email's sender and subject, a link, and the text as written. */
-export function previewFromOriginal(src: OriginalSource, hasImage = false): SourcePreview {
+/** The original kept on the device, shortened: an email's sender and subject, a link, and the text as written.
+ *  `event`: the case's record, which says whether it is an email and fills in what the kept copy doesn't hold. */
+export function previewFromOriginal(src: OriginalSource, hasImage = false, event?: PatrolEvent | null): SourcePreview {
   const view = describeArtefact(src, hasImage);
   const body = view.body ?? null;
   const icon = view.layout === "screenshot" ? "picture" : ICON_OF_KIND[src.kind] ?? "item";
@@ -121,9 +122,10 @@ export function previewFromOriginal(src: OriginalSource, hasImage = false): Sour
     detail("Link", src.url),
     detail(src.origin === "this_device" ? "Captured on this device" : "Received by ApolloSG", src.capturedAt, true),
   ];
-  if (view.layout === "email") {
-    const p = emailPreview(emailHead(view.sender, view.subject), body);
-    return { kind: view.title, icon, ...p, received: view.occurredAt, details: detailsOf(view.title, recorded, [...p.fullLines, view.occurredAt ?? ""], null) };
+  if (view.layout === "email" || (view.layout !== "screenshot" && isEmailCase(event, src))) {
+    const record = emailRecord(event, src);
+    const p = emailPreview(emailLines(record), body);
+    return { kind: "Email", icon: "email", ...p, received: record.received, details: detailsOf("Email", recorded, [...p.fullLines, record.received ?? ""], null) };
   }
   const url = src.url && !(body ?? "").includes(src.url) ? src.url : null;
   const fields = body || url ? [] : view.fields.filter((f) => !SHOWN_FIELD.test(f.label.trim())).slice(0, 2).map((f) => `${f.label}: ${f.value}`);
@@ -152,13 +154,14 @@ export function previewFromEvent(event: PatrolEvent): SourcePreview | null {
   const m = event.source_metadata;
   const type = eventType(event);
   const indicator = !m?.url ? (event.local_indicator ?? event.indicator_host) : null;
-  const email = type === "email";
+  const email = isEmailCase(event);
+  const record = emailRecord(event, null);
   const { lines, fullLines, body } = email
-    ? emailPreview(emailHead(m?.sender, m?.subject), m?.preview)
+    ? emailPreview(emailLines(record), m?.preview)
     : compose([m?.url, m?.attachment_names?.[0], m?.preview ? null : indicator], m?.preview);
   if (!lines.length && !body) return null;
-  const info = EVENT_KIND[type] ?? EVENT_KIND[event.category] ?? { kind: "Item", icon: "item" as const };
-  const received = email ? m?.received_at ?? null : null;
+  const info = email ? EVENT_KIND.email : EVENT_KIND[type] ?? EVENT_KIND[event.category] ?? { kind: "Item", icon: "item" as const };
+  const received = email ? record.received : null;
   const details = detailsOf(info.kind, [
     detail("From", m?.sender), detail("Subject", m?.subject), detail("Reply-to", m?.reply_to), detail("Link", m?.url),
     detail("Website", event.indicator_host ?? event.local_indicator), detail("Attachments", m?.attachment_names?.join(", ")),
@@ -173,10 +176,15 @@ const ITEM_KIND: Record<string, { kind: string; icon: PreviewIcon }> = {
   document: { kind: "File", icon: "file" }, file: { kind: "File", icon: "file" }, attachment: { kind: "File", icon: "file" },
 };
 
-/** The investigation's own evidence list, when nothing else is kept: what kind of material arrived, and its name. */
-export function previewFromEvidence(items: EvidenceItem[]): SourcePreview | null {
+/** The investigation's own evidence list, when nothing else is kept: what kind of material arrived, and its name.
+ *  `email`: the case is about an email — it is shown as one, with "Not provided" for what wasn't recorded. */
+export function previewFromEvidence(items: EvidenceItem[], email = false): SourcePreview | null {
   const first = items.find((e) => e.origin === "user_submission" || e.origin === "device_observation");
   if (!first) return null;
+  if (email) {
+    const p = emailPreview(emailLines(emailRecord(null, null)), null);
+    return { kind: "Email", icon: "email", ...p, received: null, details: detailsOf("Email", [detail("Collected", first.collectedAt, true)], p.fullLines, null) };
+  }
   const info = ITEM_KIND[first.kind] ?? { kind: "Item", icon: "item" as const };
   // The item's name: its file name, or the address or text it was labelled with — never a label that only names its kind.
   const name = first.provenance?.originalFilename ?? (GENERIC_LABEL.test(first.label.trim()) ? null : first.label);
@@ -214,14 +222,15 @@ function detectionReason(event: PatrolEvent): string | null {
 export function detectionFacts(event: PatrolEvent, original?: OriginalSource | null): DetectionFact[] {
   const m = event.source_metadata;
   const type = eventType(event);
-  const from = m?.sender?.trim()
+  const email = isEmailCase(event, original);
+  const from = email ? emailRecord(event, original).sender ?? NOT_PROVIDED : m?.sender?.trim()
     || original?.fields?.find((f) => /^(from|sender|number|caller)$/i.test(f.label.trim()))?.value?.trim()
     || (event.category === "call" ? event.local_indicator?.trim() : null);
   const provider = m?.provider?.trim();
-  const kind = type === "text" || type === "message"
+  const kind = email ? "Email" : type === "text" || type === "message"
     ? (provider && !/\b(sms|messages?)\b/i.test(provider) ? provider : "SMS")
     : TYPE_LABEL[type] ?? TYPE_LABEL[event.category] ?? null;
-  const capability = CAPABILITY_OF[event.evidence_provenance === "dns_observation" ? "website" : type] ?? CAPABILITY_OF[event.category];
+  const capability = CAPABILITY_OF[email ? "email" : event.evidence_provenance === "dns_observation" ? "website" : type] ?? CAPABILITY_OF[event.category];
   const by = event.evidence_provenance === "native_protection" ? provider || "Your device's built-in protection"
     : capability ? CAPABILITY_LABELS[capability] : null;
   const facts: (DetectionFact | null)[] = [

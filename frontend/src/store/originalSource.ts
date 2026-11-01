@@ -1,8 +1,9 @@
-// The original source Apollo investigated (exact text / URL / fields / raw device evidence), kept unaltered
-// on this device only, one key per case. A copy of what the person checked is kept for 24 hours, then deleted
-// (domain/heldCopies.ts): reading it past then deletes it and leaves a note of when, so it is never saved again.
-// Deleted with the case and on full data wipe.
-import { heldCopyDue } from "@/src/domain/heldCopies";
+// The original source Apollo investigated (exact text / URL / fields / raw device evidence), kept unaltered on this
+// device only, one key per case. Kept until the person deletes it, the check, or all their data: no clock deletes it on
+// the phone (owner's rule, 2026-11-01). A later supply of headers or text only fills in what the saved copy is missing
+// (domain/originalMerge.ts). A note left where an earlier version of ApolloSG deleted a copy after 24 hours is
+// replaced by the next copy saved for that case.
+import { enrichOriginal, sameOriginal } from "@/src/domain/originalMerge";
 import { storage } from "@/src/utils/storage";
 
 export type OriginalSourceKind = "email" | "text" | "link" | "website" | "screenshot" | "call" | "app" | "file" | "account" | "device" | "network";
@@ -18,11 +19,11 @@ export interface OriginalSource {
   /** Exact raw record reported by the device / OS (network, DNS, enforcement, device signals). */
   data?: unknown;
   capturedAt: string;
-  /** Where the copy came from: captured on this device, or downloaded once from the investigation. */
+  /** Where the copy came from: captured on this device, or downloaded from the investigation. */
   origin: "this_device" | "investigation";
 }
 
-/** What is left where a held copy was deleted: when, and nothing of the copy. */
+/** What an earlier version of ApolloSG left where it deleted a held copy after 24 hours: when, and nothing of the copy. */
 interface DeletedCopy { deletedAt: string }
 
 const key = (caseKey: string) => `apollo.original.v1.${caseKey}`;
@@ -36,28 +37,29 @@ async function read(caseKey: string): Promise<OriginalSource | DeletedCopy | nul
   catch { return null; }
 }
 
+/** Save the original for these case keys: a new record where none is kept, else the kept one enriched (never replaced). */
 export async function saveOriginalSource(caseKeys: (string | null | undefined)[], source: OriginalSourceInput) {
   const record: OriginalSource = { capturedAt: new Date().toISOString(), origin: "this_device", ...source };
-  if (heldCopyDue(record)) return; // already older than 24 hours: never kept
+  let changed = false;
   try {
-    // Kept once per case; a copy deleted after its 24 hours is never saved again.
-    for (const k of caseKeys) if (k && !(await read(k))) await storage.setItem(key(k), JSON.stringify(record));
-    listeners.forEach((l) => l());
+    for (const k of caseKeys) {
+      if (!k) continue;
+      const found = await read(k);
+      const next = found && !("deletedAt" in found) ? enrichOriginal(found, record) : record;
+      if (found && !("deletedAt" in found) && sameOriginal(found, next)) continue;
+      await storage.setItem(key(k), JSON.stringify(next));
+      changed = true;
+    }
+    if (changed) listeners.forEach((l) => l());
   } catch (e) { console.warn("[originalSource] could not save original source:", e); }
 }
 
-export async function getOriginalSource(caseKey: string, now: number = Date.now()): Promise<OriginalSource | null> {
+export async function getOriginalSource(caseKey: string): Promise<OriginalSource | null> {
   const found = await read(caseKey);
-  if (!found || "deletedAt" in found) return null;
-  if (heldCopyDue(found, now)) {
-    await storage.setItem(key(caseKey), JSON.stringify({ deletedAt: new Date(now).toISOString() } satisfies DeletedCopy));
-    listeners.forEach((l) => l());
-    return null;
-  }
-  return found;
+  return !found || "deletedAt" in found ? null : found;
 }
 
-/** When ApolloSG deleted its copy of this case's original after 24 hours; null when it never held one, or still does. */
+/** When an earlier version of ApolloSG deleted its copy of this case's original after 24 hours; null when it didn't. */
 export async function originalSourceDeletedAt(caseKey: string): Promise<string | null> {
   const found = await read(caseKey);
   return found && "deletedAt" in found ? found.deletedAt : null;

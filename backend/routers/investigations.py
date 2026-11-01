@@ -21,7 +21,7 @@ from core.config import HIBP_API_KEY, IPQS_API_KEY, SAFE_BROWSING_API_KEY
 from core.db import db, now_utc
 from core.redaction import redact_investigation_secrets
 from services.email import email_configured
-from services import work_dedupe
+from services import device_pickup, work_dedupe
 from services.investigation_projector import project_case_now, project_case_started
 from services.storage import storage_configured
 from routers.push import push_configured
@@ -633,6 +633,7 @@ async def delete_case(case_id: str, request: Request):
     if not await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 1}):
         raise http(404, "not_found", "No investigation with that reference belongs to this device.")
     await repo.revoke(owner, case_id, "deleted")
+    await device_pickup.release(owner, case_id)  # the person deleted the check: the phone's held copy goes too
     status = await repo.run_cleanup(owner, case_id)
     return Response(status_code=204 if status == "complete" else 202, headers=NO_STORE)
 
@@ -1463,27 +1464,71 @@ async def confirm_settings_plan(case_id: str, plan_id: str, request: Request, co
 
 
 # ------------------------------------------------------------------ device commit confirmation
+@router.get("/investigations/{case_id}/pickup")
+async def device_pickup_copy(case_id: str, request: Request):
+    """The copy the server keeps for this phone until the phone confirms it saved its own (services/device_pickup.py).
+    Served whatever the case's working window or 24-hour clock says. `held: false, working: true`: still being checked."""
+    owner = owner_of(request)
+    case = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id},
+                                                 {"_id": 0, "deleted": 1, "status": 1, "active_job_id": 1})
+    if not case:
+        raise http(404, "not_found", "No investigation with that reference belongs to this device.")
+    held = await device_pickup.get(owner, case_id)
+    if held is None and not case.get("deleted") and device_pickup.finished(case) and await device_pickup.hold(owner, case_id):
+        held = await device_pickup.get(owner, case_id)  # it finished moments ago: keep the phone's copy now
+    if held is None:
+        working = not case.get("deleted") and case.get("status") not in (*device_pickup.FINISHED, "expired", "deleted")
+        return JSONResponse({"caseId": case_id, "held": False, "working": working}, headers=NO_STORE)
+    return JSONResponse({"caseId": case_id, "held": True, **held}, headers=NO_STORE)
+
+
+async def _saved_report(request: Request) -> Optional[dict]:
+    """What the phone says it saved and checked: {"saved": {"text", "link", "result": bool, "headers": [labels]}}."""
+    try:
+        body = await request.json()
+    except ValueError:
+        return None
+    saved = body.get("saved") if isinstance(body, dict) else None
+    if saved is None:
+        return None
+    if not isinstance(saved, dict) or set(saved) - {"text", "link", "result", "headers"} \
+            or any(not isinstance(saved.get(k, False), bool) for k in ("text", "link", "result")) \
+            or not isinstance(saved.get("headers", []), list) or len(saved.get("headers", [])) > 20 \
+            or any(not isinstance(h, str) or len(h) > 40 for h in saved.get("headers", [])):
+        raise http(422, "invalid_input", "saved must say which parts the phone saved: text, link, result and header labels.")
+    return saved
+
+
 @router.post("/investigations/{case_id}/confirm-commit", status_code=200)
 async def confirm_commit(case_id: str, request: Request):
-    """Device confirms it has successfully committed the complete investigation locally.
-    The server purges all associated working data for this case and says when (`removedAt`), for the result's note."""
+    """Device confirms it has saved and checked its own complete copy of the investigation (`saved` says what it holds).
+    Until then the server keeps the phone's copy, however long that takes. The server then purges all associated
+    working data for this case and says when (`removedAt`), for the result's note."""
     owner = owner_of(request)
+    saved = await _saved_report(request)
+    held = await device_pickup.get(owner, case_id)
+    if held is not None and saved is not None:
+        gaps = device_pickup.missing(held, saved)
+        if gaps:
+            raise http(409, "conflict", f"This phone hasn't saved {', '.join(gaps)} yet, so ApolloSG keeps its copy until it has.", missing=gaps)
     case = await db.investigation_cases.find_one(
         {"owner_id": owner, "case_id": case_id, "deleted": {"$ne": True}},
-        {"_id": 0, "owner_id": 1, "case_id": 1, "response_ciphertext": 1, "status": 1, "cleanup_status": 1})
+        {"_id": 0, "owner_id": 1, "case_id": 1, "response_ciphertext": 1, "status": 1, "cleanup_status": 1, "active_job_id": 1})
     if not case:
         # Already purged or never existed — idempotent success. A purged case's record says when it was removed.
+        await device_pickup.confirmed(owner, case_id)
         gone = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id, "deleted": True, "cleanup_status": "complete"},
                                                      {"_id": 0, "updated_at": 1})
         removed_at = repo.utc(gone["updated_at"]).isoformat() if gone and gone.get("updated_at") else None
         return JSONResponse({"purged": True, "status": "already_clean", "removedAt": removed_at}, headers=NO_STORE)
-    # Only purge if the investigation has a completed response
-    if not case.get("response_ciphertext"):
+    # Only purge a finished investigation: one with a completed response, or a finished check whose copy was kept.
+    if not case.get("response_ciphertext") and held is None:
         raise http(409, "conflict", "Cannot confirm commit for an investigation that has no completed response.")
     # The result reaches Threats and history first: once purged, the server can no longer project it.
     await project_case_now(owner, case_id)
     # Purge: revoke the case (marks deleted, rotates epoch) then run cleanup
     await repo.revoke(owner, case_id, "expired")
     cleanup_status = await repo.run_cleanup(owner, case_id)
+    await device_pickup.confirmed(owner, case_id)
     removed_at = now_utc().isoformat() if cleanup_status == "complete" else None  # a failed clean-up is retried; no time is claimed
     return JSONResponse({"purged": True, "status": cleanup_status, "removedAt": removed_at}, headers=NO_STORE)

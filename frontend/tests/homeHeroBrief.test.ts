@@ -25,11 +25,11 @@ const voice: HomeVoice = { text: "No security threats currently detected within 
 
 test("an email reads as type, subject, sender and finding, then when and Higgins' recommendation", () => {
   const b = eventBrief(event({
-    source_metadata: { type: "email", sender: "support@example.com", subject: "Account verification required" },
+    source_metadata: { type: "email", sender: "support@example.com", subject: "Account verification required", received_at: new Date(2026, 9, 28, 9, 5).toISOString() },
     case_briefing: briefing({ recommendedAction: { label: "Don't open the link", instruction: "Don't open it and don't enter anything on it." } }),
   }), NOW);
   assert.equal(b.line1, "Email: \u201CAccount verification required\u201D from support@example.com, detected as a likely scam.");
-  assert.equal(b.line2, "28 Oct, 4:42 pm. Don't open the link.");
+  assert.equal(b.line2, "Received: 28 Oct, 9:05 am. Don't open the link.", "the date the email arrived, as the Threat Case shows it");
   assert.equal(b.route, "/patrol/e1", "tapping opens the Threat Case");
 });
 
@@ -39,7 +39,7 @@ test("long subjects and addresses are shortened to keep the two lines", () => {
     case_briefing: briefing({ status: "Concerning", recommendedAction: { label: "Don't reply.", instruction: "x" } }),
   }), NOW);
   assert.match(b.line1, /^Email: \u201CURGENT: unusual sign-in\u2026\u201D from notifications-security-team\u2026, detected as concerning\.$/);
-  assert.equal(b.line2, "28 Oct, 4:42 pm. Don't reply.");
+  assert.equal(b.line2, "Received: Not provided. Don't reply.");
 });
 
 test("the finding is the case's own status; Unable to determine is never shown as safe", () => {
@@ -100,8 +100,19 @@ test("an email you submitted is named from the original kept on this device", ()
   const kept = keptIdentifiers({ fields: [{ label: "From", value: "security@commbank-alerts.co" }, { label: "Subject", value: "URGENT: unusual sign-in" }], text: "Dear Customer" });
   const b = eventBrief(event({ case_briefing: briefing({ subject: "commbank-secure-verify.co", recommendedAction: { label: "Don't use the link", instruction: "x" } }) }), NOW, kept);
   assert.equal(b.line1, "Email: \u201CURGENT: unusual sign-in\u201D from security@commbank-alerts.co, detected as a likely scam.");
-  assert.equal(b.line2, "28 Oct, 4:42 pm. Don't use the link.");
-  assert.equal(eventBrief(event({ case_briefing: briefing({ subject: "commbank-secure-verify.co" }) }), NOW).line1, "Email: commbank-secure-verify.co, detected as a likely scam.", "without a kept original, the briefing's subject");
+  assert.equal(b.line2, "Received: Not provided. Don't use the link.");
+  assert.equal(eventBrief(event({ case_briefing: briefing({ subject: "commbank-secure-verify.co" }) }), NOW).line1, "Email: Subject not provided, sender not provided, detected as a likely scam.",
+    "nothing recorded: the email still says what it doesn't have, never the briefing's description in place of its subject");
+});
+
+test("an email's sender, subject and arrival come from the same record the Threat Case shows: kept copy first, then the case", () => {
+  const kept = keptIdentifiers({ kind: "email", fields: [{ label: "Subject", value: "Your parcel" }, { label: "Received", value: new Date(2026, 9, 27, 8, 0).toISOString() }], text: "Pay now" });
+  const b = eventBrief(event({ category: "message", source_metadata: { type: "text", sender: "track@auspost-help.co", subject: "Ignored" } }), NOW, kept);
+  assert.equal(b.line1, "Email: \u201CYour parcel\u201D from track@auspost-help.co, looks like a scam.", "a kept email is an email, even on a record filed as a message");
+  assert.equal(b.line2.startsWith("Received: 27 Oct, 8:00 am."), true);
+  const noSender = eventBrief(event({ source_metadata: { type: "email", subject: "Hello" } }), NOW);
+  assert.equal(noSender.line1, "Email: \u201CHello\u201D, sender not provided, looks like a scam.");
+  assert.doesNotMatch(noSender.line1 + noSender.line2, /not captured/i);
 });
 
 test("heroWhen adds the year only when it isn't this year", () => {

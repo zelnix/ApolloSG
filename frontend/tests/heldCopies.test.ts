@@ -1,34 +1,28 @@
-// ApolloSG's own copy of what was checked on this phone is kept for 24 hours, then deleted (owner's rule, 2026-11).
+// The owner's rules (2026-11-01): ApolloSG's copy on the phone (text, headers, .eml files, pictures) is kept until the
+// person deletes it — no clock on the phone; the 24-hour rule is the server's only, and it waits for the phone.
 import assert from "node:assert/strict";
+import { readFileSync, existsSync } from "node:fs";
 import { test } from "node:test";
 
-import { HELD_COPY_DELETED, HELD_COPY_HOURS, HELD_COPY_KINDS, heldCopyDue, heldCopyExpired } from "../src/domain/heldCopies.ts";
+import { HELD_COPY_DELETED } from "../src/domain/heldCopies.ts";
 
-const NOW = Date.parse("2026-11-01T12:00:00Z");
-const ago = (hours: number) => new Date(NOW - hours * 3600_000).toISOString();
+const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("a held copy goes exactly 24 hours after it was made, never sooner", () => {
-  assert.equal(HELD_COPY_HOURS, 24);
-  assert.equal(heldCopyExpired(ago(23.99), NOW), false, "inside 24 hours it stays");
-  assert.equal(heldCopyExpired(ago(24), NOW), true, "at 24 hours it is deleted");
-  assert.equal(heldCopyExpired(ago(72), NOW), true);
-});
-
-test("a copy with no time recorded can't be shown to be within its 24 hours, so it is deleted", () => {
-  assert.equal(heldCopyExpired(null, NOW), true);
-  assert.equal(heldCopyExpired("not a date", NOW), true);
-});
-
-test("only copies of what the person checked are held copies; Apollo's own device readings are its records", () => {
-  for (const kind of ["email", "text", "link", "website", "screenshot", "file", "app", "account"]) {
-    assert.ok(HELD_COPY_KINDS.has(kind), kind);
-    assert.equal(heldCopyDue({ kind, capturedAt: ago(25) }, NOW), true, kind);
-    assert.equal(heldCopyDue({ kind, capturedAt: ago(1) }, NOW), false, kind);
+test("nothing on the phone deletes a kept copy by its age", () => {
+  assert.equal(existsSync(new URL("../src/store/heldCopySweep.ts", import.meta.url)), false, "the phone's 24-hour sweep is gone");
+  for (const path of ["src/store/originalSource.ts", "src/store/originalEmail.ts", "src/store/imageEvidence.ts", "src/store/ApolloContext.tsx", "src/domain/triage/rejudge.ts"]) {
+    const code = read(path);
+    assert.doesNotMatch(code, /heldCopyExpired|heldCopyDue|sweepHeldCopies|sweepOriginalEmails|sweepImageEvidence/, path);
   }
-  for (const kind of ["network", "device", "call"]) assert.equal(heldCopyDue({ kind, capturedAt: ago(25) }, NOW), false, kind);
 });
 
-test("where the original was, the case says ApolloSG deleted its copy and kept what it found", () => {
-  assert.match(HELD_COPY_DELETED, /deleted its copy of the original 24 hours after it was checked/);
+test("a saved original is enriched, never replaced or skipped, when more arrives", () => {
+  const code = read("src/store/originalSource.ts");
+  assert.match(code, /enrichOriginal\(found, record\)/);
+  assert.doesNotMatch(code, /!\(await read\(k\)\)/, "an existing record no longer makes a save skip");
+});
+
+test("where an earlier version deleted its copy after 24 hours, the case still says so", () => {
+  assert.match(HELD_COPY_DELETED, /An earlier version of ApolloSG deleted its copy of the original 24 hours after it was checked/);
   assert.match(HELD_COPY_DELETED, /What Apollo found is kept/);
 });

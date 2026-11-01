@@ -92,6 +92,11 @@ function valueOf(fields: EvidenceField[], label: RegExp): string | null {
   return fields.find((f) => label.test(f.label.trim()))?.value.trim() || null;
 }
 
+/** The header fields a kept original records: its saved fields, else the header lines its own text carries. */
+export function headerFields(src: Pick<OriginalSource, "fields" | "text">): EvidenceField[] {
+  return src.fields?.length ? src.fields : parseHeaders(src.text).fields;
+}
+
 /** The platform named BY THE CAPTURE. A scam message that merely mentions WhatsApp is still an SMS. */
 function capturedPlatform(fields: EvidenceField[]): string | null {
   const stated = valueOf(fields, LABEL.app);

@@ -26,6 +26,7 @@ import {
   type DetectionFact, type PreviewIcon, type SourcePreview,
 } from "@/src/domain/caseSourceSummary";
 import { callNumberOf } from "@/src/domain/numberDetails";
+import { isEmailCase, NOT_PROVIDED } from "@/src/domain/emailRecord";
 import { formatDateTime } from "@/src/domain/threatCase";
 import { NumberDetails } from "./NumberDetails";
 import type { ApolloState, PatrolEvent } from "@/src/domain/types";
@@ -108,7 +109,7 @@ function FoldBox({ foldable, onOpen, hint, style, testID, children }: {
 }
 
 
-export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, simulated, testID }: {
+export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates, simulated, testID }: {
   origin: CaseOrigin | null | undefined;
   /** When the case began: when it was submitted or detected. */
   at: string | null | undefined;
@@ -118,6 +119,8 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, simul
   event?: PatrolEvent | null;
   /** The investigation's evidence list, used when nothing else is kept. */
   evidence?: EvidenceItem[];
+  /** The investigation's gates: an Email Gate case is shown as an email even with only its evidence list. */
+  gates?: string[] | null;
   /** The material itself, or an outside source behind the answer, was simulated in the preview. */
   simulated?: boolean;
   testID: string;
@@ -148,11 +151,11 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, simul
 
   const preview = useMemo<SourcePreview | null>(() => {
     const kind = images.length > 1 ? `${images.length} pictures` : "Picture";
-    const local = original ? previewFromOriginal(original, images.length > 0)
+    const local = original ? previewFromOriginal(original, images.length > 0, event)
       : images.length ? { kind, icon: "picture" as const, lines: [], fullLines: [], received: null, body: null, details: [{ label: "Type", value: kind }] } : null;
     if (local?.lines.length || local?.body || images.length) return local;
-    return (event ? previewFromEvent(event) : null) ?? (evidence ? previewFromEvidence(evidence) : null) ?? local;
-  }, [original, images, event, evidence]);
+    return (event ? previewFromEvent(event) : null) ?? (evidence ? previewFromEvidence(evidence, isEmailCase(event, original, gates)) : null) ?? local;
+  }, [original, images, event, evidence, gates]);
 
   const { heading, verb } = originHeading(origin);
   const when = formatDateTime(at);
@@ -205,7 +208,7 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, simul
               })}
               {email ? (
                 <Text style={s.line} numberOfLines={open ? undefined : 2} testID={`${testID}-received`}>
-                  {preview.received ? `Received ${formatDateTime(preview.received) || preview.received}` : "Date received: not recorded"}
+                  {`Received: ${preview.received ? formatDateTime(preview.received) || preview.received : NOT_PROVIDED}`}
                 </Text>
               ) : preview.body ? (
                 <Text style={s.line} numberOfLines={open ? undefined : preview.body.includes("\n") ? 10 : 3} selectable={open} testID={`${testID}-body`}>{preview.body}</Text>
@@ -237,7 +240,8 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, simul
       {facts.length ? (
         <View style={s.facts} testID={`${testID}-facts`}>
           {facts.map((fact, i) => {
-            const FactIcon = fact.id === "from" && preview?.icon === "email" ? Mail : FACT_ICON[fact.id];
+            // An email's sender and type are shown with the envelope, never the text-message bubble.
+            const FactIcon = email && (fact.id === "from" || fact.id === "type") ? Mail : FACT_ICON[fact.id];
             return (
               <View key={fact.id} style={[s.fact, wide ? { flex: 1 } : { width: "50%" }, wide && i > 0 ? s.factDivider : null]} testID={`${testID}-fact-${fact.id}`}>
                 <FactIcon size={20} color={colors.onSurfaceSecondary} />

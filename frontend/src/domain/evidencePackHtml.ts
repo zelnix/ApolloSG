@@ -4,6 +4,7 @@
 // Pure: no printing, no files, no React. Only what Apollo captured is rendered; the sent copy is
 // derived with the same redaction the investigation received.
 import { describeArtefact } from "./evidencePresentation.ts";
+import { NOT_PROVIDED } from "./emailRecord.ts";
 import type { OriginalSource } from "../store/originalSource";
 
 export const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -30,14 +31,14 @@ export function buildOriginalSourceHtml(src: OriginalSource, redact: (value: str
 
   let artefact: string;
   if (v.layout === "email") {
-    artefact = `${head(v.sender ?? "Sender not captured", [v.recipient ? `To: ${v.recipient}` : null, v.occurredAt].filter(Boolean).join(" · "))}
+    artefact = `${head(v.sender ?? `From: ${NOT_PROVIDED}`, [v.recipient ? `To: ${v.recipient}` : null, v.occurredAt ?? `Received: ${NOT_PROVIDED}`].filter(Boolean).join(" · "))}
       <div class="abody">
-        ${v.subject ? `<div class="asubject">${esc(v.subject)}</div>` : ""}
+        <div class="asubject">${esc(v.subject ?? `Subject: ${NOT_PROVIDED}`)}</div>
         ${v.body ? `<div class="atext">${esc(v.body)}</div>` : '<div class="ameta">No message body was captured.</div>'}
         ${v.attachments.length ? `<div class="aattach">Attachments (${v.attachments.length}): ${esc(v.attachments.join(", "))}</div>` : ""}
       </div>`;
   } else if (v.layout === "post") {
-    artefact = `${head(v.sender ?? v.platform ?? "Account not captured", [v.platform, v.occurredAt].filter(Boolean).join(" · "))}
+    artefact = `${head(v.sender ?? v.platform ?? `Account: ${NOT_PROVIDED}`, [v.platform, v.occurredAt].filter(Boolean).join(" · "))}
       <div class="abody">${v.body ? `<div class="atext">${esc(v.body)}</div>` : ""}${src.url ? `<div class="ameta">${esc(src.url)}</div>` : ""}</div>`;
   } else if (v.layout === "screenshot") {
     artefact = '<div class="abody"><div class="ameta">The captured image is reproduced under &ldquo;Image evidence&rdquo; below.</div></div>';

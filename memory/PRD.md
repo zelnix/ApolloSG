@@ -4668,3 +4668,15 @@ Owner rejected the previous completion claim; this session finished and proved e
 - Report of ALL work since the last production publish: `/app/memory/REPORT_since_last_publish_2026-11-01.md`.
   Last publish located by probing production: Screens (29 Oct 14:59) live; guarddog diagnostic still "Bundle v3 … rules"
   (pre-30 Oct 01:49 wording) and /api/admin/ai-budget 404 → published between 29 Oct 15:01 and 30 Oct 01:49 UTC.
+
+
+## Evidence retention — phone keeps, server waits for the phone (2026-11-01) — DONE
+Report: `/app/memory/REPORT_2026-11-01_evidence_retention.md`; proof: `/app/test_reports/evidence_retention_proof/`.
+- Phone-side 24 h sweep removed (store/heldCopySweep.ts deleted): local originals/headers kept until the user deletes.
+- Server: `held_copies.due_filter` requires `device_saved_at`; `services/device_pickup.py` holds the phone's copy until
+  `POST /api/investigations/{id}/confirm-commit` with a complete saved report; `POST /api/patrol/saved` for Threats records.
+- Phone: `investigation/pickup.ts` (save → read back → `pickupCheck.missingParts` → confirm; retried every 60 s/foreground),
+  `domain/originalMerge.ts` (later headers fill gaps only), `eventMerge.enrichMetadata`.
+- `domain/emailRecord.ts`: one email record for Home + Threat Case, "Not provided", never the SMS icon for email.
+- AT10 (test_retrofit_acceptance) now reruns the migration dry and checks 0 errors + no duplicate record_ids.
+- Tests: frontend 1289/1289; backend 1628 pass, 1 known failure ("moneysmart", owner declined).

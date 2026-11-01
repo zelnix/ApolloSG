@@ -6,6 +6,7 @@
 // added: a part Apollo didn't record is left out, and long identifiers are shortened to keep the two lines. The full
 // explanation, steps and evidence stay in the Threat Case the card opens. Pure: no React, unit-tested.
 import type { AttentionItem } from "./homeAttention";
+import { emailRecord, isEmailCase, NOT_PROVIDED } from "./emailRecord.ts";
 import type { HomeVoice } from "./higginsHomeVoice";
 import { sentences } from "./luddish/patterns.ts";
 import { firstReason, incompleteOnly, reasonInSentence, say } from "./luddish/present.ts";
@@ -22,12 +23,13 @@ export interface HeroBrief {
   route?: string;
 }
 
-/** The identifiers an original kept on this device records: its From and Subject fields and its text. */
-export interface KeptIdentifiers { sender: string | null; subject: string | null; text: string | null }
-export function keptIdentifiers(src: Pick<OriginalSource, "fields" | "text"> | null | undefined): KeptIdentifiers | null {
+/** The identifiers an original kept on this device records: its From, Subject and Received headers (its saved fields,
+ *  else the header lines its text carries), its text, and whether it is an email. */
+export interface KeptIdentifiers { sender: string | null; subject: string | null; text: string | null; received?: string | null; email?: boolean }
+export function keptIdentifiers(src: Pick<OriginalSource, "fields" | "text"> & Partial<Pick<OriginalSource, "kind">> | null | undefined): KeptIdentifiers | null {
   if (!src) return null;
-  const field = (re: RegExp) => clean(src.fields?.find((f) => re.test(f.label.trim()))?.value) || null;
-  return { sender: field(/^(from|sender)$/i), subject: field(/^subject$/i), text: clean(src.text) || null };
+  const record = emailRecord(null, src);
+  return { sender: record.sender, subject: record.subject, text: clean(src.text) || null, received: record.received, email: src.kind === "email" };
 }
 
 const TYPE: Record<string, string> = {
@@ -73,7 +75,6 @@ function identify(e: PatrolEvent, kept: KeptIdentifiers | null, room: BriefRoom)
   const subject = clip(e.case_briefing?.subject, n.subject);
   const host = shortDomain(m?.url ?? e.local_indicator ?? e.indicator_host);
   switch (e.category) {
-    case "email": return { what: quoted(m?.subject ?? kept?.subject, n.emailSubject) ?? subject, from: sender };
     case "message": return { what: quoted(m?.preview ?? kept?.text, n.preview) ?? subject, from: sender ?? NO_NUMBER };
     case "call": return { what: null, from: clip(e.local_indicator, n.number) ?? sender ?? NO_NUMBER };
     case "file": return { what: clip(m?.attachment_names?.find((f) => clean(f)), n.name) ?? subject, from: sender };
@@ -143,12 +144,22 @@ export function heroWhen(iso: string | null | undefined, now: Date = new Date())
 
 /** One case as two lines: the hero's, or (room "card") an "Important for you" card's, with longer identifiers. */
 export function eventBrief(e: PatrolEvent, now: Date = new Date(), kept: KeptIdentifiers | null = null, room: BriefRoom = "hero"): HeroBrief {
+  const route = `/patrol/${encodeURIComponent(e.event_id)}`;
+  if (isEmailCase(e) || kept?.email) {
+    // An email always says who sent it, its subject and when it arrived — the same record the Threat Case shows.
+    const n = LIMIT[room];
+    const sender = clip(kept?.sender ?? e.source_metadata?.sender, n.sender);
+    const subject = quoted(kept?.subject ?? e.source_metadata?.subject, n.emailSubject);
+    const received = clean(kept?.received ?? e.source_metadata?.received_at);
+    const line1 = `Email: ${subject ?? "Subject not provided"}${sender ? ` from ${sender}` : ", sender not provided"}, ${finding(e)}.`;
+    return { id: `event:${e.event_id}`, line1, line2: `Received: ${received ? heroWhen(received, now) || received : NOT_PROVIDED}. ${action(e, room)}.`, route };
+  }
   const { what, from } = identify(e, kept, room);
   const type = TYPE[e.category] ?? "Security check";
   const source = from === NO_NUMBER ? ` (${NO_NUMBER_SAID[room]})` : from ? ` from ${from}` : "";
   const line1 = `${type}${what ? `: ${what}` : ""}${source}${what || from ? "," : ""} ${finding(e)}.`;
   const when = heroWhen(e.occurred_at, now);
-  return { id: `event:${e.event_id}`, line1, line2: `${when ? `${when}. ` : ""}${action(e, room)}.`, route: `/patrol/${encodeURIComponent(e.event_id)}` };
+  return { id: `event:${e.event_id}`, line1, line2: `${when ? `${when}. ` : ""}${action(e, room)}.`, route };
 }
 
 /** The cases the hero shows, in order: the one Apollo is reacting to first, then every other case needing the person. */

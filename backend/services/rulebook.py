@@ -131,6 +131,11 @@ WATCHED = (
     "frontend/src/domain/triage/appEvidence.ts",
     "frontend/src/domain/triage/imageEvidence.ts",
     "frontend/src/store/originalEmail.ts",
+    # Held copies: the phone keeps its own until the person deletes it; the server's waits for the phone's confirmation.
+    "backend/services/held_copies.py",
+    "backend/services/device_pickup.py",
+    "frontend/src/store/originalSource.ts",
+    "frontend/src/investigation/pickup.ts",
     "backend/services/email_evidence.py",
     # Scam Alerts and the government feeds.
     "backend/services/government_alerts.py",

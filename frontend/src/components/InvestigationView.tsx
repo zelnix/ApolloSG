@@ -684,7 +684,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     {showTabs ? <>
       {/* ── What started it, and when (shared with a threat) — the result is in the Findings Brief ── */}
       <SourceSummaryCard origin={caseData?.origin ?? event?.origin} at={caseData?.createdAt} caseKeys={[eventId, caseData?.id]}
-        event={event} evidence={evidenceItems} simulated={caseData?.simulated} testID="inv-source-summary" />
+        event={event} evidence={evidenceItems} gates={caseData?.gates} simulated={caseData?.simulated} testID="inv-source-summary" />
 
       {/* ── Tab Navigation ── */}
       <TabBar active={activeTab} onChange={setActiveTab} s={s} />

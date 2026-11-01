@@ -1,10 +1,9 @@
 // Local-only image evidence: the original image (never uploaded) next to the copy Apollo sent.
-// Files live in the app's document folder for 24 hours from when they were kept (domain/heldCopies.ts), then both
-// pictures are deleted — on access and by the clean-up sweep — and earlier with the case.
+// Files live in the app's document folder until the person deletes them, the check, or all their data: no clock
+// deletes them (owner's rule, 2026-11-01).
 import * as FS from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
-import { heldCopyExpired } from "@/src/domain/heldCopies";
 import { storage } from "@/src/utils/storage";
 
 export interface ImageEvidenceRecord {
@@ -94,18 +93,7 @@ export async function saveImageEvidence(
 }
 
 export async function listImageEvidence(caseKey: string): Promise<ImageEvidenceRecord[]> {
-  await sweepImageEvidence();
   return (await readAll()).filter((r) => r.caseKeys.includes(caseKey));
-}
-
-/** Deletes every picture kept for more than 24 hours (both the original and the copy that was sent). */
-export async function sweepImageEvidence(now: number = Date.now()): Promise<number> {
-  const all = await readAll();
-  const due = all.filter((r) => heldCopyExpired(r.createdAt, now));
-  if (!due.length) return 0;
-  for (const r of due) { await deleteFile(r.originalUri); await deleteFile(r.sentUri); }
-  await writeAll(all.filter((r) => !due.includes(r)));
-  return due.length;
 }
 
 /** Deletes only the on-device original; the sent copy and notes stay in the case. */

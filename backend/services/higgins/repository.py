@@ -594,6 +594,9 @@ async def start_deletion_clock(owner: str, case_id: str) -> datetime:
     await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$set": {"content_delete_by": deadline}})
     for name in CLOCKED:
         await db[name].update_many({"owner_id": owner, "case_id": case_id}, {"$set": {"delete_by": deadline}})
+    # The phone's own copy is kept apart from this clock until the phone confirms it saved it (services/device_pickup.py).
+    from services import device_pickup
+    await device_pickup.hold(owner, case_id)
     return deadline
 
 

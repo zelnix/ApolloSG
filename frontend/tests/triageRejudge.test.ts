@@ -88,10 +88,14 @@ test("a case Apollo had already closed is never reopened by a re-judge, even whe
   assert.equal(next!.resolved_at, "2026-10-30T02:00:00.000Z");
 });
 
-test("an original kept for more than 24 hours is gone: the case isn't re-judged from it", () => {
+test("an original kept on the phone for more than 24 hours is still there, so the case is re-judged from it", () => {
   const old = flagged(evaluateTriage(messageTriageEvidence({ analysis: analyseMessage("Microsoft", CODE_DELIVERY) })));
-  const stale = { ...kept(CODE_DELIVERY, "Microsoft"), capturedAt: "2026-10-31T02:59:00.000Z" };
-  assert.equal(rejudgeEvent(event({ triage_investigation: old }), stale, NOW), null);
+  const older = { ...kept(CODE_DELIVERY, "Microsoft"), capturedAt: "2026-10-31T02:59:00.000Z" };
+  const a = rejudgeEvent(event({ triage_investigation: old }), older, NOW);
+  const b = rejudgeEvent(event({ triage_investigation: old }), kept(CODE_DELIVERY, "Microsoft"), NOW);
+  assert.ok(a && b, "an older copy is re-judged");
+  assert.deepEqual([a.state, a.status, a.headline, a.triage_investigation?.outcome], [b.state, b.status, b.headline, b.triage_investigation?.outcome],
+    "no clock on the phone: an older copy is judged exactly like a new one");
 });
 
 test("an email that only mentions a brand is no longer read as that brand", () => {
