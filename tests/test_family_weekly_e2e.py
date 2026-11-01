@@ -16,7 +16,7 @@ from playwright.async_api import async_playwright
 
 BASE = os.environ.get(
     "EXPO_PUBLIC_BACKEND_URL",
-    "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com",
+    "https://case-source-preview--3ijise2t.preview.emergentagent.com",
 ).rstrip("/")
 
 

@@ -1,7 +1,7 @@
 # Apollo Round 1 — expected versus actual
 
 Generated: 2026-09-21T03:48:32.124993+00:00
-Browser target: `https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com`
+Browser target: `https://case-source-preview--3ijise2t.preview.emergentagent.com`
 Execution mode: **live**
 
 Expected outcomes are source-controlled in `frontend/scripts/round1-scenario-engine.ts` before execution. Local preflight, real downstream browser evidence and device-only work are deliberately separate. Local preflight is not investigation/Higgins acceptance.

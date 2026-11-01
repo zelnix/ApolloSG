@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import pytest
 import requests
 
-BASE_URL = "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com"
+BASE_URL = "https://case-source-preview--3ijise2t.preview.emergentagent.com"
 API = f"{BASE_URL}/api"
 
 DEVICE_ID = f"testdev-{uuid.uuid4().hex[:12]}"

@@ -60,7 +60,7 @@ def test_the_preview_workspace_is_recognised_by_its_own_address(monkeypatch):
     """The preview server runs the simulator with no setting to remember: the workspace's APP_URL says where it is."""
     monkeypatch.setattr(provider, "_preview_generate", None)
     monkeypatch.delenv("APOLLO_PREVIEW_SIMULATOR", raising=False)
-    monkeypatch.setenv("APP_URL", "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com")
+    monkeypatch.setenv("APP_URL", "https://case-source-preview--3ijise2t.preview.emergentagent.com")
     assert provider.preview_environment() is True
     provider.register_preview_handler(_handler)
     assert provider.get_provider_mode() == "preview"
@@ -69,7 +69,7 @@ def test_the_preview_workspace_is_recognised_by_its_own_address(monkeypatch):
 
 
 @pytest.mark.parametrize("url", ["https://threat-patrol-1.emergent.host", "https://apollo.example.com", "",
-                                 "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com.evil.example", "https://preview.emergentagent.com",
+                                 "https://case-source-preview--3ijise2t.preview.emergentagent.com.evil.example", "https://preview.emergentagent.com",
                                  "not a url", "https://emergent.host/x.preview.emergentagent.com"])
 def test_the_published_app_and_lookalike_addresses_stay_live(monkeypatch, url):
     monkeypatch.setattr(provider, "_preview_generate", None)

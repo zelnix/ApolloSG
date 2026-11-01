@@ -86,7 +86,7 @@
 | EAS fingerprint | `565f42d9b04dd39c836360eeccd12c4e442b800f` (`01a0c708-0e1b-7824-8b82-319c7b2396c8`) |
 | App | `Apollo` 1.0.0 (versionCode 1), package `app.apollo.hwg`, Expo SDK 57 |
 | Profile | `device-test`: internal APK, staging backend, legacy enforcement, preview harness explicitly `off` |
-| Compatible backend | `https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com` |
+| Compatible backend | `https://case-source-preview--3ijise2t.preview.emergentagent.com` |
 | Size | 147,567,093 bytes |
 | SHA-256 | `c15804e04597e09628575cc58734bd97fc10c2cbe1f89dd4c1ddae239e102e97` |
 | Local verification copy | `/app/Apollo-Android-047bc183.apk` |
@@ -108,7 +108,7 @@ Deployment Agent returned PASS before the successful retry.
 | EAS informational git field | `58fb1a066eaabe06a96c143da8d4ce171e254d6c`; working-source identity is the EAS fingerprint above |
 | App | `Apollo` 1.0.0 (versionCode 1), package `app.apollo.hwg`, Expo SDK 57 |
 | Profile | `device-test`: internal APK, staging backend, legacy enforcement selection; GuardDog/Apollo native modules still compiled successfully |
-| Compatible backend | `https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com` (`/api/health` HTTP 200) |
+| Compatible backend | `https://case-source-preview--3ijise2t.preview.emergentagent.com` (`/api/health` HTTP 200) |
 | Size | 147,531,093 bytes |
 | SHA-256 | `50e51aff03ee69ed859386b734365a205fe9040fc240c5af896e7a3342503e91` |
 | Local verification copy | `/app/Apollo-Android-18706c6e.apk` |

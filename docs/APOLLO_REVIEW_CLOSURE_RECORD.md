@@ -6,7 +6,7 @@ Date: 2026-09-23
 
 - Reviewed base commit: `dac83b072bba9a541dde431b78b8668659625e27`.
 - Closure working-source digest: `e7ca068ff6a902d4d347760fb7b8dab259f3ea1d081875930590b66961d87c3e` over 38 changed backend/frontend/desktop files above that commit.
-- Backend origin: `https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com`.
+- Backend origin: `https://case-source-preview--3ijise2t.preview.emergentagent.com`.
 - Expo project: `47cd97c4-e5a6-41fa-9fde-257a5de031af`; version `1.1.0`; Android version code `2`; iOS build `2`.
 - Android application ID and iOS bundle ID remain `app.apollo.hwg`.
 - This is source/build-check evidence, not a signed candidate or physical-device acceptance record.

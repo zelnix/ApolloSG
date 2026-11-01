@@ -117,9 +117,9 @@ test("a deployed app cannot carry the simulation even though it shares the proje
     return config.plugins.length > 0 ? "production" : "preview";
   };
   assert.equal(load({ EXPO_PUBLIC_PREVIEW_BUILD: "included", EXPO_PUBLIC_BACKEND_URL: "https://threat-patrol-1.emergent.host" }), "production");
-  assert.equal(load({ EXPO_PUBLIC_PREVIEW_BUILD: "included", EXPO_PUBLIC_BACKEND_URL: "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com.attacker.net" }), "production");
-  assert.equal(load({ EXPO_PUBLIC_PREVIEW_BUILD: "excluded", EXPO_PUBLIC_BACKEND_URL: "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com" }), "production");
-  assert.equal(load({ EXPO_PUBLIC_PREVIEW_BUILD: "included", EXPO_PUBLIC_BACKEND_URL: "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com" }), "preview");
+  assert.equal(load({ EXPO_PUBLIC_PREVIEW_BUILD: "included", EXPO_PUBLIC_BACKEND_URL: "https://case-source-preview--3ijise2t.preview.emergentagent.com.attacker.net" }), "production");
+  assert.equal(load({ EXPO_PUBLIC_PREVIEW_BUILD: "excluded", EXPO_PUBLIC_BACKEND_URL: "https://case-source-preview--3ijise2t.preview.emergentagent.com" }), "production");
+  assert.equal(load({ EXPO_PUBLIC_PREVIEW_BUILD: "included", EXPO_PUBLIC_BACKEND_URL: "https://case-source-preview--3ijise2t.preview.emergentagent.com" }), "preview");
 });
 
 test("there is no configuration where only part of the simulation system is present", () => {

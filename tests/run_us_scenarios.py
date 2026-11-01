@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 from playwright.async_api import async_playwright
 
-BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://case-source-preview--3ijise2t.preview.emergentagent.com").rstrip("/")
 API = f"{BASE}/api"
 RUN = Path("/app/test_reports/us_runs") / time.strftime("%Y%m%dT%H%M%S")
 RUN.mkdir(parents=True, exist_ok=True)

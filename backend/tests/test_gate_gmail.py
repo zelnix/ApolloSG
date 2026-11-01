@@ -16,7 +16,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 BASE_URL = (
     os.environ.get("EXPO_BACKEND_URL")
     or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
-    or "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com"
+    or "https://case-source-preview--3ijise2t.preview.emergentagent.com"
 ).rstrip("/")
 GMAIL_REDIRECT_BASE = os.environ["PUBLIC_API_BASE"].rstrip("/")
 

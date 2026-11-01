@@ -45,7 +45,7 @@ function exportBundle() {
     // The production check reproduces an Emergent deployment: the project's flag says "included", but the
     // app talks to the production backend — the artifact must still contain none of the simulation.
     EXPO_PUBLIC_PREVIEW_BUILD: "included",
-    EXPO_PUBLIC_BACKEND_URL: preview ? "https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com" : "https://verify.emergent.host",
+    EXPO_PUBLIC_BACKEND_URL: preview ? "https://case-source-preview--3ijise2t.preview.emergentagent.com" : "https://verify.emergent.host",
     NODE_ENV: "production",
   };
   console.log(`[verify-no-simulation] exporting web bundle (EXPO_PUBLIC_PREVIEW_BUILD=${env.EXPO_PUBLIC_PREVIEW_BUILD}, backend ${env.EXPO_PUBLIC_BACKEND_URL})…`);

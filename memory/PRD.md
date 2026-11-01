@@ -1344,7 +1344,7 @@ the whole app without the switch and asserts no `services.higgins.preview*` / `p
 is in memory.
 
 **Frontend deployment:** `babel.config.js` now bundles the simulation only when the flag is `included`
-AND `EXPO_PUBLIC_BACKEND_URL` is an `https://case-search-hub-1--4x5g8yqy.preview.emergentagent.com` server. The deployed app talks
+AND `EXPO_PUBLIC_BACKEND_URL` is an `https://case-source-preview--3ijise2t.preview.emergentagent.com` server. The deployed app talks
 to the production backend, so it can never carry the simulation even though it shares the one-slot
 flag. `verify-no-simulation.mjs` production mode now reproduces a deployment (flag `included`, backend
 `https://verify.emergent.host`) and finds zero simulation; `--preview` still finds 9/9 markers. EAS

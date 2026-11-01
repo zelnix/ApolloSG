@@ -75,12 +75,12 @@ const useStyles = makeStyles((c) => ({
   headerRow: { paddingHorizontal: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingBottom: spacing.xs },
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontFamily: fonts.displayBold, fontSize: 16, color: c.onSurface, flex: 1 },
-  // Tab bar
-  tabBar: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: c.divider, paddingHorizontal: spacing.md, backgroundColor: c.surface },
-  tab: { flexGrow: 1, flexBasis: "auto", paddingVertical: spacing.md, paddingHorizontal: spacing.sm, alignItems: "center", justifyContent: "center" },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: c.brandPrimary },
+  // Tab bar — matches InvestigationView's working horizontal layout
+  tabBar: { flexDirection: "row" as const, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.surfaceSecondary },
+  tab: { flexGrow: 1, flexBasis: "auto" as const, paddingVertical: 12, paddingHorizontal: spacing.sm, alignItems: "center" as const, borderBottomWidth: 2, borderBottomColor: "transparent" },
+  tabActive: { borderBottomColor: c.brandPrimary },
   tabText: { fontFamily: fonts.textMedium, fontSize: 14, color: c.muted },
-  tabTextActive: { fontFamily: fonts.textSemibold, color: c.onSurface },
+  tabTextActive: { color: c.onSurface, fontFamily: fonts.textSemibold },
   // Content
   content: { paddingHorizontal: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   // Repeat checks
