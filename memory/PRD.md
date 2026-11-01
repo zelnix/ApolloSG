@@ -4665,3 +4665,6 @@ Owner rejected the previous completion claim; this session finished and proved e
   AT10 after the 29 Oct wipe; test_scams_date_sorting "moneysmart"). New: tests/test_owner_fixes_proof.py (12), heldCopies.test.ts.
 - Rule book updated + stamped. Teddy: no live references in code/DB (only legacy rename migration + old-prefix reader).
 - Production: needs Publish (re-judge :3, reputation cache clear, 24 h sweep) and a new build for the phone-side sweep.
+- Report of ALL work since the last production publish: `/app/memory/REPORT_since_last_publish_2026-11-01.md`.
+  Last publish located by probing production: Screens (29 Oct 14:59) live; guarddog diagnostic still "Bundle v3 … rules"
+  (pre-30 Oct 01:49 wording) and /api/admin/ai-budget 404 → published between 29 Oct 15:01 and 30 Oct 01:49 UTC.

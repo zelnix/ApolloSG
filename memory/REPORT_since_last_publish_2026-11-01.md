@@ -1,0 +1,200 @@
+# Detailed report: all work since the last production publish (written 1 November 2026)
+
+## 1. When the last publish was
+I couldn't see your publish history, so I checked the live app (threat-patrol-1.emergent.host) for features from different days.
+
+| Feature | Added | On the live app? |
+|---|---|---|
+| Case-delete tool | 29 Oct, 08:55 UTC | Yes (it was used there at 15:01 UTC on 29 Oct) |
+| Admin → Screens page | 29 Oct, 14:59 UTC | **Yes**: the page and its upload links answer |
+| Threat Domain List wording on the server's check page | 30 Oct, 01:49 UTC | **No**: the live server still says "Bundle v3 generated with 0 rules" |
+| Admin → AI spending limits | 31 Oct, 04:40 UTC | **No**: the live server answers "Not Found" |
+
+**So the last publish was after 15:01 UTC on 29 October and before 01:49 UTC on 30 October.** Everything below came after it and is not on the live app yet.
+
+The one exception is item 2.1, a small app-only change from 01:10 UTC on 30 October. It may have gone out in that publish, and it can't be checked from outside.
+
+Times are UTC. "Server" means it goes live when you Publish. "Phone build" means it also needs a new iOS/Android build.
+
+## 2. Work since the last publish, in order
+
+### 2.1 GitHub build check fixed (30 Oct, 01:10). App. May already be live.
+- **Problem:** the GitHub check "Native dependency singleton guard" failed. A preview-only sample case ID (`preview-mock-threat-001`) was written into the production app code.
+- **Fix:**
+  - That ID now exists only in the preview's sample data.
+  - Production builds get an empty list instead.
+  - No preview content reaches the live app.
+- **Checked:**
+  - The production build check found no preview content.
+  - The preview check found all 9 expected sample markers.
+  - The protected Android files are unchanged.
+  - All 1,231 app tests passed at the time.
+
+### 2.2 Threat Domain List accepts 0 entries (30 Oct, 01:49). Server, app and phone build.
+**Zero entries:**
+- A fresh install now accepts a Threat Domain List with 0 entries, and protection keeps starting.
+- No placeholder websites were added to fill the list.
+- Accepting the list doesn't count as "Protected". That still needs proof that protection is actually running.
+
+**The Gates no longer wait on the list:**
+- Private DNS, block records and website-lookup threat reports carry on without it.
+- A list problem now shows only on website protection. It no longer appears as "permission needed" or "was on but stopped".
+
+**Private DNS advice:**
+- If Android reports Automatic but the network can't encrypt lookups, Apollo confirms the setting, explains the network and says nothing needs changing.
+- A setting Apollo couldn't read no longer turns into "set it to Automatic".
+
+**Diagnostics:**
+- The server's check page now says "Threat Domain List v9 generated with 0 Threat Domain Entries" and has a new "Threat Domain Entries" check.
+- A current list with 0 entries passes everywhere.
+- The support screen uses the Threat Domain List name.
+
+**Wording:** every new explanation is written in Higgins Luddish. "Threat Domain List" and "Threat Domain Entry" were added to the Luddish dictionary.
+
+**Tests:**
+- 9 new native tests: zero-entry, populated, invalid signature, missing signature, expired, future-dated, rollback, version conflict and malformed entry.
+- A clean-install test with 0 entries.
+- 6 server tests and the app tests passed (1,284 at the time).
+
+**Needs:** Publish for the server's check page, and a new Android build for the phone part. The 2 Android runtime changes couldn't be compiled in this workspace.
+
+### 2.3 Clean-install test script and rule book update (30 Oct, 03:23). Server.
+- A written test for a fresh install with a 0-entry list. As you chose, it was given in the chat only.
+- The rule book gained 2 rules that were already in the code:
+  - **Repeat Caller Alert:** a repeat call from a blocked or risky number raises an alert, without delaying Android's screening.
+  - **Removed cases stay removed:** cases an administrator removed are dropped from every phone. A phone that sends one back is acknowledged but it isn't stored.
+- Test data for web-address checks was added for the native tests. The rule book was re-stamped.
+
+### 2.4 AI cost changes (31 Oct, 04:40). Server.
+These are the 7 cost changes from your cost review, plus what makes them work.
+
+1. **TC FlyBy uses no AI.**
+   - It runs official sources, then Apollo's knowledge base, then at most one Brave search per case.
+   - The search is claimed for the case before it's sent, so no retry, job or restart can send a second one.
+   - Results are read by fixed rules. A result counts only if its own words name the exact value.
+   - An earlier lookup is reused: something found counts for 7 days, "nothing found" for 1 day.
+   - If the same lookup is already running for another case, Apollo waits for it and reuses its answer.
+   - Lookups about the message itself (a phrase or a person's name) are never saved or reused.
+2. **Magnum DI is limited.**
+   - It makes at most 1 AI call per case, claimed before it is sent, and never retries.
+   - If the call fails or its answer fails Apollo's checks, the case stops and says why. What TC FlyBy found is kept.
+   - Only a case that stopped before its call can be submitted again.
+   - Follow-up questions are answered from the case's locked findings, with no AI.
+3. **Email-sending services settle nothing on their own.** These are click-tracking services such as Mailchimp, SendGrid and HubSpot.
+   - A link through one is never treated as a sender/link mismatch.
+   - On its own, it never makes an email a threat and never sends it to Magnum DI.
+   - It never proves an email is genuine either.
+4. **No repeated work for the same thing.**
+   - The same email or the same check on the same device is taken on only once. This covers one email in 2 connected mailboxes, or a check submitted twice.
+   - The second time opens the existing case.
+   - Another device's evidence never matches yours.
+5. **Daily spending limits.**
+   - $5.00 a day in total for all AI calls and paid searches.
+   - Automatic checks (mailbox monitoring, recovery, advisories, health checks) may use up to $2.00 of that.
+   - Each call's cost is reserved before it's sent, so the limit can't be overspent. A call that would go over is refused and nothing is sent.
+   - An admin can change both limits on the new **Admin → AI budget** setting.
+6. **Full usage records.** Each AI call and paid search records:
+   - the model, purpose, time, device, case and job
+   - the tokens used (input, answer, thinking and cached)
+   - the searches made and the estimated cost
+7. **Mailbox reading only fetches new mail.** Each connected mailbox keeps its own place and only newer mail is fetched. Mail paused by the spending limit is read again later.
+
+**Wording updated to match:**
+- The "How Apollo checks" screen now says Magnum DI makes at most 1 call and never retries, and that TC FlyBy uses no AI.
+- The admin cost report no longer has a "retry" column. Any case with more than 1 Magnum DI call is flagged as over the limit.
+- The rule book matches.
+
+**Checked:**
+- 1,547 server tests passed. 2 failed: one was fixed, and the other is the old preview-data check (see section 4).
+- All 1,240 app tests passed.
+- No paid calls were made.
+
+### 2.5 "Teddy" renamed to "TC FlyBy" everywhere (31 Oct, 04:40). Server and app.
+- **What was renamed:** file and folder names, internal names, saved labels, cost records, admin figures and screen labels.
+- **Your existing data:** updated automatically when the server started. In preview this moved 146 cases, 120 evidence items, 1,741 usage records and 1 Magnum DI record.
+- **On the live app:** this runs by itself the first time the server starts after you Publish.
+- **Kept as recorded:** the locked step-by-step history of each investigation can't be edited, so it keeps the old name.
+- **Old results on phones:** results already saved on phones still show as TC FlyBy.
+- **Removed:** an old, unused store of saved search results.
+- **Checked today:** no code, screen, rule book entry or database record still says Teddy.
+
+### 2.6 Brave Search key in secure storage (31 Oct). Server.
+- Your Brave Search key is saved in secure storage for preview and live. It isn't in any project file.
+- The live server uses it after you Publish.
+- No real search has been made with it yet.
+- As you chose, it's the same key that was pasted in the chat earlier.
+
+### 2.7 The first 8 detection, evidence and display fixes, plus the re-check of past cases (31 Oct to 1 Nov, 03:22). Server and app.
+1. **Requests are read sentence by sentence.** Words like "password" or "code" alone no longer count as a request. These are not requests:
+   - a code being delivered
+   - an account notice
+   - advice like "we will never ask for your PIN"
+   - general talk about passwords
+
+   A plain "log in" request counts only when something suspicious backs it up.
+2. **Triage reads the whole message.**
+   - It reads the full text (no longer just the first 300 characters), the reply-to address, and each link's shown text and real destination.
+   - Sender checks are taken only from the record added when the email arrived.
+   - Apollo's own notes are never treated as evidence.
+3. **Senders and links are read correctly.**
+   - Apollo works out who the email says it's from: the sender name, how it introduces itself, and its sign-off. A brand that's only mentioned isn't treated as the sender.
+   - Each link is classed as the organisation's own site, its country site, a lookalike, a shared service or unrelated.
+4. **A first warning can be cleared.** If official sources confirm every link, number and address is the organisation's own, the warning is dropped before the result is locked. A note explains why.
+5. **Checks that couldn't run are no longer threats.** They show as "Not fully checked", are filed as handled and send no alert.
+6. **Same wording everywhere.** Home, Threats, the Threat Case screen, notifications and Send to family use the same plain words.
+7. **Details kept whole.** The full sender, subject and preview are saved. Each finding quotes the sentence it's based on.
+8. **Threat lists match exact pages.** Only a listing that names the whole website covers the whole website.
+
+**Re-check of past cases:**
+- It ran once in preview:
+  - 6 past results re-judged
+  - 17,827 threat-list entries updated to exact addresses
+  - 21 old lookup results and 20 old check results cleared
+- Cases with a full investigation kept their result. Only the wording changed.
+
+**Your review:** you found 7 problems still left and 2 rules not yet met, so you rejected this as finished. That led to 2.8.
+
+### 2.8 The 7 remaining flaws, your 2 rules and the extra fixes (1 Nov, this session). Server, app and phone build.
+Full detail and proof: `/app/memory/REPORT_2026-11-01_detection_display_fixes.md`.
+
+**The 7 fixes:**
+1. Every notification, from the phone or the server, now goes through Higgins Luddish and names the real finding.
+2. Home names the first real finding. It never says "possible threat" or "Be careful", or gives how something was checked as the reason.
+3. An investigation that can't decide is "Not fully checked", with no alert. It never lowers a threat Apollo found another way.
+4. No more fixed cut-off points in text.
+5. A "not" cancels a request only when it really applies to that request.
+6. Nothing reopens a case you closed or handled.
+7. A threat-list or Google Safe Browsing match counts only for the exact address.
+
+**Your 2 rules:**
+- **1(a):** checks that couldn't decide never alert and never hide another threat.
+- **2(a):** ApolloSG deletes its own held copies after 24 hours, on the server and the phone.
+
+**Also fixed:**
+- "PhishTank" lost its capital letter.
+- Undecided cases were summarised as "found nothing unusual".
+- Handled cases showed "No threat". You approved this fix.
+
+**Proof:**
+- Before and after tests: the proof tests fail on the old code and pass now.
+- 4 screenshots.
+- All 1,321 app tests pass. 1,621 server tests pass and 2 fail; both failures are older than this work.
+
+## 3. What happens on the live app when you Publish
+These steps run by themselves, once, when the live server first starts:
+1. Records saved under the name "Teddy" move to the TC FlyBy names.
+2. Past cases are re-checked under the current rules. Cases you closed or handled stay closed.
+3. Threat-list entries are updated to exact addresses. Old saved lookups from the old matching are cleared.
+4. The daily spending limits ($5 total, $2 for automatic checks) and the rule against repeated work switch on.
+5. The 24-hour deletion of held copies starts, about every 20 seconds.
+
+**For the phone side, you also need a new build.** This covers the 24-hour deletion on the phone and the Threat Domain List changes (2.2).
+
+## 4. Not done, or still open
+- **"moneysmart" source name:** one government scam alert still names its source "moneysmart". You chose not to fix this.
+- **2 old server tests fail:**
+  - One needs records from before the 29 October clean-up.
+  - The other is the "moneysmart" name above.
+- **Never tried for real:** the Brave key and the new spending limits haven't been used with a paid call yet.
+- **Not compiled here:** the Threat Domain List's phone-side Android changes. The next Android build will compile them.
+- **Testing agent:** not run on any of this work, as you chose.
