@@ -68,7 +68,7 @@ export function DeleteConfirmSheet({ visible, count, records, noun, busy, onConf
         <Button testID={`${testID}-cancel`} variant="secondary" label="Cancel" disabled={busy} onPress={onClose} />
       </>}>
       <Text style={s.body} testID={`${testID}-body`}>
-        {`${them}'ll be deleted from this phone and from ApolloSG's server, with everything linked: the original kept with each, its pictures and files, and its investigation results.${more}`}
+        {`${them}'ll be deleted from this phone and from ApolloSG's server, with everything linked: the original evidence, pictures and files, saved investigation reports, and server working copies.${more}`}
       </Text>
       <Text style={s.note}>This can&apos;t be undone. The message in your own Messages or email app isn&apos;t touched.</Text>
     </Sheet>

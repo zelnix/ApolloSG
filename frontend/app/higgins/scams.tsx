@@ -23,9 +23,12 @@ const REGIONS: { id: RegionFilter; label: string }[] = [
   { id: "UK", label: "UK" }, { id: "EU", label: "EU" }, { id: "GLOBAL", label: "Global" },
 ];
 const HOME = homeRegion();
-// "All" holds what applies everywhere or at home; an alert local to another country stays under that country.
+// "All" holds what applies everywhere, globally, or at home; an alert local to another country stays under that country.
 const regionMatch = (a: GovernmentAlert, f: RegionFilter) =>
-  f === "ALL" ? appliesHere(a, HOME) : f === "AU" ? a.region === "AU" || a.australianRelevance === "confirmed" : a.region === f;
+  f === "ALL" ? appliesHere(a, HOME)
+  : f === "AU" ? a.region === "AU" || a.australianRelevance === "confirmed" || a.appliesIn === "global"
+  : f === "GLOBAL" ? a.appliesIn === "global" || a.appliesIn === "everywhere"
+  : a.region === f;
 
 type SortMode = "latest" | "severity";
 const COMPACT_WIDTH = 430; // below this the six region chips overflow the screen

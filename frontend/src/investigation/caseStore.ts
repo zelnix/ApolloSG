@@ -335,7 +335,7 @@ export function useInvestigation(boundOperationId?: string | null) {
   }, [state, refresh, follow]);
   useEffect(() => { cancelAction.current = cancel; }, [cancel]);
 
-  /** Open an existing case. `stoppedJobId` reopens a stopped turn so its Resubmit (and its pause) come back with it. */
+  /** Open an existing case. Shows saved device record immediately, then refreshes from server when reachable. */
   const attach = useCallback(async (caseId: string, stoppedJobId?: string) => {
     dlog('caseStore', 'attach START', { caseId, gen: generation.current + 1, opRef: operationRef.current });
     attachOwns.current = true;
@@ -343,15 +343,36 @@ export function useInvestigation(boundOperationId?: string | null) {
     caseRef.current = { id: caseId } as InvestigationCase;
     setState((previous) => ({ ...EMPTY, undeleted: previous.undeleted, operationId: operationRef.current, phase: "creating", progress: ["Opening the investigation."] }));
     void flushPendingDeletions(); const gen = generation.current; const live = () => gen === generation.current && caseRef.current?.id === caseId;
+
+    // ── Step 1: Display the device's saved record immediately (works offline) ──
+    const { getInvestigation } = await import("./deviceStore");
+    const local = await getInvestigation(caseId).catch(() => null);
+    if (local?.response && live()) {
+      const reconstructed: InvestigationCase = {
+        schemaVersion: 1, id: local.caseId, revision: 0, gates: local.gates as import("./types").Gate[],
+        status: (local.status ?? "complete") as import("./types").CaseStatus,
+        createdAt: local.createdAt, updatedAt: local.completedAt, expiresAt: new Date(Date.now() + 365 * 24 * 3600_000).toISOString(),
+        evidenceExpiresAt: null, reportExpiresAt: null, retentionClass: "device_local",
+        reportByteSize: 0, response: local.response, activeJobId: null,
+        pendingDeviceRequestIds: [], inventory: { total: 0, examined: 0, partial: 0, unavailable: 0, purged: 0, contentExpired: 0 },
+        cleanupStatus: "complete" as const, answeredBy: local.answeredBy ?? null, settledReason: local.settledReason ?? null,
+        simulated: local.simulated, origin: local.origin ?? null,
+      };
+      caseRef.current = reconstructed;
+      const phase = local.response.question ? "waiting_user" : "answered";
+      update({ caseData: reconstructed, response: local.response, sources: local.sources, turns: local.turns,
+        question: local.response.question ?? null, phase });
+    }
+
+    // ── Step 2: Refresh from server when reachable ──
     try {
       const caseData = await refresh(caseId, gen);
-      if (!live()) { dlog('caseStore', 'attach STALE after refresh', { caseId, gen, current: generation.current }); attachOwns.current = false; return null; }
+      if (!live()) { dlog('caseStore', 'attach STALE after refresh', { caseId, gen, current: generation.current }); attachOwns.current = false; return local ? (caseRef.current as InvestigationCase) : null; }
       const stopped = !caseData.activeJobId && stoppedJobId ? (await api.getJob(caseId, stoppedJobId)).job : null;
-      if (!live()) { dlog('caseStore', 'attach STALE after getJob', { caseId }); attachOwns.current = false; return null; }
+      if (!live()) { dlog('caseStore', 'attach STALE after getJob', { caseId }); attachOwns.current = false; return local ? (caseRef.current as InvestigationCase) : null; }
       if (caseData.activeJobId) {
         dlog('caseStore', 'attach → FOLLOW active job', { caseId, jobId: caseData.activeJobId });
         const { job } = await api.getJob(caseId, caseData.activeJobId);
-        // attach has determined the path — release ownership before follow takes over
         attachOwns.current = false;
         if (live()) follow(caseId, job);
       } else if (stopped?.status === "failed") {
@@ -369,29 +390,17 @@ export function useInvestigation(boundOperationId?: string | null) {
     } catch (error: unknown) {
       attachOwns.current = false;
       if (!live()) return null;
-      // Server returned 404/410 — the investigation may have been purged after local commit.
-      // Try loading from the device store.
-      if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
-        const { getInvestigation } = await import("./deviceStore");
-        const local = await getInvestigation(caseId).catch(() => null);
-        if (local) {
-          const reconstructed: InvestigationCase = {
-            schemaVersion: 1, id: local.caseId, revision: 0, gates: local.gates as import("./types").Gate[],
-            status: (local.status ?? "complete") as import("./types").CaseStatus,
-            createdAt: local.createdAt, updatedAt: local.completedAt, expiresAt: new Date(Date.now() + 365 * 24 * 3600_000).toISOString(),
-            evidenceExpiresAt: null, reportExpiresAt: null, retentionClass: "device_local",
-            reportByteSize: 0, response: local.response, activeJobId: null,
-            pendingDeviceRequestIds: [], inventory: { total: 0, examined: 0, partial: 0, unavailable: 0, purged: 0, contentExpired: 0 },
-            cleanupStatus: "complete" as const, answeredBy: local.answeredBy ?? null, settledReason: local.settledReason ?? null,
-            simulated: local.simulated, origin: local.origin ?? null,
-          };
-          caseRef.current = reconstructed;
-          update({ caseData: reconstructed, response: local.response, sources: local.sources, turns: local.turns,
-            question: local.response.question ?? null, phase: local.response.question ? "waiting_user" : "answered" });
-          return reconstructed;
-        }
+      // Server unavailable — if we already showed the device record, keep it visible
+      if (local?.response) {
+        update((prev) => ({ ...prev, notice: "Showing saved report from this device. Server is not reachable." }));
+        return caseRef.current as InvestigationCase;
       }
-      update({ phase: error instanceof ApiError && error.status === 410 ? "expired" : "failed", error: error instanceof Error ? error.message : "Could not open this investigation." });
+      // No device record and server failed
+      if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
+        update({ phase: "expired", error: "The server working copy is no longer available and no saved report was found on this device." });
+      } else {
+        update({ phase: "failed", error: error instanceof Error ? error.message : "Could not open this investigation." });
+      }
       return null;
     }
   }, [refresh, follow, flushPendingDeletions, handleServerUnavailable]);

@@ -63,7 +63,6 @@ function recordHealthCheck(health: ProtectionHealthSnapshot): void {
   const failed = health.lastCheckFailure;
 
   if (failed) {
-    // Failed check — record honestly as a failure
     void recordActivity({
       type: "check",
       timestamp: failed.at,
@@ -78,24 +77,59 @@ function recordHealthCheck(health: ProtectionHealthSnapshot): void {
     return;
   }
 
-  // Successful check — record it (group routine successes)
-  const groupKey = `health-check-${now.slice(0, 10)}`;
+  // Inspect actual gate states — never say "No issues found" when protections are degraded
+  const stopped: string[] = [];
+  const unavailable: string[] = [];
+  const unverified: string[] = [];
+  const active: string[] = [];
+  for (const gate of health.gates) {
+    const state = gate.resolved?.coverageState;
+    if (state === "active_verified") active.push(gate.title);
+    else if (state === "active_unverified") unverified.push(gate.title);
+    else if (state === "stopped" || state === "was_active") stopped.push(gate.title);
+    else if (state === "unavailable" || state === "not_supported") unavailable.push(gate.title);
+    // "unknown" and "checking" are neutral — not counted as issues
+  }
 
-  void hasTodayEntry(groupKey).then((exists) => {
-    // Always record a health check entry; grouping happens in the timeline builder
-    void recordActivity({
-      type: "check",
-      timestamp: now,
-      title: "Protection health check",
-      detail: `${health.gates.length} gates checked. No issues found.`,
-      actor: "Apollo",
-      outcome: "success",
-      expandedDetail: health.gates.map((g) => `${g.title}: ${g.resolved?.coverageState ?? "unknown"}`).join("\n"),
-      source: "protection_health",
-      detectedAt: now,
-      groupKey: `routine-health-check`,
-      verified: true,
-    });
+  const issues = stopped.length + unavailable.length + unverified.length;
+  let title: string;
+  let detail: string;
+  let outcome: ActivityEntry["outcome"];
+
+  if (issues === 0 && active.length === health.gates.length) {
+    // All gates verified active
+    title = "Protection health check";
+    detail = `${health.gates.length} gates checked. All protections verified active.`;
+    outcome = "success";
+  } else if (issues === 0) {
+    // No bad gates but some are unknown/checking — honest but not "verified"
+    title = "Protection health check";
+    detail = `${health.gates.length} gates checked. ${active.length} verified active, ${health.gates.length - active.length} status pending.`;
+    outcome = "success";
+  } else {
+    // Some gates have issues — report honestly
+    title = "Protection check: issues found";
+    const parts: string[] = [];
+    if (stopped.length) parts.push(`${stopped.length} stopped (${stopped.join(", ")})`);
+    if (unavailable.length) parts.push(`${unavailable.length} unavailable (${unavailable.join(", ")})`);
+    if (unverified.length) parts.push(`${unverified.length} configured but unverified (${unverified.join(", ")})`);
+    if (active.length) parts.push(`${active.length} verified active`);
+    detail = parts.join("; ") + ".";
+    outcome = stopped.length > 0 ? "concern" : "change";
+  }
+
+  void recordActivity({
+    type: "check",
+    timestamp: now,
+    title,
+    detail,
+    actor: "Apollo",
+    outcome,
+    expandedDetail: health.gates.map((g) => `${g.title}: ${g.resolved?.coverageState ?? "unknown"}`).join("\n"),
+    source: "protection_health",
+    detectedAt: now,
+    groupKey: outcome === "success" ? "routine-health-check" : undefined,
+    verified: issues === 0 && active.length === health.gates.length,
   });
 }
 

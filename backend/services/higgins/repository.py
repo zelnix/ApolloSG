@@ -192,8 +192,8 @@ async def get_case(owner: str, case_id: str, *, for_mutation: bool = False) -> d
         raise http(404, "not_found", "No investigation with that reference belongs to this device.")
     if doc["deleted"] or doc["status"] == "expired":
         raise http(410, "evidence_expired", "This investigation's server working copy has been cleaned up. The saved report may still be available on your device.")
-    # Check if the case has expired by time
-    if utc(doc["expires_at"]) <= now_utc():
+    # Check if the case has expired by time — but never expire a case with an active job
+    if utc(doc["expires_at"]) <= now_utc() and not doc.get("active_job_id"):
         await expire_case(owner, case_id)
         raise http(410, "evidence_expired", "The server working copy of this investigation has expired. The saved report may still be available on your device.")
     if for_mutation and doc["status"] in ("cancelled",):
@@ -638,7 +638,7 @@ async def sweep_evidence_content() -> int:
 async def create_job(owner: str, case: dict, turn_id: str, key_digest: str, payload_digest: str, kind: str, payload: dict, *, source: str = "user_initiated") -> dict:
     from services.higgins import ai_settings
     now = now_utc()
-    deadline = min(utc(case["expires_at"]), now + timedelta(seconds=WORK_SECONDS))
+    deadline = now + timedelta(seconds=WORK_SECONDS)  # job deadline is always from now; never cut short by case expiry
     doc = {"owner_id": owner, "case_id": case["case_id"], "job_id": str(uuid.uuid4()), "turn_id": turn_id, "idempotency_key_digest": key_digest,
            "payload_digest": payload_digest, "kind": kind, "status": "queued", "attempt": 0, "created_at": now, "started_at": None, "deadline_at": deadline,
            "retry_at": None, "lease_until": None, "fence": None, "epoch": case["epoch"], "work_epoch": case.get("work_epoch", case["epoch"]), "input_revision": case["revision"], "last_sequence": 0,
@@ -774,6 +774,8 @@ async def accept_turn(owner: str, case: dict, job: dict, commit: TurnCommit, com
         await db.investigation_turn_commits.delete_one({"owner_id": owner, "case_id": case["case_id"], "commit_id": commit_id})
     elif status in ("complete", "partial"):  # finished (a Magnum question still waits for the person, so it isn't)
         await start_deletion_clock(owner, case["case_id"])
+        # Queue privacy-safe KB contribution — survives case deletion, retries without AI
+        await _queue_kb_contribution(owner, case["case_id"], commit)
     return updated
 
 
@@ -789,6 +791,35 @@ async def accepted_turns(owner: str, case: dict) -> list[TurnCommit]:
     rows = await db.investigation_turn_commits.find({"owner_id": owner, "case_id": case["case_id"], "commit_id": {"$in": ids}, "expires_at": {"$gt": now_utc()}}, {"_id": 0}).to_list(None)
     by_id = {r["commit_id"]: r for r in rows}
     return [TurnCommit.model_validate(dec_json(by_id[i]["commit_ciphertext"])) for i in ids if i in by_id]
+
+
+
+async def _queue_kb_contribution(owner: str, case_id: str, commit: TurnCommit) -> None:
+    """Queue a privacy-safe KB contribution from a qualifying completed investigation.
+    The contribution contains only the public-safe assessment, no personal evidence.
+    Queued entries survive case deletion and retry failed writes without AI calls."""
+    try:
+        from services.higgins import kb_queue
+        resp = commit.response
+        if not resp or not resp.assessment:
+            return
+        # Only contribute if the result is definitive (not inconclusive/limited)
+        if resp.attention in ("ears_up",):
+            return
+        # Privacy-safe body: assessment + what_to_do only — no personal evidence
+        body = f"Assessment: {resp.assessment}\n"
+        if resp.what_to_do:
+            body += f"Recommendation: {resp.what_to_do}\n"
+        if resp.overview:
+            body += f"Overview: {resp.overview[:500]}\n"
+        await kb_queue.enqueue(
+            case_id=case_id, owner_id=owner, kind="investigation_finding",
+            title=f"Investigation finding: {resp.assessment[:200]}",
+            body=body[:5000], publisher="Apollo investigation",
+            authority_tier="apollo_investigated", jurisdiction="INTL",
+        )
+    except Exception:
+        pass  # Non-fatal: queue will retry on next cycle
 
 
 # ------------------------------------------------------------------ lifecycle: cancel / delete / expire / cleanup
@@ -833,7 +864,7 @@ async def sweep() -> None:
     await sweep_evidence_content()
     # ── Phase 2: Temporary cases past their lifetime ──
     retention_filter = {"retention_class": {"$in": [TEMPORARY_RETENTION, "apollo_15_minute_temporary"]}}
-    async for doc in db.investigation_cases.find({**retention_filter, "expires_at": {"$lte": now}, "cleanup_status": {"$in": ["not_due"]}}, {"_id": 0, "owner_id": 1, "case_id": 1}):
+    async for doc in db.investigation_cases.find({**retention_filter, "expires_at": {"$lte": now}, "active_job_id": None, "cleanup_status": {"$in": ["not_due"]}}, {"_id": 0, "owner_id": 1, "case_id": 1}):
         await expire_case(doc["owner_id"], doc["case_id"])
     # ── Phase 3: Retry pending cleanups ──
     async for task in db.investigation_cleanup.find({"state": "pending", "next_attempt_at": {"$lte": now}}, {"_id": 0}):

@@ -10,6 +10,16 @@
 import * as Crypto from "expo-crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// ── Serialisation lock ───────────────────────────────────────────────────────
+// All writes (record, batch, delete) are serialised through one promise chain
+// so concurrent updates cannot overwrite each other.
+let _writeLock: Promise<unknown> = Promise.resolve();
+function serialise<T>(fn: () => Promise<T>): Promise<T> {
+  const next = _writeLock.then(fn, fn); // run fn after current chain settles (success or failure)
+  _writeLock = next.catch(() => undefined); // keep the chain alive even on error
+  return next;
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type ActivityType = "check" | "detection" | "protection_action" | "device_change";
@@ -91,54 +101,55 @@ async function saveDayEntries(day: string, entries: ActivityEntry[]): Promise<vo
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /** Record a new activity entry. The entry is immutable once stored. */
-export async function recordActivity(entry: Omit<ActivityEntry, "id">): Promise<ActivityEntry> {
-  const full: ActivityEntry = { ...entry, id: Crypto.randomUUID() };
-  const day = dayOf(full.timestamp);
-  const existing = await dayEntries(day);
-  existing.push(full);
-  await saveDayEntries(day, existing);
+export function recordActivity(entry: Omit<ActivityEntry, "id">): Promise<ActivityEntry> {
+  return serialise(async () => {
+    const full: ActivityEntry = { ...entry, id: Crypto.randomUUID() };
+    const day = dayOf(full.timestamp);
+    const existing = await dayEntries(day);
+    existing.push(full);
+    await saveDayEntries(day, existing);
 
-  // Update index
-  const keys = await dayKeys();
-  if (!keys.includes(day)) {
-    keys.push(day);
-    keys.sort().reverse(); // newest first
-    await saveDayKeys(keys);
-  }
-
-  // Retention: drop days older than MAX_DAYS
-  const cutoff = new Date(Date.now() - MAX_DAYS * 86_400_000).toISOString().slice(0, 10);
-  const expired = keys.filter((k) => k < cutoff);
-  if (expired.length) {
-    for (const k of expired) {
-      try { await AsyncStorage.removeItem(PREFIX + k); } catch { /* silent */ }
+    const keys = await dayKeys();
+    if (!keys.includes(day)) {
+      keys.push(day);
+      keys.sort().reverse();
+      await saveDayKeys(keys);
     }
-    await saveDayKeys(keys.filter((k) => k >= cutoff));
-  }
 
-  return full;
+    const cutoff = new Date(Date.now() - MAX_DAYS * 86_400_000).toISOString().slice(0, 10);
+    const expired = keys.filter((k) => k < cutoff);
+    if (expired.length) {
+      for (const k of expired) {
+        try { await AsyncStorage.removeItem(PREFIX + k); } catch { /* silent */ }
+      }
+      await saveDayKeys(keys.filter((k) => k >= cutoff));
+    }
+
+    return full;
+  });
 }
 
 /** Record a batch of activity entries efficiently. */
-export async function recordActivities(entries: Omit<ActivityEntry, "id">[]): Promise<void> {
-  if (!entries.length) return;
-  // Group by day
-  const byDay = new Map<string, Omit<ActivityEntry, "id">[]>();
-  for (const e of entries) {
-    const day = dayOf(e.timestamp);
-    const list = byDay.get(day) ?? [];
-    list.push(e);
-    byDay.set(day, list);
-  }
-  const keys = await dayKeys();
-  for (const [day, batch] of byDay) {
-    const existing = await dayEntries(day);
-    for (const e of batch) existing.push({ ...e, id: Crypto.randomUUID() });
-    await saveDayEntries(day, existing);
-    if (!keys.includes(day)) keys.push(day);
-  }
-  keys.sort().reverse();
-  await saveDayKeys(keys);
+export function recordActivities(entries: Omit<ActivityEntry, "id">[]): Promise<void> {
+  if (!entries.length) return Promise.resolve();
+  return serialise(async () => {
+    const byDay = new Map<string, Omit<ActivityEntry, "id">[]>();
+    for (const e of entries) {
+      const day = dayOf(e.timestamp);
+      const list = byDay.get(day) ?? [];
+      list.push(e);
+      byDay.set(day, list);
+    }
+    const keys = await dayKeys();
+    for (const [day, batch] of byDay) {
+      const existing = await dayEntries(day);
+      for (const e of batch) existing.push({ ...e, id: Crypto.randomUUID() });
+      await saveDayEntries(day, existing);
+      if (!keys.includes(day)) keys.push(day);
+    }
+    keys.sort().reverse();
+    await saveDayKeys(keys);
+  });
 }
 
 /** Load all activity entries, newest first. */
@@ -154,31 +165,33 @@ export async function loadAllActivities(): Promise<ActivityEntry[]> {
 }
 
 /** Delete specific entries by id. Returns the count deleted. Does NOT delete linked Threat Cases. */
-export async function deleteActivities(ids: Set<string>): Promise<number> {
-  if (!ids.size) return 0;
-  const keys = await dayKeys();
-  let removed = 0;
-  for (const k of keys) {
-    const entries = await dayEntries(k);
-    const kept = entries.filter((e) => !ids.has(e.id));
-    if (kept.length < entries.length) {
-      removed += entries.length - kept.length;
-      if (kept.length) await saveDayEntries(k, kept);
-      else {
-        try { await AsyncStorage.removeItem(PREFIX + k); } catch { /* silent */ }
+export function deleteActivities(ids: Set<string>): Promise<number> {
+  if (!ids.size) return Promise.resolve(0);
+  return serialise(async () => {
+    const keys = await dayKeys();
+    let removed = 0;
+    for (const k of keys) {
+      const entries = await dayEntries(k);
+      const kept = entries.filter((e) => !ids.has(e.id));
+      if (kept.length < entries.length) {
+        removed += entries.length - kept.length;
+        if (kept.length) await saveDayEntries(k, kept);
+        else {
+          try { await AsyncStorage.removeItem(PREFIX + k); } catch { /* silent */ }
+        }
       }
     }
-  }
-  if (removed) {
-    const remaining = await dayKeys();
-    const live: string[] = [];
-    for (const k of remaining) {
-      const entries = await dayEntries(k);
-      if (entries.length) live.push(k);
+    if (removed) {
+      const remaining = await dayKeys();
+      const live: string[] = [];
+      for (const k of remaining) {
+        const entries = await dayEntries(k);
+        if (entries.length) live.push(k);
+      }
+      await saveDayKeys(live);
     }
-    await saveDayKeys(live);
-  }
-  return removed;
+    return removed;
+  });
 }
 
 /** Export all entries as a flat array (for inclusion in patrol export). */

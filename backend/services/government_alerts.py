@@ -47,6 +47,11 @@ async def refresh_all() -> None:
         await knowledge.refresh()
     except Exception:  # noqa: BLE001 — the knowledge base catches up on the next cycle
         pass
+    try:
+        from services.higgins import kb_queue
+        await kb_queue.process_pending()
+    except Exception:  # noqa: BLE001 — KB queue retries on the next cycle
+        pass
 
 
 async def cleanup_stale_records() -> dict:
