@@ -3788,3 +3788,40 @@ agent_communication:
   - agent: "testing"
     message: "Backend API health verification COMPLETE. 4 out of 5 core endpoints are working correctly: (1) Health check ✅, (2) Higgins chat ❌ (external LLM billing issue), (3) Investigation creation ✅, (4) Scam alerts ✅, (5) Device data inventory ✅. The Higgins chat 503 error is NOT a code regression - it's caused by exhausted Gemini API prepayment credits (402 RESOURCE_EXHAUSTED). The ModelChatReply fix from 2026-10-08 is correctly implemented. CRITICAL ACTION REQUIRED: Replenish Gemini API credits or provide new API key. Also applied fix: updated backend/.env to use gemini-3.8-flash for chat/triage models as gemini-2.5-flash is deprecated. No changes were made to backend code in this session - this was a health verification confirming the backend still works correctly after frontend-only privacy architecture changes."
 
+
+
+## 2026-11-01 Backend Smoke Test After Frontend-Only Changes
+
+backend:
+  - task: "GET /api/health returns 200 with correct schema"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: GET /api/health returns 200 with correct schema (schemaVersion:1, status:'ok', service:'apollo-v1', checkedAt timestamp). Backend is healthy."
+  
+  - task: "POST /api/patrol/delete responds with 401 for unauthenticated requests"
+    implemented: true
+    working: true
+    file: "backend/routers/patrol.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: POST /api/patrol/delete correctly returns 401 for unauthenticated requests. Auth protection is working as expected."
+
+test_plan:
+  current_focus:
+    - "Quick smoke test after frontend-only changes"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "SMOKE TEST COMPLETE ✅ - Backend is healthy after frontend-only changes. Both requested endpoints verified: (1) GET /api/health returns 200 with correct schema (status:'ok', service:'apollo-v1'), (2) POST /api/patrol/delete returns 401 for unauthenticated requests (auth protection working). Backend logs show normal operation with recent API requests being served successfully. No issues detected. Test file: /app/backend_smoke_test.py (2/2 tests passed)."

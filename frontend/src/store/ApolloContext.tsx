@@ -88,6 +88,7 @@ import type { HealthTrigger } from "@/src/protection/healthTypes";
 import { APP_VERSION } from "@/src/config/buildInfo";
 import { isVerifiedDesktopFlowDrop } from "@/src/security/desktopEvidence";
 import { startPostureMonitor, updatePostureInputs, stopPostureMonitor } from "@/src/security/postureMonitor";
+import { startActivityRecorder, stopActivityRecorder } from "@/src/store/activityRecorder";
 import { getCaseOriginal, getOriginalSource, saveOriginalSource, type OriginalSourceInput } from "@/src/store/originalSource";
 import { pickUpCase, pickupsDone, rememberPickups } from "@/src/investigation/pickup";
 
@@ -710,6 +711,8 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
           if (done) {
             // Start device posture monitoring on boot if setup was previously completed.
             startPostureMonitor();
+            // Start activity recorder for Patrol History unified timeline.
+            startActivityRecorder();
             // Server-issued identity. Legacy (pre-token) installs have none and get a fresh identity — never a claimed one.
             let identity = await getDeviceIdentity();
             const resetWhy = identity ? null : await getIdentityResetReason();
@@ -911,6 +914,8 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     void registerRemotePush().catch((e) => logNotifDiagnostic("registration", e, "setup-push"));
     // Start device posture monitoring
     startPostureMonitor();
+    // Start activity recorder for Patrol History unified timeline
+    startActivityRecorder();
   }, [verifyNow, enableNotifications]);
 
   // Remote Patrol + trust merge — uses the extracted pure mergeLocalAndRemoteEvents function

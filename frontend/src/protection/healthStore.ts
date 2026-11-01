@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 import type { ProtectionHealthSnapshot } from "./healthTypes";
+import { onProtectionHealthUpdate } from "@/src/store/activityRecorder";
 
 const IDS = ["site", "text", "call", "email", "link", "file", "app", "device", "account", "network"] as const;
 const TITLES: Record<(typeof IDS)[number], string> = { site: "Site protection", text: "Text protection", call: "Call protection", email: "Email checks", link: "Link checks", file: "File checks", app: "App checks", device: "Device checks", account: "Account checks", network: "Internet checks" };
@@ -15,6 +16,8 @@ export function protectionHealthSnapshot(): ProtectionHealthSnapshot { return sn
 export function publishProtectionHealth(next: ProtectionHealthSnapshot): void {
   snapshot = next;
   listeners.forEach((listener) => listener());
+  // Record activity for the Patrol History unified timeline
+  try { onProtectionHealthUpdate(next); } catch { /* non-fatal: activity logging must never break the health pipeline */ }
 }
 export function subscribeProtectionHealth(listener: () => void): () => void {
   listeners.add(listener);
