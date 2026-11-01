@@ -7,6 +7,7 @@
  * Data: PatrolEvent is the primary source. CaseState (Magnum DI) is optional.
  * Only shows states/actions supported by real data.
  */
+import { incompleteOnly, presentEvent } from "@/src/domain/luddish/present";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
 import React, { useEffect, useMemo, useState } from "react";
@@ -139,7 +140,8 @@ function threatReport(event: PatrolEvent, investigation: DeviceInvestigation | n
     });
   }
   const briefing = event.patrol_record?.higginsBriefing;
-  const limited = event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE";
+  // Checks that couldn't run aren't a caution: only a Limited result with a concerning sign is.
+  const limited = event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE" && !incompleteOnly(event);
   const headline = (event.headline || "").trim();
   const established = plainTriageText((briefing?.established ?? event.what_happened ?? "").trim());
   return buildReport({
@@ -164,7 +166,7 @@ function threatVerdict(event: PatrolEvent, response: HigginsResponse | null, sta
   const statusPill = { label: STATUS_LABELS[status], bg: STATUS_COLORS[status].bg, fg: STATUS_COLORS[status].text };
   const result = threatResult(event, response);
   if (result) return { ...(response ? investigationVerdict(response) : resultVerdict(result)), status: statusPill };
-  const limited = event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE";
+  const limited = event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE" && !incompleteOnly(event);
   return { label: STATUS_LABELS[status], tone: limited ? "sniffing" : recordedTone(event.state), risk: limited ? null : riskPill(event.state), caution: limited ? LIMITED_CAUTION : null };
 }
 
@@ -173,7 +175,7 @@ function BriefContent({ event, status, verdict, shownWhatToDo, original, investi
 }) {
   const s = useStyles();
   const response = investigation?.response ?? null;
-  const limited = !response && event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE";
+  const limited = !response && event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE" && !incompleteOnly(event);
 
   // What to do — the investigation's own steps, or an explicit statement that nothing needs doing.
   const action = (shownWhatToDo || "").trim();
@@ -189,7 +191,7 @@ function BriefContent({ event, status, verdict, shownWhatToDo, original, investi
   // "Send to family": the result, what happened, what to do and the website or number — nothing else.
   const summary: FamilySummary = {
     eventId: event.event_id, state: event.state, result: verdict.label ?? STATUS_LABELS[status],
-    headline: event.headline && !looksLikeInternalCode(event.headline) ? scrubMessage(event.headline) : (report.answer[0] ?? "A threat Apollo found"),
+    headline: presentEvent(event).title || (report.answer[0] ?? "A threat Apollo found"),
     whatHappened: shortText(report.answer.join(" "), 400),
     whatToDo: shortText(scrubMessage(note ?? (noAction ? "Nothing to do." : action)), 300),
     involved: involvedIn(event), caseRef: threatCaseId(event), occurredAt: event.occurred_at,
@@ -535,8 +537,9 @@ export default function ThreatCaseScreen() {
   const hasSubstantiveData = !!(event.what_happened && event.what_happened.length > 30);
   const hasBriefing = !!event.patrol_record?.higginsBriefing;
   const isIncomplete = !hasRecordedFindings(event) && !hasInvestigation && !hasSubstantiveData && !hasBriefing;
-  const shownWhatToDo = !isIncomplete && event.what_to_do && !looksLikeInternalCode(event.what_to_do)
-    ? event.what_to_do
+  // Apollo's step, through the shared Luddish contract (an incomplete check says so, never "treat with caution").
+  const shownWhatToDo = !isIncomplete && presentEvent(event).whatToDo
+    ? presentEvent(event).whatToDo
     : event.patrol_record?.higginsBriefing?.action ?? "Review the investigation details for recommended next steps.";
 
   return (

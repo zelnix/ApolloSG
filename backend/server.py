@@ -102,6 +102,12 @@ async def lifespan(_: FastAPI):
         await legacy_names.migrate()
     except Exception:  # noqa: BLE001 — renaming old records must never block startup
         logger.warning("TC FlyBy legacy name migration failed", exc_info=True)
+    try:
+        # Past cases judged again under the current rules, once per rule catalogue version (services/triage/rejudge.py).
+        from services.triage import rejudge
+        await rejudge.migrate()
+    except Exception:  # noqa: BLE001 — re-judging old records must never block startup
+        logger.warning("triage re-judge migration failed", exc_info=True)
     # Legacy retention migration removed — server no longer retains completed investigations
     await ensure_maintenance_indexes()
     await gemini_usage.ensure_indexes()

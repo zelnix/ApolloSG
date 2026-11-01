@@ -5,6 +5,7 @@
 
 import type { ApolloState } from "./types";
 import { OFFICIAL_DOMAINS, registrableDomain as brandRegistrableDomain } from "./brand.ts";
+import { negated, clauses, readRequests } from "./requestSignals.ts";
 
 export type Scenario = "M01" | "M02" | "M03" | "M04" | "M05" | "M06" | "M07" | "M08" | "M09" | "M10" | "M11" | "M12" | "M13" | "M14" | "M15" | "M16" | "M17" | "M18";
 
@@ -165,6 +166,12 @@ function rebateClaim(text: string): string | null {
   return ENERGY_CONTEXT.test(text) ? text.match(STC_RE)?.[0]?.trim() ?? null : null;
 }
 
+const IDENTITY_ASK = /\b(?:send|provide|confirm|verify|reply with|enter|upload|submit|give|tell)\b[^.!?]{0,40}\b(?:date of birth|medicare (?:number|card)|passport|driver'?s? licen[cs]e|tax file number|tfn)\b/i;
+/** Some clause asks this of the reader (a negated one — "never send …" — doesn't). */
+function askedIn(text: string, pattern: RegExp): boolean {
+  return clauses(text).some((c) => { const m = pattern.exec(c); return !!m && !negated(c, m.index); });
+}
+
 export function extractSignals(sender: string, text: string): MessageSignals {
   const t = text.toLowerCase();
   const urls = Array.from(new Set((text.match(URL_RE) ?? []).map((u) => u.replace(/[.,;:!?]+$/, "")).filter((u) => /\.[a-z]{2,}(\/|$)/i.test(u) && !/^\d+(\.\d+)+$/.test(u))));
@@ -181,7 +188,10 @@ export function extractSignals(sender: string, text: string): MessageSignals {
   const governmentRebate = rebateClaim(text);
   const paymentRequest = has(t, /\bpay(ment)?\b|\bfee\b|\bowe|\boverdue\b|\binvoice\b|\bbill\b|\btransfer\b|\bdeposit\b/);
   const smallPayment = has(t, /\$\s?[0-9]{1,2}(\.\d{2})?\b(?!\d)/) && !has(t, /\$\s?[0-9]{3,}/);
-  const codeRequest = has(t, /\b(six|6|four|4)[- ]?digit\b|\bverification code\b|\bsecurity code\b|\bone[- ]time (code|password)\b|\botp\b|\bcode (that|we|i) (just )?sent\b|\bsend (me )?the code\b|\bread (me|out) the code\b/);
+  // What the message asks of the reader, read clause by clause (requestSignals.ts): a code delivered for you to use,
+  // a security notice or advice never to share is not a request.
+  const asks = readRequests(text);
+  const codeRequest = asks.code_request;
   const urgency = !!timePressure || has(t, /\bimmediately\b|\burgent(ly)?\b|\bright now\b|\bwithin \d{1,2} (?:minutes?|hours?|days?)\b|\btoday\b|\bexpires?\b|\bfinal notice\b|\blast chance\b|\bact now\b|\bnow\b/);
   const threat = has(t, /\brestrict(ed)?\b|\bsuspend(ed)?\b|\blocked\b|\bpenalt(y|ies)\b|\bfine\b|\blegal action\b|\barrest\b|\bwarrant\b|\bcancel(led)?\b|\bdebt\b/);
   const giftCards = has(t, /\bgift ?cards?\b|\bitunes\b|\bgoogle play card\b|\bsteam card\b|\bvoucher codes?\b/);
@@ -197,13 +207,14 @@ export function extractSignals(sender: string, text: string): MessageSignals {
   const fakePayment = has(t, /\byou'?ve (been paid|received)\b|\bi'?ve (already )?paid\b|\bpayment (has been )?(sent|made|confirmed)\b|\bawaiting your confirmation\b/);
   const extortion = has(t, /\bhacked\b|\brecorded you\b|\bwebcam\b|\bvideo of you\b|\bsend (it|the video) to (everyone|your contacts|your family)\b|\bexpose\b|\bor i will\b|\bor else\b/);
   const romanceEscalation = has(t, /\b(babe|baby|honey|my love|darling|sweetheart)\b/) && (moneyRequest || crypto || giftCards || has(t, /\btravel\b|\bflight\b|\bvisa\b|\bcustoms\b|\bhospital\b|\bemergency\b/));
-  const identityRequest = has(t, /\bverify your identity\b|\bconfirm your (identity|details|information)\b|\bdate of birth\b|\bmedicare number\b|\btax file\b|\btfn\b|\bpassport\b|\bdriver'?s? licen[cs]e\b|\bcard (number|details)\b|\bcvv\b/);
-  const loginRequest = has(t, /\blog ?in\b|\bsign ?in\b|\bverify (your )?account\b|\bsecure your account\b|\bupdate your (details|account|password)\b|\bconfirm your account\b|\breactivate\b|\bunlock your account\b/);
+  const identityRequest = asks.card_request || askedIn(text, IDENTITY_ASK);
   const callbackNumber = text.match(CALLBACK_RE)?.[0] ?? null;
   const callbackRequest = !!callbackNumber && has(t, /\b(call|contact|phone|ring|fraud response|support line|helpline)\b/);
   // An unexpected charge or payment: the explicit forms, or a charge claim with dispute or urgency wording.
   const allegedCharge = has(t, CHARGE_STRONG) || (has(t, CHARGE_CLAIM) && (has(t, CHARGE_DISPUTE) || urgency));
   const deadlineThreat = has(t, /\bwithin \d{1,2} (?:minutes?|hours?|days?)\b|\baccounts? .{0,30}\blocked\b|\bfunds .{0,25}released\b/);
+  // A password, PIN or login-detail request; an ordinary sign-in request only with a threat, a deadline or a disguised name.
+  const loginRequest = asks.secret_request || ((asks.sign_in_request || asks.payment_detail_update) && (threat || deadlineThreat || lookalikeName));
   const namedEntities = Array.from(new Set(Array.from(text.matchAll(/\b(?:Merchant|from|to)\s*:\s*([A-Z][A-Za-z0-9&'’.-]+(?:\s+[A-Z][A-Za-z0-9&'’.-]+){0,4})/g), (match) => match[1].replace(/\s+(?:Pty|Ltd).*$/i, " $&").trim()))).slice(0, 6);
   const unknownSender = !sender.trim() || /unknown|private|no caller id/i.test(sender) || /^\+?\d[\d\s()-]{6,}$/.test(sender.trim());
 

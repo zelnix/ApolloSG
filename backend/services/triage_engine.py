@@ -308,7 +308,10 @@ def compute_fingerprint(evidence: dict) -> str:
     if reply_domain and reply_domain != sender:
         parts.append(f"reply_to:{reply_domain}")
 
-    fingerprint_input = "|".join(parts) if parts else "empty"
+    # The rule catalogue's version: a result reached under earlier rules is never reused as this one's.
+    from services.triage.catalogue import VERSION
+    parts.append(f"catalogue:{VERSION}")
+    fingerprint_input = "|".join(parts)
     return hashlib.sha256(fingerprint_input.encode()).hexdigest()
 
 
@@ -357,13 +360,18 @@ async def _cache_store(
         "source_type": result.source_type,
         "providers_used": result.providers_used,
         "rules_met": [r.rule_id for r in result.investigation.met_rules] if result.investigation else [],
-        "evidence_summary": evidence_summary,
+        "evidence_summary": _without_content(evidence_summary),
         "created_at": now,
         "expires_at": now + ttl,
         "cache_hit_count": 0,
         "last_hit_at": None,
     }
     await db[COLLECTION].insert_one(doc)
+
+
+def _without_content(evidence: dict) -> dict:
+    """What the cache keeps of the evidence: its identifiers, never the message's words or its links as written."""
+    return {k: v for k, v in evidence.items() if k not in ("body", "text_preview", "links")}
 
 
 # ── Record triage outcome (always, including non-cached) ────────────────────
@@ -399,16 +407,19 @@ async def record_triage(
 # ── Evidence extraction ─────────────────────────────────────────────────────
 
 def _extract_evidence_from_email(message: dict) -> dict:
-    """Extract structured evidence from an email message dict.
-
-    Returns a normalized evidence dict suitable for fingerprinting and Tier 0 rules.
+    """The email as received, for fingerprinting and the Triage rules: its sender, subject, body, Reply-To, the
+    receiving server's authentication results and each link's displayed text and actual destination. This is the
+    source content only — Apollo's own observations about it are kept apart (`findings`) and never stand in for it.
     """
     sender = str(message.get("from", ""))
     subject = str(message.get("subject", ""))
+    body = str(message.get("body") or "")
     links = message.get("links", []) if isinstance(message.get("links"), list) else []
     reply_to = str(message.get("reply_to", "")) if message.get("reply_to") else ""
     attachment_names = message.get("attachment_names", []) if isinstance(message.get("attachment_names"), list) else []
-    auth_results = message.get("auth_results", {}) if isinstance(message.get("auth_results"), dict) else {}
+    recorded = message.get("auth_results", {}) if isinstance(message.get("auth_results"), dict) else {}
+    # Only the results the receiving server actually recorded; "unknown" is no result at all.
+    auth_results = {m: str(recorded[m]) for m in ("spf", "dkim", "dmarc") if recorded.get(m) not in (None, "", "unknown")}
 
     # Extract domains
     from services.mailbox_monitor import _extract_domain_from_email, _org_domain
@@ -435,20 +446,24 @@ def _extract_evidence_from_email(message: dict) -> dict:
         if "." in name:
             attachment_extensions.append("." + name.rsplit(".", 1)[-1].lower())
 
+    hrefs = [str(link.get("href") or "") for link in links if isinstance(link, dict) and link.get("href")]
     return {
         "sender": sender,
         "sender_domain": sender_domain,
         "subject": subject,
+        "body": body,
+        "reply_to": reply_to,
         "reply_to_domain": reply_to_domain,
         "link_domains": link_domains,
+        # Each link as written: the text shown to the reader and where it actually goes.
+        "links": [{"text": str(link.get("text") or "")[:300], "href": str(link.get("href") or "")}
+                  for link in links if isinstance(link, dict) and link.get("href")],
         "attachment_names": attachment_names,
         "attachment_extensions": attachment_extensions,
         "auth_results": auth_results,
+        "auth_recorded_by": str(recorded.get("recorded_by") or "") or None,
         "source_type": "email",
-        "link_urls": [
-            (link.get("href", "") if isinstance(link, dict) else "")
-            for link in links if (link.get("href", "") if isinstance(link, dict) else "")
-        ],
+        "link_urls": hrefs,
     }
 
 
@@ -483,7 +498,7 @@ def _extract_evidence_from_text(sender: str, text: str) -> dict:
         "attachment_names": [],
         "attachment_extensions": [],
         "auth_results": {},
-        "text_preview": text[:300],  # First 300 chars for triage context
+        "body": text,                # the whole message: every rule reads all of it
         "source_type": "text",
         "link_urls": urls,           # Full URLs for redirect expansion
         "sender_phone": sender if not "@" in sender else "",
@@ -736,7 +751,7 @@ async def _match_scam_intel(evidence: dict) -> list[dict]:
     sender_domain = evidence.get("sender_domain", "")
     link_domains = set(evidence.get("link_domains", []))
     subject = evidence.get("subject", "").lower()
-    text_preview = evidence.get("text_preview", "").lower()
+    text_preview = str(evidence.get("body") or evidence.get("text_preview") or "").lower()
 
     # Query recent active advisories from scam analysis results
     try:
@@ -836,10 +851,75 @@ def _link_evidence_from_providers(evidence: dict, provider_evidence: dict) -> di
     return {"reputation": reputation, "redirect": redirect, "domain_age": domain_age, "incomplete_checks": incomplete}
 
 
-_CREDENTIAL_WORDS = ("password", "verify", "verification code", "security code", "one-time", "otp",
-                     "log in", "login", "sign in", "card number", "cvv", "bank details", "account details")
 _PAYMENT_WORDS = ("payid", "osko", "pay id", "transfer now", "immediate payment", "instant transfer")
 _FORWARD_CODES = ("*21", "*67", "**21", "*72", "21#", "##21", "*#21")
+
+# What the source asks or claims, read from its own sentences (services/triage/requests.py reads secrets and sign-ins).
+_THREAT_RE = re.compile(r"\b(?:suspend(?:ed)?|locked|limited|restricted|disabled|deactivat(?:ed|ion)|terminated|legal action|penalt(?:y|ies)|"
+                        r"arrest|warrant|unusual activity|unauthori[sz]ed (?:access|activity|sign-?in))\b", re.I)
+_STRICT_URGENCY = re.compile(r"\bimmediately\b|\burgent(?:ly)?\b|\bwithin \d{1,2} (?:minutes?|hours?|days?)\b|\bfinal (?:notice|warning)\b|\bact now\b"
+                             r"|\blast chance\b|\b(?:will|may) be (?:suspended|closed|locked|deleted|terminated|disabled)\b|\bexpires? (?:today|tonight|in)\b", re.I)
+_CTA = re.compile(r"\b(?:sign ?in|log ?in|login|verify|confirm|update|unlock|restore|reactivate|secure|reset|pay|view|review|check|access|claim|download)\b", re.I)
+_BANK_CHANGE = re.compile(r"\b(?:new|updated|changed|different)\b[^.!?]{0,60}\b(?:bank|account|bsb|payment) (?:details|account|information)\b"
+                          r"|\b(?:bank|account|payment) details (?:have|has) (?:changed|been updated)\b", re.I)
+_INVOICE = re.compile(r"\b(?:invoice|remittance|payment|bill|pay)\b", re.I)
+_PAY_ASK = re.compile(r"\b(?:pay|make (?:a|the) payment|settle|transfer)\b[^.!?]{0,30}\b(?:the|your|this|now|today|\$|aud|invoice|amount|balance|fee|funds)\b", re.I)
+_EXEC = re.compile(r"\b(?:ceo|chief executive|managing director|chief financial officer|cfo|company director)\b", re.I)
+_WIRE = re.compile(r"\b(?:urgent (?:transfer|payment|wire)|wire transfer|bank transfer|gift cards?|transfer the funds|process a payment)\b", re.I)
+_IDENTITY_ASK = re.compile(r"\b(?:send|provide|confirm|verify|reply with|enter|upload|submit|give|tell)\b[^.!?]{0,40}\b(?:date of birth|medicare (?:number|card)|"
+                           r"passport|driver'?s? licen[cs]e|tax file number|tfn)\b", re.I)
+_HOSTISH = re.compile(r"^(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:[/?#]\S*)?$", re.I)
+
+
+def _asked(pattern: re.Pattern, text: str) -> Optional[str]:
+    """The first clause that asks this of the reader (a negated one — "never pay …" — doesn't)."""
+    from services.triage import requests as rq
+    for clause in rq._clauses(text):
+        m = pattern.search(clause)
+        if m and not rq._negated(clause, m):
+            return clause[:200]
+    return None
+
+
+def _host(url: str) -> str:
+    from urllib.parse import urlparse
+    try:
+        return (urlparse(url if "://" in url else f"https://{url}").hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def _email_reading(evidence: dict, provider_evidence: dict, raw_text: str) -> dict:
+    """Who the email presents itself as, what it links to and where those links really go — before impersonation is
+    judged. A brand that is only mentioned is not the sender; different sender and link domains alone prove nothing."""
+    from services.email_infrastructure import is_tracking
+    from services.higgins import brand_domains
+    from services.triage import speaker
+    sender_domain = (evidence.get("sender_domain") or "").lower()
+    who = speaker.claimed(str(evidence.get("sender") or ""), raw_text)
+    brand = who["name"] if who and who["known"] else None
+    sender_kind = brand_domains.classify(brand, sender_domain)[0] if brand and sender_domain else None
+    finals = {url: _host(str((info or {}).get("final_url") or ""))
+              for url, info in (((provider_evidence or {}).get("redirects") or {}).get("urls") or {}).items()}
+    destinations, displayed = [], None
+    for link in evidence.get("links") or []:
+        href, shown = str(link.get("href") or ""), str(link.get("text") or "").strip()
+        host = _host(href)
+        if is_tracking(host):
+            host = finals.get(href) or ""          # a sending service's click tracking: judged by where it really goes, if known
+        if not host or is_tracking(host):
+            continue
+        written = _HOSTISH.match(shown)
+        if written and not displayed and not brand_domains.same_organisation(written.group(1).lower(), host):
+            displayed = {"shown": written.group(1).lower(), "actual": host}
+        destinations.append({"host": host, "text": shown[:80], "action": bool(_CTA.search(shown)),
+                             "kind": brand_domains.classify(brand, host)[0] if brand else None})
+    actions = [d for d in destinations if d["action"]] or destinations
+    return {"who": who, "brand": brand, "sender_kind": sender_kind,
+            "sender_mismatch": sender_kind not in (None, "official", "country_site"),
+            "destinations": destinations, "actions": actions, "displayed": displayed,
+            "destination_mismatch": bool(brand) and any(d["kind"] in ("lookalike", "shared_service", "unrelated") for d in actions),
+            "deceptive_destination": bool(brand) and any(d["kind"] in ("lookalike", "shared_service") for d in actions)}
 
 # Callback-scam signals — mirror of frontend src/domain/messageAnalysis.ts (CALLBACK_RE, CHARGE_*).
 _CALLBACK_RE = re.compile(r"(?:\+?61[\s().-]*|\b0)(?:1800|1300|[2-478])(?:[\s().-]*\d){6,8}|\b1[38]00(?:[\s.-]*\d){6}\b|\b13[\s-]?\d{2}[\s-]?\d{2}\b")
@@ -955,65 +1035,76 @@ def _attachment_triage(names: list[str]) -> dict:
     return {"outcome": Outcome.POSSIBLE_THREAT.value if rules_met else (Outcome.NO_THREAT.value if names else None), "rules_met": rules_met}
 
 
-def _destinations(link_domains: list[str], provider_evidence: dict | None) -> list[str]:
-    """The link domains a sender/link mismatch is judged on. A recognised email-sending service's tracking domain is
-    replaced by where Apollo's redirect expansion found it goes, or left out when that isn't known: on its own it is
-    neither a mismatch nor proof of anything (services/email_infrastructure.py)."""
-    from urllib.parse import urlparse
-    from services.email_infrastructure import is_tracking
-    finals: dict[str, list[str]] = {}
-    for url, info in (((provider_evidence or {}).get("redirects") or {}).get("urls") or {}).items():
-        host, final = (urlparse(url).hostname or "").lower(), (urlparse(str((info or {}).get("final_url") or "")).hostname or "").lower()
-        if host and final:
-            finals.setdefault(host, []).append(final)
-    out: list[str] = []
-    for domain in link_domains:
-        out += [f for f in finals.get(domain, []) if not is_tracking(f)] if is_tracking(domain) else [domain]
-    return out
-
-
 def _rule_evidence(evidence: dict, findings: list[str], provider_evidence: dict,
                    correlation: Optional[dict] = None) -> dict:
-    """Build the shared Triage evidence dict from server-side intake evidence."""
+    """Build the shared Triage evidence dict from server-side intake evidence.
+
+    Every rule reads the source itself — its subject, body, sender, Reply-To, authentication results and links.
+    `findings` are Apollo's own observations: kept on the record beside the source, never read as evidence of it."""
+    from services.higgins.brand_domains import same_organisation
+    from services.triage import requests as rq
     source_type = evidence.get("source_type", "unknown")
-    raw_text = evidence.get("text_preview") or ""
+    raw_text = str(evidence.get("body") or evidence.get("text_preview") or "")
+    subject_raw = str(evidence.get("subject") or "")
     text = raw_text.lower()
-    subject = (evidence.get("subject") or "").lower()
+    subject = subject_raw.lower()
     blob = f"{subject} {text}"
-    finding_blob = " ".join(findings).lower()
+    asks = rq.read(f"{subject_raw}\n{raw_text}")
 
     providers = _link_evidence_from_providers(evidence, provider_evidence)
     sender_domain = (evidence.get("sender_domain") or "").lower()
     link_domains = [str(d).lower() for d in (evidence.get("link_domains") or [])]
-    # Links on the sender's own site or on the same organisation's other domains (ebay.com → ebay.com.au) aren't a mismatch.
-    from services.higgins.brand_domains import same_organisation
-    judged = _destinations(link_domains, provider_evidence)
-    domain_mismatch = bool(sender_domain and judged and all(
-        d != sender_domain and not d.endswith("." + sender_domain) and not sender_domain.endswith("." + d)
-        and not same_organisation(d, sender_domain) for d in judged))
-
-    credential_request = any(word in blob for word in _CREDENTIAL_WORDS) or "credential" in finding_blob
-    code_request = any(word in blob for word in ("verification code", "security code", "one-time", "otp", "2fa"))
+    link_threat = providers["reputation"].get("verdict") == "malicious"
+    threat, urgent = bool(_THREAT_RE.search(blob)), bool(_STRICT_URGENCY.search(blob))
+    email = _email_reading(evidence, provider_evidence, raw_text) if source_type == "email" else {}
+    auth = evidence.get("auth_results") or {}
+    auth_failed = [m for m in ("spf", "dkim", "dmarc") if auth.get(m) in ("fail", "softfail", "permerror")]
+    reply_domain = (evidence.get("reply_to_domain") or "").lower()
+    reply_mismatch = ((bool(reply_domain) and bool(sender_domain) and not same_organisation(reply_domain, sender_domain))
+                      if (auth or reply_domain) else None)
+    # A sign-in, verification or payment-update request is ordinary on its own: it counts only with supporting context.
+    support = [name for name, flag in (("the sender isn't the organisation it presents itself as", email.get("sender_mismatch")),
+                                       ("the link it asks you to use goes elsewhere", email.get("destination_mismatch")),
+                                       ("a link shows one address but goes to another", email.get("displayed")),
+                                       ("the receiving server's authentication failed", auth_failed),
+                                       ("replies go to a different organisation", reply_mismatch),
+                                       ("it threatens the account with a deadline", threat and urgent),
+                                       ("a link is on a threat list", link_threat)) if flag]
+    sign_in_flagged = bool((asks["sign_in_request"] or asks["payment_detail_update"]) and support)
+    credential_request = bool(asks["secret_request"] or asks["card_request"] or sign_in_flagged)
+    code_request = bool(asks["code_request"])
+    identity = _asked(_IDENTITY_ASK, raw_text)
+    payment_change = bool(_BANK_CHANGE.search(raw_text) and _INVOICE.search(blob))
+    pay_ask = _asked(_PAY_ASK, raw_text)
     attachment = _attachment_triage([str(name) for name in (evidence.get("attachment_names") or [])])
 
     shared: dict = {
         "source_type": source_type,
         "sender_domain": sender_domain,
         "link_domains": link_domains,
-        "findings": findings,
-        "auth_results": evidence.get("auth_results") or {},
-        "reply_to_mismatch": (bool(evidence.get("reply_to_domain")) and evidence.get("reply_to_domain") != sender_domain)
-                             if evidence.get("auth_results") or evidence.get("reply_to_domain") else None,
-        "sender_domain_mismatch": domain_mismatch,
-        "claimed_brand": evidence.get("claimed_brand"),
-        "brand_mismatch": domain_mismatch,
+        # Apollo's observations about the source, kept apart from it: no rule reads them as evidence.
+        "observations": findings,
+        "auth_results": auth,
+        "reply_to_mismatch": reply_mismatch,
+        "sender_domain_mismatch": bool(email.get("sender_mismatch")),
+        "claimed_brand": email.get("brand") or evidence.get("claimed_brand"),
+        "claimed_sender": email.get("who"),
+        "brand_mismatch": bool(email.get("sender_mismatch") or email.get("destination_mismatch")),
+        "destination_mismatch": bool(email.get("destination_mismatch")),
+        "deceptive_destination": bool(email.get("deceptive_destination")),
+        "action_destinations": email.get("actions") or [],
+        **({"displayed_host": email["displayed"]["shown"], "actual_host": email["displayed"]["actual"]} if email.get("displayed") else {}),
+        "security_alert": bool(asks["security_notice"] or threat),
+        "requests": asks,
+        "request_support": support,
         "credential_request": credential_request,
         "credential_interaction": credential_request,
-        "identity_request": any(word in blob for word in ("date of birth", "medicare", "passport", "licence", "tax file")),
-        "banking_request": any(word in blob for word in ("bank details", "card number", "cvv", "bsb")),
-        "payment_change": "changed" in finding_blob and "bank" in finding_blob,
-        "consequential_action": credential_request or code_request or any(
-            word in blob for word in ("pay", "transfer", "invoice", "refund", "confirm your")),
+        "code_request": code_request,
+        "identity_request": bool(identity),
+        "banking_request": bool(asks["card_request"]),
+        "payment_change": payment_change,
+        "executive_request": bool(_EXEC.search(blob) and _WIRE.search(blob)),
+        "consequential_action": bool(credential_request or code_request or identity or payment_change or pay_ask),
         # ROUTE rules (EMAIL-09, EMAIL-10, MSG-12): each part is judged by its own gate, and the threat-producing rules
         # met there are the ones the case cites. A malicious listing is LINK-01; an attachment is judged by the File Gate.
         "attachment_outcome": attachment["outcome"],
@@ -1027,8 +1118,11 @@ def _rule_evidence(evidence: dict, findings: list[str], provider_evidence: dict,
     if source_type in ("text", "sms", "message"):
         shared["signals"] = {
             "code_request": code_request,
-            "login_request": any(word in blob for word in ("log in", "login", "sign in", "verify your account", "unlock your account")),
-            "identity_request": shared["identity_request"] or shared["banking_request"],
+            # A password, PIN or login-detail request; an ordinary sign-in request only with a threat, a deadline, a
+            # listed link or a disguised organisation name behind it.
+            "login_request": bool(asks["secret_request"] or ((asks["sign_in_request"] or asks["payment_detail_update"])
+                                                             and (threat or urgent or link_threat or lookalike_name(raw_text)))),
+            "identity_request": bool(identity or asks["card_request"]),
             "safe_account": any(word in blob for word in ("safe account", "secure account", "protected account")),
             "gift_cards": "gift card" in blob or "itunes" in blob or "voucher code" in blob,
             "remote_access": any(word in blob for word in ("anydesk", "teamviewer", "remote access", "remote support")),
@@ -1081,8 +1175,12 @@ def _rule_evidence(evidence: dict, findings: list[str], provider_evidence: dict,
                     "number_reputation", failure, source="ipqs", detail=info.get("detail") or "")]
             break
 
-    if source_type == "email" and not evidence.get("auth_results"):
-        shared["auth_results"] = {}
+    if source_type == "email":
+        shared["auth_recorded_by"] = evidence.get("auth_recorded_by")
+        if not evidence.get("auth_results"):
+            # Missing headers are a check that couldn't run — recorded as incomplete, never as a threat or a gap.
+            shared["auth_results"] = {}
+            shared["incomplete_checks"] = [*shared.get("incomplete_checks", []), incomplete_check("sender_authentication", "not_recorded")]
 
     scam_matches = provider_evidence.get("scam_intel", {}).get("matches", [])
     if any(m.get("severity") in ("high", "critical") for m in scam_matches):

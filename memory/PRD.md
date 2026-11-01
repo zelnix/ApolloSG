@@ -4622,3 +4622,21 @@ Verdict: 3 blockers, 6 warnings, 8 manual checks.
 - Owner chose "A written test script only", shown in chat only (no file added). Re-verified in the new workspace: frontend node tests 1240/1240,
   tsc clean, pytest test_guarddog_threat_domain_list 6/6, preview diagnostic = passed with 0 Threat Domain Entries (v9).
   Native JVM tests not re-run here (no JDK/kotlinc in this workspace).
+
+
+## Detection, evidence and display: the 8 fixes + re-judge (2026-10-31) — DONE, final report sent
+1. Requests read clause by clause (`services/triage/requests.py`, mirror `src/domain/requestSignals.ts`): code delivery,
+   security notice, negated advice and discussion are never a disclosure request; sign-in requests count only with support.
+2. Triage reads the whole source: body (not 300 chars), Reply-To, each link's text + href (plain-text links too), topmost
+   Authentication-Results only (+ recorded_by). Apollo's observations kept apart (`observations`), never evidence. SMS keyword findings removed.
+3. Who an email presents itself as (`services/triage/speaker.py`): display name, introduction, sign-off, "X Team". A mentioned
+   brand is not the sender. Links classified official/country_site/lookalike/shared_service/unrelated; click tracking judged by final host.
+4. TC FlyBy `_reconsider_triage`: route rules (MSG-08/14/18/20/21/22) disproved before the Evidence Lock when official sources verify every route.
+5. `incomplete_only`: Limited resting only on checks that couldn't run → "Not every check could run on this …", resolved, no alert,
+   Threats status "Not fully checked". Missing headers → not applicable + incomplete check `sender_authentication`.
+6. `src/domain/luddish/present.ts` (`presentEvent`/`say`) used by Home hero, Threats list, Threat Case, notifications; backend `patrol_text`.
+7. Identifiers whole on cards and notifications; `source_metadata` (sender, subject, full preview) on Triage records; rule evidence quotes the clause.
+8. Threat lists match the exact page (path, "/" for home, query); only whole-site listings cover a domain; detail says "lists this exact address, …".
+- Re-judge (`services/triage/rejudge.py`, startup, once per catalogue version; device mirror `src/domain/triage/rejudge.ts`):
+  preview run → 6 Patrol records re-judged, 17,827 listings re-keyed, 21 reputation answers + 20 cached triage results cleared.
+  Production runs it on the next Publish. Tests at end of last session: backend 1580 pass, frontend 1277 pass (not re-run here, owner's choice).

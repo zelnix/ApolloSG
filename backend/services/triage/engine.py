@@ -506,31 +506,82 @@ _FORM_HOSTS = ("docs.google.com", "forms.gle", "forms.office.com", "forms.micros
 
 
 def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
-    def finding(*needles: str) -> Callable[[dict], Verdict]:
-        def check(ev: dict) -> Verdict:
-            findings = [str(f) for f in (ev.get("findings") or [])]
-            hit = next((f for f in findings if any(n in f.lower() for n in needles)), None)
-            return met(f"email finding: {hit[:160]}") if hit else unmet("no matching email finding")
-        return check
+    """Structured checks on the email itself (see services/triage_engine._rule_evidence): who it presents itself as,
+    what it asks, and where its links really go. Apollo's own observation wording is never matched as evidence."""
+    def _quote(ev: dict, *kinds: str) -> str:
+        quotes = (_provider(ev, "requests").get("quotes") or {})
+        said = next((quotes[k] for k in kinds if quotes.get(k)), "")
+        return f"it asks: “{said}”" if said else ""
+
+    def _brand(ev: dict) -> str:
+        return str(ev.get("claimed_brand") or "")
 
     def brand_mismatch(ev: dict) -> Verdict:
-        if not ev.get("claimed_brand"):
-            return unmet("no brand claimed in the email")
-        if ev.get("brand_mismatch") or ev.get("sender_domain_mismatch"):
-            return met("claimed brand", "sender-domain mismatch", "consequential action") if ev.get("consequential_action") else unmet("brand/domain mismatch without a consequential action")
-        return unmet("sender domain consistent with the claimed brand")
+        brand = _brand(ev)
+        if not brand:
+            return unmet("the email doesn't present itself as an organisation on ApolloSG's register")
+        if not ev.get("sender_domain"):
+            return unmet("sender address unavailable")
+        if not ev.get("sender_domain_mismatch"):
+            return unmet(f"sent from {brand}'s own domain")
+        if not ev.get("consequential_action"):
+            return unmet(f"presents itself as {brand} from {ev['sender_domain']}, but asks nothing consequential")
+        return met(f"presents itself as {brand}", f"sent from {ev['sender_domain']}, not one of {brand}'s domains",
+                   _quote(ev, "secret_request", "code_request", "card_request", "sign_in_request", "payment_detail_update") or "consequential action")
 
     def freemail(ev: dict) -> Verdict:
         domain = (ev.get("sender_domain") or "").lower()
         if not domain:
-            return gap("EMAIL_HEADERS_UNAVAILABLE", "sender domain unavailable")
-        if domain in _FREEMAIL and ev.get("claimed_brand") and ev.get("consequential_action"):
-            return met(f"freemail sender {domain} impersonating {ev.get('claimed_brand')}", "sensitive request")
+            return na_because("Not applicable here: ApolloSG didn't receive the sender's address.")
+        if domain in _FREEMAIL and _brand(ev) and ev.get("consequential_action"):
+            return met(f"freemail sender {domain} presenting itself as {_brand(ev)}", "sensitive request")
         return unmet("sender domain is not an impersonating freemail account")
+
+    def security_link(ev: dict) -> Verdict:
+        if not ev.get("security_alert"):
+            return unmet("no account or security alert")
+        if not _brand(ev):
+            return unmet("security alert without an organisation it claims to be from")
+        if ev.get("displayed_host") and ev.get("actual_host"):
+            return met(f"{_brand(ev)} account or security alert", f"a link shows {ev['displayed_host']} but goes to {ev['actual_host']}")
+        deceptive = [d["host"] for d in ev.get("action_destinations") or [] if d.get("kind") in ("lookalike", "shared_service")]
+        if deceptive:
+            return met(f"{_brand(ev)} account or security alert", f"its link goes to {deceptive[0]}, a lookalike of {_brand(ev)}'s address")
+        elsewhere = [d["host"] for d in ev.get("action_destinations") or [] if d.get("kind") == "unrelated"]
+        if elsewhere and ev.get("credential_request"):
+            return met(f"{_brand(ev)} account or security alert", f"it asks you to act at {elsewhere[0]}, which isn't {_brand(ev)}'s")
+        return unmet(f"the alert's links go to {_brand(ev)}'s own addresses, or ask nothing of you")
+
+    def credential(ev: dict) -> Verdict:
+        asks = _provider(ev, "requests")
+        if asks.get("secret_request") or asks.get("card_request"):
+            return met(_quote(ev, "secret_request", "card_request"))
+        if ev.get("credential_request"):
+            return met(_quote(ev, "sign_in_request", "payment_detail_update"), *[f"supported by: {s}" for s in (ev.get("request_support") or [])[:2]])
+        if asks.get("sign_in_request") or asks.get("payment_detail_update"):
+            return unmet("an ordinary sign-in or update request, with nothing to suggest it isn't genuine")
+        return unmet("no request for a password, PIN, login or card details" + (" (it advises never to share them)" if asks.get("negated_advice") else ""))
+
+    def code(ev: dict) -> Verdict:
+        asks = _provider(ev, "requests")
+        if ev.get("code_request"):
+            return met(_quote(ev, "code_request"))
+        if asks.get("code_delivery"):
+            return unmet("a code delivered for you to use, not a request to send one")
+        return unmet("no request to send or read out a one-time code")
+
+    def payment_change(ev: dict) -> Verdict:
+        return met("invoice or payment with new or changed bank details") if ev.get("payment_change") else unmet("no change of payment details")
+
+    def executive(ev: dict) -> Verdict:
+        if not ev.get("executive_request"):
+            return unmet("no executive request for an unusual payment")
+        anomaly = ev.get("reply_to_mismatch") or ev.get("sender_domain_mismatch") or (ev.get("sender_domain") or "") in _FREEMAIL
+        return met("executive request for an urgent transfer", "sender anomaly") if anomaly else unmet("executive request without a sender anomaly")
 
     def reply_to(ev: dict) -> Verdict:
         if ev.get("reply_to_mismatch") is None:
-            return gap("EMAIL_HEADERS_UNAVAILABLE", "Reply-To header unavailable")
+            return na_because("Not applicable here: ApolloSG didn't receive the email's Reply-To header.")
         if ev["reply_to_mismatch"] and ev.get("consequential_action"):
             return met("material From/Reply-To mismatch", "consequential action")
         return unmet("no material From/Reply-To mismatch")
@@ -538,29 +589,35 @@ def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
     def auth_failure(ev: dict) -> Verdict:
         auth = _provider(ev, "auth_results")
         if not auth:
-            return gap("EMAIL_HEADERS_UNAVAILABLE", "SPF/DKIM/DMARC results unavailable")
+            # A check that couldn't run (recorded as incomplete by the evidence), never a gap that holds the result.
+            return na_because("Not applicable here: the receiving mail server's SPF, DKIM and DMARC results weren't available.")
         failed = [m for m in ("spf", "dkim", "dmarc") if auth.get(m) in ("fail", "softfail", "permerror")]
-        if failed and (ev.get("consequential_action") or ev.get("sender_domain_mismatch")):
-            return met(f"authentication failure ({', '.join(failed)})", "consequential request or anomaly")
+        if failed and ev.get("consequential_action"):
+            by = ev.get("auth_recorded_by") or "the receiving mail server"
+            return met(f"authentication failure recorded by {by} ({', '.join(failed)})", "consequential request")
         return unmet("no authentication failure combined with a consequential request")
 
     def authenticated_anomaly(ev: dict) -> Verdict:
         auth = _provider(ev, "auth_results")
         if not auth or not any(auth.get(m) == "pass" for m in ("spf", "dkim", "dmarc")):
             return unmet("sender not authenticated — rule not applicable")
+        # A sign-in request from an authenticated sender is ordinary; a credential request counts only with an anomaly.
         strong = [name for name, flag in (("changed payment details", ev.get("payment_change")),
                                           ("malicious link", ev.get("link_outcome") == Outcome.POSSIBLE_THREAT.value),
-                                          ("credential request", ev.get("credential_request")),
+                                          ("unusual credential request", ev.get("credential_request") and (ev.get("sender_domain_mismatch") or ev.get("reply_to_mismatch"))),
                                           ("dangerous attachment", ev.get("attachment_outcome") == Outcome.POSSIBLE_THREAT.value)) if flag]
         return met("authenticated sender", *strong) if strong else unmet("authenticated sender with no strong anomaly")
 
     def coherent(ev: dict) -> Verdict:
-        anomalies = [name for name, flag in (("domain mismatch", ev.get("sender_domain_mismatch")),
-                                             ("reply-to mismatch", ev.get("reply_to_mismatch")),
-                                             ("consequential action", ev.get("consequential_action")),
-                                             ("credential request", ev.get("credential_request")),
-                                             ("payment change", ev.get("payment_change"))) if flag]
-        return met("coherent scam pattern: " + ", ".join(anomalies)) if len(anomalies) >= 3 else unmet(f"{len(anomalies)} moderate email anomaly(ies)")
+        auth = _provider(ev, "auth_results")
+        anomalies = [name for name, flag in (("sender isn't the organisation it claims", ev.get("sender_domain_mismatch")),
+                                             ("its link goes elsewhere", ev.get("destination_mismatch")),
+                                             ("replies go elsewhere", ev.get("reply_to_mismatch")),
+                                             ("authentication failed", any(auth.get(m) in ("fail", "softfail", "permerror") for m in ("spf", "dkim", "dmarc"))),
+                                             ("shown link differs from its destination", ev.get("displayed_host"))) if flag]
+        if len(anomalies) >= 2 and ev.get("consequential_action"):
+            return met("coherent scam pattern: " + ", ".join(anomalies), "consequential request")
+        return unmet(f"{len(anomalies)} email anomaly(ies)" + ("" if ev.get("consequential_action") else ", nothing consequential asked"))
 
     def calendar(kind: str) -> Callable[[dict], Verdict]:
         def check(ev: dict) -> Verdict:
@@ -584,7 +641,7 @@ def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
             host = next((h for h in hosts if any(h == f or h.endswith("." + f) for f in _FORM_HOSTS)), None)
             if not host:
                 return unmet("no legitimate form-builder host in the links")
-            if kind == "credential" and (ev.get("credential_request") or _sig(ev, "code_request")):
+            if kind == "credential" and (ev.get("credential_request") or ev.get("code_request") or _sig(ev, "code_request")):
                 return met(f"form service {host}", "password/MFA/security-code request")
             if kind == "banking" and ev.get("banking_request") and (ev.get("sender_domain_mismatch") or ev.get("consequential_action")):
                 return met(f"form service {host}", "banking or card credentials", "suspicious originating context")
@@ -605,11 +662,8 @@ def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
 
     return {
         "EMAIL-01": brand_mismatch, "EMAIL-02": freemail,
-        "EMAIL-03": finding("different domain", "different domains", "lookalike", "listed as unsafe"),
-        "EMAIL-04": finding("credential", "password", "log in", "sign in"),
-        "EMAIL-05": finding("verification code", "security code", "one-time", "otp"),
-        "EMAIL-06": finding("bank details", "changed account", "invoice", "remittance"),
-        "EMAIL-07": finding("urgent transfer", "chief executive", "ceo", "wire transfer"),
+        "EMAIL-03": security_link, "EMAIL-04": credential, "EMAIL-05": code,
+        "EMAIL-06": payment_change, "EMAIL-07": executive,
         "EMAIL-08": reply_to, "EMAIL-09": route("link", "Each embedded link"), "EMAIL-10": route("attachment", "Each attachment"),
         "EMAIL-11": auth_failure, "EMAIL-12": authenticated_anomaly, "EMAIL-13": coherent,
         "CAL-01": calendar("link"), "CAL-02": calendar("callback"), "CAL-03": calendar("credential"),

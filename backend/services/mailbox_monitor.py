@@ -21,9 +21,7 @@ from core.config import logger
 from core.db import db, now_utc
 from core.redaction import redact_investigation_secrets
 from services import gmail, work_dedupe
-from services.email_infrastructure import is_tracking
 from services.higgins import evidence, jobs, repository as repo
-from urllib.parse import urlparse
 
 PROCESSING_CLAIM_SECONDS = 120   # how long one pass holds a message before another may take it over (a crashed holder)
 
@@ -49,33 +47,6 @@ def _domains_same_org(a: str, b: str) -> bool:
     """Check if two domains belong to the same organization (share the same eTLD+1)."""
     return _org_domain(a) == _org_domain(b)
 
-
-def _find_domain_mismatches(sender_domain: str, links: list) -> set[str]:
-    """Find link domains that don't match the sender's organization domain.
-    Returns set of mismatched domains. Treats subdomains of the same org as equivalent."""
-    mismatched = set()
-    sender_org = _org_domain(sender_domain)
-    for link in links:
-        if not isinstance(link, dict):
-            continue
-        href = link.get("href", "")
-        if not href:
-            continue
-        try:
-            parsed = urlparse(href if "://" in href else f"https://{href}")
-            host = (parsed.hostname or "").lower()
-            if not host or host == sender_domain:
-                continue
-            # A recognised email-sending service's click tracking says who delivered the email, not where the link
-            # goes: never a mismatch by itself, and never proof the email is genuine (services/email_infrastructure.py).
-            if is_tracking(host):
-                continue
-            link_org = _org_domain(host)
-            if link_org != sender_org:
-                mismatched.add(host)
-        except Exception:
-            continue
-    return mismatched
 
 URL_RE = re.compile(r"(?i)\bhttps?://[^\s<>\]\[\"']+")
 
@@ -257,16 +228,9 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
     # Only flag ACTUAL threat indicators, not routine email features.
     local_findings = []
 
-    # Email Gate: Sender/link domain mismatch detection
+    # Different sender and link domains prove nothing on their own (newsletters, receipts and click tracking all do it):
+    # who the email presents itself as and where its links really go are judged by the Triage rules from the email.
     sender_domain = _extract_domain_from_email(sender)
-    if sender_domain and links:
-        mismatched_domains = _find_domain_mismatches(sender_domain, links)
-        if mismatched_domains:
-            domains_str = ", ".join(sorted(mismatched_domains)[:5])
-            local_findings.append(
-                f"The sender's email address ({sender_domain}) and link destinations use different domains ({domains_str}). "
-                "Verify the sender before opening the link or following payment instructions."
-            )
     # Reply-To mismatch detection
     if reply_to:
         reply_domain = _extract_domain_from_email(reply_to)
@@ -329,8 +293,10 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
             from services.triage import record_triage_history
             try:
                 await record_triage_history(device_id, triage_result.investigation, category="email",
-                                            evidence_source="connected_mailbox",
-                                            subject=str(message.get("subject", ""))[:200])
+                                            evidence_source="connected_mailbox", subject=subject,
+                                            source={"type": "email", "sender": sender or None, "subject": subject or None,
+                                                    "received_at": receipt.get("received_at") or receipt.get("created_at"),
+                                                    "provider": provider})
             except Exception as exc:
                 logger.warning("triage_history_write_failed device=%s error=%s", device_id, type(exc).__name__)
         return True  # Email screened and resolved — no case needed, zero Gemini calls
@@ -400,10 +366,10 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
     # Source metadata — actual recorded email identifiers, NOT Gemini-inferred.
     case_updates["source_metadata"] = {
         "type": "email",
-        "sender": sender[:200] if sender else None,
-        "subject": subject[:300] if subject else None,
+        "sender": sender or None,
+        "subject": subject or None,
         "received_at": receipt.get("received_at") or receipt.get("created_at") or now_utc(),
-        "reply_to": reply_to[:200] if reply_to and reply_to != sender else None,
+        "reply_to": reply_to if reply_to and reply_to != sender else None,
         "attachment_count": len(attachment_names),
         "attachment_names": attachment_names[:5],
         "auth_passed": bool(auth_results and any(auth_results.get(m) == "pass" for m in ("spf", "dkim", "dmarc"))),
@@ -430,8 +396,8 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
         from services.triage import record_triage_history
         try:
             await record_triage_history(device_id, triage_result.investigation, category="email",
-                                        evidence_source="connected_mailbox",
-                                        subject=str(message.get("subject", ""))[:200],
+                                        evidence_source="connected_mailbox", subject=subject,
+                                        source=case_updates["source_metadata"],
                                         investigation_case_id=case["case_id"])
         except Exception as exc:
             logger.warning("triage_history_write_failed device=%s error=%s", device_id, type(exc).__name__)

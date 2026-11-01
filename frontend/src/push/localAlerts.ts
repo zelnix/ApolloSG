@@ -1,4 +1,5 @@
 // Derive local notifications only from accepted device observations; never create an enforcement claim.
+import { incompleteOnly } from "../domain/luddish/present.ts";
 import { eventHasPacketProof } from "../domain/packetEvidence.ts";
 import { stateHeadline } from "../domain/threatSubject.ts";
 import type { PatrolEvent } from "../domain/types";
@@ -8,6 +9,8 @@ import { notificationSummary } from "./notificationText.ts";
 
 export function eventLocalAlert(event: PatrolEvent): LocalAlert | null {
   if (event.status === "resolved" || event.status === "trusted") return null;
+  // A check that couldn't run is recorded, never alerted as a threat.
+  if (incompleteOnly(event)) return null;
 
   // Allow notifications for:
   // 1. All background events (existing behaviour)

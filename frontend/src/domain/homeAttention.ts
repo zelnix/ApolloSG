@@ -7,6 +7,7 @@ import type { GatePresentation } from "./gates";
 import type { EventCategory, PatrolEvent } from "./types";
 import { briefed, needsYou } from "./caseBriefing.ts";
 import { isActive } from "./stateMachine.ts";
+import { incompleteOnly, presentEvent, say } from "./luddish/present.ts";
 
 export interface AttentionItem {
   id: string;
@@ -89,7 +90,8 @@ export function buildHomeAttention(input: { gates: GatePresentation[]; events: P
   // 2) Active events — any state that Apollo is reacting to and the person should see.
   //    barking = needs a decision (highest), growling / ears_up = Apollo is unsure and worth a look.
   const activeAttention = input.events
-    .filter((e) => isActive(e) && (e.state === "barking" || e.state === "growling" || e.state === "ears_up"))
+    // A check that couldn't run is not a threat: it is never an attention item.
+    .filter((e) => isActive(e) && !incompleteOnly(e) && (e.state === "barking" || e.state === "growling" || e.state === "ears_up"))
     .sort((a, b) => {
       const rank = (s: typeof a.state) => (s === "barking" ? 3 : s === "growling" ? 2 : s === "ears_up" ? 1 : 0);
       const r = rank(b.state) - rank(a.state);
@@ -100,14 +102,15 @@ export function buildHomeAttention(input: { gates: GatePresentation[]; events: P
     // A case with a Higgins Case Briefing is described by it — its headline names the organisation and what was
     // checked, its summary every material subject and what is still unresolved — never by generic Patrol text.
     const briefing = briefed(e);
-    const problem = briefing ? briefing.summary : (e.what_happened || e.headline || "").trim();
+    const shown = presentEvent(e);
+    const problem = shown.summary || shown.title;
     const decision = needsYou(e);
     const higgins = (decision && briefing?.actionReason
-      ? [briefing.actionReason, briefing.recommendedAction?.instruction].filter(Boolean).join(" ")
-      : (briefing?.recommendedAction?.instruction ?? e.what_to_do ?? "").trim())
+      ? [say(briefing.actionReason), shown.whatToDo].filter(Boolean).join(" ")
+      : shown.whatToDo)
       || "Review this finding. I'll explain what Apollo discovered and whether you need to take action.";
     // Build an evidence-specific title rather than generic "Email Gate looks suspicious".
-    const specificLabel = briefing ? briefing.headline : describeEventBrief(e);
+    const specificLabel = briefing ? shown.title : describeEventBrief(e);
     // "needs your decision" only when the case owes the person one, with its concrete reason.
     const title = decision
       ? `${specificLabel} — needs your decision`

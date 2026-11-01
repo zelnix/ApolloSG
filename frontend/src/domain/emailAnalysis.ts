@@ -2,7 +2,8 @@
 // who it really came from vs. who it claims to be, links, attachments and the ask — and hands account alerts
 // to Account Guard and links to the Web gate. Unknown sender ≠ scam; a real brand's own domain ≠ proof either.
 
-import { extractSignals, type MessageSignals } from "./messageAnalysis.ts";
+import { extractSignals, organisationNamed, type MessageSignals } from "./messageAnalysis.ts";
+import { readRequests } from "./requestSignals.ts";
 import { isCountrySite } from "./brand.ts";
 import type { ApolloState } from "./types";
 
@@ -27,6 +28,17 @@ const OFFICIAL: { re: RegExp; domains: string[] }[] = [
 ];
 const RISKY_ATTACH = /\.(exe|scr|bat|cmd|js|vbs|ps1|hta|jar|lnk|iso|img|html?|zip|rar|7z|docm|xlsm|apk|mobileconfig)\b/i;
 const FREEMAIL = /^(gmail|yahoo|hotmail|outlook|live|icloud|protonmail|proton|aol|mail)\.(com|com\.au|me)$/i;
+
+// Who the email presents itself as: its From display name, else how its text introduces or signs itself ("This is Sam
+// from Apple Support", "The PayPal Team", "Regards, CommBank"). Never every organisation it mentions — a retailer
+// selling Apple products is not impersonating Apple. Mirror of backend services/triage/speaker.py.
+const NAME = String.raw`([A-Z][\w&'’.-]*(?:\s+[A-Z][\w&'’.-]*){0,3})`;
+const SIGN_OFF = new RegExp(String.raw`(?:^|\n)\s*(?:(?:kind|best|warm)\s+regards|regards|sincerely|thanks|thank you|cheers|from)[,\s]+(?:the\s+)?${NAME}`, "gim");
+const TEAM = new RegExp(String.raw`\b(?:[Tt]he\s+)?${NAME}\s+(?:Team|Support|Security|Customer Service|Service Centre|Accounts Team|Billing)\b`, "g");
+export function claimedSpeaker(fromName: string | null, body: string): string | null {
+  const candidates = [fromName, organisationNamed(body), ...Array.from(body.matchAll(SIGN_OFF), (m) => m[1]), ...Array.from(body.matchAll(TEAM), (m) => m[1])];
+  return candidates.find((c): c is string => !!c && OFFICIAL.some((o) => o.re.test(c))) ?? null;
+}
 
 export function isSuffixOf(host: string, domain: string) { return host === domain || host.endsWith(`.${domain}`); }
 function domainOf(addr: string | null): string | null { const m = addr?.toLowerCase().match(/@([a-z0-9.-]+\.[a-z]{2,})/); return m ? m[1] : null; }
@@ -69,14 +81,16 @@ export function analyseEmail(raw: string, fields: { from?: string; subject?: str
   const sig = extractSignals(parsed.fromAddress ?? parsed.fromName ?? "", full);
   const senderDomain = domainOf(parsed.fromAddress);
   const replyToDomain = domainOf(parsed.replyTo);
-  const claimText = `${parsed.fromName ?? ""} ${parsed.subject ?? ""} ${sig.claimedBrand ?? ""}`;
-  const official = OFFICIAL.find((o) => o.re.test(claimText)) ?? (sig.claimedBrand ? OFFICIAL.find((o) => o.re.test(sig.claimedBrand!)) : undefined)
+  const claimText = `${parsed.fromName ?? ""} ${parsed.subject ?? ""}`;
+  // The organisation the email speaks as — a brand it merely mentions (in its subject or text) is not its sender.
+  const speaker = claimedSpeaker(parsed.fromName, parsed.body);
+  const official = (speaker ? OFFICIAL.find((o) => o.re.test(speaker)) : undefined)
     // Gap #6: also match when the sender domain itself is in an OFFICIAL entry — but NOT for
     // freemail domains (gmail.com, outlook.com, etc.) since personal accounts on those platforms
     // are not official brand communications from Google/Microsoft.
     ?? (senderDomain && !FREEMAIL.test(senderDomain) ? OFFICIAL.find((o) => o.domains.some((d) => isSuffixOf(senderDomain, d))) : undefined);
   const senderMatchesConfiguredDomain = OFFICIAL.some((o) => !!senderDomain && o.domains.some((domain) => isSuffixOf(senderDomain, domain)));
-  const brand = sig.claimedBrand ?? (official ? (parsed.fromName ?? "this organisation") : null);
+  const brand = official ? (sig.claimedBrand && official.re.test(sig.claimedBrand) ? sig.claimedBrand : speaker ?? parsed.fromName ?? "this organisation") : null;
   const domainOfficial = !!(senderDomain && official && (official.domains.some((d) => isSuffixOf(senderDomain, d)) || isCountrySite(senderDomain, official.domains)));
   const senderOfficial = domainOfficial && !spoofed;
   const senderMismatch = !!(official && senderDomain && !senderOfficial);
@@ -88,11 +102,19 @@ export function analyseEmail(raw: string, fields: { from?: string; subject?: str
   const riskyAttachments = parsed.attachments.filter((a) => RISKY_ATTACH.test(a));
   const invoice = /\binvoice\b|\bremittance\b|\bpayment details\b|\bbank details\b|\bbsb\b|\baccount number\b/i.test(full);
   const bankChange = invoice && /\b(new|updated|changed|different)\b.*\b(bank|account|bsb|payment) (details|account)\b/i.test(full);
-  const accountAlert = sig.loginRequest || /\bpassword\b|\bsign[- ]?in\b|\blogin\b|\bverify (your )?(account|identity)\b|\bunusual (activity|sign)/i.test(full);
-  const securityAlert = /\bsecurity alert\b|\breview recent activity\b|\bsuspicious activity\b|\bnew device\b/i.test(full);
+  // An ask to log in, verify an account, update payment details or give a secret — read from what each sentence
+  // does (requestSignals.ts). "password", "sign-in" or "unusual activity" on their own are a notice, not an ask.
+  const asks = readRequests(full);
   const pressure = sig.urgency || sig.threat;
+  // An ordinary sign-in, verification or payment-update request counts only with supporting context — the sender isn't
+  // the organisation it presents itself as, a link goes off that organisation's site, replies go elsewhere, the
+  // receiving server recorded failed authentication, or a threat with a deadline. Mirror of backend
+  // services/triage_engine.py (`support`).
+  const support = senderMismatch || replyMismatch || spoofed || lookalikeUrls.length > 0 || (sig.threat && sig.urgency);
+  const accountAlert = sig.loginRequest || asks.secret_request || ((asks.sign_in_request || asks.payment_detail_update) && support);
+  const securityAlert = /\bsecurity alert\b|\breview recent activity\b|\bsuspicious activity\b|\bnew device\b/i.test(full);
   const bec = /\b(ceo|director|manager|boss)\b/i.test(claimText) && (sig.giftCards || sig.moneyRequest || /\burgent(ly)?\b.*\b(transfer|pay|gift)/i.test(full)) && (!senderDomain || FREEMAIL.test(senderDomain) || replyMismatch);
-  const signalLabels = [sig.claimedBrand && `Claims to be ${sig.claimedBrand}`, senderMismatch && "Sender domain isn't the brand's", replyMismatch && "Reply-To goes elsewhere", urls.length && `${urls.length} link${urls.length > 1 ? "s" : ""}`, lookalikeUrls.length && "Link off the official domain", riskyAttachments.length && "Risky attachment", sig.urgency && "Urgency", sig.threat && "Threat / penalty", accountAlert && "Account / login request", invoice && "Invoice / payment", sig.codeRequest && "Asks for a code"].filter(Boolean) as string[];
+  const signalLabels = [brand && `Claims to be ${brand}`, senderMismatch && "Sender domain isn't the brand's", replyMismatch && "Reply-To goes elsewhere", urls.length && `${urls.length} link${urls.length > 1 ? "s" : ""}`, lookalikeUrls.length && "Link off the official domain", riskyAttachments.length && "Risky attachment", sig.urgency && "Urgency", sig.threat && "Threat / penalty", accountAlert && "Account / login request", invoice && "Invoice / payment", sig.codeRequest && "Asks for a code"].filter(Boolean) as string[];
   const technical = [`From: ${parsed.fromName ?? "—"} <${parsed.fromAddress ?? "no address"}>`, `Sender domain: ${senderDomain ?? "unknown"}${official ? senderOfficial ? " (official for the claimed brand)" : " (NOT an official domain for the claimed brand)" : ""}`, parsed.replyTo ? `Reply-To: ${parsed.replyTo}${replyMismatch ? " (differs from sender)" : ""}` : "Reply-To: none", `Subject: ${parsed.subject ?? "—"}`, `Links: ${urls.length}${lookalikeUrls.length ? ` (${lookalikeUrls.length} off-domain)` : ""}`, `Attachments: ${parsed.attachments.length ? parsed.attachments.join(", ") : "none"}`, headers.fullHeaders ? "Note: SPF/DKIM/DMARC are shown as the receiving mail server recorded them — Apollo didn't re-check them." : "Note: Apollo can't verify SPF/DKIM/DMARC from pasted text — the mail app's headers would be needed.", "Important: Even when sender authentication passes, it confirms only the sending domain — not the email's content, intentions, or truthfulness."];
   const verifySender = official ? `Don't reply or use any link or number in the email. Open ${brand}'s official app, or type their address yourself, and check there.` : "If this claims to be a business you deal with, look up their number independently and call to confirm — especially before paying anything.";
   const handoff = { account: accountAlert || sig.codeRequest, web: urls.length > 0, file: riskyAttachments.length > 0 };

@@ -70,7 +70,9 @@ def norm_host(value: str) -> str:
 
 
 def url_parts(raw: str) -> tuple[str, str] | None:
-    """(site key, page key) for a link: the host without www., and host + path. Scheme, query and fragment are ignored."""
+    """(site key, page key) for a link: the host without www., and the exact page — host, path (the home page is "/")
+    and its query, which is part of the address's identity (page.php?id=1 isn't page.php?id=2). Scheme and fragment
+    are ignored. A page key always has a "/", so a listed page is never the same key as a whole website."""
     text = (raw or "").strip()
     if not text:
         return None
@@ -81,7 +83,16 @@ def url_parts(raw: str) -> tuple[str, str] | None:
         return None
     if not host or "." not in host or not re.fullmatch(r"[\w.-]+", host):
         return None
-    return host, host + parsed.path.rstrip("/")
+    return host, host + (parsed.path.rstrip("/") or "/") + (f"?{parsed.query}" if parsed.query else "")
+
+
+def page_keys(url: str) -> list[str]:
+    """The listing keys that name this exact page: the page with its query, and the page without one (a listing that
+    names no query names the page whatever query follows it)."""
+    parts = url_parts(url)
+    if not parts:
+        return []
+    return list(dict.fromkeys([parts[1], parts[1].split("?", 1)[0]]))
 
 
 def parent_domains(host: str) -> list[str]:
@@ -130,13 +141,14 @@ def whole_site_allowed(host: str) -> bool:
 
 def names_a_page(raw: str, parts: tuple[str, str]) -> bool:
     """On a restricted host a listing counts only when it names a specific page: never the home page, and never a
-    one-step address whose real target is in its query (google.com/url?q=…), because matching ignores the query."""
+    one-step address whose real target is in its query (google.com/url?q=…) — that names someone else's page."""
     host, page = parts
     if not restricted(host):
         return True
-    if page == host:
+    path = page[len(host):].split("?", 1)[0]
+    if path == "/":
         return False
-    return not ("?" in raw and len([s for s in page[len(host):].split("/") if s]) < 2)
+    return not ("?" in page and len([s for s in path.split("/") if s]) < 2)
 
 
 def _hex(ip: ipaddress._BaseAddress) -> str:
@@ -175,9 +187,12 @@ class Feed:
 
 
 def _indicator(scope: str, key: str, hostname: str, reference: str | None, evidence: str, threat_type: str, *,
-               whole_site: bool = False, detail_url: str | None = None, source_first_seen: str | None = None, **extra) -> dict:
+               whole_site: bool = False, detail_url: str | None = None, source_first_seen: str | None = None,
+               listed_url: str | None = None, **extra) -> dict:
+    """One list entry. `listed_url`: the address exactly as the list names it, so a match quotes the entry itself."""
     return {"scope": scope, "key": key, "hostname": hostname, "source_reference": reference, "original_evidence": evidence[:500],
-            "threat_type": threat_type, "whole_site": whole_site, "detail_url": detail_url, "source_first_seen": source_first_seen, **extra}
+            "threat_type": threat_type, "whole_site": whole_site, "detail_url": detail_url, "source_first_seen": source_first_seen,
+            "listed_url": listed_url, **extra}
 
 
 def parse_phishtank(pages: list[bytes]) -> list[dict]:
@@ -190,7 +205,8 @@ def parse_phishtank(pages: list[bytes]) -> list[dict]:
         target = item.get("target") or "Other"
         rows.append(_indicator("url", parts[1], parts[0], str(item.get("phish_id") or "") or None,
                                f"Verified phishing page{'' if target == 'Other' else f' targeting {target}'} (PhishTank phish {item.get('phish_id')})",
-                               "SOCIAL_ENGINEERING", detail_url=item.get("phish_detail_url"), source_first_seen=item.get("submission_time")))
+                               "SOCIAL_ENGINEERING", detail_url=item.get("phish_detail_url"), source_first_seen=item.get("submission_time"),
+                               listed_url=raw.strip()))
     return rows
 
 
@@ -200,7 +216,7 @@ def parse_openphish(pages: list[bytes]) -> list[dict]:
         parts = url_parts(line)
         if parts and names_a_page(line, parts):
             rows.append(_indicator("url", parts[1], parts[0], None, "Phishing page detected by OpenPhish", "SOCIAL_ENGINEERING",
-                                   detail_url="https://openphish.com/"))
+                                   detail_url="https://openphish.com/", listed_url=line.strip()))
     return rows
 
 
@@ -239,7 +255,7 @@ def parse_asic(pages: list[bytes]) -> list[dict]:
                 continue  # a bare platform or mail-provider address names nobody in particular
             host, page = parts
             whole = whole_site_allowed(host)
-            rows.append(_indicator("url", host if whole else page, host, ref, evidence, threat, whole_site=whole, **common))
+            rows.append(_indicator("url", host if whole else page, host, ref, evidence, threat, whole_site=whole, listed_url=cleaned, **common))
         for raw in item.get("emails") or []:
             for address in _EMAIL.findall(raw or ""):
                 rows.append(_indicator("email", _subject("email", address), "", ref, evidence, threat, **common))
@@ -611,7 +627,15 @@ def _when(value) -> str:
 
 
 _MATCH_FIELDS = {"_id": 0, "source": 1, "original_evidence": 1, "threat_type": 1, "last_verified_at": 1, "first_seen_at": 1,
-                 "source_reference": 1, "detail_url": 1, "evidence_expiry_deadline": 1, "publisher": 1}
+                 "source_reference": 1, "detail_url": 1, "evidence_expiry_deadline": 1, "publisher": 1,
+                 "key": 1, "listed_url": 1, "whole_site": 1, "hostname": 1}
+
+
+def listed_as(match: dict) -> str:
+    """What exactly the list names: the whole website, or the one address it lists (as the list wrote it)."""
+    if match.get("whole_site"):
+        return f"the whole website {match.get('hostname') or match.get('key')}"
+    return f"this exact address, {match.get('listed_url') or match.get('key')}"
 
 # Each list's own page, for a person to see the list (and, where the list has one, the entry itself).
 LIST_PAGES = {"phishtank": "https://phishtank.org/", "openphish": "https://openphish.com/", "spamhaus_drop": "https://www.spamhaus.org/drop/",
@@ -623,10 +647,11 @@ async def matches(host: str, url: str | None = None, *, ips: list | None = None)
     Spamhaus DROP (none given: networks aren't compared)."""
     now = now_utc()
     host = norm_host(host)
-    parts = url_parts(url) if url else None
-    keys = list(dict.fromkeys([host, *([parts[1]] if parts else [])]))
+    # A listed page matches only that page (and its query, when the listing names one); only a whole-site listing
+    # covers the website or its subdomains. A listing of one page is never a claim about the whole domain.
     rows = await db.threat_indicators.find(
-        {"scope": "url", **_active(now), "$or": [{"key": {"$in": keys}}, {"key": {"$in": parent_domains(host)}, "whole_site": True}]},
+        {"scope": "url", **_active(now), "$or": [{"key": {"$in": page_keys(url)}, "whole_site": {"$ne": True}} if url else {"_id": None},
+                                                 {"key": {"$in": list(dict.fromkeys([host, *parent_domains(host)]))}, "whole_site": True}]},
         _MATCH_FIELDS).to_list(20)
     for ip in ips or []:
         rows += await db.threat_indicators.find(
@@ -648,7 +673,7 @@ async def listing_sources(host: str, url: str | None = None) -> list[IntelSource
             evidence = hits[0]["original_evidence"]
             by = "" if label in evidence else f" by {label}"
             out.append(IntelSource(name=name, status="match", threat_types=sorted({h["threat_type"] for h in hits}),
-                                   detail=f"{evidence} — confirmed{by} {_when(hits[0]['last_verified_at'])}.",
+                                   detail=f"{evidence} — {label} lists {listed_as(hits[0])}; confirmed{by} {_when(hits[0]['last_verified_at'])}.",
                                    url=hits[0].get("detail_url") or LIST_PAGES[name]))
         elif not any(f in fresh for f in feed_ids):
             out.append(IntelSource(name=name, status="unavailable", failure="list_out_of_date", url=LIST_PAGES[name],

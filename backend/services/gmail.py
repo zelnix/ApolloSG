@@ -200,29 +200,37 @@ def _extract_content(message: dict) -> tuple[str, list[dict[str, str]]]:
         text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", text, flags=re.IGNORECASE | re.DOTALL)
         text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    return text, _extract_anchors(chunks)
+    anchors = _extract_anchors(chunks)
+    # A link written out in the text is a link too: shown as itself, going where it says.
+    linked = {a["href"] for a in anchors}
+    for url in dict.fromkeys(u.rstrip(".,;:!?)") for u in re.findall(r"https?://[^\s<>\"']+", text)):
+        if url not in linked:
+            anchors.append({"text": url, "href": url})
+    return text, anchors
 
 
 def _headers_of(message: dict) -> dict[str, str]:
     return {h["name"].lower(): h.get("value", "") for h in message.get("payload", {}).get("headers", [])}
 
 
-def _extract_auth_results(headers: dict[str, str]) -> dict[str, str]:
-    """Parse SPF, DKIM, and DMARC results from Gmail's Authentication-Results header.
-    These are set by Google's receiving mail server and are trustworthy when read from the API.
-    Returns a dict with keys 'spf', 'dkim', 'dmarc' → 'pass'|'fail'|'softfail'|'neutral'|'none'|'unknown'."""
-    auth_header = headers.get("authentication-results", "")
+def _extract_auth_results(message: dict) -> dict[str, str]:
+    """SPF, DKIM and DMARC as the receiving server recorded them: the TOPMOST Authentication-Results header only — the
+    one Google's server added on receipt. Any lower header came with the message and could be written by its sender.
+    Returns 'spf', 'dkim', 'dmarc' → 'pass'|'fail'|'softfail'|'neutral'|'none'|'temperror'|'permerror'|'unknown', and
+    'recorded_by': the server that wrote them (its authserv-id), so the result is credited to it."""
     results: dict[str, str] = {"spf": "unknown", "dkim": "unknown", "dmarc": "unknown"}
+    auth_header = next((h.get("value", "") for h in message.get("payload", {}).get("headers", [])
+                        if h.get("name", "").lower() == "authentication-results"), "")
     if not auth_header:
         return results
+    recorded_by = auth_header.split(";", 1)[0].strip().split()[0] if ";" in auth_header else ""
     lower = auth_header.lower()
     for mechanism in ("spf", "dkim", "dmarc"):
-        # Look for "mechanism=result" patterns in the authentication-results header
-        match = re.search(rf"{mechanism}=(\w+)", lower)
-        if match:
-            result = match.group(1)
-            if result in ("pass", "fail", "softfail", "neutral", "none", "temperror", "permerror"):
-                results[mechanism] = result
+        match = re.search(rf"\b{mechanism}=(\w+)", lower)
+        if match and match.group(1) in ("pass", "fail", "softfail", "neutral", "none", "temperror", "permerror"):
+            results[mechanism] = match.group(1)
+    if recorded_by and "=" not in recorded_by:
+        results["recorded_by"] = recorded_by.lower()
     return results
 
 
@@ -274,7 +282,7 @@ async def scan_inbox_page(device_id: str, page_token: str | None = None, limit: 
             # #3: Extract authentication evidence from Gmail-provided headers.
             # These are set by the receiving mail server (Google), not by the sender — they are
             # trustworthy when read from the API (unlike headers pasted in email body text).
-            auth_results = _extract_auth_results(h)
+            auth_results = _extract_auth_results(msg)
             # Extract Reply-To for mismatch detection (Email Gate improvement)
             reply_to = h.get("reply-to", "")
             # Extract attachment filenames for risky-type flagging

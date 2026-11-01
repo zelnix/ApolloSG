@@ -10,6 +10,7 @@
  */
 
 import { needsYou } from "./caseBriefing.ts";
+import { incompleteOnly } from "./luddish/present.ts";
 import { investigatorName } from "./messageVoice.ts";
 import type {
   ApolloState,
@@ -75,9 +76,12 @@ export type ThreatCaseStatus =
   | "attention"
   | "resolved"
   | "no_threat"
+  | "not_fully_checked"
   | "monitoring";
 
 export function threatCaseStatus(event: PatrolEvent): ThreatCaseStatus {
+  // Checks that couldn't run are an incomplete check, never a threat and never "no threat".
+  if (incompleteOnly(event) && !event.verified_block) return "not_fully_checked";
   if (event.resolved_at) {
     if (event.state === "resting") return "no_threat";
     return "resolved";
@@ -100,6 +104,7 @@ export const STATUS_LABELS: Record<ThreatCaseStatus, string> = {
   attention: "Needs you",
   resolved: "Handled",
   no_threat: "No threat",
+  not_fully_checked: "Not fully checked",
   monitoring: "Keeping watch",
 };
 
@@ -109,6 +114,7 @@ export const STATUS_COLORS: Record<ThreatCaseStatus, { bg: string; text: string 
   attention: { bg: "#DC2626", text: "#FFFFFF" },
   resolved: { bg: "#059669", text: "#FFFFFF" },
   no_threat: { bg: "#6B7280", text: "#FFFFFF" },
+  not_fully_checked: { bg: "#6B7280", text: "#FFFFFF" },
   monitoring: { bg: "#D97706", text: "#FFFFFF" },
 };
 

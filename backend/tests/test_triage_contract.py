@@ -155,12 +155,14 @@ def test_coverage_gap_cannot_silently_become_no_threat():
     assert "ENCRYPTED_CONTENT" in [g.code for g in investigation.coverage_gaps]
 
 
-def test_coverage_gap_alone_cannot_become_possible_threat():
-    investigation = evaluate({"source_type": "email", "sender_domain": "", "findings": [],
-                              "auth_results": {}, "reply_to_mismatch": None})
-    assert investigation.outcome is Outcome.LIMITED
+def test_missing_headers_are_an_incomplete_check_never_a_threat_or_a_gap():
+    from services.triage_engine import _rule_evidence
+    investigation = evaluate(_rule_evidence({"source_type": "email", "sender": "", "subject": "Hello", "body": "See you soon.",
+                                             "auth_results": {}}, [], {}))
+    assert investigation.outcome is Outcome.NO_THREAT
     assert investigation.met_rules == []
-    assert "EMAIL_HEADERS_UNAVAILABLE" in [g.code for g in investigation.coverage_gaps]
+    assert not investigation.coverage_gaps
+    assert [c["check"] for c in investigation.incomplete_checks] == ["sender_authentication"]
 
 
 def test_positive_evidence_is_not_downgraded_by_an_unavailable_check():
@@ -171,7 +173,6 @@ def test_positive_evidence_is_not_downgraded_by_an_unavailable_check():
         "auth_results": {}, "reply_to_mismatch": None,  # headers unavailable
     })
     assert investigation.outcome is Outcome.POSSIBLE_THREAT
-    assert "EMAIL_HEADERS_UNAVAILABLE" in [g.code for g in investigation.coverage_gaps]
     assert investigation.met_rules, "existing threat evidence must still stand"
 
 

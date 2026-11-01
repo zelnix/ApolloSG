@@ -160,9 +160,15 @@ export function messageTriageEvidence(args: {
  *  Below L3 the authentication check is recorded as incomplete, so the result can never read as complete. */
 export function emailTriageEvidence(args: Parameters<typeof messageTriageEvidence>[0] & {
   profile: Pick<EmailEvidenceProfile, "level" | "rank" | "auth" | "facts">;
-  analysis: Pick<EmailAnalysis, "signals" | "verdict" | "why" | "senderMismatch" | "replyMismatch" | "bankChange" | "parsed">;
+  analysis: Pick<EmailAnalysis, "signals" | "verdict" | "why" | "senderMismatch" | "replyMismatch" | "bankChange" | "parsed"> & Partial<Pick<EmailAnalysis, "claimedBrand">>;
 }): TriageEvidence {
   const base = messageTriageEvidence(args);
+  // An email's claimed organisation is who it speaks as (emailAnalysis.claimedSpeaker), never a brand it only mentions.
+  if ("claimedBrand" in args.analysis) {
+    const speaker = args.analysis.claimedBrand ?? null;
+    base.signals = { ...(base.signals as Record<string, unknown>), claimed_brand: speaker, brand_kind: speaker ? (base.signals as Record<string, unknown>).brand_kind : null };
+    base.brand_mismatch = !!speaker && base.link_outcome === "POSSIBLE_THREAT_IDENTIFIED";
+  }
   const s = base.signals as Record<string, unknown>;
   const { profile, analysis } = args;
   const auth = profile.auth;

@@ -155,13 +155,41 @@ def _triage_stage(plan_: Plan, text: str, provider_evidence: dict | None) -> Non
         return
     from services.triage import evaluate
     from services.triage_engine import _extract_evidence_from_text, _rule_evidence
-    evidence = {**_extract_evidence_from_text("", text), "text_preview": text}
+    evidence = _extract_evidence_from_text("", text)
     met = evaluate(_rule_evidence(evidence, [], provider_evidence or {})).met_rules
     if not met:
         return
     facts = [{**fact(_rule_fact(r.rule_id, r.title, text), "concern", topic="triage_rule"), "ruleId": r.rule_id} for r in met]
     plan_.checks.append(Check(id=f"c{len(plan_.checks) + 1}", kind="triage_rules", subject="Higgins Triage's message rules",
                               status="resolved", route="triage_rules", facts=facts))
+
+
+#: Higgins Triage's message rules that rest on who the material says it is and where it sends you — its links,
+#: numbers and addresses. A request for a secret, a listed link or a disguised name rests on the words themselves.
+_ROUTE_RULES = frozenset({"MSG-08", "MSG-14", "MSG-18", "MSG-20", "MSG-21", "MSG-22"})
+
+
+def _reconsider_triage(plan_: Plan) -> None:
+    """Before the Evidence Lock, an initial detection can be disproved. A route-based Higgins Triage rule stops counting
+    as a warning sign when TC FlyBy's official sources verified every link, number and address in the material as the
+    organisation's own: what it rested on turned out to be genuine. The rule's fact is kept, marked disproved, and the
+    verification is recorded as TC FlyBy's own fact."""
+    routes = [c.subject for c in plan_.checks if c.kind in ("link", "email", "phone")]
+    if not routes or not all(deciding.verified(r, plan_) for r in routes):
+        return
+    disproved = [f for c in plan_.checks if c.kind == "triage_rules" for f in c.facts
+                 if f.get("ruleId") in _ROUTE_RULES and f["signal"] == "concern"]
+    if not disproved:
+        return
+    shown = ", ".join(f"“{r}”" for r in routes[:3]) + (f" and {len(routes) - 3} more" if len(routes) > 3 else "")
+    for f in disproved:
+        f.update(signal="neutral", disproved=True)
+    names = "; ".join(f["text"].rstrip(".") for f in disproved)
+    plan_.checks.append(Check(id=f"c{len(plan_.checks) + 1}", kind="triage_review", subject="Higgins Triage's first reading",
+                              status="resolved", route="official_source",
+                              facts=[{**fact(f"Higgins Triage first flagged this ({names}), but official sources verified {shown} as the "
+                                             "organisation's own, so that no longer counts as a warning sign.", "clear", topic="triage_disproved"),
+                                      "ruleIds": [f["ruleId"] for f in disproved]}]))
 
 
 # ── Stage 2: Apollo Knowledge Base ──────────────────────────────────────────
@@ -438,6 +466,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
 
     await progress("observe", "TC FlyBy is checking official sources first.")
     await official.run(plan_, case.get("triage_provider_evidence"), combined)
+    _reconsider_triage(plan_)
     # Cross-source matching: every source's own answer per website, number and address, with its freshness. Context for
     # Magnum DI's brief only: it adds nothing to the checks.
     from services import correlation

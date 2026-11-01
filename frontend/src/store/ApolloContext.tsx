@@ -42,6 +42,7 @@ import { buildLinkProfile, buildSiteGateProfile, LINK_WORDS, sameLink, type Link
 import { buildMessageProfile, MESSAGE_WORDS, type MessageVia } from "@/src/domain/triage/messageEvidence";
 import { buildCallProfile, type CallVia } from "@/src/domain/triage/callEvidence";
 import { analysisSourceFor, headerEvidenceFor } from "@/src/domain/triage/emailIntake";
+import { REJUDGE_VERSION, emailPatrolState, rejudgeCandidate, rejudgeEvent } from "@/src/domain/triage/rejudge";
 import type { ParsedOriginal } from "@/src/domain/triage/emailOriginal";
 import { keepOriginalEmail } from "@/src/store/originalEmail";
 import { STATE_RANK } from "@/src/domain/stateMachine";
@@ -118,7 +119,7 @@ const deviceMeta = async () => ({
   ...((await isGoogleTestLab()) ? { test_lab: true } : {}),
 });
 
-const K = { setup: "apollo.setup.done", events: "apollo.patrol.events", trust: "apollo.trust.entries", verified: "apollo.lastVerifiedAt", protection: "apollo.protection.on", wifi: "apollo.wifi.trusted", quiet: "apollo.quiet.hours", lowPower: "apollo.lowPower", seenEvidence: "apollo.evidence.seen", notifPrefs: "apollo.notification.prefs" };
+const K = { setup: "apollo.setup.done", events: "apollo.patrol.events", trust: "apollo.trust.entries", verified: "apollo.lastVerifiedAt", protection: "apollo.protection.on", wifi: "apollo.wifi.trusted", quiet: "apollo.quiet.hours", lowPower: "apollo.lowPower", seenEvidence: "apollo.evidence.seen", notifPrefs: "apollo.notification.prefs", rejudged: "apollo.triage.rejudged" };
 /** The device's region, so a local number in captured material ("0412 345 678") can be resolved. */
 const deviceRegion = () => Localization.getLocales()[0]?.regionCode ?? undefined;
 
@@ -988,6 +989,28 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     catch { deliveryFailure(); }
   }, [deviceId]);
   useEffect(() => { syncEventRef.current = syncEvent; }, [syncEvent]);
+  // Past cases judged again under the current rules, once per rule catalogue version, from the originals kept on this
+  // device (domain/triage/rejudge.ts). No lookup is repeated and no AI is called.
+  const rejudgeRan = useRef(false);
+  useEffect(() => {
+    if (!ready || rejudgeRan.current) return;
+    rejudgeRan.current = true;
+    void (async () => {
+      if ((await storage.getItem<string | null>(K.rejudged, null)) === REJUDGE_VERSION) return;
+      const changed = new Map<string, PatrolEvent>();
+      for (const e of eventsRef.current) {
+        if (!rejudgeCandidate(e)) continue;
+        const next = rejudgeEvent(e, await getOriginalSource(e.event_id));
+        if (next) changed.set(next.event_id, next);
+      }
+      if (changed.size) {
+        await persistEvents(eventsRef.current.map((e) => changed.get(e.event_id) ?? e));
+        for (const e of changed.values()) void syncEventRef.current?.(e);
+      }
+      await storage.setItem(K.rejudged, REJUDGE_VERSION);
+    })().catch((error) => console.warn("[Apollo] re-judging past cases failed:", error));
+  }, [ready]);
+
   useEffect(() => {
     if (!deviceId || !ready) return;
     const retry = async () => {
@@ -1221,7 +1244,8 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     // The Official Organisation Directory's verdict on the sender, links, numbers and addresses, against the organisation
     // the email names. Runs alongside the checks below; never changes the outcome.
     const officialLookup = lookupOfficialContacts({
-      text: emailText, claimedOrg: analysis.claimedBrand, sites: analysis.urls, phones: extractPhoneCandidates(emailText),
+      // The organisation the email speaks as — never one its text only mentions.
+      claimedOrg: analysis.claimedBrand, sites: analysis.urls, phones: extractPhoneCandidates(emailText),
       emails: [analysis.parsed.fromAddress ?? "", ...emailsIn(emailText)],
     });
     const urls = await fetchMessageUrlIntel(analysis.urls, deviceId);
@@ -1247,6 +1271,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     const triage = evaluateTriage(emailTriageEvidence({ analysis, profile, linkOutcome, linkRulesMet: linkTriageRulesMet(urls), correlation, phoneReputation: phoneTriageReputation(phones),
       incompleteChecks: [...urlIncompleteChecks(urls), ...phoneIncompleteChecks(phones)] }));
     reportTriageOutcome(triage, { reputationFailure: phones.find((p) => p.decision === "unknown")?.lookupFailure });
+    state = emailPatrolState(state, guard.state, triage.outcome);
 
     let investigationCaseId: string | null = previous?.investigation_case_id ?? null;
     if (previous && investigationCaseId) {
@@ -1287,7 +1312,11 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Every email Triage examined is recorded in Patrol — whether or not it became a threat case.
-    const captured = input.captured ?? (parsedOriginal ? { from: fromInput, subject: subjectInput, text: parsedOriginal.bodyText } : { from: input.from, subject: input.subject, text: input.raw });
+    // A pasted email names its sender and subject inside the text: they are kept as its From and Subject, so every
+    // screen can name the email exactly as it arrived.
+    const parsedFrom = analysis.parsed.fromAddress ? `${analysis.parsed.fromName ? `${analysis.parsed.fromName} ` : ""}<${analysis.parsed.fromAddress}>` : analysis.parsed.fromName ?? "";
+    const captured = input.captured ?? (parsedOriginal ? { from: fromInput, subject: subjectInput, text: parsedOriginal.bodyText }
+      : { from: input.from.trim() ? input.from : parsedFrom, subject: input.subject.trim() ? input.subject : analysis.parsed.subject ?? "", text: input.raw });
     const resting = state === "resting";
     const now = new Date().toISOString();
     const event = await upsertEvent({

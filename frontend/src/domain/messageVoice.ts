@@ -178,7 +178,7 @@ export function investigationHistory(args: {
 }): HistoryEntry[] {
   const name = investigatorName(args.answeredBy);
   const entries: { text: string }[] = [{ text: "ApolloSG opened this investigation." }];
-  args.turns.forEach((t, i) => { if (i > 0 || args.turns.length > 1) entries.push({ text: `You asked a follow-up — ${name} answered: ${scrubMessage(t.overview).slice(0, 120)}` }); });
+  args.turns.forEach((t, i) => { if (i > 0 || args.turns.length > 1) entries.push({ text: `You asked a follow-up — ${name} answered: ${scrubMessage(t.overview)}` }); });
   const current = args.phase === "working" || args.phase === "creating" || args.phase === "reconnecting" ? "Apollo is still investigating."
     : args.phase === "waiting_user" ? "Magnum DI is waiting on your answer to continue."
     : args.phase === "waiting_device" ? "Magnum DI is checking this device for a fresh observation."

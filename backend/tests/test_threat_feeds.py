@@ -54,14 +54,17 @@ def test_phishtank_keeps_only_verified_pages_that_are_online():
     rows = tf.parse_phishtank([data])
     assert len(rows) == 1
     row = rows[0]
-    assert (row["scope"], row["key"], row["hostname"]) == ("url", "evil-login.example/path", "evil-login.example")
+    assert (row["scope"], row["key"], row["hostname"]) == ("url", "evil-login.example/path?q=1", "evil-login.example"), "the query is part of the page"
+    assert row["listed_url"] == "https://www.evil-login.example/path/?q=1"
     assert row["source_reference"] == "1" and "targeting PayPal" in row["original_evidence"] and row["whole_site"] is False
 
 
 def test_openphish_lines_become_exact_pages():
     rows = tf.parse_openphish([b"https://a.example/x\n\nnot a url\nhttp://b.example/\n"])
-    assert [r["key"] for r in rows] == ["a.example/x", "b.example"]
+    assert [r["key"] for r in rows] == ["a.example/x", "b.example/"], "a listed home page is a page, never the website"
     assert all(r["threat_type"] == "SOCIAL_ENGINEERING" and not r["whole_site"] for r in rows)
+    assert tf.page_keys("https://www.a.example/x?id=2#top") == ["a.example/x?id=2", "a.example/x"]
+    assert tf.page_keys("https://b.example") == ["b.example/"]
 
 
 def test_a_phishing_listing_never_names_a_whole_platform_or_an_organisations_own_site():
@@ -69,7 +72,8 @@ def test_a_phishing_listing_never_names_a_whole_platform_or_an_organisations_own
              "https://docs.google.com/forms/d/e/abc/viewform?usp=sf_link", "https://www.google.com/amp/s/evil.example",
              "https://fake-login.weebly.com/", "https://weebly.com/", "https://auspost.com.au/?track=1"]
     rows = tf.parse_openphish(["\n".join(lines).encode()])
-    assert [r["key"] for r in rows] == ["docs.google.com/forms/d/e/abc/viewform", "google.com/amp/s/evil.example", "fake-login.weebly.com"]
+    assert [r["key"] for r in rows] == ["docs.google.com/forms/d/e/abc/viewform?usp=sf_link", "google.com/amp/s/evil.example", "fake-login.weebly.com/"]
+    assert not any(r["whole_site"] for r in rows), "a phishing list names pages only"
     assert tf.restricted("google.com") and tf.restricted("weebly.com") and not tf.restricted("fake-login.weebly.com")
 
 
@@ -171,6 +175,13 @@ async def test_link_checks_report_each_list_as_match_clear_or_not_checked(scratc
 
     other_page = by_name(await tf.listing_sources("phish.example", "https://phish.example/elsewhere"))
     assert other_page["phishtank"].status == "clear", "an exact page listing never names the whole site"
+    assert "this exact address" in page["phishtank"].detail and "whole website" not in page["phishtank"].detail
+
+    await scratch.threat_indicators.insert_one(_doc("openphish", tf._indicator("url", "shop.example/page.php?id=1", "shop.example", None, "Phishing page detected by OpenPhish",
+                                                                             "SOCIAL_ENGINEERING", listed_url="https://shop.example/page.php?id=1")))
+    assert by_name(await tf.listing_sources("shop.example", "https://shop.example/page.php?id=1"))["openphish"].status == "match"
+    assert by_name(await tf.listing_sources("shop.example", "https://shop.example/page.php?id=2"))["openphish"].status == "clear", "the query is part of the listed page"
+    assert by_name(await tf.listing_sources("shop.example", "https://shop.example/"))["openphish"].status == "clear"
 
     site = by_name(await tf.listing_sources("shop.casino.example", "https://shop.casino.example/anything"))
     assert site["acma_blocked_gambling"].status == "match" and site["acma_blocked_gambling"].threat_types == ["ILLEGAL_GAMBLING"]

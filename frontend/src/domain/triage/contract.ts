@@ -74,6 +74,8 @@ export interface TriageInvestigationRecord {
   correlation: Record<string, unknown>;
   recheckUseful: boolean;
   geminiCalls: 0;
+  /** Set when a past case was judged again under a later rule catalogue (triage/rejudge.ts). */
+  rejudgedUnder?: string;
   evaluatedAt: string;
 }
 

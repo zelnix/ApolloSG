@@ -9,6 +9,7 @@
 // Pure + unit-tested.
 
 import { briefed, firstFinding, needsYou } from "../domain/caseBriefing.ts";
+import { say } from "../domain/luddish/present.ts";
 import { shortDomain } from "../domain/threatSubject.ts";
 import type { PatrolEvent } from "../domain/types";
 import type { LocalAlert } from "./notifications";
@@ -69,12 +70,8 @@ const NOUN: Partial<Record<PatrolEvent["category"], string>> = {
 const SENT_TO_CHECK = new Set<string>(["link", "message", "email", "file"]);
 const RECEIVED = new Set<string>(["message", "email"]);
 const SITES = new Set<string>(["website", "connection", "known_threat"]);
-const MAX_NAME = 42;
-
-const named = (value: string | null | undefined): string => {
-  const v = (value ?? "").trim();
-  return v.length > MAX_NAME ? `${v.slice(0, MAX_NAME - 1)}…` : v;
-};
+// Recorded identifiers, whole: only the OS's own length limit (presentAlertText) ever shortens a notification.
+const named = (value: string | null | undefined): string => (value ?? "").replace(/\s+/g, " ").trim();
 
 /** "The Instagram link you sent", "The email from billing@acme.co", "The paypal-secure.top link you sent",
  *  "The call from +61 412 345 678" — from recorded identifiers only; never guessed. */
@@ -107,7 +104,7 @@ const OPEN = "Open ApolloSG to see what I found.";
  *  Higgins Case Briefing. */
 function briefingSummary(event: PatrolEvent): string | null {
   const b = briefed(event);
-  return b ? `Higgins: ${firstFinding(b)}${needsYou(event) ? " This needs your decision." : ""} ${OPEN}` : null;
+  return b ? `Higgins: ${say(firstFinding(b))}${needsYou(event) ? " This needs your decision." : ""} ${OPEN}` : null;
 }
 
 /** The short, specific notification body for an event. */

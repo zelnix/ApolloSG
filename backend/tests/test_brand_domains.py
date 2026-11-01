@@ -122,5 +122,11 @@ def test_preview_analysis_and_triage_engine_use_the_same_rule():
     from services.triage_engine import _rule_evidence
     same = _rule_evidence({"sender_domain": "members.ebay.com", "link_domains": ["ebay.com.au", "pages.ebay.com.au"]}, [], {})
     assert same["brand_mismatch"] is False, "eBay's sender linking to eBay's country site is the same organisation"
-    other = _rule_evidence({"sender_domain": "members.ebay.com", "link_domains": ["ebay-verify.example"]}, [], {})
+    # Different sender and link domains prove nothing on their own; an email presenting itself as eBay whose link goes
+    # to a site that isn't eBay's is a mismatch.
+    unclaimed = _rule_evidence({"source_type": "email", "sender_domain": "members.ebay.com", "link_domains": ["ebay-verify.example"],
+                                "links": [{"text": "Sign in", "href": "https://ebay-verify.example/login"}]}, [], {})
+    assert unclaimed["brand_mismatch"] is False
+    other = _rule_evidence({"source_type": "email", "sender": "eBay <members@members.ebay.com>", "sender_domain": "members.ebay.com",
+                            "link_domains": ["ebay-verify.example"], "links": [{"text": "Sign in", "href": "https://ebay-verify.example/login"}]}, [], {})
     assert other["brand_mismatch"] is True

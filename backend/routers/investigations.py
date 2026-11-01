@@ -460,7 +460,7 @@ class BackgroundTextIn(Wire):
     original_characters: int = Field(ge=1, le=10_000_000)
 
 
-async def _record_triage_history(owner: str, triage_result, *, category: str, subject: str = "",
+async def _record_triage_history(owner: str, triage_result, *, category: str, source: dict | None = None,
                                  client_submission_id: str | None = None,
                                  investigation_case_id: str | None = None) -> None:
     """Save a completed Triage Investigation to Patrol History — every outcome, zero Gemini calls."""
@@ -468,7 +468,7 @@ async def _record_triage_history(owner: str, triage_result, *, category: str, su
     if triage_result.investigation is None:
         return  # cache replay of an already-recorded investigation
     try:
-        await record_triage_history(owner, triage_result.investigation, category=category, subject=subject,
+        await record_triage_history(owner, triage_result.investigation, category=category, source=source,
                                     evidence_source="device_submission",  # the captured notification this device sent
                                     client_submission_id=client_submission_id,
                                     investigation_case_id=investigation_case_id)
@@ -494,27 +494,22 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
     triage_evidence = _extract_evidence_from_text(body.sender, body.text)
     correlation_id = f"sms-triage-{body.submission_id[:20]}"
 
-    # Run local deterministic findings for triage (lightweight, no external calls)
-    import re as _sms_re
-    triage_findings: list[str] = []
-    if _sms_re.search(r"(?i)\bhttps?://", body.text):
-        triage_findings.append("The message contains one or more links requiring verification.")
-    if _sms_re.search(r"(?i)urgent|verify|payment|password|code|invoice|account|transfer|bank|ato|centrelink", body.text):
-        triage_findings.append("The message contains urgency, account, credential or payment language worth checking.")
-
+    # The rules read the message itself; a word such as "password" or "account" is never a finding on its own.
     triage_result = await triage_item(
         device_id=owner,
         evidence=triage_evidence,
-        findings=triage_findings,
+        findings=[],
         correlation_id=correlation_id,
     )
+    source = {"type": "text", "sender": body.sender or None, "preview": body.text or None, "received_at": now_utc(),
+              "content_complete": body.content_complete}
 
     if not triage_result.should_escalate:
         # Deterministic Triage resolved NO THREAT or LIMITED → acknowledge intake, zero Gemini calls.
         _log_triage = __import__("logging").getLogger("apollo.triage")
         _log_triage.info("background_text_triage device=%s submission=%s outcome=%s",
                           owner, body.submission_id[:12], triage_result.outcome.value)
-        await _record_triage_history(owner, triage_result, category="message", subject=body.sender or "text message",
+        await _record_triage_history(owner, triage_result, category="message", source=source,
                                      client_submission_id=body.submission_id)
         return JSONResponse({
             "caseId": None,
@@ -544,17 +539,11 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
     if triage_result.provider_evidence:
         case_update["triage_provider_evidence"] = triage_result.provider_evidence
     # Source metadata — actual recorded text/SMS identifiers, NOT Gemini-inferred.
-    case_update["source_metadata"] = {
-        "type": "text",
-        "sender": body.sender[:200] if body.sender else None,
-        "preview": body.text[:160] if body.text else None,
-        "received_at": now_utc(),
-        "content_complete": body.content_complete,
-    }
+    case_update["source_metadata"] = source
     await db.investigation_cases.update_one(
         {"owner_id": owner_of(request), "case_id": data["case"]["id"]},
         {"$set": case_update})
-    await _record_triage_history(owner, triage_result, category="message", subject=body.sender or "text message",
+    await _record_triage_history(owner, triage_result, category="message", source=source,
                                  client_submission_id=body.submission_id,
                                  investigation_case_id=data["case"]["id"])
     return JSONResponse({"caseId": data["case"]["id"], "jobId": data.get("job", {}).get("id") if data.get("job") else None,

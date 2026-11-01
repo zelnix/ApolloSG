@@ -46,7 +46,7 @@ export function PatrolItem({ outcome, isLast }: { outcome: PatrolOutcome; isLast
   const time = new Date(outcome.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const needsYou = matchesPatrolFilter(outcome, "needs_you");
   const gate = GATE_LABEL[outcome.category];
-  const advice = (outcome.event.what_to_do ?? "").trim();
+  const advice = outcome.whatToDo;
   // Name the specific thing Apollo reacted to when the headline doesn't already say it.
   const subject = subjectLabel(outcome.event);
   const showSubject = !!subject && !outcome.title.toLowerCase().includes(subject.toLowerCase());

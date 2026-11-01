@@ -43,7 +43,9 @@ import {
   threatCases as allThreatCases,
   type ThreatCaseStatus,
 } from "@/src/domain/threatCase";
-import { looksLikeInternalCode } from "@/src/domain/messageVoice";
+import { presentEvent } from "@/src/domain/luddish/present";
+import type { KeptIdentifiers } from "@/src/domain/homeHeroBrief";
+import { useKeptIdentifiers } from "@/src/hooks/useKeptIdentifiers";
 import type { PatrolEvent, SourceMetadata } from "@/src/domain/types";
 import { InfoButton, type ScreenInfo } from "@/src/components/InfoButton";
 import { SettledByBadge } from "@/src/components/SettledByBadge";
@@ -86,11 +88,14 @@ function sourceIcon(cat: string, meta?: SourceMetadata | null) {
   }
 }
 
-function cardTitle(event: PatrolEvent): string {
+function cardTitle(event: PatrolEvent, kept: KeptIdentifiers | null): string {
   const meta = event.source_metadata;
   if (meta?.subject) return meta.subject;
-  if (event.headline && !looksLikeInternalCode(event.headline)) return event.headline;
-  if (meta?.preview) return meta.preview.length > 50 ? meta.preview.slice(0, 50) + "…" : meta.preview;
+  // An email you submitted is named by its own subject, kept with the original on this device.
+  if (event.category === "email" && kept?.subject) return kept.subject;
+  const said = presentEvent(event).title;
+  if (said) return said;
+  if (meta?.preview) return meta.preview;
   if (event.indicator_host) return event.indicator_host;
   return categoryLabel(event.category) + " threat detected";
 }
@@ -100,7 +105,7 @@ function cardSubtitle(event: PatrolEvent): string {
   const named = subjectRowLabel(event);
   if (named) return named;
   const preview = event.source_metadata?.preview;
-  return preview ? preview.slice(0, 40) : "";
+  return preview ?? "";
 }
 
 
@@ -185,7 +190,8 @@ function ThreatCard({ event, onPress }: { event: PatrolEvent; onPress: () => voi
   const status = threatCaseStatus(event);
   const si = sourceIcon(event.category, event.source_metadata);
   const IconEl = si.Icon;
-  const title = cardTitle(event);
+  const kept = useKeptIdentifiers(event);
+  const title = cardTitle(event, kept);
   const subtitle = cardSubtitle(event);
   const statusColor = STATUS_COLORS[status];
 

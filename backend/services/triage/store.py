@@ -12,18 +12,48 @@ from core.db import db, now_utc
 from core.evidence_model import EVIDENCE_SOURCES, TRIAGE_ADAPTER
 from services.triage import telemetry
 from services.triage.catalogue import LIMITED_CAUTION, gap_plain
-from services.triage.completeness import AVAILABLE_CHECKS, incomplete_plain
+from services.triage.completeness import incomplete_plain
 from services.triage.contract import Outcome, TriageInvestigation
 
 COLLECTION = "triage_investigations"
 
 _STATE = {Outcome.NO_THREAT: "resting", Outcome.LIMITED: "ears_up", Outcome.POSSIBLE_THREAT: "growling"}
-_HEADLINE = {
-    Outcome.NO_THREAT: "Triage: no threat identified",
-    Outcome.LIMITED: "Triage: limited — ApolloSG couldn't reach a reliable decision",
-    Outcome.POSSIBLE_THREAT: "Triage: possible threat identified",
-}
-_HEADLINE_INCOMPLETE = f"Triage: {AVAILABLE_CHECKS[0].lower()}{AVAILABLE_CHECKS[1:]}"
+_NOUN = {"email": "email", "message": "text message", "link": "link", "call": "call", "file": "file", "app": "app"}
+
+
+def incomplete_only(wire: dict) -> bool:
+    """A Limited result that rests only on checks that couldn't run — a lookup that didn't answer, headers that weren't
+    available — with no concerning sign behind it. That is an incomplete check, never a detected threat."""
+    return (wire.get("outcome") == Outcome.LIMITED.value
+            and not any(g.get("code") == "INSUFFICIENT_EVIDENCE" for g in wire.get("coverageGaps") or []))
+
+
+def patrol_text(wire: dict, category: str) -> dict:
+    """What the Patrol record says and how it is filed, from the Triage record alone (mirror for display:
+    frontend src/domain/luddish/present.ts). Plain words: no rule counts, no internal names, nothing cut short."""
+    noun = _NOUN.get(category, "item")
+    outcome = wire.get("outcome")
+    met = [r for r in wire.get("rules") or [] if r.get("result") == "met" and r.get("class") in ("DETECT", "CORRELATE")]
+    gaps, incomplete = wire.get("coverageGaps") or [], wire.get("incompleteChecks") or []
+    couldnt = list(dict.fromkeys(gap_plain(g["code"]) for g in gaps if g.get("code") != "INSUFFICIENT_EVIDENCE"))
+    not_done = [incomplete_plain(c) for c in incomplete]
+    if outcome == Outcome.POSSIBLE_THREAT.value:
+        return {"state": "growling", "status": "active", "headline": f"Possible threat found in this {noun}",
+                "what_happened": f"Apollo found warning signs in this {noun}: {'; '.join(r['title'] for r in met)}.",
+                "why": [r["title"] for r in met] + not_done, "what_to_do": "Apollo is investigating this further."}
+    if outcome == Outcome.LIMITED.value and not incomplete_only(wire):
+        return {"state": "ears_up", "status": "active", "headline": f"This {noun} needs a closer look",
+                "what_happened": wire.get("reason") or "", "why": [g.get("detail") or "" for g in gaps if g.get("code") == "INSUFFICIENT_EVIDENCE"] + couldnt + not_done,
+                "what_to_do": LIMITED_CAUTION}
+    if outcome == Outcome.LIMITED.value or not_done:
+        # Checks that couldn't run are recorded as just that: no warning, and never a claim that it's safe.
+        return {"state": "resting", "status": "resolved", "headline": f"Not every check could run on this {noun}",
+                "what_happened": f"Apollo found no warning signs in what it could check. {' '.join(couldnt + not_done)}".strip(),
+                "why": couldnt + not_done,
+                "what_to_do": "Nothing found to act on. Because some checks couldn't run, this isn't a confirmation that it's safe."}
+    return {"state": "resting", "status": "resolved", "headline": f"No threat found in this {noun}",
+            "what_happened": f"Apollo found no warning signs in this {noun}, and every check it needed ran.",
+            "why": [], "what_to_do": "Nothing to do."}
 
 
 async def ensure_indexes() -> None:
@@ -36,7 +66,7 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
                                 category: str, evidence_source: str, subject: str = "",
                                 client_submission_id: str | None = None,
                                 investigation_case_id: str | None = None,
-                                indicator_host: str | None = None) -> str:
+                                indicator_host: str | None = None, source: dict | None = None) -> str:
     """Save the Triage Investigation and project it into Patrol History (idempotent).
 
     `evidence_source` is what supplied the evidence (core/evidence_model.py): "connected_mailbox" for an email the
@@ -48,7 +78,7 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
     saved = await db[COLLECTION].update_one(
         {"device_id": device_id, "investigation_id": investigation.investigation_id},
         {"$set": {"device_id": device_id, "investigation_id": investigation.investigation_id,
-                  "category": category, "subject": subject[:200], "record": wire,
+                  "category": category, "subject": subject or (source or {}).get("subject") or (source or {}).get("sender") or "", "record": wire,
                   "outcome": investigation.outcome.value, "evaluated_at": investigation.evaluated_at or now_utc(),
                   "investigation_case_id": investigation_case_id, "updated_at": now_utc()},
          "$setOnInsert": {"created_at": now_utc()}}, upsert=True)
@@ -61,33 +91,19 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
                                incomplete=telemetry.incomplete_codes(wire))
 
     event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"apollo-triage:{device_id}:{investigation.investigation_id}"))
-    state = _STATE[investigation.outcome]
+    text = patrol_text(wire, category)
     gaps = investigation.coverage_gaps
-    why = [record.title for record in investigation.met_rules][:4] or [
-        f"Checked {len(wire['rulesChecked'])} deterministic rule(s); none were met."]
-    if gaps:
-        # Plain English here (Overview, Higgins); the codes stay in `triage_investigation` for the DI view.
-        why.append("Couldn't check: " + " ".join(gap_plain(gap.code) for gap in gaps))
-    if incomplete:
-        why.append("Not completed: " + " ".join(incomplete_plain(c) for c in incomplete))
-    no_threat = investigation.outcome is Outcome.NO_THREAT
+    at = investigation.evaluated_at or now_utc()
     document = {
-        "event_id": event_id, "device_id": device_id, "category": category, "state": state,
-        "status": "resolved" if no_threat else "active",
-        "headline": _HEADLINE_INCOMPLETE if no_threat and incomplete else _HEADLINE[investigation.outcome],
-        "what_happened": investigation.reason[:600],
-        "why": why,
-        "what_to_do": (("Proceed with normal care — not every check Apollo needed completed." if incomplete
-                        else "Nothing to do — Apollo found no deterministic threat.") if no_threat
-                       else LIMITED_CAUTION if investigation.outcome is Outcome.LIMITED
-                       else "Apollo is investigating this further."),
+        "event_id": event_id, "device_id": device_id, "category": category, **text,
         "indicator_host": indicator_host, "indicator_digest": None, "local_indicator": None,
         "verified_block": False, "adapter_label": TRIAGE_ADAPTER,
-        "occurred_at": investigation.evaluated_at or now_utc(),
-        "resolved_at": (investigation.evaluated_at or now_utc()) if investigation.outcome is Outcome.NO_THREAT else None,
+        "occurred_at": at, "resolved_at": at if text["status"] == "resolved" else None,
         "trust_allowed": False, "claimed_brand": None, "scenario": None, "scent_id": None,
         "background": True, "investigation_case_id": investigation_case_id,
         "client_submission_id": client_submission_id,
+        # Who sent it and what it said it was about, exactly as recorded — carried through to every screen.
+        "source_metadata": source,
         # Worked from a privacy-protected copy; evidence missing when a check didn't finish or a gap was recorded.
         "evidence_representation": "privacy_protected_copy",
         "evidence_completeness": "partial" if incomplete or gaps else "complete",

@@ -3,8 +3,8 @@
 // tests/triage.test.ts fails if this drifts from the backend file.
 
 const CATALOGUE = {
-  "version": 4,
-  "updated": "2026-06",
+  "version": 5,
+  "updated": "2026-10",
   "outcomes": [
     "NO_THREAT_IDENTIFIED",
     "POSSIBLE_THREAT_IDENTIFIED",
@@ -1399,8 +1399,9 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "Claimed brand with sender-domain mismatch and a consequential action",
       "evidence": [
+        "claimed_sender",
         "sender_domain",
-        "claimed_brand"
+        "requests"
       ]
     },
     {
@@ -1409,8 +1410,9 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "Freemail or unrelated domain impersonates a brand with a sensitive request",
       "evidence": [
+        "claimed_sender",
         "sender_domain",
-        "claimed_brand"
+        "requests"
       ]
     },
     {
@@ -1419,8 +1421,9 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "Account or security alert with an off-domain, lookalike or deceptive link",
       "evidence": [
-        "link_domains",
-        "findings"
+        "claimed_sender",
+        "security_alert",
+        "action_destinations"
       ]
     },
     {
@@ -1429,7 +1432,9 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "Credential request",
       "evidence": [
-        "findings"
+        "requests",
+        "claimed_sender",
+        "action_destinations"
       ]
     },
     {
@@ -1438,7 +1443,7 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "OTP or security-code request",
       "evidence": [
-        "findings"
+        "requests"
       ]
     },
     {
@@ -1447,7 +1452,7 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "Invoice or payment request with changed bank details",
       "evidence": [
-        "findings"
+        "payment_change"
       ]
     },
     {
@@ -1456,8 +1461,9 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "Executive or BEC impersonation with an unusual financial request and sender anomaly",
       "evidence": [
-        "findings",
-        "sender_domain"
+        "executive_request",
+        "sender_domain",
+        "reply_to"
       ]
     },
     {
@@ -1505,7 +1511,10 @@ const CATALOGUE = {
       "title": "Authenticated legitimate sender with changed payment details, malicious link, unusual credential request or dangerous attachment",
       "evidence": [
         "auth_results",
-        "findings"
+        "payment_change",
+        "link_outcome",
+        "requests",
+        "attachment_outcome"
       ]
     },
     {
@@ -1514,7 +1523,11 @@ const CATALOGUE = {
       "class": "DETECT",
       "title": "Multiple moderate email anomalies form a coherent scam pattern",
       "evidence": [
-        "findings"
+        "claimed_sender",
+        "reply_to",
+        "auth_results",
+        "action_destinations",
+        "requests"
       ]
     },
     {
@@ -1570,7 +1583,7 @@ const CATALOGUE = {
       "title": "Legitimate form host collecting banking or card credentials in a suspicious originating context",
       "evidence": [
         "form_host",
-        "findings"
+        "requests"
       ]
     },
     {
@@ -2295,7 +2308,10 @@ const CATALOGUE = {
       "PayID/Osko use",
       "brand mention",
       "job, investment or romance discussion without scam mechanics",
-      "star/hash service code without context"
+      "star/hash service code without context",
+      "a sign-in or verification request without supporting context",
+      "a code delivered for the reader to use",
+      "advice never to share a password or code"
     ],
     "call": [
       "unknown caller",
@@ -2308,7 +2324,13 @@ const CATALOGUE = {
       "calendar invitation",
       "form-builder domain",
       "valid SPF/DKIM/DMARC from a form provider",
-      "breach appearance alone"
+      "breach appearance alone",
+      "different sender and link domains",
+      "a brand mentioned in the email",
+      "a sign-in, verification or payment-update request without supporting context",
+      "a code delivered for the reader to use",
+      "a security notification",
+      "advice never to share a password or code"
     ],
     "app": [
       "official-store provenance",

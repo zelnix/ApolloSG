@@ -74,7 +74,7 @@ test("an 'Important for you' card has the hero's structure with more room for de
   const sms = event({ category: "message", case_briefing: briefing({ status: "Concerning", recommendedAction: { label: "Don't act on it yet", instruction: "x" } }) });
   const kept = keptIdentifiers({ fields: [], text: "Good morning! It's UNI\uFB01ed Energy here. Lock in higher STC savings before rebates drop next week." });
   const card = eventBrief(sms, NOW, kept, "card");
-  assert.equal(card.line1, "Text message: \u201CGood morning! It's UNI\uFB01ed Energy here. Lock in higher STC\u2026\u201D (no number found), detected as concerning.");
+  assert.equal(card.line1, "Text message: \u201CGood morning! It's UNI\uFB01ed Energy here. Lock in higher STC savings before rebates drop next week.\u201D (no number found), detected as concerning.", "a card shows the text whole, no fixed cut");
   assert.equal(card.line2, eventBrief(sms, NOW, kept).line2, "the same date and recommendation as the hero");
 });
 

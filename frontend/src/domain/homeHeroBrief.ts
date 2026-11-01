@@ -8,6 +8,7 @@
 import type { AttentionItem } from "./homeAttention";
 import type { HomeVoice } from "./higginsHomeVoice";
 import { sentences } from "./luddish/patterns.ts";
+import { incompleteOnly, say } from "./luddish/present.ts";
 import { looksLikeInternalCode } from "./messageVoice.ts";
 import { shortDomain } from "./threatSubject.ts";
 import type { ApolloState, PatrolEvent } from "./types";
@@ -54,11 +55,13 @@ const noStop = (v: string) => v.replace(/[.!?…]+$/, "").trim();
 const NO_NUMBER = "\u0000no-number";
 const NO_NUMBER_SAID: Record<"hero" | "card", string> = { hero: "no # found", card: "no number found" };
 
-/** How long each identifier may run: the hero is tight; an "Important for you" card has a little more room. */
+/** How long each identifier may run: the hero's two glanceable lines are tight; a card (Important for you, search)
+ *  shows every identifier whole and lets the layout wrap it. */
 export type BriefRoom = "hero" | "card";
+const WHOLE = Number.MAX_SAFE_INTEGER;
 const LIMIT: Record<BriefRoom, { sender: number; subject: number; emailSubject: number; preview: number; number: number; name: number; headline: number }> = {
   hero: { sender: 28, subject: 30, emailSubject: 32, preview: 26, number: 24, name: 30, headline: 40 },
-  card: { sender: 40, subject: 44, emailSubject: 56, preview: 60, number: 24, name: 44, headline: 60 },
+  card: { sender: WHOLE, subject: WHOLE, emailSubject: WHOLE, preview: WHOLE, number: WHOLE, name: WHOLE, headline: WHOLE },
 };
 
 /** What the case is about and where it came from, from the identifiers Apollo recorded — on the case, else in the
@@ -77,8 +80,8 @@ function identify(e: PatrolEvent, kept: KeptIdentifiers | null, room: BriefRoom)
     case "app": return { what: clip(e.claimed_brand, n.name) ?? subject, from: null };
     case "link": case "website": case "known_threat": case "protection": return { what: host ?? subject, from: null };
     default: {
-      const headline = clean(e.headline);
-      return { what: host ?? subject ?? (headline && !looksLikeInternalCode(headline) ? clip(headline, n.headline) : null), from: null };
+      const headline = say(e.headline, true);
+      return { what: host ?? subject ?? (headline ? clip(headline, n.headline) : null), from: null };
     }
   }
 }
@@ -99,6 +102,7 @@ function finding(e: PatrolEvent): string {
   const status = clean(e.case_briefing?.verdict ?? e.case_briefing?.status).toLowerCase();
   if (status) return STATUS_FINDING[status] ?? `detected as ${status}`;
   if (blocked(e)) return "blocked by Apollo";
+  if (incompleteOnly(e)) return "not every check could run";
   if (e.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE") return "not confirmed safe";
   if (e.state === "barking" || e.state === "growling" || e.state === "biting") return "detected as a possible threat";
   if (e.state === "ears_up") return "flagged for a closer look";
@@ -107,12 +111,12 @@ function finding(e: PatrolEvent): string {
 
 /** Higgins' recommendation for the case: its Case Briefing's recommended action, else Apollo's own short step. */
 function action(e: PatrolEvent): string {
-  const recommended = clean(e.case_briefing?.recommendedAction?.label);
+  const recommended = say(e.case_briefing?.recommendedAction?.label, true);
   if (recommended) return noStop(recommended);
   if (blocked(e)) return "No action needed";
   if (investigating(e)) return "Be careful until Higgins has finished";
   if (clean(e.case_briefing?.verdict ?? e.case_briefing?.status).toLowerCase() === "no scam indicators found") return "No action needed";
-  const step = sentences(clean(e.what_to_do))[0];
+  const step = sentences(say(e.what_to_do, true))[0];
   return step && step.length <= 40 && !looksLikeInternalCode(step) ? noStop(step) : "Be careful";
 }
 
