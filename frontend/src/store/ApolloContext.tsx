@@ -252,6 +252,8 @@ interface ApolloContextValue {
   /** Grant VPN consent (if needed) and start Site Gate, flipping its status immediately. Returns whether consent was granted. */
   enableSiteProtection(): Promise<boolean>;
   events: PatrolEvent[];
+  /** The server's cases are being fetched right now (a case opened from a notification may still be on its way). */
+  casesSyncing: boolean;
   trust: TrustEntry[];
   resolution: StateResolution;
   checkLink(input: string, scentId?: string, options?: LinkCheckOptions): Promise<CheckOutcome>;
@@ -780,6 +782,9 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
       if (st === 'active') {
         const away = backgroundAt ? Date.now() - backgroundAt : Infinity;
         backgroundAt = null;
+        // Cases the server filed while Apollo was away (often the ones its notifications were about).
+        void qc.invalidateQueries({ queryKey: ["patrol"] });
+        void qc.invalidateQueries({ queryKey: ["patrol-removed"] });
         if (away > 60_000) {
           // Meaningful absence (> 60s): full refresh, protection may be stale.
           void refresh(0, "foreground");
@@ -903,7 +908,10 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
 
   // Remote Patrol + trust merge — uses the extracted pure mergeLocalAndRemoteEvents function
   // so the same production logic is exercised by both the app and the regression tests.
-  const remoteEvents = useQuery({ queryKey: ["patrol", deviceId], enabled: !!deviceId, queryFn: () => apiGet<PatrolRecord[]>(`/patrol/records?limit=200`) });
+  // Cases the server files (investigations, mailbox monitoring) arrive while the app is open: fetched again every minute
+  // while it is on screen, each time it comes back, and whenever a notification arrives or is tapped (app/_layout.tsx).
+  const remoteEvents = useQuery({ queryKey: ["patrol", deviceId], enabled: !!deviceId, queryFn: () => apiGet<PatrolRecord[]>(`/patrol/records?limit=200`),
+    refetchInterval: () => (AppState.currentState === "active" ? 60_000 : false) });
   const remoteTrust = useQuery({ queryKey: ["trust", deviceId], enabled: !!deviceId, queryFn: () => apiGet<TrustEntry[]>(`/trust?device_id=${deviceId}`) });
   // Records the server hid as duplicates (e.g. the Check a Number loop's copies). The merge never drops a
   // local-only event, so this device's copies are removed here.
@@ -1991,7 +1999,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
   const value: ApolloContextValue = {
     ready, setupDone, deviceId, identityReset, reRegisterDevice, completeSetup, capabilities, protection, permissions, network, adapterLabel: securityAdapter.label,
     privateDnsStatus,
-    refreshing, refresh, verifyNow, lastVerifiedAt, toggleProtection, requestPermission, enableSiteProtection, events, trust, resolution, checkLink, blockEvent, trustEvent, resolveEvent, reopenEvent, revokeTrust, clearPatrol, requestDataDeletion, trustedSsids, trustNetwork, forgetNetwork, toast, showToast, checkMessage, checkEmail, scanGmailInbox, recordRecovery, upsertEvent, checkCall, checkNumberRisk,
+    refreshing, refresh, verifyNow, lastVerifiedAt, toggleProtection, requestPermission, enableSiteProtection, events, casesSyncing: remoteEvents.isFetching, trust, resolution, checkLink, blockEvent, trustEvent, resolveEvent, reopenEvent, revokeTrust, clearPatrol, requestDataDeletion, trustedSsids, trustNetwork, forgetNetwork, toast, showToast, checkMessage, checkEmail, scanGmailInbox, recordRecovery, upsertEvent, checkCall, checkNumberRisk,
     notificationStatus, enableNotifications, quietHours, quietNow, setQuietHours, lowPower, setLowPower, notificationPreferences, setNotificationPreferences, storage,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

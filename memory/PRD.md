@@ -4690,3 +4690,11 @@ Report: `/app/memory/REPORT_2026-11-01_evidence_retention.md`; proof: `/app/test
   Threat Case, SourceSummaryCard, EvidenceArtefactCard, useKeptIdentifiers, email upgrade) merges all keys, first copy as base.
 - Reports corrected: no 24 h deletion on the phone (REPORT_since_last_publish §5, REPORT_2026-11-01_detection_display_fixes).
 - Tests: frontend 1291/1291, tsc clean; backend 1628 pass, 1 known ("moneysmart").
+
+## Bug fix: notified cases not shown until the app was reopened (2026-11-01) — DONE
+- Cause: `["patrol", deviceId]` (/patrol/records) was fetched once; React Query focus refetch isn't wired to AppState on native,
+  no interval, no invalidation on notifications.
+- Fix: refetch every 60 s while active (`refetchInterval` gated on AppState), invalidate `patrol` + `patrol-removed` on every
+  return to foreground (ApolloContext AppState handler) and on notification received/tapped (`app/_layout.tsx fetchCasesNow`).
+  Threat Case shows "Getting this case…" (`tc-loading`, `casesSyncing`) instead of "no longer available" while fetching.
+- Verified in preview: a case filed 45 s after Home loaded appeared on Home within 60 s without reopening.

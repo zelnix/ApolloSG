@@ -11,7 +11,7 @@ import { incompleteOnly, presentEvent } from "@/src/domain/luddish/present";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Share, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EventActions } from "@/src/components/EventActions";
@@ -499,7 +499,7 @@ export default function ThreatCaseScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
-  const { events, ready, setupDone } = useApollo();
+  const { events, ready, setupDone, casesSyncing } = useApollo();
   const event = events.find((e) => e.event_id === id);
   const investigation = useCaseInvestigation(event);
   const report = useMemo(() => (event ? threatReport(event, investigation) : null), [event, investigation]);
@@ -523,7 +523,12 @@ export default function ThreatCaseScreen() {
           <Pressable onPress={() => goBackOrHome(router)} style={s.backBtn}><ChevronLeft size={24} color={colors.onSurface} /></Pressable>
           <Text style={s.headerTitle}>Threat Case</Text>
         </View>
-        <View style={s.content}><Body>This threat case is no longer available.</Body></View>
+        {casesSyncing || !ready ? (
+          <View style={[s.content, { alignItems: "center", gap: spacing.sm }]} testID="tc-loading">
+            <ActivityIndicator color={colors.brand} />
+            <Body>Getting this case…</Body>
+          </View>
+        ) : <View style={s.content}><Body>This threat case is no longer available.</Body></View>}
       </View>
     );
   }

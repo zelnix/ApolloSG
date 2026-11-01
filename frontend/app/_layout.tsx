@@ -58,7 +58,14 @@ function recordOpened(data: Record<string, unknown> | undefined, url: string | u
   if (key) void apiPostEmpty(`/push/alerts/${encodeURIComponent(decodeURIComponent(key))}/opened`, `opened-${key}`).catch(() => undefined);
 }
 
+/** A notification is usually about a case the server just filed: fetch the cases now so it is on screen. */
+function fetchCasesNow() {
+  void queryClient.invalidateQueries({ queryKey: ["patrol"] });
+  void queryClient.invalidateQueries({ queryKey: ["patrol-removed"] });
+}
+
 function openFromNotification(router: ReturnType<typeof useRouter>, data: Record<string, unknown> | undefined) {
+  fetchCasesNow();
   const url = (data?.deeplink ?? data?.action_url) as string | undefined;
   recordOpened(data, url);
   if (!url) return;
@@ -89,11 +96,13 @@ export default function RootLayout() {
     const tapSub = Notifications.addNotificationResponseReceivedListener((response) => {
       openFromNotification(router, response.notification.request.content.data as Record<string, unknown>);
     });
+    // Arrived while Apollo is open
+    const receivedSub = Notifications.addNotificationReceivedListener(() => fetchCasesNow());
     // Cold start tap (app was killed)
     void Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) openFromNotification(router, response.notification.request.content.data as Record<string, unknown>);
     });
-    return () => { tapSub.remove(); };
+    return () => { tapSub.remove(); receivedSub.remove(); };
   }, [router]);
 
   if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.surface }} />;
