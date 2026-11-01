@@ -217,8 +217,8 @@ async def _from_apollo(owner: str, message: str, plan: context_tools.ContextPlan
     if label == "investigation_explain":
         found = await context_tools.execute(owner, "get_recent_cases")
         return presenter.recent_investigations(found.get("items") or []), label, ["investigation_case_store"]
-    if plan.knowledge_modules or label == "product_info" or context_tools.about_apollo(message):
-        product = presenter.product_knowledge(message, plan.knowledge_modules)
+    if plan.knowledge_modules or label == "product_info" or label == "sharing_help" or context_tools.about_apollo(message):
+        product = presenter.product_knowledge(message, plan.knowledge_modules, intent_label=label)
         if product:
             return product, "product_knowledge", ["apollo_product_knowledge"]
     return None

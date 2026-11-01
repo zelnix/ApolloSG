@@ -71,7 +71,7 @@ const useStyles = makeStyles((c) => ({
   subtitle: { fontFamily: fonts.text, fontSize: 13, color: c.onSurfaceSecondary, marginTop: 2 },
   menuBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
 
-  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md, gap: spacing.sm },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: 120, gap: spacing.sm },
 
   rowHiggins: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, maxWidth: "92%", alignSelf: "flex-start" },
   rowUser: { alignSelf: "flex-end", maxWidth: "88%", alignItems: "flex-end" },

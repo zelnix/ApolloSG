@@ -79,11 +79,14 @@ const WAYFINDING_PATTERNS: PatternRule[] = [
   {
     patterns: [
       /\bwhere\s+(?:is|are|do i|can i|would i|should i|will i)\b/i,
-      /\bhow\s+(?:do|can)\s+i\s+(?:turn|switch|set|enable|disable|connect|disconnect|add|remove|open|find|get to|reach|start|stop|check|change|clear|delete)\b/i,
+      /\bhow\s+(?:do|can)\s+i\s+(?:turn|switch|set|enable|disable|connect|disconnect|add|remove|open|find|get to|reach|start|stop|check|change|clear|delete|share|send|submit|upload)\b/i,
       /\bhow\s+(?:do|can)\s+i\s+\w+\s+(?:it|this|that|them)\s+(?:on|off)\b/i,
       /\b(?:take|bring|send|get)\s+me\s+to\b/i,
       /\b(?:show|open)\s+(?:me\s+)?(?:my|the)\s+\w+/i,
       /\bwhich\s+screen\b/i,
+      /\bhow\s+(?:do|can|to)\s+i?\s*(?:share|send|submit|add|upload|get|put)\s+(?:\w+\s+)?(?:into|to|in|for|with)\s+(?:apollo|the app)/i,
+      /\b(?:apollo|it)(?:'s| is)\s+not\s+(?:in|on|showing)\s+(?:my\s+)?(?:share|sharing)\s+menu/i,
+      /\bnot\s+in\s+(?:my\s+)?(?:share|sharing)\s+menu/i,
     ],
     route: "ask_higgins",
     confidence: 0.9,

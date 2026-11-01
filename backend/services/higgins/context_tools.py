@@ -278,10 +278,29 @@ _SETTINGS_RE = re.compile(
     r"|(?:quiet\s+hours|battery\s+saver|notification)"
     r"|(?:family|email\s+account)"
 )
+# ── Sharing / product-help intent (must outrank privacy and product_info) ──────
+_SHARING_HELP_RE = re.compile(
+    r"(?i)(?:how\s+(?:do|can|to)\s+i?\s*(?:share|send|submit|add|upload|get|put))\s+(?:\w+\s+){0,3}(?:into|to|in|for|with)\s+(?:apollo|the app)"
+    r"|(?:(?:share|send|submit|add|upload)\s+(?:a\s+|an\s+|my\s+|some\s+|the\s+)?(?:message|screenshot|link|email|file|photo|picture|image|something|thing|stuff|content|item)\s+(?:into|to|in|for|with)\s+(?:apollo|the app))"
+    r"|(?:(?:share|send)\s+(?:into|to|from|with)\s+(?:apollo|another\s+app))"
+    r"|(?:can\s+i\s+(?:share|send|submit)\s+(?:\w+\s+)?(?:from\s+(?:another|a|the)\s+app|to\s+(?:apollo|the app)))"
+    r"|(?:(?:apollo(?:\s?sg)?|it)(?:'s| is)\s+not\s+(?:in|on|showing)\s+(?:my\s+)?(?:share|sharing)\s+menu)"
+    r"|(?:(?:apollo(?:\s?sg)?)\s+isn.t\s+(?:in|on|showing)\s+(?:my\s+)?(?:share|sharing)\s+menu)"
+    r"|(?:not\s+in\s+(?:my\s+)?(?:share|sharing)\s+menu)"
+    r"|(?:how\s+(?:do|can|to)\s+i?\s*get\s+(?:something|things?|stuff|content|it)\s+into\s+(?:apollo|the app))"
+    r"|(?:share\s+menu)"
+    r"|(?:how\s+(?:do|can)\s+i\s+(?:send|share)\s+(?:apollo|higgins)\s+(?:a\s+)?(?:screenshot|message|link|email|file|photo|picture|image))"
+)
 _PRIVACY_RE = re.compile(
-    r"(?i)(?:privacy|data|store|collect|track|share|send|upload|keep|retain|delete|erase|gdpr|personal\s+data|personal\s+information)"
-    r"|(?:what\s+(?:does|do)\s+(?:apollo|you|higgins)\s+(?:store|collect|keep|know|send|share|track))"
-    r"|(?:(?:my|our|user)\s+data)"
+    r"(?i)(?:\bprivacy\b|personal\s+(?:data|information)|gdpr)"
+    r"|(?:what\s+(?:does|do|will|would|can)\s+(?:apollo\s?(?:sg)?|you|higgins|it|the app)\s+(?:store|collect|keep|know|send|share|track|upload|retain|delete|do with))"
+    r"|(?:what\s+(?:info(?:rmation)?|data)\s+(?:does|do|will|would|can)\s+(?:apollo\s?(?:sg)?|you|higgins|it|the app)\s+(?:share|send|collect|store|keep|upload|retain|delete))"
+    r"|(?:(?:my|our|user)\s+data\b)"
+    r"|(?:(?:does|do|is|will)\s+(?:anything|data|info(?:rmation)?|my (?:data|info(?:rmation)?))\s+(?:leave|get sent|go to|stay on|get shared|get uploaded|stored|deleted|retained|kept))"
+    r"|(?:(?:who|what|where)\s+(?:can|does|do|will)\s+(?:see|access|read|get)\s+(?:my|the|our|what I)\s+(?:data|info(?:rmation)?|message|screenshot|file|content|share))"
+    r"|(?:(?:is|are)\s+(?:my\s+)?(?:data|messages?|files?|screenshots?|conversations?|sharing)\s+(?:private|secure|encrypted|safe|shared|sent|stored|deleted|retained))"
+    r"|(?:(?:data|info(?:rmation)?)\s+(?:retention|deletion|collection|storage|sharing|privacy))"
+    r"|(?:(?:how long|when)\s+(?:(?:is|are)\s+)?(?:my\s+)?(?:data|info(?:rmation)?|messages?|conversations?)\s+(?:stored|kept|retained|deleted))"
 )
 _FLOWS_RE = re.compile(
     r"(?i)(?:how\s+(?:does|do)\s+(?:checks?|triage|investigation|escalation|sharing|screening)\s+work)"
@@ -333,8 +352,15 @@ def classify_context(message: str, *, has_selected_patrol_record: bool = False) 
         if "settings_detail" not in modules:
             modules.append("settings_detail")
 
-    # Privacy
-    if _PRIVACY_RE.search(msg):
+    # Sharing / product-help intent (must outrank privacy and product-info)
+    if _SHARING_HELP_RE.search(msg):
+        routes.append("checks")
+        if "flows" not in modules:
+            modules.append("flows")
+        # Do NOT add privacy — this is a procedural question
+
+    # Privacy (only when the question has genuine privacy/data semantics)
+    elif _PRIVACY_RE.search(msg):
         if "privacy" not in modules:
             modules.append("privacy")
         if "settings" not in routes:
@@ -407,6 +433,11 @@ def classify_context(message: str, *, has_selected_patrol_record: bool = False) 
     if _PRODUCT_INFO_RE.search(msg):
         return ContextPlan(["get_product_capabilities"], "product_info",
                            knowledge_modules=modules, route_groups=routes)
+
+    # Sharing help: high-priority, returns early with just the sharing intent
+    if _SHARING_HELP_RE.search(msg):
+        return ContextPlan([], "sharing_help",
+                           knowledge_modules=["flows"], route_groups=["checks"])
 
     return ContextPlan([], "general_knowledge",
                        knowledge_modules=modules, route_groups=routes)

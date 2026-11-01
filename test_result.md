@@ -4037,3 +4037,80 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "SAMPLE CHECK PROVENANCE & ALERT SELECTION TESTING COMPLETE ✅ - ALL 58 TESTS PASSED. (1) test_sample_check_provenance.py: 15/15 PASSED - Sample Check origin 'sample_check' is provenance not processing mode, KB isolation working (sample_check excluded from contributions), protection state isolation working (sample_check excluded from state machine), no sample-specific scoring in triage/analysis, gate screens don't use simulation.* for samples, email samples implemented, three-way distinction (real/sample_check/simulated) verified, sample labels don't become evidence. (2) test_alert_selection_rules.py: 33/33 PASSED - News exclusion, freshness rules, verified ongoing keywords, growl eligibility, severity not inflated by advice, overseas news excluded, Australian warnings appear, global threats appear, preparedness exclusion all working correctly. (3) test_scam_analysis.py: 10/10 PASSED - Deterministic analysis, pre-filter, and growl rules all working correctly. (4) Backend health: GET /api/health returns 200 with correct schema. Backend logs show no errors, service running cleanly. All key areas tested and verified: Sample Check provenance implementation is correct, KB isolation working, protection state isolation working, no sample-specific scoring, gate screens use catalogue not simulation, email samples exist, three-way distinction maintained, sample labels don't become evidence. READY FOR MAIN AGENT TO SUMMARIZE AND FINISH."
+
+
+
+## 2026-11-01 Regression Test Verification — Higgins Intent, Alert Selection, Scam Analysis, Sample Check Provenance
+
+backend:
+  - task: "Higgins intent tests (26 tests)"
+    implemented: true
+    working: true
+    file: "backend/tests/test_higgins_intent.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 26 Higgins intent tests PASSED. (1) Privacy Still Works (6 tests): what_does_apollo_share, what_does_apollo_store, does_data_leave_device, who_can_see_my_data, is_my_data_private, personal_data - all passed. (2) Sharing Intent Classification (7 tests): share_into_apollo_is_sharing_help, send_screenshot_is_sharing_help, share_from_another_app, share_to_apollo, how_to_get_into_apollo, not_in_share_menu, send_message_to_apollo - all passed. (3) Privacy Regex Context Sensitive (5 tests): share_alone_no_privacy, send_alone_no_privacy, upload_alone_no_privacy, share_with_privacy_context_matches, data_retention_matches - all passed. (4) Sharing Help Presenter (4 tests): sharing_answer_is_concise, sharing_answer_has_navigation, troubleshoot_answer, screenshot_answer - all passed. (5) Direct Answer First (2 tests): sharing_answer_starts_with_procedure, procedural_answer_no_unrelated_privacy - all passed. (6) Navigation For Sharing (1 test): sharing_navigates_to_message - passed. (7) Product Knowledge Selects Minimum (1 test): flows_not_fully_dumped - passed. All privacy, sharing intent, and direct answer behaviors working correctly."
+
+  - task: "Alert selection rules tests (33 tests)"
+    implemented: true
+    working: true
+    file: "backend/tests/test_alert_selection_rules.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 33 alert selection rules tests PASSED. (1) Freshness Rules (6 tests): recent_alert_is_eligible, old_alert_without_ongoing_excluded, old_alert_with_verified_ongoing_stays, undated_without_ongoing_excluded, undated_with_ongoing_included, rechecking_old_article_not_current - all passed. (2) News Exclusion (5 tests): sentencing_headline_is_news, russian_actor_arrest_is_news, farm_equipment_prosecution_is_news, prosecution_with_active_warning_is_still_alert, news_is_not_general_education - all passed. (3) Verified Ongoing Keywords (3 tests): active_in_advice_not_verified, active_in_navigation_not_verified, active_in_threat_description_verified, historical_quote_not_verified - all passed. (4) Growl Uses Eligibility (4 tests): eligible_high_growls, ineligible_old_does_not_growl, education_never_growls, news_never_growls - all passed. (5) Severity Not Inflated By Advice (3 tests): immediately_report_is_not_extreme, immediately_contact_is_not_extreme, genuine_urgent_threat_can_be_extreme - all passed. (6) Australian Warnings Still Appear (3 tests): scamwatch_consumer_warning, au_source_defaults_to_au_relevant, au_source_applies_in_au - all passed. (7) Overseas News Excluded (3 tests): us_sentencing_not_everywhere, overseas_scam_without_au_mention, unknown_relevance_stays_out - all passed. (8) Verified Global Threats Appear (3 tests): global_phishing_campaign, global_romance_scam, overseas_source_mentioning_australia - all passed. (9) Preparedness Exclusion (2 tests): preparedness_headline_is_education, preparedness_with_active_alert_stays_alert - all passed. All alert selection rules working correctly."
+
+  - task: "Scam analysis tests (10 tests)"
+    implemented: true
+    working: true
+    file: "backend/tests/test_scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 10 scam analysis tests PASSED. (1) Deterministic Analysis (4 tests): unclear_item_is_safe_education, organisation_advisory_is_never_a_consumer_alert, active_consumer_warning_quotes_the_source, sections_only_hold_the_sources_own_sentences - all passed. (2) Growl Rule (4 tests): confirmed_au_high_with_ongoing_growls, confirmed_au_high_without_ongoing_does_not_growl, education_never_growls, overseas_potential_without_date_does_not_growl - all passed. (3) Pre Filter (2 tests): fragment_urls_and_nav_titles_are_not_alerts, real_alert_titles_pass - all passed. All scam analysis deterministic rules and growl logic working correctly."
+
+  - task: "Sample check provenance tests (15 tests)"
+    implemented: true
+    working: true
+    file: "backend/tests/test_sample_check_provenance.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 15 sample check provenance tests PASSED. (1) Sample Check Origin Propagation (2 tests): sample_check_is_valid_origin, origin_does_not_affect_analysis - both passed. (2) Sample Check Provenance Distinction (2 tests): provenance_values_are_distinct, sample_check_is_not_simulated - both passed. (3) Sample Check Not Forcing Verdict (2 tests): analysis_ignores_description_field, sample_name_does_not_become_evidence - both passed. (4) Sample Check Telemetry Isolation (2 tests): sample_check_label_survives_display, sample_check_distinct_from_simulated - both passed. (5) Sample Check Pipeline Integrity (2 tests): no_sample_check_exception_in_triage, no_sample_check_exception_in_scam_analysis - both passed. (6) Sample Check KB Isolation (1 test): sample_check_origin_excludes_kb_contribution - passed. (7) Sample Check Protection State Isolation (1 test): sample_check_excluded_from_state_machine_comment - passed. (8) Sample Check Related Cases Isolation (1 test): sample_origin_recorded_on_case - passed. (9) Sample Check Catalogue Is Authoritative (1 test): gate_screens_do_not_use_simulation_for_samples - passed. (10) Email Sample Check Implementation (1 test): email_samples_exist_or_catalogue_is_clean - passed. All sample check provenance isolation and integrity tests working correctly."
+
+  - task: "Backend health endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: GET /api/health returns 200 OK with correct schema: {schemaVersion: 1, status: 'ok', service: 'apollo-v1', checkedAt: '2026-11-01T13:47:13.752548+00:00'}. Backend service running cleanly."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Regression test verification complete"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "REGRESSION TEST VERIFICATION COMPLETE ✅ - ALL 84 TESTS PASSED. Executed: cd /app/backend && python -m pytest tests/test_higgins_intent.py tests/test_alert_selection_rules.py tests/test_scam_analysis.py tests/test_sample_check_provenance.py -v. Results: (1) test_higgins_intent.py: 26/26 PASSED - Privacy still works (6), Sharing intent classification (7), Privacy regex context sensitive (5), Sharing help presenter (4), Direct answer first (2), Navigation for sharing (1), Product knowledge selects minimum (1). (2) test_alert_selection_rules.py: 33/33 PASSED - Freshness rules (6), News exclusion (5), Verified ongoing keywords (4), Growl uses eligibility (4), Severity not inflated by advice (3), Australian warnings still appear (3), Overseas news excluded (3), Verified global threats appear (3), Preparedness exclusion (2). (3) test_scam_analysis.py: 10/10 PASSED - Deterministic analysis (4), Growl rule (4), Pre filter (2). (4) test_sample_check_provenance.py: 15/15 PASSED - Sample check origin propagation (2), Provenance distinction (2), Not forcing verdict (2), Telemetry isolation (2), Pipeline integrity (2), KB isolation (1), Protection state isolation (1), Related cases isolation (1), Catalogue is authoritative (1), Email sample check implementation (1). (5) GET /api/health: 200 OK with correct schema. Test execution time: 2.29s with 2 warnings (PendingDeprecationWarning for multipart import - not critical). NO REGRESSIONS DETECTED. All key test areas verified: Higgins intent and privacy behaviors, alert selection rules, scam analysis deterministic logic, sample check provenance isolation. Backend service healthy and stable."

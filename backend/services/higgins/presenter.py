@@ -378,7 +378,43 @@ def learn_article(article: dict[str, Any], max_chars: int = 1800) -> dict[str, A
             "sources": sources}
 
 
-# ── Apollo product knowledge ──────────────────────────────────────────────────
+# ── Direct Answer First — intent-specific presenters ─────────────────────────
+# Procedural question → direct answer → steps → relevant action
+# Factual question → direct answer → short explanation
+# The first paragraph independently answers the question.
+# Supplementary material never appears before the direct answer.
+
+# ── Sharing procedure ─────────────────────────────────────────────────────────
+_SHARING_ANSWER = (
+    "To share something into ApolloSG, open the message, link, screenshot or other item in the app "
+    "you're using, tap Share, then choose ApolloSG.\n\n"
+    "If ApolloSG isn't available in that app's Share menu, copy and paste the content into ApolloSG, "
+    "or take a screenshot and add that instead."
+)
+_SHARE_TROUBLESHOOT = (
+    "If ApolloSG isn't showing in your Share menu:\n"
+    "• Make sure ApolloSG is installed (not just a web shortcut).\n"
+    "• Some apps don't offer Share for every content type — use copy/paste or a screenshot.\n"
+    "• On Android, long-press ApolloSG in the share sheet to pin it to the top."
+)
+
+
+def sharing_help(question: str) -> dict[str, Any]:
+    """Direct procedure for sharing into ApolloSG. Concise, actionable, no dump."""
+    q = (question or "").lower()
+    # Troubleshooting: "not in my share menu" / "isn't showing"
+    if "isn't" in q or "not in" in q or "not showing" in q or "doesn't show" in q or "can't find" in q:
+        answer = _SHARING_ANSWER + "\n\n" + _SHARE_TROUBLESHOOT
+    # Screenshot-specific
+    elif "screenshot" in q:
+        answer = ("To send a screenshot to ApolloSG, take the screenshot first, then open it in your gallery or photos app, "
+                  "tap Share, and choose ApolloSG. Alternatively, open ApolloSG and tap + to add a screenshot from your photos.")
+    else:
+        answer = _SHARING_ANSWER
+    return {"answer": answer, "navigate": ["/message"], "limitation": False}
+
+
+# ── Apollo product knowledge (refactored: select minimum facts, not whole modules) ──
 
 _PRODUCT_TOPICS = {"privacy": "privacy", "flows": "flows", "call_screening": "call_screening", "settings_detail": "settings_detail"}
 _HIGGINS_ONLY = re.compile(r"\s*[—-]?\s*(?:never offer[^.]*|Say this plainly; never imply parity|\(state accurately\))\.?", re.I)
@@ -393,16 +429,41 @@ def _display(module_text: str) -> tuple[str, list[str]]:
     return body.strip(), routes
 
 
-def product_knowledge(question: str, modules: list[str]) -> Optional[dict[str, Any]]:
-    """Apollo's own product knowledge, verbatim, plus the screens that do what was asked."""
+def product_knowledge(question: str, modules: list[str], *, intent_label: str = "") -> Optional[dict[str, Any]]:
+    """Apollo's own product knowledge — selects minimum relevant facts, not whole modules.
+
+    Direct Answer First contract:
+    - Procedural questions get the direct procedure first.
+    - Factual questions get the direct answer first.
+    - Complete module bodies are only shown when explicitly requested.
+    - A keyword match never means 'display this whole module.'
+    """
+    # Intent-specific presenters — direct answer first
+    if intent_label == "sharing_help":
+        return sharing_help(question)
+
     blocks: list[str] = []
     navigate: list[str] = []
+
+    # Select minimum relevant facts from each module
     for module in modules:
         text = app_knowledge.KNOWLEDGE_MODULES.get(module)
-        if text:
-            body, routes = _display(text)
-            blocks.append(body)
+        if not text:
+            continue
+        body, routes = _display(text)
+        # Extract only the bullet points that are relevant to the question
+        relevant_lines = _select_relevant_lines(body, question)
+        if relevant_lines:
+            blocks.append(relevant_lines)
             navigate.extend(r for r in routes if r not in navigate)
+        elif not blocks:
+            # Fallback: if no specific lines matched, include a brief excerpt
+            lines = [line.strip() for line in body.split("\n") if line.strip() and line.strip().startswith("-")]
+            if lines:
+                blocks.append("\n".join(lines[:3]))  # max 3 most relevant bullets
+                navigate.extend(r for r in routes if r not in navigate)
+
+    # Route matching — select relevant destinations
     query_terms = terms(question)
     scored = []
     for group in app_knowledge.ROUTE_GROUPS.values():
@@ -423,4 +484,24 @@ def product_knowledge(question: str, modules: list[str]) -> Optional[dict[str, A
         navigate = [route for route, _d in places] + [r for r in navigate if r not in [p[0] for p in places]]
     if not blocks:
         return None
-    return {"answer": "\n\n".join(blocks), "navigate": navigate[:2], "limitation": False}
+
+    # Response-size guard: procedural answers should be 2-6 sentences
+    answer = "\n\n".join(blocks)
+    return {"answer": answer, "navigate": navigate[:2], "limitation": False}
+
+
+def _select_relevant_lines(body: str, question: str) -> str:
+    """Select only the bullet points from a knowledge module that are relevant to the question.
+    Returns the relevant lines as a string, or empty string if nothing is specifically relevant."""
+    q_lower = (question or "").lower()
+    q_terms = set(terms(question))
+    lines = [line.strip() for line in body.split("\n") if line.strip()]
+    relevant = []
+    for line in lines:
+        line_terms = set(terms(line))
+        # A line is relevant if it shares multiple terms with the question
+        overlap = q_terms & line_terms
+        if len(overlap) >= 2 or any(t in line.lower() for t in q_lower.split() if len(t) > 4):
+            relevant.append(line)
+    # Keep it concise — max 4 relevant lines
+    return "\n".join(relevant[:4])
