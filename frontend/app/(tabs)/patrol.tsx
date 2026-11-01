@@ -28,7 +28,11 @@ import Shield from "lucide-react-native/icons/shield";
 import Smartphone from "lucide-react-native/icons/smartphone";
 import UsersRound from "lucide-react-native/icons/users-round";
 import React, { useMemo, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { NewBadge } from "@/src/components/NewBadge";
+import { DeleteConfirmSheet, SelectBox, SelectionBar } from "@/src/components/CaseSelection";
+import { countLabel, deletionSet } from "@/src/domain/caseDelete";
+import { useNewCases } from "@/src/hooks/useNewCases";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -184,7 +188,9 @@ const useStyles = makeStyles((c) => ({
 
 // ── Threat Card ──────────────────────────────────────────────────────────────
 
-function ThreatCard({ event, onPress }: { event: PatrolEvent; onPress: () => void }) {
+function ThreatCard({ event, isNew, onPress, selecting = false, selected = false }: {
+  event: PatrolEvent; isNew: boolean; onPress: () => void; selecting?: boolean; selected?: boolean;
+}) {
   const s = useStyles();
   const { colors } = useTheme();
   const status = threatCaseStatus(event);
@@ -196,16 +202,19 @@ function ThreatCard({ event, onPress }: { event: PatrolEvent; onPress: () => voi
   const statusColor = STATUS_COLORS[status];
 
   return (
-    <Pressable style={({ pressed }) => [s.card, { opacity: pressed ? 0.85 : 1 }]} onPress={onPress} accessibilityRole="button" testID={`threat-card-${event.event_id}`}>
+    <Pressable style={({ pressed }) => [s.card, selected ? { borderColor: colors.brand, borderWidth: 2 } : null, { opacity: pressed ? 0.85 : 1 }]} onPress={onPress}
+      accessibilityRole={selecting ? "checkbox" : "button"} accessibilityState={selecting ? { checked: selected } : undefined} testID={`threat-card-${event.event_id}`}>
       {/* Same shape as the Home cards: icon, time and status on one compact row, the words beneath
           at full card width, and the action at the bottom right. */}
       <View style={s.cardTopRow}>
+        {selecting ? <SelectBox selected={selected} testID={`threat-card-${event.event_id}-select`} /> : null}
         <View style={[s.cardIcon, { backgroundColor: si.bg }]}>
           <IconEl size={16} color={si.fg} />
         </View>
         <Text style={s.cardMeta} numberOfLines={1} testID={`threat-card-${event.event_id}-meta`}>
           {si.label} · {formatDateTime(event.occurred_at)}
         </Text>
+        {isNew ? <NewBadge testID={`threat-card-${event.event_id}-new`} /> : null}
         {isSimulated(event) ? <Pill compact label="Simulated" testID={`threat-card-${event.event_id}-simulated`} /> : null}
         <View style={[s.statusPill, { backgroundColor: statusColor.bg }]}>
           <Text style={[s.statusPillText, { color: statusColor.text }]}>{STATUS_LABELS[status]}</Text>
@@ -219,10 +228,12 @@ function ThreatCard({ event, onPress }: { event: PatrolEvent; onPress: () => voi
       <SettledByBadge event={event} testID={`threat-card-${event.event_id}-settled`} />
       <View style={s.cardFooter}>
         <Text style={s.cardCaseId}>{threatCaseId(event)}</Text>
-        <View style={s.cardAction}>
-          <Text style={s.cardActionText}>View threat</Text>
-          <ChevronRight size={14} color={colors.brand} />
-        </View>
+        {selecting ? null : (
+          <View style={s.cardAction}>
+            <Text style={s.cardActionText}>View threat</Text>
+            <ChevronRight size={14} color={colors.brand} />
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -253,7 +264,14 @@ export default function ThreatsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { events, lastVerifiedAt } = useApollo();
+  const { events, lastVerifiedAt, refreshCases, deleteCases, showToast } = useApollo();
+  const isNew = useNewCases();
+  // Pull down to fetch the newest cases now.
+  const [pulling, setPulling] = useState(false);
+  const onPull = () => {
+    setPulling(true);
+    void refreshCases().catch(() => undefined).finally(() => setPulling(false));
+  };
   // Preview only: which kind of sample is being chosen (the kind sheet opens first).
   const [kindPicker, setKindPicker] = useState(false);
   const [sampleKind, setSampleKind] = useState<SampleKind | null>(null);
@@ -302,6 +320,25 @@ export default function ThreatsScreen() {
   }, [threatCases, activeFilter, sortOrder]);
 
   const toggleSort = () => setSortOrder((prev) => NEXT_SORT[prev]);
+
+  // Choosing cases to delete: each row is a whole case; "Select all" means every case the filter shows.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const chosen = useMemo(() => filtered.filter((e) => selected.has(e.event_id)), [filtered, selected]);
+  const records = useMemo(() => deletionSet(events, chosen, true).eventIds.length, [events, chosen]);
+  const stopSelecting = () => { setSelecting(false); setSelected(new Set()); setConfirming(false); };
+  const toggle = (id: string) => setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleAll = () => setSelected(chosen.length === filtered.length ? new Set() : new Set(filtered.map((e) => e.event_id)));
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const { ok } = await deleteCases(chosen, true);
+      if (ok) { showToast(`Deleted ${countLabel(chosen.length, "case")} from this phone and ApolloSG's server.`, "neutral"); stopSelecting(); }
+      else setConfirming(false);
+    } finally { setDeleting(false); }
+  };
 
   // Preview only: the chosen sample opens its own gate screen, which runs it through that gate's real check and
   // shows production's own result. Apollo's rules decide whether a Threat Case opens; nothing is pre-made.
@@ -388,7 +425,17 @@ export default function ThreatsScreen() {
           <Text style={s.sortText}>{SORT_LABEL[sortOrder]}</Text>
           <ChevronDown size={16} color={colors.onSurface} />
         </Pressable>
+        {!selecting && threatCases.length ? (
+          <Pressable style={s.sortBtn} onPress={() => { setFilterOpen(false); setSelecting(true); }} accessibilityRole="button"
+            accessibilityLabel="Choose cases to delete" testID="threats-select">
+            <Text style={s.sortText}>Select</Text>
+          </Pressable>
+        ) : null}
       </View>
+      {selecting ? (
+        <SelectionBar count={chosen.length} total={filtered.length} onToggleAll={toggleAll} onCancel={stopSelecting}
+          onDelete={() => setConfirming(true)} testID="threats-selection" />
+      ) : null}
 
       {/* Filter dropdown */}
       {filterOpen ? (
@@ -421,12 +468,17 @@ export default function ThreatsScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.event_id}
+        extraData={selected}
         renderItem={({ item }) => (
           <ThreatCard
             event={item}
-            onPress={() => router.push(`/patrol/${item.event_id}`)}
+            isNew={isNew(item)}
+            selecting={selecting}
+            selected={selected.has(item.event_id)}
+            onPress={() => (selecting ? toggle(item.event_id) : router.push(`/patrol/${item.event_id}`))}
           />
         )}
+        refreshControl={<RefreshControl refreshing={pulling} onRefresh={onPull} tintColor={colors.brand} colors={[colors.brand]} />}
         ListEmptyComponent={
           <Text style={s.emptyText}>
             {activeFilter === "all"
@@ -437,6 +489,9 @@ export default function ThreatsScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}
         testID="threats-list"
       />
+
+      <DeleteConfirmSheet visible={confirming} count={chosen.length} records={records} noun="case" busy={deleting}
+        onConfirm={() => void confirmDelete()} onClose={() => setConfirming(false)} testID="threats-delete-confirm" />
 
       <SourcePickerSheet
         visible={kindPicker}

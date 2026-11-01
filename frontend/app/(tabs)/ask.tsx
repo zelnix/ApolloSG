@@ -489,7 +489,8 @@ export default function Ask() {
       if (result.category === "websites_links") {
         submissions.push({ clientItemId: Crypto.randomUUID(), kind: "url", value: result.textContent, label: "URL" });
       } else {
-        submissions.push({ clientItemId: Crypto.randomUUID(), kind: "text", value: result.textContent, label: result.category.replace("_", " ") });
+        // Named for what it is, never for the category it was chosen under ("messages calls" read as the message itself).
+        submissions.push({ clientItemId: Crypto.randomUUID(), kind: "text", value: result.textContent, label: "submitted message" });
       }
     }
 

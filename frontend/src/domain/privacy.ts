@@ -7,7 +7,7 @@ import type { ApolloState } from './types';
 // User-submitted content may leave the device only for the disclosed, one-off assessment the user
 // requested. It must not be copied into Patrol payloads, logs, analytics, or background monitoring.
 
-export type EgressEndpoint = "intel_check" | "patrol_sync" | "trust_sync" | "ask_apollo" | "higgins_chat" | "higgins_context" | "capability_snapshot" | "device_register" | "push_register" | "push_preferences" | "device_posture" | "family" | "device_settings" | "message_check" | "link_investigation" | "feedback" | "gmail_scan" | "gmail_monitor" | "app_check" | "account_check" | "breach_check" | "account_monitor" | "voice" | "call_risk_check" | "number_details" | "call_investigate" | "investigation" | "vision_investigate" | "message_investigation" | "call_investigation" | "number_risk_investigation" | "device_activity" | "triage_telemetry" | "email_evidence" | "official_contacts" | "patrol_saved";
+export type EgressEndpoint = "intel_check" | "patrol_sync" | "trust_sync" | "ask_apollo" | "higgins_chat" | "higgins_context" | "capability_snapshot" | "device_register" | "push_register" | "push_preferences" | "device_posture" | "family" | "device_settings" | "message_check" | "link_investigation" | "feedback" | "gmail_scan" | "gmail_monitor" | "app_check" | "account_check" | "breach_check" | "account_monitor" | "voice" | "call_risk_check" | "number_details" | "call_investigate" | "investigation" | "vision_investigate" | "message_investigation" | "call_investigation" | "number_risk_investigation" | "device_activity" | "triage_telemetry" | "email_evidence" | "official_contacts" | "patrol_saved" | "patrol_delete";
 
 const ALLOWED_KEYS: Record<EgressEndpoint, Set<string>> = {
   family: new Set(["device_id", "url", "email", "name", "owner_name", "code", "reply", "phone", "protected_device_id", "scent_id", "headline", "state", "events", "steps", "done", "note", "resolved", "kind", "text", "from_name", "enabled", "preview_only", "guardian_name", "duration_s", "submission_id", "relationshipId", "sharerDeviceId", "captureScope", "microphoneRequested", "clientRequestId", "decision", "helperDeviceId", "expectedRevision", "generation", "nativeState", "failureCode",
@@ -20,6 +20,8 @@ const ALLOWED_KEYS: Record<EgressEndpoint, Set<string>> = {
     "saved"]),
   // The Threats records this phone saved with their text: their ids only.
   patrol_saved: new Set(["eventIds"]),
+  // Cases the person deleted on this phone, so the server deletes its copies too: their ids only.
+  patrol_delete: new Set(["eventIds", "caseIds"]),
   // Higgins' voice: only the sentence already shown on screen, so it can be read aloud.
   voice: new Set(["device_id", "text", "scope_id"]),
   feedback: new Set(["device_id", "event_id", "kind", "state", "host", "sources", "note"]),

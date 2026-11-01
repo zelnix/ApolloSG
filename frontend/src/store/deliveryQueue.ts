@@ -110,6 +110,14 @@ export class DeliveryQueue {
     });
   }
   resume(deviceId: string) { this.paused.delete(deviceId); }
+  /** The person deleted these events: nothing pending for them is sent, and they are never queued again. */
+  async forget(deviceId: string, eventIds: string[]) {
+    await this.serial(async () => {
+      const j = await this.load(); j.cleared ??= {};
+      for (const id of eventIds) { const key = `${deviceId}:${id}`; j.cleared[key] = true; delete j.receipts[key]; delete j.pending[key]; }
+      await this.save(j);
+    });
+  }
 }
 
 function ackMatches(payload: Payload, ack: Payload, deviceId: string) {

@@ -54,6 +54,7 @@ import { FamilyNotes } from "@/src/components/FamilyNotes";
 import { comparableChecks, compareDeviceChecks, type DeviceCheckProgress } from "@/src/domain/deviceCheckProgress";
 import { getInvestigation, type DeviceInvestigation } from "@/src/investigation/deviceStore";
 import { getCaseOriginal, getOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { markCaseSeen } from "@/src/store/seenCases";
 import { goBackOrHome } from "@/src/utils/navigation";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -513,6 +514,9 @@ export default function ThreatCaseScreen() {
     void getCaseOriginal([id, investigationId]).then((o) => { if (active) setOriginal(o); }).catch(() => undefined);
     return () => { active = false; };
   }, [id, investigationId]);
+  // Opening a case clears its "New" mark.
+  const openedId = event?.event_id;
+  useEffect(() => { if (openedId) void markCaseSeen(openedId); }, [openedId]);
 
   if (ready && !setupDone) return <Redirect href="/onboarding" />;
 

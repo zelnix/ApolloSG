@@ -1222,7 +1222,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 - **The note on each result.** Every saved result says when its pictures and files were removed from ApolloSG's server, or the latest time they will leave it. Results saved before this note existed say only that they have left, once 24 hours have passed.
 - **Ask Higgins:** the question and answer for 5 minutes, then a receipt with no content for 30 days (see Ask Higgins).
 - **What Higgins remembers between chats:** a recent result for 7 days, protection status for 1 hour, a preference for 90 days, a goal for 30 days and a permission for 1 day. At most 25 of each kind and 100 in all.
-- **Threats records:** fixed wording and a domain only (see Privacy and redaction). Kept until the person clears the Threats history, which hides them, or deletes all their data, which deletes them.
+- **Threats records:** fixed wording and a domain only (see Privacy and redaction). Kept until the person deletes them (see Deleting chosen cases), clears the Threats history, which hides them, or deletes all their data, which deletes them.
 - **Remembered gate results:** a possible threat for 30 days and no threat for 7 days, kept against a fingerprint (a one-way code) of what was checked.
 - **TC FlyBy's search answers:** 7 days for something found and 1 day for nothing found, filed under what was looked up (a one-way code for a phone number or email address). They are shared, never tied to the person who asked, and deleted 90 days after they expire (see Reusable intelligence).
 - **Trusted links:** until the person removes the link.
@@ -1238,6 +1238,13 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 **Deleting everything**
 - **Settings → What ApolloSG stores → Delete My ApolloSG Data** first wipes everything ApolloSG keeps on the phone. It then deletes everything the server holds for this phone, in 7 groups: Higgins conversations, Investigations & saved reports, Patrol activity & records, Trusted links, Email & account monitoring, Family links & guardians, and Diagnostics & app signals. Last, it removes the phone's identity, so ApolloSG starts again as a new anonymous device.
 - The same screen counts what the server holds in each group before anything is deleted.
+
+**Deleting chosen cases**
+- **Threats → Select** and **Patrol history → Select** put a tick on each row, with **Select all** (every row the screen shows) and **Delete (N)**. Nothing is deleted until the person confirms "Delete N cases?" / "Delete N records?".
+- On Threats each row is a whole case: every check filed against it and every record of the investigations behind it. On Patrol history each chosen record goes, with every record of the investigations it was part of.
+- The server deletes its copies first: the Patrol events and records, each linked investigation (its evidence, uploads, jobs, turns, the copy held for the phone, saved reports, Magnum DI transactions, its Triage record and case history), family-shared copies and notes, and alerts held for the end of quiet hours. Only then does the phone delete its own: the case, the original kept with it, its pictures and .eml files, report progress and the investigation result saved on the phone. Offline, nothing is deleted on either side.
+- The phone sends only the ids of what was chosen. A deleted record leaves a marker holding only its id, its device and the reason, so a late copy from the phone's delivery queue is never stored again.
+- Kept: usage and cost records (no content) and ApolloSG's previous-report marks (one-way codes). The message in the person's own Messages or email app is never touched.
 
 ### Phone permissions {#permissions}
 

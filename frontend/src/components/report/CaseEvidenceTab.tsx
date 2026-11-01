@@ -201,7 +201,7 @@ export function CaseEvidenceTab({ event, investigation, facts, footer }: {
       <EvidenceArtefactCard caseKeys={[event.event_id, event.investigation_case_id, event.patrol_record?.investigationCaseId]}
         packTitle={event.headline} packDate={event.occurred_at} phones={event.evidence_phones}
         packSummary={{ overview: event.what_happened || null, findings: event.why ?? [], steps: event.what_to_do ? [event.what_to_do] : [], uncertainties: [] }}
-        testID="tc-evidence-artefact" />
+        showMissing testID="tc-evidence-artefact" />
       <CaseEvidenceProfile event={event} />
 
       {/* 3. Evidence trail — only the stages that happened. */}

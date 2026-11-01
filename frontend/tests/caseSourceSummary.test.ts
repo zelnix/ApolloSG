@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { detectionFacts, originHeading, previewFromEvent, previewFromEvidence, previewFromOriginal, shortenMiddle, withoutLinks } from "../src/domain/caseSourceSummary.ts";
+import { detectionFacts, emptyPreview, originHeading, previewFromEvent, previewFromEvidence, previewFromOriginal, shortenMiddle, sourceOf, withoutLinks } from "../src/domain/caseSourceSummary.ts";
 import type { EvidenceItem } from "../src/investigation/types";
 import type { OriginalSource } from "../src/store/originalSource";
 import type { PatrolEvent } from "../src/domain/types";
@@ -49,11 +49,33 @@ test("an email recorded at intake (no original kept) is summarised the same way"
   assert.equal(p.body, "Click [link] now");
 });
 
-test("a text message shows its own words, links and all", () => {
+test("a text message shows who sent it, when it arrived and its own words, links and all — 'Not provided' where not recorded", () => {
   const p = previewFromOriginal({ kind: "text", capturedAt: "2026-10-28T09:00:00.000Z", origin: "this_device", fields: [], text: "Your parcel is waiting: https://auspost-track.co/x" });
-  assert.deepEqual(p.lines, []);
+  assert.equal(p.icon, "sms");
+  assert.deepEqual(p.lines, ["From: Not provided"]);
   assert.equal(p.body, "Your parcel is waiting: https://auspost-track.co/x");
+  assert.equal(p.received, null, "shown as 'Received: Not provided'");
+  const recorded = previewFromOriginal({ kind: "text", capturedAt: "2026-10-28T09:00:00.000Z", origin: "this_device",
+    fields: [{ label: "From", value: "0419 841 238" }, { label: "Received", value: "2026-10-28T08:59:00.000Z" }], text: "Rebates drop next week." });
+  assert.deepEqual([recorded.lines, recorded.received], [["From: 0419 841 238"], "2026-10-28T08:59:00.000Z"]);
+});
+
+test("a text message recorded at intake with nothing about it still shows every detail, as 'Not provided'", () => {
+  const bare = { event_id: "e3", category: "message", state: "resting", source_metadata: { type: "text", user_question: "Is this message a scam?" } } as unknown as PatrolEvent;
+  const p = previewFromEvent(bare)!;
+  assert.ok(p, "never an empty card");
+  assert.equal(p.icon, "sms");
+  assert.deepEqual(p.lines, ["From: Not provided"]);
   assert.equal(p.received, null);
+  assert.equal(p.body, null, "shown as 'Message: Not provided'");
+  const sent = previewFromEvent({ ...bare, source_metadata: { type: "text", sender: "+61 448 221 905", received_at: "2026-10-30T01:40:00Z", preview: "Pay the toll now" } } as unknown as PatrolEvent)!;
+  assert.deepEqual([sent.lines, sent.received, sent.body], [["From: +61 448 221 905"], "2026-10-30T01:40:00Z", "Pay the toll now"]);
+});
+
+test("the category a message was chosen under is never shown as the message itself", () => {
+  const item = { id: "e1", kind: "text", origin: "user_submission", parentId: null, label: "messages calls", provenance: null } as unknown as EvidenceItem;
+  assert.deepEqual(previewFromEvidence([item])!.lines, ["From: Not provided"]);
+  assert.equal(previewFromEvidence([item])!.body, null);
 });
 
 test("withoutLinks replaces web addresses only", () => {
@@ -65,12 +87,13 @@ test("every source type has more to show when its card is opened: its lines in f
   const question = "I joined a free wifi called 'Airport_Free_WiFi' at the shops and afterwards my banking app asked me to sign in again with my card number and PIN, which it never does";
   const typed = previewFromEvent({ event_id: "e2", category: "message", state: "sniffing",
     source_metadata: { type: "text", url: `https://example.top/${"x".repeat(200)}`, user_question: question } } as unknown as PatrolEvent)!;
-  assert.ok(typed.lines[0].includes("…") && !typed.fullLines[0].includes("…"));          // folded: shortened; open: in full
+  assert.equal(typed.lines[0], "From: Not provided");
+  assert.ok(typed.lines[1].includes("…") && !typed.fullLines[1].includes("…"));          // folded: shortened; open: in full
   assert.deepEqual(typed.details.map((d) => d.label), ["Type", "Question asked"]);       // the link is already a line
   assert.equal(typed.details[1].value, question);
   const sms = previewFromOriginal({ kind: "text", capturedAt: "2026-10-28T09:00:00.000Z", origin: "this_device", fields: [{ label: "From", value: "0419 841 238" }], text: "Rebates drop next week. Reply YES." });
-  assert.deepEqual(sms.details.map((d) => [d.label, d.value]), [["Type", sms.kind], ["From", "0419 841 238"], ["Captured on this device", "2026-10-28T09:00:00.000Z"]]);
-  assert.equal(sms.details[2].time, true);
+  assert.deepEqual(sms.details.map((d) => [d.label, d.value]), [["Type", sms.kind], ["Captured on this device", "2026-10-28T09:00:00.000Z"]]);  // From is a line
+  assert.equal(sms.details[1].time, true);
   const email = previewFromOriginal(EMAIL);
   assert.ok(!email.details.some((d) => /^(From|Subject|Received)$/.test(d.label)));      // already in the summary
 });
@@ -81,10 +104,10 @@ test("a link case's top card shows the web address itself, shortened in the midd
   const p = previewFromOriginal({ kind: "link", url: LONG, capturedAt: "2026-10-28T09:00:00.000Z", origin: "this_device" });
   assert.equal(p.icon, "link");
   assert.equal(p.lines.length, 1);
-  assert.ok(p.lines[0].startsWith("https://commbank-secure-login"), p.lines[0]);
+  assert.ok(p.lines[0].startsWith("Link: https://commbank-secure-login"), p.lines[0]);
   assert.ok(p.lines[0].endsWith("step=2"), p.lines[0]);
   assert.ok(p.lines[0].includes("…") && p.lines[0].length <= 56);
-  assert.deepEqual(p.fullLines, [LONG]);
+  assert.deepEqual(p.fullLines, [`Link: ${LONG}`]);
   assert.equal(shortenMiddle("https://x.co/a"), "https://x.co/a");
 });
 
@@ -92,9 +115,9 @@ test("a link case with only its evidence list names the address, never the label
   const item = (label: string) => ({ id: "e1", kind: "url", origin: "user_submission", parentId: null, label, provenance: null }) as unknown as EvidenceItem;
   const named = previewFromEvidence([item(shortenMiddle(LONG, 80))])!;
   assert.equal(named.kind, "Link");
-  assert.ok(named.lines[0].startsWith("https://commbank-secure-login"));
-  assert.deepEqual(previewFromEvidence([item("checked link")])!.lines, []);
-  assert.deepEqual(previewFromEvidence([item("Submitted message text")])!.lines, []);
+  assert.ok(named.lines[0].startsWith("Link: https://commbank-secure-login"));
+  assert.deepEqual(previewFromEvidence([item("checked link")])!.lines, ["Link: Not provided"]);
+  assert.deepEqual(previewFromEvidence([item("Submitted message text")])!.lines, ["Link: Not provided"]);
 });
 
 // ── originHeading: older cases with no recorded origin ──────────────────────
@@ -152,3 +175,60 @@ test("detectionFacts gracefully shows only what the event actually carries", () 
   assert.equal(unknownFacts.length, 0, "a completely unrecognised event carries no detection facts");
 });
 
+
+// ── Owner's rule (1 Nov 2026): every source type is shown the way an email is, "Not provided" where not recorded ──
+
+const bareEvent = (category: string, over: Record<string, unknown> = {}) =>
+  ({ event_id: `e-${category}`, device_id: "d1", category, state: "growling", ...over }) as unknown as PatrolEvent;
+
+test("every kind of case with nothing recorded still shows its own lines, each 'Not provided'", () => {
+  const cases: [string, Record<string, unknown>, string[], boolean][] = [
+    ["email", {}, ["From: Not provided", "Subject: Not provided"], false],
+    ["message", {}, ["From: Not provided"], false],
+    ["call", {}, ["Number: Not provided"], false],
+    ["link", {}, ["Link: Not provided"], false],
+    ["known_threat", {}, ["Website: Not provided"], false],
+    ["connection", {}, ["Website: Not provided"], false],
+    ["file", {}, ["File: Not provided"], false],
+    ["app", {}, ["App: Not provided"], false],
+    ["account", {}, ["Account: Not provided"], false],
+    ["device", {}, ["Details: Not provided"], false],
+    ["system", { source_metadata: { type: "screenshot" } }, ["Pictures: Not provided"], false],
+  ];
+  for (const [category, over, lines, recorded] of cases) {
+    const p = previewFromEvent(bareEvent(category, over));
+    assert.deepEqual(p.lines, lines, category);
+    assert.equal(p.recorded, recorded, category);
+  }
+  assert.deepEqual(emptyPreview().lines, ["Details: Not provided"]);
+});
+
+test("what a case did record fills its lines, labelled the same way", () => {
+  assert.deepEqual(previewFromEvent(bareEvent("call", { local_indicator: "0419 841 238", source_metadata: { type: "call", received_at: "2026-11-01T01:00:00Z" } })).lines, ["Number: 0419 841 238"]);
+  assert.equal(previewFromEvent(bareEvent("call", { source_metadata: { type: "call", received_at: "2026-11-01T01:00:00Z" } })).received, "2026-11-01T01:00:00Z");
+  assert.deepEqual(previewFromEvent(bareEvent("known_threat", { indicator_host: "paypa1-secure.top" })).lines, ["Website: paypa1-secure.top"]);
+  const site = previewFromEvent(bareEvent("link", { indicator_host: "commbank-secure-login-verify.xyz" }));
+  assert.deepEqual([site.lines, site.recorded], [["Link: Not provided", "Website: commbank-secure-login-verify.xyz"], true]);
+  assert.deepEqual(previewFromEvent(bareEvent("file", { source_metadata: { type: "file", attachment_names: ["invoice.pdf.exe"] } })).lines, ["File: invoice.pdf.exe"]);
+  assert.deepEqual(previewFromEvent(bareEvent("app", { claimed_brand: "WeatherPro" })).lines, ["App: WeatherPro"]);
+  const app = previewFromOriginal({ kind: "app", capturedAt: "x", origin: "this_device", fields: [{ label: "App", value: "WeatherPro" }, { label: "Developer", value: "Acme" }] });
+  assert.deepEqual(app.lines, ["App: WeatherPro", "Developer: Acme"]);
+  const call = previewFromOriginal({ kind: "call", capturedAt: "x", origin: "this_device", fields: [] }, false, bareEvent("call", { local_indicator: "+61262161111" }));
+  assert.deepEqual([call.lines, call.recorded], [["Number: +61262161111"], true]);
+});
+
+test("a kept copy that records nothing never hides what the case recorded", () => {
+  const empty = previewFromOriginal({ kind: "link", capturedAt: "x", origin: "this_device" });
+  assert.deepEqual([empty.lines, empty.recorded], [["Link: Not provided"], false]);
+});
+
+test("every case says where it came from, 'Not provided' where nothing does", () => {
+  assert.equal(sourceOf(bareEvent("email", { evidence_provenance: "connected_mailbox", source_metadata: { type: "email", provider: "Gmail" } })), "Gmail mailbox");
+  assert.equal(sourceOf(bareEvent("message", { evidence_provenance: "local_device", source_metadata: { type: "text", provider: "WhatsApp" } })), "Apollo's check on this device · WhatsApp");
+  assert.equal(sourceOf(bareEvent("link", { evidence_provenance: "device_submission" })), "Sent from this device for checking");
+  assert.equal(sourceOf(bareEvent("known_threat", { evidence_provenance: "dns_observation" })), "Apollo's DNS filter");
+  assert.equal(sourceOf(bareEvent("message", { source_metadata: { type: "text", provider: "Messages" } })), "Messages");
+  assert.equal(sourceOf(null, { origin: "this_device" }), "Sent from this device for checking");
+  assert.equal(sourceOf(bareEvent("message")), "Not provided");
+  assert.equal(sourceOf(null, null), "Not provided");
+});

@@ -19,7 +19,7 @@ test("a checked number shows as a Call with the number", () => {
   const preview = previewFromOriginal(original);
   assert.equal(preview.icon, "call");
   assert.equal(preview.kind, "Call");
-  assert.deepEqual(preview.lines, ["+61262161111"]);
+  assert.deepEqual(preview.lines, ["Number: +61262161111"]);
   assert.equal(preview.details[0].value, "Call");
 });
 

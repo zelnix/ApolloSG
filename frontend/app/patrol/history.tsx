@@ -11,7 +11,9 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CheckToolHeader } from "@/src/components/CheckToolHeader";
+import { DeleteConfirmSheet, SelectBox, SelectionBar } from "@/src/components/CaseSelection";
 import { Body, Button, Card, Pill } from "@/src/components/ui";
+import { countLabel, deletionSet } from "@/src/domain/caseDelete";
 import { STATUS_COLORS, STATUS_LABELS, isSimulated, threatCaseStatus, threatCaseId } from "@/src/domain/threatCase";
 import type { PatrolEvent } from "@/src/domain/types";
 import { useApollo } from "@/src/store/ApolloContext";
@@ -47,8 +49,26 @@ export default function PatrolHistory() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { ready, setupDone, events, showToast, deviceId } = useApollo();
+  const { ready, setupDone, events, showToast, deviceId, deleteCases } = useApollo();
   const [exporting, setExporting] = useState(false);
+  // Choosing records to delete: each row is one record (with the investigation it was part of).
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const chosen = useMemo(() => events.filter((e) => selected.has(e.event_id)), [events, selected]);
+  const records = useMemo(() => deletionSet(events, chosen, false).eventIds.length, [events, chosen]);
+  const stopSelecting = () => { setSelecting(false); setSelected(new Set()); setConfirming(false); };
+  const toggle = (id: string) => setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleAll = () => setSelected(chosen.length === events.length ? new Set() : new Set(events.map((e) => e.event_id)));
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const { ok } = await deleteCases(chosen, false);
+      if (ok) { showToast(`Deleted ${countLabel(chosen.length, "record")} from this phone and ApolloSG's server.`, "neutral"); stopSelecting(); }
+      else setConfirming(false);
+    } finally { setDeleting(false); }
+  };
 
   // Every filed event, newest first — not deduplicated, so repeat checks on the same thing are all visible.
   const days = useMemo(() => {
@@ -94,8 +114,20 @@ export default function PatrolHistory() {
           </Card>
         ) : (
           <>
-            <Button testID="patrol-history-export" variant="ghost" label={exporting ? "Preparing…" : "Save or share this history"}
-              icon={<Download size={18} color={colors.onSurface} />} onPress={() => void share()} disabled={exporting} />
+            {selecting ? (
+              <View style={{ marginHorizontal: -spacing.lg }}>
+                <SelectionBar count={chosen.length} total={events.length} onToggleAll={toggleAll} onCancel={stopSelecting}
+                  onDelete={() => setConfirming(true)} testID="patrol-history-selection" />
+              </View>
+            ) : (
+              <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                <View style={{ flex: 1 }}>
+                  <Button testID="patrol-history-export" variant="ghost" label={exporting ? "Preparing…" : "Save or share this history"}
+                    icon={<Download size={18} color={colors.onSurface} />} onPress={() => void share()} disabled={exporting} />
+                </View>
+                <Button testID="patrol-history-select" variant="secondary" label="Select" accessibilityLabel="Choose records to delete" onPress={() => setSelecting(true)} />
+              </View>
+            )}
             {days.map((day) => (
               <View key={day.label} style={{ gap: spacing.xs }}>
                 <Text style={s.dayLabel}>{day.label}</Text>
@@ -108,11 +140,13 @@ export default function PatrolHistory() {
                         {index > 0 ? <View style={s.divider} /> : null}
                         <Pressable
                           testID={`patrol-history-row-${event.event_id}`}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${event.headline}. ${STATUS_LABELS[status]}. Open this case.`}
-                          onPress={() => router.push(`/patrol/${event.event_id}`)}
+                          accessibilityRole={selecting ? "checkbox" : "button"}
+                          accessibilityState={selecting ? { checked: selected.has(event.event_id) } : undefined}
+                          accessibilityLabel={`${event.headline}. ${STATUS_LABELS[status]}. ${selecting ? "Select for deleting." : "Open this case."}`}
+                          onPress={() => (selecting ? toggle(event.event_id) : router.push(`/patrol/${event.event_id}`))}
                           style={({ pressed }) => [s.row, { opacity: pressed ? 0.7 : 1 }]}
                         >
+                          {selecting ? <SelectBox selected={selected.has(event.event_id)} testID={`patrol-history-row-${event.event_id}-select`} /> : null}
                           <View style={s.rowBody}>
                             <Text style={s.rowTitle} numberOfLines={2}>{event.headline}</Text>
                             <Text style={s.rowMeta}>
@@ -123,7 +157,7 @@ export default function PatrolHistory() {
                           <View style={[s.pill, { backgroundColor: colour.bg }]}>
                             <Text style={[s.pillText, { color: colour.text }]}>{STATUS_LABELS[status]}</Text>
                           </View>
-                          <ChevronRight size={18} color={colors.muted} />
+                          {selecting ? null : <ChevronRight size={18} color={colors.muted} />}
                         </Pressable>
                       </React.Fragment>
                     );
@@ -134,6 +168,8 @@ export default function PatrolHistory() {
           </>
         )}
       </ScrollView>
+      <DeleteConfirmSheet visible={confirming} count={chosen.length} records={records} noun="record" busy={deleting}
+        onConfirm={() => void confirmDelete()} onClose={() => setConfirming(false)} testID="patrol-history-delete-confirm" />
     </View>
   );
 }

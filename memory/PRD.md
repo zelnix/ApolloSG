@@ -1,5 +1,25 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Select + delete cases (Threats, Patrol history) + source fields on every case — verified in preview (2026-11-01)
+**Owner's choices:** test both now; keep the sample cases made for testing. No testing agent (owner's rule) — pytest + node
+tests + tsc + preview screenshots driven end to end.
+- Built earlier in this job: `POST /api/patrol/delete` (`services/case_delete.py`, egress `patrol_delete` = ids only),
+  `src/components/CaseSelection.tsx` (SelectBox, SelectionBar "Select all · Cancel · Delete (N)", DeleteConfirmSheet),
+  `src/domain/caseDelete.ts` (deletionSet), `src/store/caseDelete.ts` (phone copies), ApolloContext `deleteCases`
+  (server first; offline = nothing deleted). Threats: a row = whole case; Patrol history: a row = that record + its investigations.
+- Verified in preview (seeded sample cases via `/tmp/seed_ui.py` on the browser's own device, no AI call): Select → Select all
+  (6 selected) → clear → pick 2 → "Delete 2 cases? … That's 3 records in all" → toast; the linked record of the same
+  investigation went too; survives reload; server: events → delete markers, investigation cases deleted, evidence/DI/triage/
+  history/case history 0, Patrol records gone. Patrol history: 1 record deleted, server marker set. Select all on Threats → 0
+  cases; phone storage holds none of the ids.
+- Source top card verified on message/call/email/link/file cases: every line "Not provided" where not recorded, plus
+  "Source:". Fix found: a link case whose address wasn't kept said only "Link: Not provided" though the website was
+  recorded → now also "Website: <host>" (`previewFromEvent`, test added).
+- Rule book: new "Deleting chosen cases" under Your data + Threats records line; stamped (stale stamp had failed test_rulebook).
+- Tests: frontend 1305/1305; tsc clean; test_case_delete 3/3 + test_rulebook pass.
+- Sample cases kept on the server under the preview's throwaway test devices (18c369907b8d4f51b42f4724a361c1f1: file, email,
+  link; b73c233aa4e64ae89deef7f22efa9c7e: file, call, link, 2 texts) — they don't appear on the owner's phone.
+
 ## AI cost overhaul finished + Teddy → TC FlyBy rename (everything) + Brave key to secure storage (2026-10-31)
 **Owner's choices:** order as proposed; rename EVERYTHING, internal names and stored labels included; the same Brave key as
 before goes into secure storage. No testing agent (owner's rule) — pytest + node tests + tsc + one screenshot.

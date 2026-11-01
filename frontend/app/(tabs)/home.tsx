@@ -10,7 +10,7 @@ import Shield from "lucide-react-native/icons/shield";
 import ShieldCheck from "lucide-react-native/icons/shield-check";
 import Smartphone from "lucide-react-native/icons/smartphone";
 import React from "react";
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { Image } from "expo-image";
@@ -40,6 +40,8 @@ import {
 } from "@/src/domain/threatCase";
 import { ProtectionChangeBanner } from "@/src/components/device/ProtectionChangeBanner";
 import { getCaseOriginal, subscribeOriginalSource } from "@/src/store/originalSource";
+import { NewBadge } from "@/src/components/NewBadge";
+import { useNewCases } from "@/src/hooks/useNewCases";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { useProtectionPosture } from "@/src/protection/useProtectionPosture";
@@ -204,7 +206,14 @@ export default function Home() {
   const router = useRouter();
   const { width: screenW } = useWindowDimensions();
   const compact = screenW < 380;
-  const { resolution, capabilities, protection, events, showToast, identityReset, reRegisterDevice, refresh } = useApollo();
+  const { resolution, capabilities, protection, events, showToast, identityReset, reRegisterDevice, refresh, refreshCases } = useApollo();
+  const isNew = useNewCases();
+  // Pull down to fetch the newest cases now.
+  const [pulling, setPulling] = React.useState(false);
+  const onPull = React.useCallback(() => {
+    setPulling(true);
+    void refreshCases().catch(() => undefined).finally(() => setPulling(false));
+  }, [refreshCases]);
   // One overall answer, decided by the Protection Posture engine — the Protection screen shows the same one.
   const { posture, apolloLine, deviceLine, health } = useProtectionPosture();
   const posturePalette = postureColors(posture.status, colors);
@@ -315,7 +324,8 @@ export default function Home() {
         <Text style={[s.brandSubtitle, { fontSize: Math.max(9, Math.min(11, screenW * 0.028)) }]}>Better Protection. Safer You. Safer Tomorrows.</Text>
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} testID="home-scroll" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={s.scroll} testID="home-scroll" showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={pulling} onRefresh={onPull} tintColor={colors.brand} colors={[colors.brand]} />}>
         {/* ── Hero Status Card ── */}
         <GestureDetector gesture={heroSwipe}>
         <Pressable
@@ -468,7 +478,7 @@ export default function Home() {
               {/* Personal threats first — these take precedence. Each card has the hero's two-line structure, with more
                   room: what it is, where it came from and what was found; then when, and Higgins' recommendation. */}
               {priorityThreats.map((event) => (
-                <ThreatCard key={event.event_id} event={event} kept={kept[event.event_id] ?? null} compact={compact} testID={`home-threat-${event.event_id}`} />
+                <ThreatCard key={event.event_id} event={event} kept={kept[event.event_id] ?? null} isNew={isNew(event)} compact={compact} testID={`home-threat-${event.event_id}`} />
               ))}
 
               {/* One highest-priority scam alert — after personal threats */}
@@ -486,7 +496,7 @@ export default function Home() {
             </Pressable>
           </View>
           {recentEvent ? (
-            <ThreatCard event={recentEvent} kept={kept[recentEvent.event_id] ?? null} compact={compact} testID="home-recent-activity" />
+            <ThreatCard event={recentEvent} kept={kept[recentEvent.event_id] ?? null} isNew={isNew(recentEvent)} compact={compact} testID="home-recent-activity" />
           ) : (
             <View style={s.activityCard} testID="home-no-recent-activity">
               <View style={s.activityIconWrap}>
@@ -522,7 +532,7 @@ export default function Home() {
 
 /** One case as Home shows it — in "Important for you" and in "Recent activity" alike: what it is, where it came from
  *  and what was found; then when, and Higgins' recommendation; its status and "View threat". */
-function ThreatCard({ event, kept, compact, testID }: { event: PatrolEvent; kept: KeptIdentifiers | null; compact: boolean; testID: string }) {
+function ThreatCard({ event, kept, isNew, compact, testID }: { event: PatrolEvent; kept: KeptIdentifiers | null; isNew: boolean; compact: boolean; testID: string }) {
   const s = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
@@ -536,7 +546,7 @@ function ThreatCard({ event, kept, compact, testID }: { event: PatrolEvent; kept
       testID={testID}
       onPress={() => router.push(`/patrol/${encodeURIComponent(event.event_id)}` as any)}
       accessibilityRole="button"
-      accessibilityLabel={`${brief.line1} ${brief.line2} ${STATUS_LABELS[status]}.`}
+      accessibilityLabel={`${isNew ? "New. " : ""}${brief.line1} ${brief.line2} ${STATUS_LABELS[status]}.`}
       accessibilityHint="Opens the full case"
       style={[s.activityCard, compact && { marginHorizontal: spacing.lg, padding: spacing.md }, { marginBottom: spacing.sm, alignItems: "flex-start" }]}
     >
@@ -547,6 +557,7 @@ function ThreatCard({ event, kept, compact, testID }: { event: PatrolEvent; kept
         <Text style={[s.threatLine1, compact && { fontSize: 13, lineHeight: 18 }]} numberOfLines={4} testID={`${testID}-line1`}>{brief.line1}</Text>
         <Text style={[s.threatLine2, compact && { fontSize: 12, lineHeight: 17 }]} numberOfLines={3} testID={`${testID}-line2`}>{brief.line2}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 }}>
+          {isNew ? <NewBadge testID={`${testID}-new`} /> : null}
           <View style={{ paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: statusColor.bg }}>
             <Text style={{ fontFamily: fonts.textSemibold, fontSize: 10, color: statusColor.text }} testID={`${testID}-status`}>{STATUS_LABELS[status]}</Text>
           </View>

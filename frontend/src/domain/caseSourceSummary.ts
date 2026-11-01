@@ -3,6 +3,7 @@
 // detected it. When the record doesn't say, the heading says neither. The preview is the material itself, shortened:
 // the original kept on the device, else what the case recorded at intake. Pure: no React, no storage.
 import { describeArtefact } from "./evidencePresentation.ts";
+import { evidenceSourceLabel, SOURCE_NOT_RECORDED as NOT_RECORDED } from "./caseFacts.ts";
 import { emailLines, emailRecord, isEmailCase, NOT_PROVIDED } from "./emailRecord.ts";
 import { CAPABILITY_LABELS } from "./protectionAreas.ts";
 import type { GateId } from "./gates";
@@ -40,6 +41,8 @@ export interface SourcePreview {
   /** Everything else recorded about the material, shown when the card is expanded (every source type expands).
    *  `time`: the value is a recorded time, shown as a date. */
   details: SourceDetail[];
+  /** The preview holds something the case recorded (not only "Not provided" lines). */
+  recorded: boolean;
 }
 
 export interface SourceDetail { label: string; value: string; time?: boolean }
@@ -70,6 +73,11 @@ export function withoutLinks(text: string): string {
 
 const MAX_LINE = 160;
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+/** A labelled top-card line split into its label and value ("Link: https://…" → "Link", "https://…"). */
+export function splitLine(line: string): { label: string | null; value: string } {
+  const m = /^([A-Z][A-Za-z-]*(?: [a-z][A-Za-z-]*)?): ([\s\S]*)$/.exec(line);
+  return m ? { label: m[1], value: m[2] } : { label: null, value: line };
+}
 /** A web address on the folded card: shortened in the middle, so where it starts (the website) and where it ends
  *  both stay visible. The full address is on the opened card. */
 const ADDRESS = /^(?:[a-z][a-z0-9+.-]*:\/\/|www\.)\S+$|^[^\s/@]+\.[a-z]{2,}(?:[/?#]\S*)?$/i;
@@ -80,9 +88,66 @@ export function shortenMiddle(text: string, max = ADDRESS_LINE): string {
   const head = Math.ceil((max - 1) * 0.6);
   return `${text.slice(0, head)}…${text.slice(text.length - (max - 1 - head))}`;
 }
-const shortLine = (line: string) => (ADDRESS.test(line) ? shortenMiddle(line) : clip(line, MAX_LINE));
+const shortLine = (line: string) => {
+  const { label, value } = splitLine(line);
+  const lead = label ? `${label}: ` : "";
+  return ADDRESS.test(value) ? `${lead}${shortenMiddle(value, ADDRESS_LINE - lead.length)}` : clip(line, MAX_LINE);
+};
 /** A label that only says what kind of thing it is ("checked link"), never the thing itself. */
-const GENERIC_LABEL = /^(?:checked|submitted|url from) (?:link|number|message|url)(?: text)?$/i;
+const GENERIC_LABEL = /^(?:(?:checked|submitted|url from) (?:link|number|message|url)(?: text)?|messages calls|websites links|email accounts|apps files|device internet|screenshot)$/i;
+
+const tidy = (v: string | null | undefined) => (v ?? "").replace(/\s+/g, " ").trim() || null;
+/** "Label: value", or "Label: Not provided" where the case didn't record it. */
+const said = (label: string, value: string | number | null | undefined) => `${label}: ${typeof value === "number" ? String(value) : tidy(value) ?? NOT_PROVIDED}`;
+/** Where this phone's copy of the original was deleted by an earlier version of ApolloSG (a rule since removed). */
+export const DELETED_HERE = "Deleted from this phone by an earlier version of ApolloSG";
+
+/** The line each kind of material leads with on its top card, named the same way on every case and "Not provided"
+ *  where the case didn't record it — every source type is shown the way an email is (owner's rule, 1 Nov 2026).
+ *  `field` reads the kept original's own fields; the case's record fills in what the original doesn't hold. */
+function leadLine(kind: string, v: { url?: string | null; sender?: string | null; field?: (re: RegExp) => string | null; event?: PatrolEvent | null; pictures?: number }): string {
+  const e = v.event;
+  const m = e?.source_metadata;
+  const field = v.field ?? (() => null);
+  switch (kind) {
+    case "call": return said("Number", v.sender ?? field(/^(number|caller|from)$/i) ?? e?.local_indicator ?? m?.sender);
+    case "link": return said("Link", v.url ?? m?.url ?? e?.local_indicator);
+    case "website": case "known_threat": case "connection": case "network": case "protection":
+      return said("Website", v.url ?? field(/^(website|site|host|domain)$/i) ?? e?.indicator_host ?? e?.local_indicator);
+    case "file": return said("File", field(/^(file|file ?name|name|attachment)$/i) ?? m?.attachment_names?.find((n) => !!tidy(n)));
+    case "app": return said("App", field(/^(app|app name|name)$/i) ?? e?.claimed_brand);
+    case "account": return said("Account", field(/^(account|email|service|username)$/i) ?? e?.indicator_host);
+    case "screenshot": return said("Pictures", v.pictures || m?.image_count || null);
+    default: return said("Details", null);
+  }
+}
+/** Whether a preview holds anything the case recorded, rather than only "Not provided". */
+const recordedIn = (lines: string[], body: string | null, received: string | null) =>
+  !!body || !!received || lines.some((l) => splitLine(l).value !== NOT_PROVIDED);
+
+/** Where the material came from — the mailbox, the app or this device — on every case's top card, from what the case
+ *  recorded (its evidence source, the app it came through), else the kept copy's own origin; "Not provided" where
+ *  nothing says. Never a server: processing is not a source (caseFacts.evidenceSourceLabel). */
+export function sourceOf(event?: PatrolEvent | null, original?: Pick<OriginalSource, "origin"> | null): string {
+  const label = event ? evidenceSourceLabel(event) : NOT_RECORDED;
+  const app = tidy(event?.source_metadata?.provider);
+  if (label !== NOT_RECORDED) return app && !label.includes(app) ? `${label} · ${app}` : label;
+  if (app) return app;
+  if (original) return original.origin === "this_device" ? "Sent from this device for checking" : "Received from ApolloSG's servers";
+  return NOT_PROVIDED;
+}
+const MESSAGE_SENDER = /^(from|sender|number|contact|caller)$/i;
+const MESSAGE_TIME = /^(received|date|sent|time)$/i;
+/** The kinds of material a case records as a text message. */
+const MESSAGE_TYPES = new Set(["text", "message", "sms"]);
+
+/** A text message's record, kept the way an email's is: who sent it and when it arrived, from the copy kept on this
+ *  phone first, then what the case recorded. Null where neither recorded it (shown as "Not provided"). */
+export function messageRecord(event?: Pick<PatrolEvent, "source_metadata"> | null, fields: { label: string; value: string }[] = []): { sender: string | null; received: string | null } {
+  const field = (re: RegExp) => tidy(fields.find((f) => re.test(f.label.trim()) && tidy(f.value))?.value);
+  const m = event?.source_metadata;
+  return { sender: field(MESSAGE_SENDER) ?? tidy(m?.sender), received: field(MESSAGE_TIME) ?? tidy(m?.received_at) };
+}
 /** Text as it was written: its line breaks kept, runs of spaces and blank lines closed up. */
 const asWritten = (text: string) => text.replace(/\r\n?/g, "\n").split("\n").map((l) => l.replace(/[ \t]+/g, " ").trim()).filter(Boolean).join("\n");
 /** The one-line parts, each once, and the text itself. `dedupe`: a part the text already holds is left to the text
@@ -113,7 +178,7 @@ const TIME_FIELD = /^(received|date|sent|time|captured|when)$/i;
 
 /** The original kept on the device, shortened: an email's sender and subject, a link, and the text as written.
  *  `event`: the case's record, which says whether it is an email and fills in what the kept copy doesn't hold. */
-export function previewFromOriginal(src: OriginalSource, hasImage = false, event?: PatrolEvent | null): SourcePreview {
+export function previewFromOriginal(src: OriginalSource, hasImage = false, event?: PatrolEvent | null, pictures = 0): SourcePreview {
   const view = describeArtefact(src, hasImage);
   const body = view.body ?? null;
   const icon = view.layout === "screenshot" ? "picture" : ICON_OF_KIND[src.kind] ?? "item";
@@ -125,13 +190,35 @@ export function previewFromOriginal(src: OriginalSource, hasImage = false, event
   if (view.layout === "email" || (view.layout !== "screenshot" && isEmailCase(event, src))) {
     const record = emailRecord(event, src);
     const p = emailPreview(emailLines(record), body);
-    return { kind: "Email", icon: "email", ...p, received: record.received, details: detailsOf("Email", recorded, [...p.fullLines, record.received ?? ""], null) };
+    return { kind: "Email", icon: "email", ...p, received: record.received, details: detailsOf("Email", recorded, [...p.fullLines, record.received ?? ""], null),
+      recorded: recordedIn(p.lines, p.body, record.received) };
   }
   const url = src.url && !(body ?? "").includes(src.url) ? src.url : null;
-  const fields = body || url ? [] : view.fields.filter((f) => !SHOWN_FIELD.test(f.label.trim())).slice(0, 2).map((f) => `${f.label}: ${f.value}`);
-  const head = src.kind === "call" ? [view.sender, url, ...fields] : [url, ...fields];
-  const c = compose(head, body);
-  return { kind: view.title, icon, ...c, received: null, details: detailsOf(view.title, recorded, c.fullLines, c.body) };
+  if (src.kind === "text" && view.layout !== "screenshot") {
+    // A text message always says who sent it and when it arrived, like an email: "Not provided" where not recorded.
+    const record = messageRecord(event, view.fields);
+    const c = compose([`From: ${record.sender ?? NOT_PROVIDED}`, url ? `Link: ${url}` : null], body, false);
+    return { kind: view.title, icon, ...c, received: record.received, details: detailsOf(view.title, recorded, [...c.fullLines, record.received ?? ""], c.body),
+      recorded: recordedIn(c.lines, c.body, record.received) };
+  }
+  const field = (re: RegExp) => tidy(view.fields.find((f) => re.test(f.label.trim()) && tidy(f.value))?.value);
+  const lead = leadLine(view.layout === "screenshot" ? "screenshot" : src.kind, { url: src.url, sender: view.sender, field, event, pictures });
+  // A kind with no lead of its own (a device or network record) shows what it recorded instead, when it recorded any.
+  const generic = splitLine(lead).label === "Details";
+  const leadValue = splitLine(lead).value;
+  const extra = body ? [] : view.fields.filter((f) => !SHOWN_FIELD.test(f.label.trim()) && tidy(f.value) !== leadValue).slice(0, 2).map((f) => `${f.label}: ${f.value}`);
+  const head = generic && extra.length ? extra : [lead, ...extra];
+  // A call records when it came in, like a text message: "Not provided" where not recorded.
+  const received = src.kind === "call" ? field(MESSAGE_TIME) ?? tidy(event?.source_metadata?.received_at) : null;
+  const c = compose(head, body, false);
+  return { kind: view.title, icon, ...c, received, details: detailsOf(view.title, recorded, [...c.fullLines, received ?? ""], c.body),
+    recorded: recordedIn(c.lines, c.body, received) || hasImage };
+}
+
+/** Nothing about the material is kept or recorded: the card still says so, line by line. */
+export function emptyPreview(): SourcePreview {
+  const lines = [said("Details", null)];
+  return { kind: "Item", icon: "item", lines, fullLines: lines, received: null, body: null, details: [{ label: "Type", value: "Item" }], recorded: false };
 }
 
 const EVENT_KIND: Record<string, { kind: string; icon: PreviewIcon }> = {
@@ -150,25 +237,31 @@ function eventType(event: PatrolEvent): string {
 
 /** What the case recorded at intake about its material — the sender, subject, link, number and text — when no
  *  original is kept. */
-export function previewFromEvent(event: PatrolEvent): SourcePreview | null {
+export function previewFromEvent(event: PatrolEvent): SourcePreview {
   const m = event.source_metadata;
   const type = eventType(event);
-  const indicator = !m?.url ? (event.local_indicator ?? event.indicator_host) : null;
   const email = isEmailCase(event);
+  const message = !email && (MESSAGE_TYPES.has(type) || event.category === "message");
   const record = emailRecord(event, null);
+  const sent = messageRecord(event);
+  const url = m?.url && !(m.preview ?? "").includes(m.url) ? m.url : null;
+  const attachment = m?.attachment_names?.find((n) => !!tidy(n));
+  const kindKey = EVENT_KIND[type] ? type : event.category;
+  // A link whose address wasn't kept still names the website it went to, when the case recorded it.
+  const site = kindKey === "link" && !tidy(m?.url) && !tidy(event.local_indicator) ? tidy(event.indicator_host) : null;
   const { lines, fullLines, body } = email
     ? emailPreview(emailLines(record), m?.preview)
-    : compose([m?.url, m?.attachment_names?.[0], m?.preview ? null : indicator], m?.preview);
-  if (!lines.length && !body) return null;
-  const info = email ? EVENT_KIND.email : EVENT_KIND[type] ?? EVENT_KIND[event.category] ?? { kind: "Item", icon: "item" as const };
-  const received = email ? record.received : null;
+    : message ? compose([`From: ${sent.sender ?? NOT_PROVIDED}`, url ? `Link: ${url}` : null, attachment ? `File: ${attachment}` : null], m?.preview, false)
+      : compose([leadLine(kindKey, { event }), site ? `Website: ${site}` : null, kindKey !== "file" && attachment ? `File: ${attachment}` : null], m?.preview, false);
+  const info = email ? EVENT_KIND.email : message ? EVENT_KIND.message : EVENT_KIND[kindKey] ?? { kind: "Item", icon: "item" as const };
+  const received = email ? record.received : message ? sent.received : kindKey === "call" ? tidy(m?.received_at) : null;
   const details = detailsOf(info.kind, [
     detail("From", m?.sender), detail("Subject", m?.subject), detail("Reply-to", m?.reply_to), detail("Link", m?.url),
     detail("Website", event.indicator_host ?? event.local_indicator), detail("Attachments", m?.attachment_names?.join(", ")),
     detail("Pictures", m?.image_count), detail("Question asked", m?.user_question), detail("App", m?.provider),
     detail("Received", m?.received_at, true),
   ], [...fullLines, received ?? ""], email ? null : body);
-  return { ...info, lines, fullLines, body, received, details };
+  return { ...info, lines, fullLines, body, received, details, recorded: recordedIn(lines, body, received) };
 }
 
 const ITEM_KIND: Record<string, { kind: string; icon: PreviewIcon }> = {
@@ -183,13 +276,16 @@ export function previewFromEvidence(items: EvidenceItem[], email = false): Sourc
   if (!first) return null;
   if (email) {
     const p = emailPreview(emailLines(emailRecord(null, null)), null);
-    return { kind: "Email", icon: "email", ...p, received: null, details: detailsOf("Email", [detail("Collected", first.collectedAt, true)], p.fullLines, null) };
+    return { kind: "Email", icon: "email", ...p, received: null, details: detailsOf("Email", [detail("Collected", first.collectedAt, true)], p.fullLines, null), recorded: false };
   }
   const info = ITEM_KIND[first.kind] ?? { kind: "Item", icon: "item" as const };
   // The item's name: its file name, or the address or text it was labelled with — never a label that only names its kind.
   const name = first.provenance?.originalFilename ?? (GENERIC_LABEL.test(first.label.trim()) ? null : first.label);
-  const c = compose([name]);
-  return { ...info, ...c, received: null, details: detailsOf(info.kind, [detail("Collected", first.collectedAt, true)], c.fullLines, c.body) };
+  const pictures = items.filter((e) => e.kind === "image" && (e.origin === "user_submission" || e.origin === "device_observation")).length;
+  const c = info.icon === "sms" ? compose([said("From", null)], name, false)
+    : compose([info.icon === "link" ? said("Link", name) : info.icon === "file" ? said("File", name) : info.icon === "picture" ? said("Pictures", pictures) : said("Details", name)], null, false);
+  return { ...info, ...c, received: null, details: detailsOf(info.kind, [detail("Collected", first.collectedAt, true)], c.fullLines, c.body),
+    recorded: recordedIn(c.lines, c.body, null) };
 }
 
 // ── What Apollo detected: who it came from, what it was, what caught it and why ──

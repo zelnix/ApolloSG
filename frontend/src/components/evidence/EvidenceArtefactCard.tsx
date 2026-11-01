@@ -37,7 +37,8 @@ import { readEmailBody } from "@/src/domain/triage/emailOriginal";
 import { listImageEvidence, removeOriginal, subscribeImageEvidence, type ImageEvidenceRecord } from "@/src/store/imageEvidence";
 import { readKeptOriginalEmail } from "@/src/store/originalEmail";
 import { getCaseOriginal, originalSourceDeletedAt, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
-import { HELD_COPY_DELETED } from "@/src/domain/heldCopies";
+import { heldCopyDeletedNote } from "@/src/domain/heldCopies";
+import { formatDateTime } from "@/src/domain/threatCase";
 import { shareEvidencePack, type PackSummary } from "@/src/utils/evidencePack";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -134,7 +135,7 @@ function imageNotes(r: ImageEvidenceRecord): string[] {
   return out;
 }
 
-export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummary, phones, onAvailable, testID = "evidence-artefact" }: {
+export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummary, phones, onAvailable, showMissing = false, testID = "evidence-artefact" }: {
   /** Every key this case is known by — a threat case carries both its event id and its
    *  investigation id, and the original may have been filed under either. */
   caseKeys: (string | null | undefined)[];
@@ -146,6 +147,8 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
   phones?: EvidencePhoneResult[] | null;
   /** Reports whether a local original exists, so the screen can drop its server-side duplicate. */
   onAvailable?: (available: boolean) => void;
+  /** Say so when this phone holds no original, rather than showing nothing (a Threat Case's Evidence tab). */
+  showMissing?: boolean;
   testID?: string;
 }) {
   const s = useStyles(); const a = useArtefactStyles(); const { colors } = useTheme();
@@ -242,7 +245,22 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
           <View style={s.iconWrap}><Info size={20} color={colors.onSurface} /></View>
           <View style={s.headerInfo}>
             <Text style={s.title}>Original Source</Text>
-            <Text style={s.subtitle} testID={`${testID}-deleted-note`}>{HELD_COPY_DELETED}</Text>
+            <Text style={s.subtitle} testID={`${testID}-deleted-note`}>{heldCopyDeletedNote(formatDateTime(deletedAt) || null)}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  if (src !== undefined && !source && showMissing) {
+    return (
+      <View style={s.card} testID={`${testID}-missing`}>
+        <View style={s.header}>
+          <View style={s.iconWrap}><Info size={20} color={colors.onSurface} /></View>
+          <View style={s.headerInfo}>
+            <Text style={s.title}>Original Source</Text>
+            <Text style={s.subtitle} testID={`${testID}-missing-note`}>
+              Not provided: this phone doesn&apos;t hold the original of this case. What ApolloSG recorded about it is in the card at the top.
+            </Text>
           </View>
         </View>
       </View>

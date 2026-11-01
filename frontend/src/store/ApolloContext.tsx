@@ -75,6 +75,8 @@ import { storage } from "@/src/utils/storage";
 import { useCallGuardPipeline } from "@/src/pipelines/callGuardPipeline";
 import { syncRepeatCallerAlerts } from "@/src/push/repeatCallerAlerts";
 import { CASE_WIPE_APPLIED_KEY, clearLocalCaseStores, eventsAfterWipe, type CaseWipe } from "@/src/store/caseWipe";
+import { deletionSet } from "@/src/domain/caseDelete";
+import { deleteLocalCaseCopies } from "@/src/store/caseDelete";
 import { useTextGuardLocalFindings } from "@/src/pipelines/textGuardPipeline";
 import { shouldBypassSetup } from "@/src/testing/setupBypass";
 import { patrolSafeSummary, type InvestigationResult } from "@/src/domain/investigation";
@@ -254,6 +256,8 @@ interface ApolloContextValue {
   events: PatrolEvent[];
   /** The server's cases are being fetched right now (a case opened from a notification may still be on its way). */
   casesSyncing: boolean;
+  /** Fetch the server's cases now (pull to refresh on Home and Threats). */
+  refreshCases(): Promise<void>;
   trust: TrustEntry[];
   resolution: StateResolution;
   checkLink(input: string, scentId?: string, options?: LinkCheckOptions): Promise<CheckOutcome>;
@@ -282,6 +286,9 @@ interface ApolloContextValue {
   resolveEvent(event: PatrolEvent): Promise<void>;
   revokeTrust(entry: TrustEntry): Promise<void>;
   clearPatrol(): Promise<void>;
+  /** Delete these cases (or records) and everything linked to them from this phone AND ApolloSG's server
+   *  (domain/caseDelete.ts). Nothing is deleted when the server can't be reached. */
+  deleteCases(chosen: PatrolEvent[], wholeCase: boolean): Promise<{ ok: boolean; deleted: number }>;
   requestDataDeletion(): Promise<{ ok: boolean; pending?: boolean; result?: DeleteDataResult }>;
   trustedSsids: string[];
   trustNetwork(ssid: string): Promise<void>;
@@ -916,6 +923,9 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
   // Records the server hid as duplicates (e.g. the Check a Number loop's copies). The merge never drops a
   // local-only event, so this device's copies are removed here.
   const removedRemote = useQuery({ queryKey: ["patrol-removed", deviceId], enabled: !!deviceId, queryFn: () => apiGet<{ eventIds: string[] }>(`/patrol/removed`) });
+  const refreshCases = useCallback(async () => {
+    await Promise.all([qc.refetchQueries({ queryKey: ["patrol", deviceId] }), qc.refetchQueries({ queryKey: ["patrol-removed", deviceId] })]);
+  }, [qc, deviceId]);
   useEffect(() => {
     // Wait until local events are restored, and merge against the live ref — merging against an
     // empty/stale snapshot let the server's unresolved copy overwrite a local "contained" decision.
@@ -1962,6 +1972,29 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     finally { patrolDelivery.resume(deviceId); }
   }, [deviceId, persistEvents, qc, showToast]);
 
+  // Delete chosen cases: the server first (its copies go too), then this phone. Offline, nothing is deleted, so a
+  // case is never gone from the phone while the server still holds it.
+  const deleteCases = useCallback(async (chosen: PatrolEvent[], wholeCase: boolean): Promise<{ ok: boolean; deleted: number }> => {
+    const set = deletionSet(eventsRef.current, chosen, wholeCase);
+    if (!set.eventIds.length) return { ok: true, deleted: 0 };
+    if (!deviceId) { showToast("Reconnect to ApolloSG first: the server's copies have to be deleted too. Nothing was deleted.", "growling"); return { ok: false, deleted: 0 }; }
+    try {
+      for (let i = 0; i < set.eventIds.length; i += 500) {
+        await apiPost("/patrol/delete", "patrol_delete", { eventIds: set.eventIds.slice(i, i + 500), caseIds: i ? [] : set.caseIds.slice(0, 500) });
+      }
+    } catch {
+      showToast("ApolloSG couldn't reach its server, so nothing was deleted. Try again when you're online.", "growling");
+      return { ok: false, deleted: 0 };
+    }
+    await patrolDelivery.forget(deviceId, set.eventIds).catch(() => undefined);
+    const gone = new Set(set.eventIds);
+    await persistEvents(eventsRef.current.filter((e) => !gone.has(e.event_id)));
+    qc.setQueryData<PatrolRecord[]>(["patrol", deviceId], (rows) => rows?.filter((r) => !gone.has(r.sourceEventId)));
+    await deleteLocalCaseCopies(set.eventIds, set.caseIds);
+    void qc.invalidateQueries({ queryKey: ["patrol-removed", deviceId] });
+    return { ok: true, deleted: set.eventIds.length };
+  }, [deviceId, persistEvents, qc, showToast]);
+
   // Delete My Apollo Data — permanently erase everything for this device on the service, then wipe this
   // phone and return to a true first-run state. Honest offline behaviour: if the service can't be reached,
   // nothing is wiped; a pending request is recorded and retried automatically when Apollo reconnects.
@@ -1999,7 +2032,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
   const value: ApolloContextValue = {
     ready, setupDone, deviceId, identityReset, reRegisterDevice, completeSetup, capabilities, protection, permissions, network, adapterLabel: securityAdapter.label,
     privateDnsStatus,
-    refreshing, refresh, verifyNow, lastVerifiedAt, toggleProtection, requestPermission, enableSiteProtection, events, casesSyncing: remoteEvents.isFetching, trust, resolution, checkLink, blockEvent, trustEvent, resolveEvent, reopenEvent, revokeTrust, clearPatrol, requestDataDeletion, trustedSsids, trustNetwork, forgetNetwork, toast, showToast, checkMessage, checkEmail, scanGmailInbox, recordRecovery, upsertEvent, checkCall, checkNumberRisk,
+    refreshing, refresh, verifyNow, lastVerifiedAt, toggleProtection, requestPermission, enableSiteProtection, events, casesSyncing: remoteEvents.isFetching, refreshCases, trust, resolution, checkLink, blockEvent, trustEvent, resolveEvent, reopenEvent, revokeTrust, clearPatrol, deleteCases, requestDataDeletion, trustedSsids, trustNetwork, forgetNetwork, toast, showToast, checkMessage, checkEmail, scanGmailInbox, recordRecovery, upsertEvent, checkCall, checkNumberRisk,
     notificationStatus, enableNotifications, quietHours, quietNow, setQuietHours, lowPower, setLowPower, notificationPreferences, setNotificationPreferences, storage,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

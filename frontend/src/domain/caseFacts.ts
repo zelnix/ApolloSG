@@ -46,6 +46,7 @@ export function hasRecordedFindings(e: PatrolEvent): boolean {
 }
 
 /** What supplied the evidence — never a server, and never a statement about where it is kept. */
+export const SOURCE_NOT_RECORDED = "Not recorded";
 export function evidenceSourceLabel(e: PatrolEvent): string {
   switch (evidenceModel(e).source) {
     case "local_device": return "Apollo's check on this device";
@@ -53,7 +54,7 @@ export function evidenceSourceLabel(e: PatrolEvent): string {
     case "native_protection": return provider(e) || "Your device's built-in protection";
     case "device_submission": return "Sent from this device for checking";
     case "connected_mailbox": return provider(e) ? `${provider(e)} mailbox` : "Your connected mailbox";
-    default: return "Not recorded";
+    default: return SOURCE_NOT_RECORDED;
   }
 }
 

@@ -38,3 +38,11 @@ export async function recordEmailCheck(entry: EmailCheckEntry): Promise<void> {
   const merged = [entry, ...prior.filter((e) => e.id !== entry.id)].slice(0, CAP);
   await storage.setItem(KEY, JSON.stringify(merged));
 }
+
+/** The person deleted these cases: their email check entries go with them. */
+export async function forgetEmailChecks(eventIds: string[]): Promise<void> {
+  const gone = new Set(eventIds);
+  const prior = await read();
+  const kept = prior.filter((e) => !e.eventId || !gone.has(e.eventId));
+  if (kept.length !== prior.length) await storage.setItem(KEY, JSON.stringify(kept));
+}

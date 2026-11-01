@@ -22,8 +22,8 @@ import { Image, Pressable, Text, useWindowDimensions, View, type StyleProp, type
 
 import { toneText, toneTint } from "@/src/components/ui";
 import {
-  detectionFacts, isAddress, originHeading, previewFromEvent, previewFromEvidence, previewFromOriginal, shortenMiddle,
-  type DetectionFact, type PreviewIcon, type SourcePreview,
+  DELETED_HERE, detectionFacts, emptyPreview, isAddress, originHeading, previewFromEvent, previewFromEvidence, previewFromOriginal, shortenMiddle,
+  sourceOf, splitLine, type DetectionFact, type PreviewIcon, type SourcePreview,
 } from "@/src/domain/caseSourceSummary";
 import { callNumberOf } from "@/src/domain/numberDetails";
 import { isEmailCase, NOT_PROVIDED } from "@/src/domain/emailRecord";
@@ -32,7 +32,7 @@ import { NumberDetails } from "./NumberDetails";
 import type { ApolloState, PatrolEvent } from "@/src/domain/types";
 import type { CaseOrigin, EvidenceItem } from "@/src/investigation/types";
 import { listImageEvidence, subscribeImageEvidence, type ImageEvidenceRecord } from "@/src/store/imageEvidence";
-import { getCaseOriginal, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
+import { getCaseOriginal, originalSourceDeletedAt, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
 import { fonts, makeStyles, radius, spacing, useTheme, type ThemeColors } from "@/src/theme";
 
 type Icon = React.ComponentType<{ size: number; color: string }>;
@@ -129,6 +129,8 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const [original, setOriginal] = useState<OriginalSource | null>(null);
+  // Where an earlier version of ApolloSG deleted this phone's copy of the original (a rule since removed).
+  const [deletedAt, setDeletedAt] = useState<string | null>(null);
   const [images, setImages] = useState<ImageEvidenceRecord[]>([]);
   const [open, setOpen] = useState(false);
   const keyList = caseKeys.filter((k): k is string => !!k).join("|");
@@ -138,9 +140,11 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
     let live = true;
     const load = async () => {
       const found = await getCaseOriginal(keys).catch(() => null);
+      let gone: string | null = null;
+      if (!found) for (const key of keys) gone = gone ?? await originalSourceDeletedAt(key).catch(() => null);
       const pictures = new Map<string, ImageEvidenceRecord>();
       for (const key of keys) for (const r of await listImageEvidence(key).catch(() => [])) pictures.set(r.id, r);
-      if (live) { setOriginal(found); setImages([...pictures.values()]); }
+      if (live) { setOriginal(found); setDeletedAt(gone); setImages([...pictures.values()]); }
     };
     void load();
     const offOriginal = subscribeOriginalSource(() => void load());
@@ -148,20 +152,33 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
     return () => { live = false; offOriginal(); offImages(); };
   }, [keyList]);
 
-  const preview = useMemo<SourcePreview | null>(() => {
+  const preview = useMemo<SourcePreview>(() => {
     const kind = images.length > 1 ? `${images.length} pictures` : "Picture";
-    const local = original ? previewFromOriginal(original, images.length > 0, event)
-      : images.length ? { kind, icon: "picture" as const, lines: [], fullLines: [], received: null, body: null, details: [{ label: "Type", value: kind }] } : null;
-    if (local?.lines.length || local?.body || images.length) return local;
-    return (event ? previewFromEvent(event) : null) ?? (evidence ? previewFromEvidence(evidence, isEmailCase(event, original, gates)) : null) ?? local;
+    const pictureLines = [`Pictures: ${images.length}`];
+    const local = original ? previewFromOriginal(original, images.length > 0, event, images.length)
+      : images.length ? { kind, icon: "picture" as const, lines: pictureLines, fullLines: pictureLines, received: null, body: null, details: [{ label: "Type", value: kind }], recorded: true } : null;
+    if (local?.recorded) return local;
+    // Nothing recorded in the kept copy: what the case recorded at intake, then its evidence list. Whichever is used,
+    // every line the kind of material always shows is there, "Not provided" where nothing recorded it.
+    const fromEvent = event ? previewFromEvent(event) : null;
+    if (fromEvent?.recorded) return fromEvent;
+    const fromEvidence = evidence ? previewFromEvidence(evidence, isEmailCase(event, original, gates)) : null;
+    if (fromEvidence?.recorded) return fromEvidence;
+    return local ?? fromEvent ?? fromEvidence ?? emptyPreview();
   }, [original, images, event, evidence, gates]);
 
   const { heading, verb } = originHeading(origin);
   const when = formatDateTime(at);
   const picture = images[0]?.originalUri ?? images[0]?.sentUri ?? null;
-  const email = preview?.icon === "email";
+  const email = preview.icon === "email";
+  // A text message shows who sent it, when it arrived and the message itself, each "Not provided" where not recorded.
+  const sms = preview.icon === "sms";
+  // A call says when it came in, the same way.
+  const call = preview.icon === "call";
+  // Where it came from, on every case.
+  const source = sourceOf(event, original);
   // Every source type opens: the full text, every summary line in full and everything else recorded about it.
-  const expandable = !!preview;
+  const expandable = true;
   const detected = origin === "apollo";
   const tone = detectedTone(event?.state);
   const facts = detected && event ? detectionFacts(event, original) : [];
@@ -187,31 +204,43 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
           </View>
         ) : null}
       </View>
-      {preview ? (
-        // Folded, the card shows a short preview; tapping it opens everything recorded about the material (an email's
-        // text without its links). Only the folded card is tappable, so the open text stays selectable and the Hide
-        // button stays enabled.
-        <FoldBox foldable={expandable && !open} onOpen={() => setOpen(true)} hint={email ? "Shows the full email" : "Shows more details"}
+      {/* Folded, the card shows a short preview; tapping it opens everything recorded about the material (an email's
+          text without its links). Only the folded card is tappable, so the open text stays selectable and the Hide
+          button stays enabled. Every kind of material shows its own lines, "Not provided" where nothing recorded them. */}
+      <FoldBox foldable={expandable && !open} onOpen={() => setOpen(true)} hint={email ? "Shows the full email" : "Shows more details"}
           style={s.previewBox} testID={`${testID}-preview`}>
           <View style={s.preview}>
             <PreviewTile icon={preview.icon} picture={picture} kind={preview.kind} testID={testID} />
             <View style={s.previewText}>
               {(open ? preview.fullLines : preview.lines).map((line, i) => {
                 // A web address, folded: shortened in the middle to what fits this screen, so its start and end both show.
-                const address = !open && isAddress(preview.fullLines[i] ?? line);
+                const { label, value } = splitLine(preview.fullLines[i] ?? line);
+                const lead = label ? `${label}: ` : "";
+                const address = !open && isAddress(value);
                 return (
                   <Text key={`${i}-${line}`} style={s.line} numberOfLines={open ? undefined : address ? 3 : 2} selectable={open} testID={`${testID}-line-${i}`}>
-                    {address ? shortenMiddle(preview.fullLines[i] ?? line, addressFit) : line}
+                    {address ? `${lead}${shortenMiddle(value, addressFit - lead.length)}` : line}
                   </Text>
                 );
               })}
-              {email ? (
+              {email || sms || call ? (
                 <Text style={s.line} numberOfLines={open ? undefined : 2} testID={`${testID}-received`}>
                   {`Received: ${preview.received ? formatDateTime(preview.received) || preview.received : NOT_PROVIDED}`}
                 </Text>
-              ) : preview.body ? (
-                <Text style={s.line} numberOfLines={open ? undefined : preview.body.includes("\n") ? 10 : 3} selectable={open} testID={`${testID}-body`}>{preview.body}</Text>
               ) : null}
+              {email && (!open || !preview.body) ? (
+                // The email's own words: a line of them folded (in full once opened), or why there are none.
+                <Text style={s.line} numberOfLines={2} testID={`${testID}-message`}>
+                  {`Message: ${preview.body ? preview.body.replace(/\s+/g, " ").trim() : deletedAt ? DELETED_HERE : NOT_PROVIDED}`}
+                </Text>
+              ) : !email && preview.body ? (
+                <Text style={s.line} numberOfLines={open ? undefined : preview.body.includes("\n") ? 10 : 3} selectable={open} testID={`${testID}-body`}>{preview.body}</Text>
+              ) : sms ? (
+                <Text style={s.line} testID={`${testID}-message`}>
+                  {`Message: ${deletedAt ? DELETED_HERE : NOT_PROVIDED}`}
+                </Text>
+              ) : null}
+              <Text style={s.line} numberOfLines={open ? undefined : 2} selectable={open} testID={`${testID}-source`}>{`Source: ${source}`}</Text>
             </View>
             {expandable && !open ? <View style={s.chevron}><ChevronDown size={20} color={colors.brand} testID={`${testID}-expand`} /></View> : null}
           </View>
@@ -234,7 +263,6 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
             </>
           ) : null}
         </FoldBox>
-      ) : null}
       {callNumber ? <NumberDetails number={callNumber} testID={`${testID}-number-details`} /> : null}
       {facts.length ? (
         <View style={s.facts} testID={`${testID}-facts`}>

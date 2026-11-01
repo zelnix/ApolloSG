@@ -24,6 +24,8 @@ from core.db import db, now_utc
 from core.models import PatrolEvent, PatrolEventIn
 
 REMOVED_REASON = "admin_case_wipe"
+# The person deleted the case themselves (services/case_delete.py): refused the same way.
+OWNER_DELETED = "owner_deleted"
 CONFIRM = "DELETE ALL CASES"
 
 DELETED_COLLECTIONS = (
@@ -63,9 +65,10 @@ async def run(actor: str) -> dict[str, Any]:
 
 
 async def refuses(body: PatrolEventIn, existing: Optional[dict[str, Any]]) -> bool:
-    """A deleted event is not stored again. (Matched by its id, never by its time: a device's clock can be wrong.)"""
+    """A deleted event is not stored again — removed by an administrator's reset or deleted by the person
+    (services/case_delete.py). (Matched by its id, never by its time: a device's clock can be wrong.)"""
     del body
-    return bool(existing) and existing.get("removed_reason") == REMOVED_REASON
+    return bool(existing) and existing.get("removed_reason") in (REMOVED_REASON, OWNER_DELETED)
 
 
 def unsaved_ack(body: PatrolEventIn, ts: datetime) -> PatrolEvent:

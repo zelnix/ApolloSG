@@ -17,7 +17,7 @@ from core.models import EnforcementEvidenceIn, PatrolEvent, PatrolEventIn, Patro
 from routers.family import notify_guardians
 from routers.push import push_owner_alert
 from services.patrol_policy import packet_verified, minimal_patrol, refresh_summary, revalidate_stored_patrol
-from services import case_wipe, held_copies, loop_cleanup, patrol_records
+from services import case_delete, case_wipe, held_copies, loop_cleanup, patrol_records
 
 router = APIRouter()
 
@@ -214,11 +214,24 @@ async def list_patrol_records(request: Request, limit: int = Query(default=200, 
 
 @router.get("/patrol/removed")
 async def removed_patrol_events(request: Request):
-    """Patrol events the server hid as duplicates (services/loop_cleanup.py) or an administrator removed
-    (services/case_wipe.py), so the device drops its local copies."""
+    """Patrol events the server hid as duplicates (services/loop_cleanup.py), an administrator removed
+    (services/case_wipe.py) or the person deleted (services/case_delete.py), so the device drops its local copies."""
     owner = request.state.device["device_id"]
-    reasons = [loop_cleanup.REMOVED_REASON, case_wipe.REMOVED_REASON]
+    reasons = [loop_cleanup.REMOVED_REASON, case_wipe.REMOVED_REASON, case_delete.REMOVED_REASON]
     return {"eventIds": await db.patrol_events.distinct("event_id", {"device_id": owner, "removed_reason": {"$in": reasons}})}
+
+
+class DeleteCasesIn(BaseModel):
+    eventIds: list[str] = Field(default_factory=list, max_length=case_delete.MAX_IDS)
+    caseIds: list[str] = Field(default_factory=list, max_length=case_delete.MAX_IDS)
+
+
+@router.post("/patrol/delete")
+async def delete_cases(body: DeleteCasesIn, request: Request):
+    """The person deleted these cases and records on their phone: every copy the server holds of them goes too."""
+    owner = request.state.device["device_id"]
+    result = await case_delete.delete(owner, body.eventIds, body.caseIds)
+    return {"eventIds": result["eventIds"], "caseIds": result["caseIds"]}
 
 
 class SavedOnDeviceIn(BaseModel):
