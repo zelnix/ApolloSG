@@ -1,5 +1,10 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Fix: Check This Call crashed on suspicious calls (2026-11-01, session 3)
+- Cause: the Production Sample Checks change added `origin: options?.origin ?? "user"` inside `checkCall` (ApolloContext.tsx) without an `options` parameter → "options is not defined" thrown for every call check that files a case (anything not clean).
+- Fix: `checkCall(input, options?: CallCheckOptions)` with new `CallCheckOptions { origin?: "sample_check" }` (same pattern as the other checks); context type updated. Callers unchanged (app/call.tsx passes none → origin "user").
+- Verified: tsc errors in ApolloContext gone; new `tests/checkCallOptions.test.ts`; preview run of Check This Call (bank + remote access + code) → Likely scam case filed, no page errors. Frontend suite 1311/1313 (same 2 pre-existing failures: carrierWarning, tabBadges).
+
 ## ApolloSG User Guide (searchable, prose) + Higgins answers "how do I…" from it (2026-11-01, session 3)
 
 **Owner's choices:** plan order as proposed; no screens removed for now (orphan cleanup on hold); no testing agent — pytest + node tests + screenshots.

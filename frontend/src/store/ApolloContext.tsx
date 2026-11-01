@@ -189,6 +189,11 @@ export interface NumberCheckOptions {
   /** Evidence provenance: "sample_check" when the input came from Sample Checks. Never changes processing. */
   origin?: "sample_check";
 }
+/** A described call (Check This Call). */
+export interface CallCheckOptions {
+  /** Evidence provenance: "sample_check" when the input came from Sample Checks. Never changes processing. */
+  origin?: "sample_check";
+}
 /** One email check: the deterministic analysis, the link reputation behind it, the single patrol
  *  record it filed, and the Magnum DI case id when Triage escalated (null when it did not). */
 export interface EmailOutcome {
@@ -280,7 +285,7 @@ interface ApolloContextValue {
   scanGmailInbox(): Promise<{ checked: number; accepted: number }>;
   recordRecovery(event: PatrolEvent, kind: RecoveryKind): Promise<void>;
   /** Gate 4: Check This Call — user-selected context (+ optional transcript) → Call Risk Engine → Patrol event + Threat Scent. */
-  checkCall(input: CallInput): Promise<{ submissionId: string; analysis: CallAnalysis; event: PatrolEvent | null; profile: EvidenceProfile; official?: OfficialVerdict[] | null }>;
+  checkCall(input: CallInput, options?: CallCheckOptions): Promise<{ submissionId: string; analysis: CallAnalysis; event: PatrolEvent | null; profile: EvidenceProfile; official?: OfficialVerdict[] | null }>;
   /** Call Guard add-on: on-demand caller-number risk check (backend-proxied IPQualityScore). */
   /** `deliberate` marks a check the person asked for (Check a Number, a re-check) as opposed to the
    *  background screening of an incoming call. A deliberate check that Apollo cannot settle from its
@@ -1477,7 +1482,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     return { checked: result.checked, accepted: result.accepted };
   }, [deviceId]);
 
-  const checkCall = useCallback(async (input: CallInput) => {
+  const checkCall = useCallback(async (input: CallInput, options?: CallCheckOptions) => {
     const analysis = analyseCall(input);
     // The Official Organisation Directory's verdict on the number (and any in the notes), against the organisation the
     // caller claimed. Runs alongside the checks below; never changes the outcome.
