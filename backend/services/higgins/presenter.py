@@ -379,10 +379,17 @@ def learn_article(article: dict[str, Any], max_chars: int = 1800) -> dict[str, A
 
 
 # ── Direct Answer First — intent-specific presenters ─────────────────────────
-# Procedural question → direct answer → steps → relevant action
-# Factual question → direct answer → short explanation
-# The first paragraph independently answers the question.
-# Supplementary material never appears before the direct answer.
+# Source hierarchy:
+# 1. Live device/Apollo state — "Is my protection on?"
+# 2. ApolloSG User Guide — "How do I use this?"
+# 3. Case/investigation evidence — "Why did Apollo flag this?"
+# 4. Apollo KB / Learn / Scam Alerts — scam and cybersecurity education.
+# 5. Honest limitation — if Apollo does not know.
+#
+# A product-use question must not fall through to the scam/cybersecurity KB
+# simply because the User Guide did not match it.
+
+from services.higgins import user_guide
 
 # ── Sharing procedure ─────────────────────────────────────────────────────────
 _SHARING_ANSWER = (
@@ -432,16 +439,25 @@ def _display(module_text: str) -> tuple[str, list[str]]:
 def product_knowledge(question: str, modules: list[str], *, intent_label: str = "") -> Optional[dict[str, Any]]:
     """Apollo's own product knowledge — selects minimum relevant facts, not whole modules.
 
-    Direct Answer First contract:
-    - Procedural questions get the direct procedure first.
-    - Factual questions get the direct answer first.
-    - Complete module bodies are only shown when explicitly requested.
-    - A keyword match never means 'display this whole module.'
+    Source hierarchy:
+    1. Intent-specific presenters (sharing_help, etc.)
+    2. ApolloSG User Guide (structured task lookup)
+    3. Legacy knowledge modules (minimum relevant facts)
+    4. Route matching
+
+    Direct Answer First: the first paragraph independently answers the question.
+    A keyword match never means 'display this whole module.'
     """
-    # Intent-specific presenters — direct answer first
+    # 1. Intent-specific presenters
     if intent_label == "sharing_help":
         return sharing_help(question)
 
+    # 2. ApolloSG User Guide — structured task lookup
+    guide_result = user_guide.guide_answer(question)
+    if guide_result:
+        return guide_result
+
+    # 3. Legacy knowledge modules — minimum relevant facts
     blocks: list[str] = []
     navigate: list[str] = []
 

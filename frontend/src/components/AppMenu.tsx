@@ -3,6 +3,7 @@
 import { useRouter, useSegments } from "expo-router";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
 import Beaker from "lucide-react-native/icons/beaker";
+import BookOpen from "lucide-react-native/icons/book-open";
 import HelpCircle from "lucide-react-native/icons/life-buoy";
 import Info from "lucide-react-native/icons/info";
 import ListChecks from "lucide-react-native/icons/list-checks";
@@ -19,6 +20,7 @@ import { fonts, makeStyles, spacing, useTheme } from "@/src/theme";
 
 const ITEMS = [
   { label: "Sample checks", icon: Beaker, route: "/sample-checks", testID: "menu-sample-checks" },
+  { label: "User Guide", icon: BookOpen, route: "/user-guide", testID: "menu-user-guide" },
   { label: "Settings", icon: Settings, route: "/(tabs)/settings", testID: "menu-settings" },
   { label: "About ApolloSG", icon: Info, route: "/about", testID: "menu-about" },
   { label: "How Apollo checks", icon: ListChecks, route: "/how-apollo-checks", testID: "menu-how-apollo-checks" },
