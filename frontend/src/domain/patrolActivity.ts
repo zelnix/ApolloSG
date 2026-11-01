@@ -117,6 +117,7 @@ function patrolEventOutcome(e: PatrolEvent): { outcome: string; tone: TimelineIt
 }
 
 function patrolEventActor(e: PatrolEvent): string {
+  if (e.origin === "sample_check") return "Sample Check";
   if (e.enforcement_evidence) {
     const mechanism = e.enforcement_evidence.mechanism;
     if (mechanism === "dns_sinkhole" || mechanism === "vpn_filter") return "Apollo";

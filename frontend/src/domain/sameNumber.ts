@@ -66,5 +66,6 @@ const startOfDay = (t: number) => { const d = new Date(t); d.setHours(0, 0, 0, 0
 
 /** The reminder's heading: who looked at the number before. */
 export function reminderTitle(e: EarlierCheck): string {
+  if (e.source === "case" && e.origin === "sample_check") return "This number was checked in a Sample Check";
   return e.source === "case" && e.origin === "apollo" ? "Apollo has seen this number before" : "You checked this number before";
 }

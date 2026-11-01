@@ -43,7 +43,8 @@ const ITEM_NOUN: Record<string, string> = { text: "Text", url: "A link", image: 
 function created(event: PatrolEvent): AuditEntry {
   const subject = threatSubject(event);
   const what = subject ? subjectDescriptor(subject) : `this ${categoryLabel(event.category, event.patrol_record?.recordClass).toLowerCase()} item`;
-  const description = event.origin === "user" ? `You submitted ${what} for checking.`
+  const description = event.origin === "sample_check" ? `Sample Check: Apollo checked ${what} through its production pipeline.`
+    : event.origin === "user" ? `You submitted ${what} for checking.`
     : event.origin === "apollo" ? `Apollo detected ${what}.` : `${categoryLabel(event.category, event.patrol_record?.recordClass)} recorded: ${what}.`;
   return { id: "created", at: event.occurred_at, title: "Case created", description, tone: "start" };
 }
