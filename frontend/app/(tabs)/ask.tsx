@@ -533,7 +533,7 @@ export default function Ask() {
     void start(input, files, operationId);
   }, [deviceId, router, start]);
 
-  const caseStatus = state.phase === "answered" ? `${investigatorName(state.caseData?.answeredBy)} has finished this investigation.` : state.phase === "waiting_user" ? "Magnum DI needs one answer from you" : state.phase === "failed" ? `Investigation incomplete${state.error ? ` — ${state.error}` : ""}.${state.failure || state.caseData ? " Retry available." : ""}` : state.phase === "expired" ? "Temporary investigation content expired" : caseBusy ? "Apollo is investigating…" : "Investigation content expires within 15 minutes";
+  const caseStatus = state.phase === "answered" ? `${investigatorName(state.caseData?.answeredBy)} has finished this investigation.` : state.phase === "waiting_user" ? "Magnum DI needs one answer from you" : state.phase === "failed" ? `Investigation incomplete${state.error ? ` — ${state.error}` : ""}.${state.failure || state.caseData ? " Retry available." : ""}` : state.phase === "expired" ? "Server copy cleaned up. Saved findings shown from this device." : caseBusy ? "Apollo is investigating…" : "Investigation findings are saved to this device.";
   const showWelcome = !investigationMode && chatMessages.length === 0;
   // Twenty ideas in the space of four: a fresh handful is drawn every few seconds, with
   // whatever this person has asked before kept at the front. Rotation stops as soon as a

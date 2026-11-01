@@ -70,7 +70,6 @@ export function useInvestigation(boundOperationId?: string | null) {
   const [state, setState] = useState<CaseState>(EMPTY);
   const stream = useRef<{ abort: () => void; lastSequence: () => number } | null>(null);
   const pending = useRef<{ turnId: string; key: string; message: string; answerTo: string | null } | null>(null);
-  const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caseRef = useRef<InvestigationCase | null>(null);
   const operationRef = useRef<string | null>(boundOperationId ?? null);
   const followed = useRef<string | null>(null);
@@ -103,17 +102,30 @@ export function useInvestigation(boundOperationId?: string | null) {
     }
   }, []);
 
-  const armExpiry = useCallback((caseData: InvestigationCase) => {
-    if (expiryTimer.current) clearTimeout(expiryTimer.current);
-    const gen = generation.current;
-    expiryTimer.current = setTimeout(() => {
-      if (gen !== generation.current || caseRef.current?.id !== caseData.id) return;
-      stream.current?.abort(); pending.current = null; followed.current = null;
-      generation.current += 1; caseRef.current = null; expiryTimer.current = null;
-      if (operationRef.current) expireOperation(operationRef.current, caseData.id);
-      setState({ ...EMPTY, phase: "expired", operationId: operationRef.current,
-        error: "This temporary investigation reached its 15-minute limit and was cleared. Submit the evidence again for a new check." });
-    }, Math.max(0, Date.parse(caseData.expiresAt) - Date.now()));
+  /** When the server copy becomes unavailable, load the verified device record instead of clearing.
+   *  Processing timeouts are separate: they report that work stopped and preserve available findings. */
+  const handleServerUnavailable = useCallback(async (caseId: string, reason: string) => {
+    const local = await getInvestigation(caseId).catch(() => null);
+    if (local?.response) {
+      const reconstructed: InvestigationCase = {
+        schemaVersion: 1, id: local.caseId, revision: 0, gates: local.gates as import("./types").Gate[],
+        status: (local.status ?? "complete") as import("./types").CaseStatus,
+        createdAt: local.createdAt, updatedAt: local.completedAt, expiresAt: new Date(Date.now() + 365 * 24 * 3600_000).toISOString(),
+        evidenceExpiresAt: null, reportExpiresAt: null, retentionClass: "device_local",
+        reportByteSize: 0, response: local.response, activeJobId: null,
+        pendingDeviceRequestIds: [], inventory: { total: 0, examined: 0, partial: 0, unavailable: 0, purged: 0, contentExpired: 0 },
+        cleanupStatus: "complete" as const, answeredBy: local.answeredBy ?? null, settledReason: local.settledReason ?? null,
+        simulated: local.simulated, origin: local.origin ?? null,
+      };
+      caseRef.current = reconstructed;
+      setState((prev) => ({ ...prev, caseData: reconstructed, response: local.response, sources: local.sources, turns: local.turns,
+        question: local.response.question ?? null, phase: local.response.question ? "waiting_user" : "answered",
+        notice: "Original evidence has been cleaned up from the server. The saved investigation report is shown from this device." }));
+    } else {
+      // No device record available — show the reason clearly
+      setState((prev) => ({ ...prev, phase: "expired",
+        error: reason || "The server working copy is no longer available and no saved report was found on this device." }));
+    }
   }, []);
 
   const follow = useCallback((caseId: string, job: Job, after = 0) => {
@@ -155,7 +167,8 @@ export function useInvestigation(boundOperationId?: string | null) {
         void refresh(caseId, gen).then((caseData) => { if (live()) update({ phase: caseData.response ? "answered" : "idle", progress: [] }); }).catch(() => undefined);
       } else if (event.type === "expired") {
         if (operationId) expireOperation(operationId, caseId);
-        setState({ ...EMPTY, phase: "expired", operationId, error: "Temporary evidence expired before Magnum DI finished." });
+        // Processing stopped — try to recover saved findings from device
+        void handleServerUnavailable(caseId, "Temporary evidence expired before the investigation finished. Available findings are preserved.");
       }
     }, (reason) => {
       if (!live() || reason === "terminal") return;
@@ -172,7 +185,10 @@ export function useInvestigation(boundOperationId?: string | null) {
               failure: fresh.failure, error: fresh.failure?.message ?? null, job: fresh });
             if (operationId) settleManagedOperation(operationId, caseId, caseData, fresh);
           }).catch(() => undefined);
-        }).catch((error: unknown) => { if (live()) update({ phase: "failed", error: error instanceof ApiError && error.status === 410 ? "This investigation expired." : "Connection lost. Retry to reconnect to the same investigation." }); });
+        }).catch((error: unknown) => { if (live()) {
+          if (error instanceof ApiError && error.status === 410) void handleServerUnavailable(caseId, "The server working copy is no longer available.");
+          else update({ phase: "failed", error: "Connection lost. Retry to reconnect to the same investigation." });
+        } });
       }, 1500);
     });
   }, [refresh]);
@@ -186,7 +202,7 @@ export function useInvestigation(boundOperationId?: string | null) {
       return;
     }
     dlog('caseStore', 'adoptManaged', { phase: record.phase, caseId: record.caseData?.id, jobId: record.job?.id, opId: record.operationId });
-    if (record.caseData) { caseRef.current = record.caseData; armExpiry(record.caseData); }
+    if (record.caseData) { caseRef.current = record.caseData; }
     const progress = record.phase === "failed" ? ["This exact operation is ready to retry."]
       : record.phase === "submitted" || record.phase === "settled" ? ["The operation is attached to this investigation."]
       : ["Magnum DI is continuing this investigation."];
@@ -202,7 +218,7 @@ export function useInvestigation(boundOperationId?: string | null) {
       const key = `${record.operationId}:${record.caseData.id}:${record.job.id}`;
       if (followed.current !== key) { followed.current = key; follow(record.caseData.id, record.job); }
     }
-  }, [armExpiry, follow]);
+  }, [follow]);
 
   useEffect(() => {
     if (!boundOperationId) return;
@@ -214,7 +230,6 @@ export function useInvestigation(boundOperationId?: string | null) {
 
   const start = useCallback(async (input: Omit<CreateCase, "deviceProfile">, files: { uri: string; name: string; mediaType: string }[] = [], operationId = boundOperationId ?? safeUUID()) => {
     stream.current?.abort(); generation.current += 1; followed.current = null; operationRef.current = operationId; caseRef.current = null;
-    if (expiryTimer.current) clearTimeout(expiryTimer.current);
     setState((previous) => ({ ...EMPTY, undeleted: previous.undeleted, operationId, phase: "creating", progress: ["Creating the investigation case."] }));
     void flushPendingDeletions();
     const unsubscribe = subscribeManagedOperation(operationId, adoptManaged);
@@ -325,13 +340,12 @@ export function useInvestigation(boundOperationId?: string | null) {
     dlog('caseStore', 'attach START', { caseId, gen: generation.current + 1, opRef: operationRef.current });
     attachOwns.current = true;
     stream.current?.abort(); pending.current = null; generation.current += 1; followed.current = null;
-    if (expiryTimer.current) clearTimeout(expiryTimer.current); caseRef.current = { id: caseId } as InvestigationCase;
+    caseRef.current = { id: caseId } as InvestigationCase;
     setState((previous) => ({ ...EMPTY, undeleted: previous.undeleted, operationId: operationRef.current, phase: "creating", progress: ["Opening the investigation."] }));
     void flushPendingDeletions(); const gen = generation.current; const live = () => gen === generation.current && caseRef.current?.id === caseId;
     try {
       const caseData = await refresh(caseId, gen);
       if (!live()) { dlog('caseStore', 'attach STALE after refresh', { caseId, gen, current: generation.current }); attachOwns.current = false; return null; }
-      armExpiry(caseData);
       const stopped = !caseData.activeJobId && stoppedJobId ? (await api.getJob(caseId, stoppedJobId)).job : null;
       if (!live()) { dlog('caseStore', 'attach STALE after getJob', { caseId }); attachOwns.current = false; return null; }
       if (caseData.activeJobId) {
@@ -380,12 +394,12 @@ export function useInvestigation(boundOperationId?: string | null) {
       update({ phase: error instanceof ApiError && error.status === 410 ? "expired" : "failed", error: error instanceof Error ? error.message : "Could not open this investigation." });
       return null;
     }
-  }, [refresh, armExpiry, follow, flushPendingDeletions]);
+  }, [refresh, follow, flushPendingDeletions, handleServerUnavailable]);
 
   const remove = useCallback(async () => {
     const caseData = state.caseData; stream.current?.abort(); pending.current = null;
     if (operationRef.current) cancelManagedOperation(operationRef.current, caseData?.id);
-    if (expiryTimer.current) clearTimeout(expiryTimer.current); generation.current += 1; caseRef.current = null; operationRef.current = null;
+    generation.current += 1; caseRef.current = null; operationRef.current = null;
     setState((previous) => ({ ...EMPTY, undeleted: previous.undeleted }));
     if (caseData) {
       // Remove from all local stores (device investigation + supplementary stores)
@@ -416,6 +430,6 @@ export function useInvestigation(boundOperationId?: string | null) {
     } else if (state.phase === "working" || state.phase === "answered" || state.phase === "waiting_user") void forgetStopped(stoppedCaseId);
   }, [state.phase, stoppedCaseId, stoppedJobId, resubmitAt, caseExpiresAt, resubmittable]);
 
-  useEffect(() => () => { stream.current?.abort(); if (expiryTimer.current) clearTimeout(expiryTimer.current); }, []);
+  useEffect(() => () => { stream.current?.abort(); }, []);
   return { state, start, ask, continueWith, retry, cancel, remove, attach, retryDelete };
 }

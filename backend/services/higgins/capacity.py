@@ -19,7 +19,7 @@ class Bound:
     overflow: str
 
 
-POLICY_VERSION = "2026-10-11.1"
+POLICY_VERSION = "2026-11-01.1"
 TEXT = Bound(int(os.getenv("HIGGINS_MAX_TEXT_CHARACTERS", "262144")), "characters",
              "Bound transport allocation before provider token admission", "reject explicitly; never slice")
 ITEMS = Bound(int(os.getenv("HIGGINS_MAX_ITEMS", "256")), "items",
@@ -27,8 +27,16 @@ ITEMS = Bound(int(os.getenv("HIGGINS_MAX_ITEMS", "256")), "items",
 OUTPUT = Bound(int(os.getenv("HIGGINS_OUTPUT_TOKENS", "16384")), "tokens",
                "Reserve response and reasoning within the provider's output limit", "non-STOP output is incomplete")
 SCHEMA_RESERVE = Bound(1024, "tokens", "Conservative role/tool-wrapper overhead not exposed by Developer API token counting", "reject; do not trim context")
-LIFETIME_SECONDS = 15 * 60  # hard ceiling for active-investigation work; never extended by retries
-TEMPORARY_RETENTION = "apollo_15_minute_temporary"
+
+# ── Case Lifetime ───────────────────────────────────────────────────
+# The server-side case record lives for 24 hours after creation. Within that window
+# the investigation runs, the device picks up the result, and evidence is cleaned up.
+# Processing timeout (WORK_SECONDS) is separate: a timeout stops work but preserves
+# available findings. The case is never hard-cleared from the client while it holds
+# committed findings.
+CASE_LIFETIME_SECONDS = int(os.getenv("CASE_LIFETIME_SECONDS", str(24 * 3600)))  # 24 hours
+LIFETIME_SECONDS = CASE_LIFETIME_SECONDS  # backward-compatible alias
+TEMPORARY_RETENTION = "apollo_temporary"
 WORK_SECONDS = 300
 CALL_SECONDS = 90
 
@@ -38,12 +46,15 @@ CALL_SECONDS = 90
 EVIDENCE_RETENTION_SECONDS = int(os.getenv("EVIDENCE_RETENTION_SECONDS", str(24 * 3600)))  # 24 hours
 # Device-local investigations: the server does NOT retain completed investigations.
 # The server is a temporary processing workspace only; the device owns the durable record.
+# Saved reports on device: retained for 90 days or until the storage cap requires oldest-first removal.
+DEVICE_REPORT_RETENTION_DAYS = 90
 
 
 def policy() -> dict:
     return {"version": POLICY_VERSION, "bounds": {k: asdict(v) for k, v in
             {"text": TEXT, "items": ITEMS, "output": OUTPUT, "schemaReserve": SCHEMA_RESERVE}.items()},
-            "lifetimeSeconds": LIFETIME_SECONDS, "workSeconds": WORK_SECONDS}
+            "caseLifetimeSeconds": CASE_LIFETIME_SECONDS, "workSeconds": WORK_SECONDS,
+            "evidenceRetentionSeconds": EVIDENCE_RETENTION_SECONDS}
 
 
 def bounded_analysis(function):

@@ -1,5 +1,53 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Investigation expiry overhaul + Patrol History unified activity log + Threats screen detail fix (2026-11-01)
+
+### Investigation Expiry Overhaul
+**Problem:** Fixed 15-minute timer in `caseStore.ts` hard-cleared finished investigations, discarded findings, and forced evidence resubmission. Messages said "15-minute limit" and "submit the evidence again."
+
+**Changes — Backend:**
+- `capacity.py`: `LIFETIME_SECONDS` changed from 15 min → 24 hours (`CASE_LIFETIME_SECONDS`); `TEMPORARY_RETENTION` renamed from `"apollo_15_minute_temporary"` → `"apollo_temporary"`; backward-compatible alias kept; `DEVICE_REPORT_RETENTION_DAYS = 90` added; `POLICY_VERSION` updated.
+- `retention.py`: Sweep and TTL indexes handle both old (`apollo_15_minute_temporary`) and new (`apollo_temporary`) retention classes. No migration needed — old records expire naturally.
+- `repository.py`: `get_case` 410 messages corrected (no longer say "submit again"); `sweep` handles both retention classes; case lifetime now 24 hours.
+
+**Changes — Frontend (`src/investigation/caseStore.ts`):**
+- Removed `armExpiry` timer entirely — no more 15-minute reset-to-EMPTY.
+- Removed `expiryTimer` ref and all `clearTimeout` calls.
+- Added `handleServerUnavailable()`: when server returns 404/410 or stream sends `expired`, loads verified device record from `deviceStore.getInvestigation()` and displays it; if no device record, shows clear error.
+- Reconnection 410 handler now uses `handleServerUnavailable()` instead of showing "This investigation expired."
+- `attach()` already had device-store fallback for 404/410 (unchanged).
+
+**Changes — Frontend (`ask.tsx`):**
+- Removed "15-minute limit" and "expires within 15 minutes" messages.
+- `caseStatus` for expired: "Server copy cleaned up. Saved findings shown from this device."
+- `caseStatus` for idle answered: "Investigation findings are saved to this device."
+
+**Changes — Frontend (`InvestigationView.tsx`):**
+- `evidence_expired` explanation: "Original evidence has been cleaned up from the server. The investigation findings remain available on your device."
+- History timeline expired entry: "Server copy cleaned up" (not "Investigation expired").
+
+**Follow-ups from saved findings:** Already implemented in `ask()` via `isFinished()`/`investigationFollowUp()` — uses locked device findings through Higgins Luddish, no Gemini call.
+
+### Patrol History Unified Activity Log
+**New files:**
+- `src/store/activityLog.ts` — AsyncStorage-backed persistent activity log, 90-day retention, device-isolated. `deleteActivities()` does NOT delete linked Threat Cases.
+- `src/store/activityRecorder.ts` — Hooks into posture monitor + protection health. Distinguishes configured vs verified operational. Baselines recorded as "baseline" not "change". Monitoring gaps: `detectedAt` vs `occurredAt`.
+- `src/domain/patrolActivity.ts` — Unified timeline builder: merges PatrolEvents + ActivityLog, filters (All | Checks | Detections | Protection | Device), groups 3+ routine successes, accurate attribution.
+
+**Modified files:**
+- `app/patrol/history.tsx` — Complete UI rewrite: filter chips, day-grouped timeline with icons/colour-coded outcomes, expandable detail (limitations, before/after), linked case refs, select/delete, export.
+- `src/protection/healthStore.ts` — Hooks activity recorder into health publish pipeline (try/catch protected).
+- `src/store/ApolloContext.tsx` — Starts activity recorder at boot/setup.
+- `src/utils/exportPatrol.ts` — Export includes unified activity log.
+
+### Threats Screen Detail Fix
+- `app/(tabs)/patrol.tsx`: Replaced `cardTitle()`/`cardSubtitle()` with `eventBrief()` (same function Home screen uses) for rich two-line threat summaries on the Threats list.
+
+### Tab Layout Fix
+- `app/patrol/[id].tsx`: Aligned Threat Case screen tab bar styles with InvestigationView's working horizontal layout (was rendering vertically).
+
+
+
 ## Select + delete cases (Threats, Patrol history) + source fields on every case — verified in preview (2026-11-01)
 **Owner's choices:** test both now; keep the sample cases made for testing. No testing agent (owner's rule) — pytest + node
 tests + tsc + preview screenshots driven end to end.

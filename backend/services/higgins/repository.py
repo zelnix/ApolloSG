@@ -191,11 +191,11 @@ async def get_case(owner: str, case_id: str, *, for_mutation: bool = False) -> d
     if not doc:
         raise http(404, "not_found", "No investigation with that reference belongs to this device.")
     if doc["deleted"] or doc["status"] == "expired":
-        raise http(410, "evidence_expired", "This investigation has been deleted or has expired. Start a new check with the required evidence.")
+        raise http(410, "evidence_expired", "This investigation's server working copy has been cleaned up. The saved report may still be available on your device.")
     # Check if the case has expired by time
     if utc(doc["expires_at"]) <= now_utc():
         await expire_case(owner, case_id)
-        raise http(410, "evidence_expired", "The temporary investigation content expired at its original deadline. Submit the evidence again for a new check.")
+        raise http(410, "evidence_expired", "The server working copy of this investigation has expired. The saved report may still be available on your device.")
     if for_mutation and doc["status"] in ("cancelled",):
         raise http(409, "conflict", "This investigation was cancelled. Start a new check.")
     return doc
@@ -831,8 +831,9 @@ async def sweep() -> None:
     now = now_utc()
     # ── Phase 1: Evidence content cleanup (24 hours after the investigation finished, at the latest) ──
     await sweep_evidence_content()
-    # ── Phase 2: Temporary cases (15-minute work window) ──
-    async for doc in db.investigation_cases.find({"retention_class": TEMPORARY_RETENTION, "expires_at": {"$lte": now}, "cleanup_status": {"$in": ["not_due"]}}, {"_id": 0, "owner_id": 1, "case_id": 1}):
+    # ── Phase 2: Temporary cases past their lifetime ──
+    retention_filter = {"retention_class": {"$in": [TEMPORARY_RETENTION, "apollo_15_minute_temporary"]}}
+    async for doc in db.investigation_cases.find({**retention_filter, "expires_at": {"$lte": now}, "cleanup_status": {"$in": ["not_due"]}}, {"_id": 0, "owner_id": 1, "case_id": 1}):
         await expire_case(doc["owner_id"], doc["case_id"])
     # ── Phase 3: Retry pending cleanups ──
     async for task in db.investigation_cleanup.find({"state": "pending", "next_attempt_at": {"$lte": now}}, {"_id": 0}):

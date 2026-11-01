@@ -213,7 +213,7 @@ function higginsExplanation(failure: Record<string, unknown> | null | undefined,
   if (code === "response_invalid") return "Magnum DI couldn't complete the investigation. The AI tool returned a response ApolloSG couldn't validate. No investigation conclusion has been substituted — the AI tool's actual reply is in the technical details.";
   if (code === "provider_configuration") return "Magnum DI couldn't access one of its analysis services because it isn't configured correctly. This needs a technical fix rather than another immediate attempt.";
   if (history.length > 1) return "Magnum DI couldn't complete the investigation because the analysis service remained unavailable after several attempts. I'll show you any findings already collected. You can try again later.";
-  if (code === "evidence_expired") return "Temporary evidence expired before the investigation could finish. A new investigation with fresh evidence may be needed.";
+  if (code === "evidence_expired") return "Original evidence has been cleaned up from the server. The investigation findings remain available on your device.";
   return "Magnum DI couldn't complete the investigation, but I can't confirm exactly what interrupted it. I'll show you the available findings and the technical details so we can identify what needs fixing.";
 }
 
@@ -328,7 +328,7 @@ function buildTimeline(state: CaseState): TimelineEntry[] {
   } else if (phase === "failed") {
     entries.push({ title: "Investigation incomplete", body: failure?.message ?? state.error ?? "The investigation could not be completed.", at: caseData?.updatedAt ?? caseData?.createdAt ?? "", iconType: "failed" });
   } else if (phase === "expired") {
-    entries.push({ title: "Investigation expired", body: "Temporary evidence expired before the investigation finished.", at: caseData?.updatedAt ?? "", iconType: "failed" });
+    entries.push({ title: "Server copy cleaned up", body: "Original evidence was cleaned up from the server. Saved findings remain on this device.", at: caseData?.updatedAt ?? "", iconType: "failed" });
   }
   return entries.sort((a, b) => a.at.localeCompare(b.at));
 }

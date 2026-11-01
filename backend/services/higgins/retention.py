@@ -16,6 +16,8 @@ from services.higgins.capacity import LIFETIME_SECONDS, TEMPORARY_RETENTION
 
 CONTENT_COLLECTIONS = ("ask_messages", "ask_handoffs")
 LEGACY_CONTENT_MIGRATION = "higgins-discard-pre-v1-temporary-content"
+# Also match the old retention class for backward compatibility during migration
+LEGACY_TEMPORARY_RETENTION = "apollo_15_minute_temporary"
 
 
 def utc(value):
@@ -114,19 +116,20 @@ async def migrate_and_index() -> None:
             if definition.get("key") == [("expires_at", 1)] and definition.get("partialFilterExpression") != {"retention_class": TEMPORARY_RETENTION}:
                 await db[name].drop_index(index_name)
         await db[name].create_index("expires_at", name="temporary_evidence_expiry_ttl", expireAfterSeconds=0,
-                                    partialFilterExpression={"retention_class": TEMPORARY_RETENTION})
+                                    partialFilterExpression={"retention_class": {"$in": [TEMPORARY_RETENTION, LEGACY_TEMPORARY_RETENTION]}})
         await db[name].create_index([("device_id", 1), ("scope_id", 1)])
 
 
 async def sweep() -> None:
     # Deployment-safe invariant: automatic cleanup can only select records explicitly created under Apollo's
-    # fixed 15-minute temporary-evidence contract. Persistent/user-owned records are never selected by age alone.
-    await db.investigation_scopes.update_many({'retention_class': TEMPORARY_RETENTION,
+    # temporary-evidence contract. Persistent/user-owned records are never selected by age alone.
+    retention_filter = {'retention_class': {'$in': [TEMPORARY_RETENTION, LEGACY_TEMPORARY_RETENTION]}}
+    await db.investigation_scopes.update_many({**retention_filter,
                                                '$or': [{'expires_at': {'$lte': now_utc()}}, {'deleted': True}]},
                                               {'$unset': {'context_ciphertext': ''}})
     for name in CONTENT_COLLECTIONS:
-        await db[name].delete_many({"retention_class": TEMPORARY_RETENTION, "expires_at": {"$lte": now_utc()}})
-    async for scope in db.investigation_scopes.find({"retention_class": TEMPORARY_RETENTION, "deleted": True}, {"_id": 0, "owner_id": 1, "scope_id": 1}):
+        await db[name].delete_many({**retention_filter, "expires_at": {"$lte": now_utc()}})
+    async for scope in db.investigation_scopes.find({**retention_filter, "deleted": True}, {"_id": 0, "owner_id": 1, "scope_id": 1}):
         await delete_scope(scope["owner_id"], scope["scope_id"])
 
 
