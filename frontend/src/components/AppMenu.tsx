@@ -2,7 +2,7 @@
 // pop-up routes (see src/navigation/modalRoutes), and screens closed with an X don't include it.
 import { useRouter, useSegments } from "expo-router";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import FlaskConical from "lucide-react-native/icons/flask-conical";
+import Beaker from "lucide-react-native/icons/beaker";
 import HelpCircle from "lucide-react-native/icons/life-buoy";
 import Info from "lucide-react-native/icons/info";
 import ListChecks from "lucide-react-native/icons/list-checks";
@@ -18,7 +18,7 @@ import { isPopupRoute } from "@/src/navigation/modalRoutes";
 import { fonts, makeStyles, spacing, useTheme } from "@/src/theme";
 
 const ITEMS = [
-  { label: "Sample checks", icon: FlaskConical, route: "/sample-checks", testID: "menu-sample-checks" },
+  { label: "Sample checks", icon: Beaker, route: "/sample-checks", testID: "menu-sample-checks" },
   { label: "Settings", icon: Settings, route: "/(tabs)/settings", testID: "menu-settings" },
   { label: "About ApolloSG", icon: Info, route: "/about", testID: "menu-about" },
   { label: "How Apollo checks", icon: ListChecks, route: "/how-apollo-checks", testID: "menu-how-apollo-checks" },

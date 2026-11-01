@@ -7,13 +7,13 @@
  */
 import { useRouter } from "expo-router";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import FlaskConical from "lucide-react-native/icons/flask-conical";
+import Beaker from "lucide-react-native/icons/beaker";
 import React, { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ChildScreenHeader } from "@/src/components/ChildScreenHeader";
-import { Sheet } from "@/src/components/ui";
+import { Sheet } from "@/src/components/Sheet";
 import { SAMPLE_KINDS, type SampleKind } from "@/src/sampleChecks";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -72,7 +72,7 @@ export default function SampleChecksScreen() {
                 onPress={() => setSelectedKind(kind)}
                 style={({ pressed }) => [s.row, { opacity: pressed ? 0.85 : 1 }]}
               >
-                <FlaskConical size={20} color={colors.brandPrimary} />
+                <Beaker size={20} color={colors.brandPrimary} />
                 <View style={s.rowBody}>
                   <Text style={s.rowLabel}>{def.label}</Text>
                   <Text style={s.rowSub}>{def.gate} · {def.items.length} sample{def.items.length === 1 ? "" : "s"}</Text>
