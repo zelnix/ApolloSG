@@ -4,7 +4,7 @@
  */
 import { useRouter } from "expo-router";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import HelpCircle from "lucide-react-native/icons/circle-help";
+import HelpCircle from "lucide-react-native/icons/life-buoy";
 import SearchIcon from "lucide-react-native/icons/search";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
