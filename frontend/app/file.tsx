@@ -122,6 +122,25 @@ export default function CheckFile() {
     }
   };
 
+  /** Sample Check: constructs controlled sample bytes and feeds them through the real file inspection.
+   *  Provenance is "sample_check" — the file is not represented as genuinely selected from the device. */
+  const checkSampleFile = async (sample: { name: string; mime: string; content: string }) => {
+    setPickerError(null);
+    try {
+      const size = sample.content.length;
+      if (Platform.OS === "web") {
+        const blob = new Blob([sample.content], { type: sample.mime });
+        await analyseAsset({ uri: URL.createObjectURL(blob), name: sample.name, mimeType: sample.mime, size }, "unknown", false, "sample_check" as any);
+        return;
+      }
+      const targetUri = (FS.cacheDirectory ?? "") + sample.name;
+      await FS.writeAsStringAsync(targetUri, sample.content, { encoding: FS.EncodingType.UTF8 });
+      await analyseAsset({ uri: targetUri, name: sample.name, mimeType: sample.mime, size }, "unknown", true, "sample_check" as any);
+    } catch (error) {
+      setPickerError(error instanceof Error ? error.message : "ApolloSG could not prepare the sample file.");
+    }
+  };
+
   const pick = async () => {
     setPickerError(null);
     try {
@@ -135,17 +154,14 @@ export default function CheckFile() {
   };
   // Shared from another app (Share → Apollo): analyse the shared file straight away. This URI is never ours to delete.
   useEffect(() => { if (incomingUri && !result) { const incoming = FILE_SOURCES.some((item) => item.id === params.source) ? params.source as FileSource : "unknown"; setSource(incoming); void analyseAsset({ uri: incomingUri, name: sharedFile?.fileName ?? params.name ?? incomingUri.split("/").pop() ?? "shared file", mimeType: sharedFile?.mimeType ?? params.mime ?? null, size: sharedFile?.size ?? (params.size ? Number(params.size) : undefined) }, incoming, false, "shared"); } }, [incomingUri]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Preview only: a sample chosen elsewhere (Threats → Try a sample check) runs exactly as picking it here does.
+  // Sample Check: constructs sample bytes and feeds through the real file inspection pipeline.
   const sampleRan = useRef(false);
   useEffect(() => {
     if (!params.sample || !ready || !setupDone || sampleRan.current) return;
     const prodSample = findSampleFile(params.sample);
-    const f = prodSample
-      ? { id: prodSample.id, name: prodSample.name, mime: prodSample.mime, content: prodSample.content, probes: prodSample.description }
-      : simulation.files.find((x) => x.id === params.sample);
-    if (!f) return;
+    if (!prodSample) return;
     sampleRan.current = true;
-    void checkSimulatedFile(f);
+    void checkSampleFile(prodSample);
   }, [params.sample, ready, setupDone]); // eslint-disable-line react-hooks/exhaustive-deps
   const analyseAsset = async (asset: { uri: string; name: string; mimeType?: string | null; size?: number }, assetSource: FileSource = source, owned: boolean = false, via: FileVia = "picked", simulated = false) => {
     setBusy(true);

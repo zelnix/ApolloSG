@@ -229,9 +229,10 @@ export interface PatrolEvent {
   /** An outside source behind that investigation was simulated in the preview (copied from the committed result).
    *  Device-local. Everything else ran exactly as in production; this only tags the case. */
   investigation_simulated?: boolean;
-  /** Who started this case, recorded when it was filed: the person submitted it ("user") or Apollo detected it
-   *  ("apollo"). Device-local. Absent on records filed before it was recorded — never inferred. */
-  origin?: "user" | "apollo" | null;
+  /** Who started this case, recorded when it was filed: the person submitted it ("user"), Apollo detected it
+   *  ("apollo"), or it was a Sample Check exercising the production pipeline ("sample_check").
+   *  Device-local. Absent on records filed before it was recorded — never inferred. */
+  origin?: "user" | "apollo" | "sample_check" | null;
   /** Server-owned correlation: links a background-intake submission to its projected Patrol event.
    * Set by the investigation projector; the frontend sets it on local placeholder events for
    * reconciliation. When the server supplies a value, it is authoritative and supersedes the local

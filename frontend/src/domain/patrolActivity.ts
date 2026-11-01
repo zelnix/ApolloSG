@@ -178,13 +178,14 @@ export function patrolEventToTimeline(e: PatrolEvent): TimelineItem {
   // Routine successful checks get a groupKey for collapsing
   const isRoutineSuccess = e.state === "resting" && !e.verified_block;
   const groupKey = isRoutineSuccess ? `routine-check-${e.category}` : undefined;
+  const sampleCheck = e.origin === "sample_check";
 
   return {
     id: `pe:${e.event_id}`,
     type: patrolEventType(e),
     timestamp: e.occurred_at,
     title: presented.title || e.headline || `${e.category} check`,
-    detail: `${outcome} · ${STATUS_LABELS[status]}`,
+    detail: `${outcome} · ${STATUS_LABELS[status]}${sampleCheck ? " · Sample Check" : ""}`,
     actor: patrolEventActor(e),
     outcome,
     iconHint: patrolEventIcon(e),

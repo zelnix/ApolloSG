@@ -797,11 +797,20 @@ async def accepted_turns(owner: str, case: dict) -> list[TurnCommit]:
 async def _queue_kb_contribution(owner: str, case_id: str, commit: TurnCommit) -> None:
     """Queue a privacy-safe KB contribution from a qualifying completed investigation.
     The contribution contains only the public-safe assessment, no personal evidence.
-    Queued entries survive case deletion and retry failed writes without AI calls."""
+    Queued entries survive case deletion and retry failed writes without AI calls.
+    
+    ISOLATION: Sample Checks (origin="sample_check") are excluded — they must never
+    contribute to genuine KB intelligence, threat prevalence, or consensus."""
     try:
         from services.higgins import kb_queue
         resp = commit.response
         if not resp or not resp.assessment:
+            return
+        # ISOLATION: Never contribute sample check evidence to real-world intelligence
+        case_doc = await db.investigation_cases.find_one(
+            {"case_id": case_id}, {"_id": 0, "origin": 1}
+        )
+        if case_doc and case_doc.get("origin") == "sample_check":
             return
         # Only contribute if the result is definitive (not inconclusive/limited)
         if resp.attention in ("ears_up",):

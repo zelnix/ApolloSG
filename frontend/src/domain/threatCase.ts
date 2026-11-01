@@ -33,6 +33,11 @@ export function isSimulated(event: Pick<PatrolEvent, "evidence_profile" | "inves
   return !!(event.evidence_profile?.simulated || event.investigation_simulated);
 }
 
+/** True when this event originated from a Sample Check — a production test, not a preview simulation. */
+export function isSampleCheck(event: Pick<PatrolEvent, "origin">): boolean {
+  return event.origin === "sample_check";
+}
+
 // ── Threat Case ID ──────────────────────────────────────────────────────────
 
 export function threatCaseId(event: PatrolEvent): string {

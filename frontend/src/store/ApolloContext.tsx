@@ -163,6 +163,8 @@ export interface LinkCheckOptions {
   via?: LinkVia; upgradeEventId?: string | null;
   /** A preview sample standing in for `via`: processed exactly as `via`, only tagged Simulated. */
   simulated?: boolean;
+  /** Evidence provenance: "sample_check" when the input came from Sample Checks. Never changes processing. */
+  origin?: "sample_check";
 }
 export interface MessageExplanation { summary: string; why: string[]; recommendation: string }
 export type { MessageUrlResult };
@@ -176,12 +178,16 @@ export interface MessageCheckOptions {
   via?: MessageVia; receivedAt?: string | null; upgradeEventId?: string | null;
   /** The input came from a preview sample standing in for `via`. Processed exactly as `via`; only tagged. */
   simulated?: boolean;
+  /** Evidence provenance: "sample_check" when the input came from Sample Checks. Never changes processing. */
+  origin?: "sample_check";
 }
 /** How a number came to be checked (sets its evidence level) — ApolloSG's call screening passes when it saw the call. */
 export interface NumberCheckOptions {
   deliberate?: boolean; carrierWarning?: CarrierWarning; via?: CallVia; screenedAt?: string | null;
   /** A preview sample standing in for `via`: processed exactly as `via`, only tagged Simulated. */
   simulated?: boolean;
+  /** Evidence provenance: "sample_check" when the input came from Sample Checks. Never changes processing. */
+  origin?: "sample_check";
 }
 /** One email check: the deterministic analysis, the link reputation behind it, the single patrol
  *  record it filed, and the Magnum DI case id when Triage escalated (null when it did not). */
@@ -203,6 +209,8 @@ export interface EmailCheckInput {
   via?: EmailVia;
   /** A preview sample standing in for `via`: processed exactly as `via`, only tagged Simulated. */
   simulated?: boolean;
+  /** Evidence provenance: "sample_check" when the input came from Sample Checks. Never changes processing. */
+  origin?: "sample_check";
   original?: { parsed: ParsedOriginal; binary: string } | null;
   /** When the email arrived, as the mailbox recorded it (an email picked from a connected inbox). */
   receivedAt?: string | null;
@@ -1186,6 +1194,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
             local_state: state, scenario: analysis.scenario,
             signals: why.slice(0, 20), claimed_brand: analysis.signals.claimedBrand ?? null,
             client_submission_id: eventId,
+            origin: options?.origin ?? undefined,
           });
           investigationCaseId = typeof remote.investigation_case_id === "string" ? remote.investigation_case_id : null;
           if (remote.investigation_error) why.push(`${remote.investigation_error} This result comes from Apollo's deterministic checks only.`);
@@ -1204,7 +1213,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
         : guardHeadline || (nativeFact ? `${nativeFact.provider} flagged this sender` : "");
       event = await upsertEvent({
         ...(previous ?? {}),
-        event_id: eventId, origin: "user", device_id: deviceId ?? "local", category: "message", state, status: "active",
+        event_id: eventId, origin: options?.origin ?? "user", device_id: deviceId ?? "local", category: "message", state, status: "active",
         headline: apolloHeadline,
         what_happened: patrolSafeSummary(analysis.state !== "resting" ? analysis.verdict : (guard.why[0] ?? analysis.verdict)),
         why,
@@ -1344,7 +1353,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     const now = new Date().toISOString();
     const event = await upsertEvent({
       ...(previous ?? {}),
-      event_id: eventId, origin: "user", device_id: deviceId ?? "local", category: "email", state,
+      event_id: eventId, origin: input.origin ?? "user", device_id: deviceId ?? "local", category: "email", state,
       status: resting ? "resolved" : "active",
       headline: `Email: ${analysis.title}`,
       what_happened: patrolSafeSummary(analysis.verdict),
@@ -1501,7 +1510,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
         const callSummary = describeCall(input, nativeFact ? `${nativeFact.provider} classified this number as "${nativeFact.classification}" (${nativeFact.provider}'s own rating, not Apollo's)` : null);
         try {
           const remote = await apiPost<{ case?: { id?: string | null } }>("/investigations", "call_investigation", {
-            gate: "call", origin: "user",
+            gate: "call", origin: options?.origin ?? "user",
             question: `Investigate this phone call.\n\n${callSummary}`,
             submissions: [{ client_item_id: Crypto.randomUUID(), kind: "text", value: callSummary, label: "Call details" }],
             initial_findings: [...nativeWhy, ...analysis.why].slice(0, 12),
@@ -1514,7 +1523,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
       }
       const why = [...nativeWhy, ...analysis.why];
       event = await upsertEvent({
-        event_id: Crypto.randomUUID(), origin: "user", device_id: deviceId ?? "local", category: "call", state: analysis.state, status: "active",
+        event_id: Crypto.randomUUID(), origin: options?.origin ?? "user", device_id: deviceId ?? "local", category: "call", state: analysis.state, status: "active",
         headline: `${analysis.title}${analysis.claimedBrand ? ` — caller claimed ${analysis.claimedBrand}` : ""}`, what_happened: analysis.verdict, why: escalationNote ? [...why, escalationNote] : why, what_to_do: analysis.recommendation,
         indicator_host: null, indicator_digest: null, local_indicator: input.number?.trim() || null, verified_block: false, adapter_label: securityAdapter.label,
         occurred_at: new Date().toISOString(), resolved_at: null, trust_allowed: false, claimed_brand: analysis.claimedBrand, scenario: analysis.scenario,
@@ -1838,7 +1847,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     const now = new Date().toISOString();
     const ev: PatrolEvent = {
       ...(previous ?? {}),
-      event_id: eventId, origin: "user", device_id: deviceId ?? "local", category: intel?.verdict === "malicious" ? "known_threat" : "link",
+      event_id: eventId, origin: options?.origin ?? "user", device_id: deviceId ?? "local", category: intel?.verdict === "malicious" ? "known_threat" : "link",
       state: decision.state, status: decision.state === "resting" ? "resolved" : "active",
       headline: decision.headline,
       what_happened: patrolSafeSummary(decision.what_happened),

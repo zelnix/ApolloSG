@@ -26,6 +26,23 @@ export interface SampleEmail {
   description: string;
 }
 
+export const SAMPLE_EMAILS: SampleEmail[] = [
+  {
+    id: "sample-email-phishing",
+    from: "security@paypal-verify.co",
+    subject: "Urgent: Your account has been limited",
+    body: "Dear Customer,\n\nWe noticed unusual activity on your account. Your PayPal account has been temporarily limited.\n\nTo restore access, please verify your identity by clicking the link below:\n\nhttps://paypal-verify.co/restore-account?id=8829174\n\nIf you don't verify within 24 hours, your account will be permanently suspended.\n\nPayPal Security Team\nsecurity@paypal-verify.co",
+    description: "A phishing email impersonating PayPal with an account-restriction pretext.",
+  },
+  {
+    id: "sample-email-newsletter",
+    from: "news@abcnews.go.com",
+    subject: "ABC News: your Thursday briefing",
+    body: "Good morning,\n\nHere are today's top stories:\n\n1. Markets rise as inflation data beats expectations\n2. Weather: severe storms expected across eastern states\n3. Sport: Wallabies name squad for spring tour\n\nRead the full briefing at https://www.abc.net.au/news/briefing\n\nABC News",
+    description: "A routine news briefing from a well-known media organisation.",
+  },
+];
+
 export interface SampleLink {
   id: string;
   url: string;
@@ -152,7 +169,10 @@ export const SAMPLE_KINDS: Record<SampleKind, SampleKindDef> = {
   message: { label: "Messages", gate: "Text Gate", path: "/message",
     items: SAMPLE_TEXTS.map((m) => ({ id: m.id, primary: m.sender, secondary: m.text.slice(0, 80), description: m.description })) },
   email: { label: "Emails", gate: "Email Gate", path: "/email",
-    items: [] }, // Email samples require full inbox simulation — not available standalone
+    items: [
+      { id: "sample-email-phishing", primary: "security@paypal-verify.co", secondary: "Urgent: Your account has been limited", description: "A phishing email impersonating PayPal with an account-restriction pretext." },
+      { id: "sample-email-newsletter", primary: "news@abcnews.go.com", secondary: "ABC News: your Thursday briefing", description: "A routine news briefing from a well-known media organisation." },
+    ] },
   link: { label: "Links", gate: "Link Gate", path: "/check",
     items: SAMPLE_LINKS.map((x) => ({ id: x.id, primary: x.url, description: x.description })) },
   file: { label: "Files", gate: "File Gate", path: "/file",
@@ -162,6 +182,11 @@ export const SAMPLE_KINDS: Record<SampleKind, SampleKindDef> = {
   app: { label: "Apps", gate: "App Gate", path: "/app-check",
     items: SAMPLE_APPS.map((a) => ({ id: a.id, primary: a.appName, secondary: `${a.developer} · ${a.packageId}`, description: a.description })) },
 };
+
+/** Find a sample email by id. */
+export function findSampleEmail(id: string): SampleEmail | undefined {
+  return SAMPLE_EMAILS.find((e) => e.id === id);
+}
 
 /** Find a sample text by id. Works in all builds. */
 export function findSampleText(id: string): SampleText | undefined {

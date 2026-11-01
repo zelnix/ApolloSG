@@ -42,6 +42,7 @@ import {
   STATUS_COLORS,
   formatDateTime,
   isSimulated,
+  isSampleCheck,
   threatCaseId,
   threatCases as allThreatCases,
   type ThreatCaseStatus,
@@ -191,7 +192,7 @@ function ThreatCard({ event, isNew, onPress, selecting = false, selected = false
           {si.label} · {formatDateTime(event.occurred_at)}
         </Text>
         {isNew ? <NewBadge testID={`threat-card-${event.event_id}-new`} /> : null}
-        {isSimulated(event) ? <Pill compact label="Simulated" testID={`threat-card-${event.event_id}-simulated`} /> : null}
+        {isSampleCheck(event) ? <Pill compact label="Sample Check" testID={`threat-card-${event.event_id}-sample`} /> : isSimulated(event) ? <Pill compact label="Simulated" testID={`threat-card-${event.event_id}-simulated`} /> : null}
         <View style={[s.statusPill, { backgroundColor: statusColor.bg }]}>
           <Text style={[s.statusPillText, { color: statusColor.text }]}>{STATUS_LABELS[status]}</Text>
         </View>

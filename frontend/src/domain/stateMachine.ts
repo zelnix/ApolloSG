@@ -49,7 +49,8 @@ export function isActive(e: PatrolEvent): boolean {
 
 export function resolveApolloState(input: StateInput): StateResolution {
   const now = input.now ?? Date.now();
-  const active = input.events.filter(isActive);
+  // ISOLATION: Sample Check events never affect the real protection state, threat counts or alerts.
+  const active = input.events.filter((e) => isActive(e) && e.origin !== "sample_check");
   const verifiedAt = input.lastVerifiedAt ? Date.parse(input.lastVerifiedAt) : 0;
   const verificationFresh = verifiedAt > 0 && verifiedAt <= now && now - verifiedAt <= VERIFICATION_FRESHNESS_MS;
   const visibilityLost = input.visibility === 'none' || !verificationFresh;

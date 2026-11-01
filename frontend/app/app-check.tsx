@@ -129,19 +129,17 @@ export default function CheckApp() {
     finally { setAppsLoading(false); }
   };
   const pickApp = (app: InstalledAppRef) => { setName(app.appName); setPickedPackage(app.packageId); setSource("not_sure"); setPerms([]); setPickerOpen(false); setAppQuery(""); setSampled(false); };
-  // A sample app fills the same answers a person would give, exactly as the installed-apps sheet does.
+  // Sample Check: fills sample-supplied facts and runs through the normal app-risk analysis.
+  // These are sample-supplied facts, not device-observed. The analysis distinguishes them.
   const applySampleApp = (id: string) => {
     const prodSample = findSampleApp(id);
-    const a = prodSample
-      ? { appName: prodSample.appName, developer: prodSample.developer, packageId: prodSample.packageId, source: prodSample.source, purpose: prodSample.purpose, permissions: prodSample.permissions }
-      : simulation.apps.find((x) => x.id === id);
-    if (!a) return;
-    setName(a.appName); setDeveloper(a.developer); setPickedPackage(a.packageId);
-    setSource(a.source); setPurpose(a.purpose); setPerms(a.permissions);
+    if (!prodSample) return;
+    setName(prodSample.appName); setDeveloper(prodSample.developer); setPickedPackage(prodSample.packageId);
+    setSource(prodSample.source); setPurpose(prodSample.purpose); setPerms(prodSample.permissions);
     setSampled(true);
-    setAutoRun(a.appName);
+    setAutoRun(prodSample.appName);
   };
-  // A sample chosen from Sample Checks (or preview) runs exactly as picking it here does.
+  // A sample chosen from Sample Checks runs through the real pipeline.
   const sampleRan = React.useRef(false);
   useEffect(() => {
     if (!params.sample || !ready || !setupDone || sampleRan.current) return;

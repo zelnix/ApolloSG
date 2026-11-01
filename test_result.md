@@ -3974,3 +3974,66 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "ALERT SELECTION RULES TESTING COMPLETE ✅ - All tests PASSED. (1) test_alert_selection_rules.py: 33/33 tests PASSED covering news exclusion, severity inflation prevention, overseas news exclusion, freshness rules, growl eligibility, Australian warnings, global threats, verified ongoing keywords, and preparedness exclusion. (2) test_scam_analysis.py: 10/10 tests PASSED covering deterministic analysis, pre-filter, and growl rules. (3) ANALYSIS_VERSION confirmed as 7 (line 28 of scam_analysis.py). (4) RECENCY_CUTOFF confirmed as 60 days (line 80 of government_alerts.py). (5) Backend health endpoint returns 200 with correct schema. All key rules verified: sentencing/arrests/prosecution classified as 'news', 'immediately report' advice never produces EXTREME severity, overseas news without AU evidence excluded, undated items require verified ongoing activity, badge and growl use same eligibility as feed, genuine Australian warnings and global consumer threats still appear, 60-day recency cutoff enforced, ANALYSIS_VERSION bumped to 7. No issues found. Minor infrastructure note: Fixed pre-existing MongoDB index conflict (temporary_evidence_expiry_ttl) to allow backend startup - not related to alert rules."
+
+
+
+## 2026-11-01 Sample Check Provenance, Alert Selection, and Scam Analysis Verification
+
+backend:
+  - task: "Sample Check provenance implementation and isolation"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py, backend/services/government_alerts.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 15 tests in test_sample_check_provenance.py PASSED. (1) Sample Check origin 'sample_check' is valid provenance, not processing mode. (2) KB isolation: sample_check excluded from knowledge base contributions. (3) Protection state isolation: sample_check excluded from state machine. (4) No sample-specific scoring in triage or analysis - analysis ignores description field. (5) Sample names don't become evidence. (6) No sample_check exceptions in triage or scam_analysis pipelines. (7) Sample origin recorded on investigation cases. (8) Email samples exist or catalogue is clean. (9) Gate screens don't use simulation.* for sample data. (10) Three-way distinction verified: real / sample_check / simulated are distinct provenance values. (11) Sample check labels survive display and remain distinct from simulated. All provenance, isolation, and pipeline integrity tests passed."
+
+  - task: "Alert selection rules comprehensive verification"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py, backend/services/government_alerts.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 33 tests in test_alert_selection_rules.py PASSED. (1) News exclusion: sentencing headlines, Russian actor arrests, farm equipment prosecutions classified as 'news', not alerts. Prosecution with active warning stays as alert. News is not general_education. (2) Freshness rules: recent alerts eligible, old alerts without ongoing excluded, old alerts with verified ongoing stay, undated without ongoing excluded, undated with ongoing included, rechecking old articles not current. (3) Verified ongoing keywords: active in advice/navigation not verified, active in threat description IS verified, historical quotes not verified. (4) Growl uses eligibility: eligible high growls, ineligible old doesn't growl, education never growls, news never growls. (5) Severity not inflated by advice: 'immediately report' and 'immediately contact' not EXTREME, genuine urgent threats can be EXTREME. (6) Overseas news excluded: US sentencing not everywhere, overseas scam without AU mention excluded, unknown relevance stays out. (7) Australian warnings appear: Scamwatch consumer warnings, AU source defaults to AU relevant, AU source applies in AU. (8) Verified global threats appear: global phishing campaigns, global romance scams, overseas source mentioning Australia. (9) Preparedness exclusion: preparedness headlines are education, preparedness with active alert stays alert. All alert selection rules working correctly."
+
+  - task: "Scam analysis deterministic tests"
+    implemented: true
+    working: true
+    file: "backend/services/scam_analysis.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All 10 tests in test_scam_analysis.py PASSED. (1) Deterministic analysis: unclear items classified as safe education, organisation advisories never consumer alerts, active consumer warnings quote the source, sections only hold source's own sentences. (2) Pre-filter: fragment URLs and nav titles excluded, real alert titles pass. (3) Growl rules: confirmed AU high with ongoing growls, confirmed AU high without ongoing doesn't growl, education never growls, overseas potential without date doesn't growl. All scam analysis tests passed."
+
+  - task: "Backend health endpoint verification"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: GET /api/health returns 200 with correct schema: {schemaVersion: 1, status: 'ok', service: 'apollo-v1', checkedAt: '2026-11-01T13:14:37.226312+00:00'}. Backend service running cleanly with no errors in logs. Knowledge refresh shows: learn: 154, alerts: 189, guidance: 0, patterns: 12."
+
+test_plan:
+  current_focus:
+    - "Verify sample check provenance and isolation"
+    - "Verify alert selection rules"
+    - "Verify scam analysis deterministic tests"
+    - "Verify backend health"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "SAMPLE CHECK PROVENANCE & ALERT SELECTION TESTING COMPLETE ✅ - ALL 58 TESTS PASSED. (1) test_sample_check_provenance.py: 15/15 PASSED - Sample Check origin 'sample_check' is provenance not processing mode, KB isolation working (sample_check excluded from contributions), protection state isolation working (sample_check excluded from state machine), no sample-specific scoring in triage/analysis, gate screens don't use simulation.* for samples, email samples implemented, three-way distinction (real/sample_check/simulated) verified, sample labels don't become evidence. (2) test_alert_selection_rules.py: 33/33 PASSED - News exclusion, freshness rules, verified ongoing keywords, growl eligibility, severity not inflated by advice, overseas news excluded, Australian warnings appear, global threats appear, preparedness exclusion all working correctly. (3) test_scam_analysis.py: 10/10 PASSED - Deterministic analysis, pre-filter, and growl rules all working correctly. (4) Backend health: GET /api/health returns 200 with correct schema. Backend logs show no errors, service running cleanly. All key areas tested and verified: Sample Check provenance implementation is correct, KB isolation working, protection state isolation working, no sample-specific scoring, gate screens use catalogue not simulation, email samples exist, three-way distinction maintained, sample labels don't become evidence. READY FOR MAIN AGENT TO SUMMARIZE AND FINISH."

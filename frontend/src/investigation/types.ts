@@ -38,7 +38,7 @@ export interface HistoryNote { kind: "previously_encountered" | "related_case"; 
 export interface Inventory { total: number; examined: number; partial: number; unavailable: number; purged: number; contentExpired: number }
 export interface InvestigationCase { schemaVersion: 1; id: string; revision: number; gates: Gate[]; status: CaseStatus; createdAt: string; updatedAt: string; expiresAt: string; evidenceExpiresAt: string | null; reportExpiresAt: string | null; retentionClass: string; reportByteSize: number; response: HigginsResponse | null; activeJobId: string | null; pendingDeviceRequestIds: string[]; inventory: Inventory; cleanupStatus: "not_due" | "pending" | "complete" | "failed"; answeredBy?: string | null; settledReason?: SettledReason | null; contentDeleteBy?: string | null; simulated?: boolean; origin?: CaseOrigin | null }
 /** Who started an investigation, as recorded when it was opened. Absent when the record doesn't say — never inferred. */
-export type CaseOrigin = "user" | "apollo";
+export type CaseOrigin = "user" | "apollo" | "sample_check";
 /** The rule that settled a result, as one plain sentence (backend services/rulebook.py; listed in the rule book). */
 export interface SettledReason { ruleId: string; rule: string; by: "TC FlyBy" | "Magnum DI"; sentence: string }
 export interface Failure { code: string; message: string; retryable: boolean; retryAfterSeconds: number | null; resubmitAt?: string | null; missingEvidenceIds: string[] }

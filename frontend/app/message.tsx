@@ -178,12 +178,12 @@ export default function CheckMessage() {
   }, [loadRecentSms]);
 
   // `via` is how the message reached ApolloSG — it sets the evidence level Higgins Triage records for it.
-  const run = async (t = text, snd = sender, via: MessageVia = "pasted", receivedAt: string | null = null, simulated = false) => {
+  const run = async (t = text, snd = sender, via: MessageVia = "pasted", receivedAt: string | null = null, simulated = false, origin?: "sample_check") => {
     const safeText = redactUserSecrets(t);
     if (!safeText.trim()) return;
     if (safeText !== t) setText(safeText);
     setBusy("checking"); setError(null); setResult(null);
-    try { const outcome = await checkMessage(snd, safeText, { via, receivedAt, simulated }); setChecked({ text: safeText, sender: snd }); setResult(outcome); return outcome; } catch (e) { setError(e instanceof Error ? e.message : "Could not check this message."); return null; } finally { setBusy("idle"); }
+    try { const outcome = await checkMessage(snd, safeText, { via, receivedAt, simulated, origin }); setChecked({ text: safeText, sender: snd }); setResult(outcome); return outcome; } catch (e) { setError(e instanceof Error ? e.message : "Could not check this message."); return null; } finally { setBusy("idle"); }
   };
   useEffect(() => {
     if (sharedText && ready && setupDone && !autoRan.current) {
@@ -192,18 +192,15 @@ export default function CheckMessage() {
       void run(String(sharedText), params.sender ? String(params.sender) : "", fromInbox ? "inbox" : "shared", fromInbox && params.receivedAt ? String(params.receivedAt) : null);
     }
   }, [sharedText, params.sender, ready, setupDone]); // eslint-disable-line react-hooks/exhaustive-deps
-  // A sample chosen from Sample Checks or preview runs exactly as picking from the real inbox does.
+  // A sample chosen from Sample Checks runs through the real production pipeline. Origin is "sample_check"
+  // and via stays honest ("pasted" — sample text is equivalent to pasted, not from an inbox).
   useEffect(() => {
     if (!params.sample || !ready || !setupDone || autoRan.current) return;
-    // Try production sample data first, then fall back to preview simulation
     const prodSample = findSampleText(params.sample);
-    const m = prodSample
-      ? { sender: prodSample.sender, text: prodSample.text }
-      : (() => { const sim = simulation.texts.find((x) => x.id === params.sample); return sim ? { sender: sim.sender, text: sim.text } : undefined; })();
-    if (!m) return;
+    if (!prodSample) return;
     autoRan.current = true;
-    setSender(m.sender); setText(m.text);
-    void run(m.text, m.sender, "inbox", null, true);
+    setSender(prodSample.sender); setText(prodSample.text);
+    void run(prodSample.text, prodSample.sender, "pasted", null, false, "sample_check");
   }, [params.sample, ready, setupDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** The phone reads the screenshot's text (credentials removed) and the ordinary message check runs on that

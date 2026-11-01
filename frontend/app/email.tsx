@@ -290,12 +290,15 @@ export default function CheckEmail() {
   // on arrival and show the email that is being checked, so the share always lands in a real check.
   useEffect(() => {
     if (!ready || !setupDone || autoRan.current) return;
-    // Preview only: a sample chosen elsewhere (Threats → Try a sample check) runs exactly as picking it from the inbox here does.
-    const sim = params.sample ? simulation.emails.find((x) => x.id === params.sample) : undefined;
-    if (sim) {
-      autoRan.current = true;
-      void run({ from: sim.from, subject: sim.subject, raw: sim.body, via: "connected_mailbox", simulated: true });
-      return;
+    // Sample Check: real production email processing with sample_check provenance.
+    if (params.sample) {
+      const { findSampleEmail } = require("@/src/sampleChecks") as typeof import("@/src/sampleChecks");
+      const sample = findSampleEmail(params.sample);
+      if (sample) {
+        autoRan.current = true;
+        void run({ from: sample.from, subject: sample.subject, raw: `From: ${sample.from}\nSubject: ${sample.subject}\n\n${sample.body}`, via: "pasted", origin: "sample_check" });
+        return;
+      }
     }
     if (sharedEml) {
       autoRan.current = true;

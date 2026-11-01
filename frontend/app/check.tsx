@@ -10,7 +10,6 @@ import Link2 from "lucide-react-native/icons/link-2";
 import Search from "lucide-react-native/icons/search";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { findSampleLink } from "@/src/sampleChecks";
-import { simulation } from "@/src/simulation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -188,27 +187,26 @@ export default function CheckLink() {
   const liveEvent = outcome?.event ? events.find((e) => e.event_id === outcome.event!.event_id) ?? outcome.event : null;
   const state = liveEvent?.state ?? outcome?.decision.state;
 
-  const run = useCallback(async (value: string, simulated = false) => {
+  const run = useCallback(async (value: string, simulated = false, origin?: "sample_check") => {
     if (!value.trim()) return;
     setBusy(true); setOutcome(null);
     // Where the link came from sets how its evidence is described ("Link from a message or email", "Shared from another app").
     const via: LinkVia = params.source === "email" || params.source === "message" || params.source === "text" ? "message"
       : params.source === "share" || params.sharedIntakeId ? "shared" : "pasted";
-    try { setOutcome(await checkLink(value, params.scent || undefined, { via, simulated })); } finally { setBusy(false); }
+    try { setOutcome(await checkLink(value, params.scent || undefined, { via, simulated, origin })); } finally { setBusy(false); }
   }, [checkLink, params.scent, params.source, params.sharedIntakeId]);
 
   useEffect(() => {
     if (sharedUrl && ready && setupDone && !autoRan.current) { autoRan.current = true; void run(String(sharedUrl)); }
   }, [sharedUrl, ready, setupDone, run]);
-  // A sample link (from Sample Checks or preview) is checked exactly as a pasted link.
+  // A sample link from Sample Checks — real production processing with sample_check provenance.
   useEffect(() => {
     if (!params.sample || !ready || !setupDone || autoRan.current) return;
     const prodSample = findSampleLink(params.sample);
-    const url = prodSample?.url ?? simulation.links.find((x) => x.id === params.sample)?.url;
-    if (!url) return;
+    if (!prodSample) return;
     autoRan.current = true;
-    setInput(url);
-    void run(url, true);
+    setInput(prodSample.url);
+    void run(prodSample.url, false, "sample_check");
   }, [params.sample, ready, setupDone, run]);
 
   if (ready && !setupDone) return <Redirect href="/onboarding" />;

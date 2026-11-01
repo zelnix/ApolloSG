@@ -149,7 +149,7 @@ export default function CheckNumber() {
   // `pickedNumber` lets a simulated selection be checked immediately. Everything below is the same
   // real flow a typed number runs: real reputation check, then the real Magnum DI investigation only
   // where that escalates. `simulated` only tags a preview sample caller.
-  const runInvestigation = async (pickedNumber?: string, simulated = false) => {
+  const runInvestigation = async (pickedNumber?: string, simulated = false, origin?: "sample_check") => {
     const number = pickedNumber ?? numberState;
     if (pickedNumber) setNumber(pickedNumber);
     if (!number.trim()) return;
@@ -166,7 +166,7 @@ export default function CheckNumber() {
       // escalate a number Apollo cannot settle from its own sources to a Magnum DI investigation.
       // Where it does, the case id comes back on the result and the shared InvestigationFlow below
       // FOLLOWS that case — this screen never opens a second investigation of the same number.
-      const riskResult = await checkNumberRisk(number.trim(), undefined, { deliberate: true, carrierWarning: carrierWarning ?? undefined, simulated });
+      const riskResult = await checkNumberRisk(number.trim(), undefined, { deliberate: true, carrierWarning: carrierWarning ?? undefined, simulated, origin });
       const sid = `callguard-${riskResult.number.replace(/[^A-Za-z0-9._:-]/g, "")}-${Date.now().toString(36)}`;
       dlog("CallGuard", "check complete", { submissionId: sid, caseId: riskResult.investigation_case_id ?? null, decision: riskResult.decision });
       const numberKey = await numberKeyOf(riskResult.number).catch(() => null);
@@ -216,15 +216,14 @@ export default function CheckNumber() {
     void runInvestigation(String(params.number));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, params.repeat, params.number]);
-  // Preview only: a sample caller chosen elsewhere (Threats → Try a sample check) runs exactly as picking it here does.
+  // Sample Check: real production processing with sample_check provenance.
   const sampleRan = useRef(false);
   useEffect(() => {
     if (!params.sample || sampleRan.current) return;
     const prodSample = findSampleCall(params.sample);
-    const number = prodSample?.number ?? simulation.calls.find((x) => x.id === params.sample)?.number;
-    if (!number) return;
+    if (!prodSample) return;
     sampleRan.current = true;
-    void runInvestigation(number, true);
+    void runInvestigation(prodSample.number, false, "sample_check");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.sample]);
 
