@@ -110,6 +110,7 @@ def minimal_patrol(body, verified):
     payload.pop('detection_updated_at', None)  # server-owned: set only when new detection evidence arrives
     payload.pop('investigation_completed_at', None)  # server-owned: set only by the investigation projector
     payload.pop('investigation_outcome', None)  # server-owned: set only by the investigation projector
+    payload.pop('source_metadata', None)  # server-owned: set only by the investigation projector / mailbox monitor
     e = body.enforcement_evidence
     safe_refs = []
     for ref in body.supporting_references[:6]:

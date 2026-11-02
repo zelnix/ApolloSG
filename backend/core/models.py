@@ -324,6 +324,10 @@ class PatrolEventIn(BaseModel):
     # investigation_completed_at: "unable_to_determine" on a resting record is an investigation filed as not fully
     # checked (services/investigation_projector.inconclusive).
     investigation_outcome: Optional[str] = Field(default=None, max_length=40)
+    # Source metadata — actual recorded identifiers from intake (sender, subject, received_at, etc.).
+    # Server-owned: written by the investigation projector and mailbox monitor; never accepted from
+    # client submissions (minimal_patrol strips it).
+    source_metadata: Optional[dict] = None
     # The evidence model (core/evidence_model.py), kept apart: what supplied the evidence (never a server), where
     # Apollo's checks ran, whether evidence is missing, and the privacy state of what the record holds. A device may
     # send only its own evidence source; patrol_policy.minimal_patrol sets the rest for a synced summary.
