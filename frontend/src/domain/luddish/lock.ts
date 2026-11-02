@@ -32,7 +32,7 @@ export interface EvidenceLock {
   readonly reason: string | null;
   readonly uncertainties: readonly string[];
   readonly actions: readonly string[];
-  /** How Apollo checked, in its own words. */
+  /** How ApolloSG checked, in its own words. */
   readonly how: string | null;
   /** Who actually blocked it (Android, your carrier, Apollo's Site Gate). null: not recorded. */
   readonly blockedBy: string | null;

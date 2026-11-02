@@ -42,7 +42,7 @@ def _knowledge(checks: list[Check]) -> list[dict]:
 
 
 def _not_found(checks: list[Check]) -> list[str]:
-    """How Apollo checked, for the DI tab only: lookups that found nothing or didn't answer. They describe TC FlyBy's
+    """How ApolloSG checked, for the DI tab only: lookups that found nothing or didn't answer. They describe TC FlyBy's
     method, so they are never listed under what isn't certain."""
     out = [f["text"] for c in checks for f in c.facts if f["signal"] == "missing"]
     out += [f"{c.subject}: TC FlyBy's lookup was unavailable, so this wasn't established either way." for c in checks if c.status == "unavailable"]
@@ -57,7 +57,7 @@ def _topic(text: str) -> str:
 
 
 def _method(lead: str, checks: list[Check], *, not_taken: bool) -> str:
-    """"How Apollo checked": what TC FlyBy did and, said once after the reason it gives, the open issues it didn't take
+    """"How ApolloSG checked": what TC FlyBy did and, said once after the reason it gives, the open issues it didn't take
     further; then the lookups that found nothing or didn't answer."""
     topics = [_topic(c.open_issue) for c in checks if not_taken and c.open_issue and c.status in ("open", "needs_reasoning", "not_needed")]
     return " ".join([lead, *([f"So these weren't taken further: {'; '.join(topics)}."] if topics else []), *_not_found(checks)])
@@ -108,7 +108,7 @@ def _subject(plan_: Plan) -> str:
 
 
 def _checked(plan_: Plan, how: str) -> str:
-    """One sentence, used word for word by "How Apollo checked" and the scope, so the report says it once."""
+    """One sentence, used word for word by "How ApolloSG checked" and the scope, so the report says it once."""
     examined = ("the call details" if plan_.channel == "call" else
                 "the submitted link" + ("s" if len(plan_.entities.hosts) > 1 else "") if plan_.link_only else "the submitted material")
     return f"TC FlyBy checked {examined} using {how}."
@@ -144,7 +144,7 @@ def concern(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_it
              "acting on it would put your money, accounts or device at risk.")
     found = "\n".join(f"- {f['text']}" for _, f in decisive)
     settled = "the official result already settles what to do"
-    explanation = (f"**What was found**\n{found}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How Apollo checked**\n"
+    explanation = (f"**What was found**\n{found}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
                    + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Magnum DI's deeper analysis wasn't needed, because {settled}.", checks, not_taken=True))
     return {
         "overview": f"{lead['text']} Don't act on it" + (f" — if you need to, contact {brand} yourself." if brand else "."),
@@ -198,7 +198,7 @@ def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item
                  "or organisation using details you already have.")
         uncertainties = [_who(plan_)]
     found = "\n".join(f"- {f['text']}" for _, f in facts) or "- No warning signs in anything Apollo checked."
-    explanation = (f"**What was found**\n{found}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How Apollo checked**\n"
+    explanation = (f"**What was found**\n{found}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
                    + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Nothing in it needed Magnum DI's deeper analysis.", checks, not_taken=False))
     return {
         "overview": overview, "explanationMarkdown": explanation, "assessment": "no_concern_found_within_scope", "outcome": "no_scam_indicators",
@@ -218,7 +218,7 @@ def _result(plan_: Plan, checks: list[Check], *, overview: str, found: list[dict
     lines = "\n".join(f"- {f['text']}" for f in found) or "- Nothing beyond what's listed under what isn't certain."
     return {
         "overview": overview,
-        "explanationMarkdown": f"**What was found**\n{lines}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How Apollo checked**\n{how}",
+        "explanationMarkdown": f"**What was found**\n{lines}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n{how}",
         "assessment": outcomes.ASSESSMENT[outcome], "outcome": outcome, "attention": attention, "attentionReason": reason,
         "findings": found[:8], "uncertainties": uncertainties[:4], "scope": _scope(plan_, _routes(checks)),
         "sourceIds": sorted({*extra_sources, *(s for f in found for s in f["sourceIds"])}), "remainingEvidenceIds": [],
@@ -251,7 +251,7 @@ def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], f
                  "but checking first costs nothing.")
         attention, reason = "review", "Replying or acting before you've checked is what messages like this rely on."
     return _result(plan_, checks, overview=overview, found=found, means=means, outcome=outcome, attention=attention, reason=reason,
-                   # The scope's own first sentence, word for word, so "How Apollo checked" says it once.
+                   # The scope's own first sentence, word for word, so "How ApolloSG checked" says it once.
                    how=_method(f"{_checked(plan_, _routes(checks))} It compared {'them' if call else 'it'} with the established scam patterns in "
                                f"ApolloSG's knowledge base. {_NOT_NEEDED}", checks, not_taken=True),
                    actions=[_action(label, instruction) for label, instruction in advice],

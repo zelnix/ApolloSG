@@ -102,7 +102,7 @@ for (const [key, r] of Object.entries(backend)) {
   report.found.forEach((f, i) => add("Report", kase, "What was found", f.text, plain.found[i].text, plain.found[i].explain ? [plain.found[i].explain!] : []));
   report.means.forEach((p, i) => add("Report", kase, "What it means", p, plain.means[i]));
   report.uncertain.forEach((p, i) => add("Report", kase, "What isn't certain", p, plain.uncertain[i]));
-  report.how.forEach((p, i) => add("Report", kase, "How Apollo checked", p, plain.how[i]));
+  report.how.forEach((p, i) => add("Report", kase, "How ApolloSG checked", p, plain.how[i]));
   for (const a of response.actions ?? []) add("Report", kase, `What to do: ${a.label}`, a.instruction, luddish(a.instruction, new Set(), 0).text);
 }
 

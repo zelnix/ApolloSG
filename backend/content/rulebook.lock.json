@@ -21,7 +21,7 @@
   "backend/services/higgins/context.py": "19d96c58347bd8fc120f3e343ce43f3d203ae43ca8e14aa8aaf7b4d8242a42eb",
   "backend/services/higgins/coordinator.py": "cf5406c02a9b5143682fbbf4c14e745a6a1d38c24e59dc3e6e36046a3181667c",
   "backend/services/higgins/explain/__init__.py": "42bff2560139e10c56c66169142f7cfa1eef4308902b0071fc18593776e52a57",
-  "backend/services/higgins/explain/facts.py": "b99ba32c9e86ea8a38247845c5893e652d61859f1796a8e175fc1e5dfa37ca6a",
+  "backend/services/higgins/explain/facts.py": "ec418b21965bd0847dc686988fe65cf901af6756584528f378d232f2ed36e07c",
   "backend/services/higgins/explain/fidelity.py": "389d38618998c89c1ea01f0db6a9a001fed65ef3dcbded368622f92d95da1fd1",
   "backend/services/higgins/explain/render.py": "0697fd9a78f14d8afd6f64575af84dfc7b40d83bbf01feda5d53aa1a40eda054",
   "backend/services/higgins/explain/words.py": "bc3c61738cdde74851b650d8cf7b3820bacc09db0b04f495136ddcbc92680edb",

@@ -1,7 +1,7 @@
 // One report, two screens: Ask Higgins and a threat's Overview show an investigation the same way, and each fact once.
-//   Answer → What was found → What it means → (anything else written) → What isn't certain → How Apollo checked.
+//   Answer → What was found → What it means → (anything else written) → What isn't certain → How ApolloSG checked.
 // The top card already says who settled it and why, so nothing below repeats that. A finding the answer already states
-// isn't listed again; "How Apollo checked" and "What this covered" are one section; the reasons a question wasn't taken
+// isn't listed again; "How ApolloSG checked" and "What this covered" are one section; the reasons a question wasn't taken
 // further are said once there. Pure: no React, no native imports.
 import type { Finding, HigginsResponse, PlainEnglish, SourceReference } from "../investigation/types";
 import { plainEvidenceRefs, type EvidenceRef } from "./evidenceRefs.ts";
@@ -37,7 +37,7 @@ export interface ReportInput {
   scope?: string | null;
   sources?: SourceReference[];
   sourceIds?: string[];
-  /** The case's evidence items, so "How Apollo checked" can name an item it refers to by id. */
+  /** The case's evidence items, so "How ApolloSG checked" can name an item it refers to by id. */
   evidence?: readonly EvidenceRef[];
   /** Already said in the top card (the settled-by sentence), so never repeated below. */
   alreadySaid?: (string | null | undefined)[];
@@ -117,7 +117,7 @@ class Said {
 
 const NOT_TAKEN = /^Not taken further, because (.+?): (.+)$/i;
 /** A line about how Apollo checked (it names Apollo's own investigators): it belongs on the DI tab, never under what
- *  isn't certain. Cases settled before the server said these under "How Apollo checked", and Magnum DI's own wording. */
+ *  isn't certain. Cases settled before the server said these under "How ApolloSG checked", and Magnum DI's own wording. */
 const METHOD_LINE = /\b(?:TC FlyBy|Magnum DI|Higgins Triage)\b/;
 
 /** "impersonation: whether it's from Linkt" reads as "impersonation (whether it's from Linkt)". */
@@ -133,7 +133,7 @@ export function buildReport(input: ReportInput): Report {
 
   const explanation = blocks(input.explanationMarkdown ?? "");
   const section = (re: RegExp) => explanation.filter((b) => b.title && re.test(b.title)).flatMap((b) => paragraphs(b.lines));
-  const FOUND = /^what (was|apollo|tc flyby|magnum di) found/i, MEANS = /^what it means/i, HOW = /^how apollo (checked|answered)/i;
+  const FOUND = /^what (was|apollo|tc flyby|magnum di) found/i, MEANS = /^what it means/i, HOW = /^how apollo(?:sg)? (checked|answered)/i;
 
   // 1. The answer: Higgins' overview, then anything the explanation says before its first heading.
   const answer: string[] = [];
@@ -185,7 +185,7 @@ export function buildReport(input: ReportInput): Report {
     said.add(line);
   }
 
-  // 5. How Apollo checked — its method, what it left alone and what it didn't open, in one place.
+  // 5. How ApolloSG checked — its method, what it left alone and what it didn't open, in one place.
   const how: string[] = [];
   for (const s of [...section(HOW), input.scope ?? ""].flatMap((p) => sentences(p))) {
     if (said.repeats(s)) continue;
@@ -205,7 +205,7 @@ export function buildReport(input: ReportInput): Report {
   return presented({ answer, found, means, more, uncertain, how: how.length ? [how.join(" ")] : [], sources: (input.sources ?? []).filter((s) => used.has(s.id)) }, input.evidence);
 }
 
-/** What people read: web addresses shortened in the prose, and "How Apollo checked" naming each item it refers to in
+/** What people read: web addresses shortened in the prose, and "How ApolloSG checked" naming each item it refers to in
  *  plain words rather than by its evidence reference. Sources keep their addresses whole, and nothing stored (the
  *  evidence, redirect chains, the investigation itself) is touched. */
 function presented(report: Report, evidence?: readonly EvidenceRef[]): Report {

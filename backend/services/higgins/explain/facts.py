@@ -316,7 +316,7 @@ def case_subject(findings: list[dict], gates: tuple[str, ...] | list[str]) -> Op
 # ── The authoritative findings ───────────────────────────────────────────────
 CONTRAST = re.compile(r"\b(but|however|although|though|whereas|contradict\w*|inconsistent|doesn't match|does not match|don't match|differ\w*|unlike)\b", re.I)
 _FOUND = re.compile(r"^what (was|apollo|tc flyby|magnum di) found", re.I)
-_HOW = re.compile(r"^how apollo (checked|answered)", re.I)
+_HOW = re.compile(r"^how apollo(?:sg)? (checked|answered)", re.I)
 _MEANS = re.compile(r"^what it means", re.I)
 AUTHORITY = {"official": "official source", "independent": "independent source",
              "self_claimed": "the destination's own page, not independent", "unknown": "search result, publisher not independently verified"}
@@ -357,7 +357,7 @@ class Facts:
     triaged: bool
     flyby_routes: list[str]
     magnum: Optional[dict]
-    # Every authoritative sentence of "How Apollo checked" and the scope, once.
+    # Every authoritative sentence of "How ApolloSG checked" and the scope, once.
     how: list[str] = field(default_factory=list)
     # The result's own words (no sources), and the same with the sources it relied on.
     core: str = ""

@@ -160,7 +160,7 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
   caseId: string | null;
   /** The verdict and severity Higgins presented — the case result the Findings Brief shows. */
   presented?: PresentedResult | null;
-  /** "How Apollo checked", in Higgins' plain words: the method behind the Findings Brief, kept here and not there. */
+  /** "How ApolloSG checked", in Higgins' plain words: the method behind the Findings Brief, kept here and not there. */
   how?: string[];
   /** The related history TC FlyBy and Magnum DI had, with where each note came from (context, never evidence). */
   history?: HistoryNote[];
@@ -221,7 +221,7 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
 
       {how?.length ? (
         <Card testID="tc-di-how">
-          <Text style={s.sectionTitle}>How Apollo checked</Text>
+          <Text style={s.sectionTitle}>How ApolloSG checked</Text>
           {how.map((line, i) => <Text key={`${i}-${line}`} style={s.sourceSub} testID={`tc-di-how-${i}`}>{line}</Text>)}
         </Card>
       ) : null}

@@ -1,4 +1,4 @@
-// Plain words for the evidence references "How Apollo checked" can carry: the label line Apollo sends with each item
+// Plain words for the evidence references "How ApolloSG checked" can carry: the label line Apollo sends with each item
 // ("evidence 3f2a… · kind=text · Call details") or a bare evidence id. What people read names the item instead ("the
 // call details"); Apollo's recorded wording keeps the references (Show the technical detail). Pure: no React, no native imports.
 

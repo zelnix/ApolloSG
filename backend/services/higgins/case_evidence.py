@@ -3,7 +3,7 @@ it first and the later stages that established it too (Higgins Triage → TC Fly
 
 Built at commit from the case's own records only: TC FlyBy's check record (Higgins Triage's message rules are one of
 its checks) and the validated result's findings. Nothing is looked up, re-scored or reworded:
-- A lookup that found nothing, or didn't answer, is no evidence either way: it stays in "How Apollo checked".
+- A lookup that found nothing, or didn't answer, is no evidence either way: it stays in "How ApolloSG checked".
 - ApolloSG's knowledge base is general knowledge, never evidence about this case.
 - A finding that only states the conclusion ("This is a scam") is the result, not evidence for it.
 - Two statements are one fact when they report the same thing (explain.facts: the same identity, the same meaning, or

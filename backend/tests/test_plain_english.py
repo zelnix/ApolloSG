@@ -24,7 +24,7 @@ EXPLANATION = (
     "In order to protect your account, do not enter anything on it.\n\n"
     "**What Apollo's knowledge base adds** (general knowledge, not evidence about what you sent)\n"
     "- Scamwatch: “Bank impersonation scams” — https://www.scamwatch.gov.au/types-of-scams/phishing\n\n"
-    "**How Apollo checked**\nTC FlyBy checked the submitted material using official source checks. "
+    "**How ApolloSG checked**\nTC FlyBy checked the submitted material using official source checks. "
     "Magnum DI's deeper analysis wasn't needed, because it couldn't change the outcome or what to do."
 )
 

@@ -80,7 +80,7 @@ test("reports shorten addresses in every section but keep sources whole", () => 
   const source = { id: "s1", url: REDIRECT, title: "eBay", publisher: "eBay" } as never;
   const report = buildReport({
     overview: `The link ${EBAY} redirects to ${REDIRECT}.`,
-    explanationMarkdown: `**What it means**\nIt opens ${REDIRECT}.\n\n**Other checks**\nSee https://www.scamwatch.gov.au/types-of-scams?x=1\n\n**How Apollo checked**\nApollo followed ${EBAY}.`,
+    explanationMarkdown: `**What it means**\nIt opens ${REDIRECT}.\n\n**Other checks**\nSee https://www.scamwatch.gov.au/types-of-scams?x=1\n\n**How ApolloSG checked**\nApollo followed ${EBAY}.`,
     findings: [{ text: `Found ${EBAY}`, basis: "observation", confidence: "high" } as never],
     uncertainties: [`The page at ${REDIRECT} wasn't opened.`],
     sources: [source], sourceIds: ["s1"],

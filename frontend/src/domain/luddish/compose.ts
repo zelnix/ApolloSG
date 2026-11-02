@@ -59,7 +59,7 @@ export function alreadySaid(text: string, said: readonly string[]): boolean {
 }
 
 const TECHNICAL_LABEL: Record<string, string> = { headline: "Apollo's answer", finding: "Finding", explanation: "Higgins' explanation", reason: "Why it matters",
-  uncertain: "Not certain", action: "What to do", how: "How Apollo checked" };
+  uncertain: "Not certain", action: "What to do", how: "How ApolloSG checked" };
 
 function technical(lock: EvidenceLock): LuddishExplanation["technical"] {
   const out: LuddishExplanation["technical"] = [];

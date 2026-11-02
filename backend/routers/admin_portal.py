@@ -1726,7 +1726,7 @@ def _fidelity_texts_html(case: dict) -> str:
                    + f"</ul><h4>What it means</h4><ul>{bullets([*(plain.get('means') or []), *(plain.get('matters') or [])])}</ul>"
                    + f"<h4>What to do</h4><ul>{bullets(plain.get('todo') or [])}</ul>"
                    + f"<h4>Not certain</h4><ul>{bullets(plain.get('uncertain') or [])}</ul>"
-                   + f"<h4>How Apollo checked</h4><ul>{bullets(plain.get('how') or [])}</ul>")
+                   + f"<h4>How ApolloSG checked</h4><ul>{bullets(plain.get('how') or [])}</ul>")
     else:
         higgins = "<p style='color:var(--muted);'>Not shown. The plain English failed its check, so the person saw Apollo's own wording.</p>"
     return (f"<table style='margin-top:8px;'><thead><tr><th style='width:50%;'>Apollo's wording (authoritative)</th>"

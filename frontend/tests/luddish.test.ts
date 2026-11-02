@@ -406,7 +406,7 @@ test("a finished investigation's own record locks as recorded", () => {
   assert.equal(luddish("Nothing changed here.").keptLines.length, 0);
 });
 
-test("\"Show the technical detail\" keeps the evidence references How Apollo checked names in plain words", () => {
+test("\"Show the technical detail\" keeps the evidence references How ApolloSG checked names in plain words", () => {
   const id = "3f2a9c1e-1111-2222-3333-444455556666";
   const scope = `Examined: evidence ${id} · kind=text · Call details (6 words). No account was accessed.`;
   const ex = compose(lockFromInvestigation({ outcome: "concerning", assessment: "concern_found", overview: "A caller asked for a code.", findings: [], uncertainties: [],
