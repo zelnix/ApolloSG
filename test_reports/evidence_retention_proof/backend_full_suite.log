@@ -1,0 +1,69 @@
+bringing up nodes...
+bringing up nodes...
+
+...........................................................ss........... [  4%]
+........................................................................ [  8%]
+........................................................................ [ 13%]
+........................................................................ [ 17%]
+........................................................................ [ 21%]
+........................................................................ [ 26%]
+........................................................................ [ 30%]
+........................................................................ [ 34%]
+...................................................ss................... [ 39%]
+........................................................................ [ 43%]
+.s.........s............................................................ [ 48%]
+........................................................................ [ 52%]
+........................................................................ [ 56%]
+........................................................................ [ 61%]
+........................................................................ [ 65%]
+.........................................s..s........................... [ 69%]
+........................................................................ [ 74%]
+........................................................................ [ 78%]
+........................................................................ [ 83%]
+........................................................................ [ 87%]
+................................................s....................... [ 91%]
+......................s.......................................ss...sFs.. [ 96%]
+...................................X..............ss..........           [100%]
+=================================== FAILURES ===================================
+_____________ TestSourceName.test_each_alert_has_real_source_name ______________
+[gw1] linux -- Python 3.11.18 /root/.venv/bin/python
+
+self = <test_scams_date_sorting.TestSourceName object at 0xf8ea4cc61690>
+body = {'coverage': 'Specific scam campaigns reported by recognised government and official cyber-authority sources (Australi... of nursing homes that needed COVID-19 tests.', 'source': 'FBI Internet Crime Complaint Center (IC3)', ...}, ...], ...}
+
+    def test_each_alert_has_real_source_name(self, body):
+        if not body["alerts"]:
+            pytest.skip("no specific alerts to evaluate source names")
+        for a in body["alerts"]:
+            src = a.get("source")
+            assert isinstance(src, str) and src.strip(), f"empty 'source' on {a.get('title')}"
+>           assert not _looks_like_slug(src), (
+                f"'source' looks like a raw source_id slug ({src!r}) on {a.get('title')}"
+            )
+E           AssertionError: 'source' looks like a raw source_id slug ('moneysmart') on Investor alert list
+E           assert not True
+E            +  where True = _looks_like_slug('moneysmart')
+
+tests/test_scams_date_sorting.py:160: AssertionError
+=============================== warnings summary ===============================
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+  /root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+tests/test_higgins_pipeline.py::test_intent_detection
+  /root/.venv/lib/python3.11/site-packages/_pytest/python.py:171: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_higgins_pipeline.py::test_intent_detection returned <class 'tuple'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_higgins_pipeline.py::test_artefact_extraction
+  /root/.venv/lib/python3.11/site-packages/_pytest/python.py:171: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_higgins_pipeline.py::test_artefact_extraction returned <class 'tuple'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_scams_date_sorting.py::TestSourceName::test_each_alert_has_real_source_name
+1 failed, 1628 passed, 16 skipped, 1 xpassed, 4 warnings in 198.05s (0:03:18)

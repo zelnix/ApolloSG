@@ -1,0 +1,92 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [  4%]
+........................................................................ [  8%]
+........................................................................ [ 13%]
+........................................................................ [ 17%]
+....................................................ss.................. [ 21%]
+........................................................................ [ 26%]
+........................................................................ [ 30%]
+........................................................................ [ 35%]
+........................................................................ [ 39%]
+.............................................s............Fs............ [ 43%]
+........................................................................ [ 48%]
+.......................................ss............................... [ 52%]
+........................................................................ [ 57%]
+........................................................................ [ 61%]
+........................................................................ [ 65%]
+..........s..s.......................................................... [ 70%]
+........................................................................ [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 83%]
+........................................................................ [ 87%]
+...............s................................................s....... [ 92%]
+...................................ss..........s.Fs..................... [ 96%]
+...............X......................s........s........                 [100%]
+=================================== FAILURES ===================================
+_________________________ test_10_migration_idempotent _________________________
+[gw1] linux -- Python 3.11.18 /root/.venv/bin/python
+
+    async def test_10_migration_idempotent():
+        """AT10: Migration is repeatable and does not duplicate or corrupt records."""
+        report = await db.migration_reports.find_one({"migration_id": "retrofit_v1"}, {"_id": 0})
+        if not report:
+            pytest.skip("Migration report not found — retrofit not run")
+        assert report.get("errors", -1) == 0, f"Migration had {report.get('errors')} errors"
+        total = await db.patrol_records.count_documents({})
+>       assert total >= report["records_reviewed"], \
+            f"Record count {total} should be >= reviewed {report['records_reviewed']}"
+E       AssertionError: Record count 537 should be >= reviewed 2932
+E       assert 537 >= 2932
+
+tests/test_retrofit_acceptance.py:122: AssertionError
+_____________ TestSourceName.test_each_alert_has_real_source_name ______________
+[gw0] linux -- Python 3.11.18 /root/.venv/bin/python
+
+self = <test_scams_date_sorting.TestSourceName object at 0xff571c0ccd50>
+body = {'coverage': 'Specific scam campaigns reported by recognised government and official cyber-authority sources (Australi... of nursing homes that needed COVID-19 tests.', 'source': 'FBI Internet Crime Complaint Center (IC3)', ...}, ...], ...}
+
+    def test_each_alert_has_real_source_name(self, body):
+        if not body["alerts"]:
+            pytest.skip("no specific alerts to evaluate source names")
+        for a in body["alerts"]:
+            src = a.get("source")
+            assert isinstance(src, str) and src.strip(), f"empty 'source' on {a.get('title')}"
+>           assert not _looks_like_slug(src), (
+                f"'source' looks like a raw source_id slug ({src!r}) on {a.get('title')}"
+            )
+E           AssertionError: 'source' looks like a raw source_id slug ('moneysmart') on Investor alert list
+E           assert not True
+E            +  where True = _looks_like_slug('moneysmart')
+
+tests/test_scams_date_sorting.py:160: AssertionError
+=============================== warnings summary ===============================
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+  /root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+tests/test_higgins_pipeline.py::test_intent_detection
+  /root/.venv/lib/python3.11/site-packages/_pytest/python.py:171: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_higgins_pipeline.py::test_intent_detection returned <class 'tuple'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_higgins_pipeline.py::test_artefact_extraction
+  /root/.venv/lib/python3.11/site-packages/_pytest/python.py:171: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_higgins_pipeline.py::test_artefact_extraction returned <class 'tuple'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_retrofit_acceptance.py::test_10_migration_idempotent - Asse...
+FAILED tests/test_scams_date_sorting.py::TestSourceName::test_each_alert_has_real_source_name
+2 failed, 1621 passed, 16 skipped, 1 xpassed, 10 warnings in 185.28s (0:03:05)

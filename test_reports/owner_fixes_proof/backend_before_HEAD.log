@@ -1,0 +1,137 @@
+F.FFFFFFF                                                                [100%]
+=================================== FAILURES ===================================
+_ test_an_inconclusive_investigation_is_filed_as_not_fully_checked_with_no_alert _
+
+    async def test_an_inconclusive_investigation_is_filed_as_not_fully_checked_with_no_alert():
+        owner = f"proof-{uuid.uuid4().hex[:8]}"
+        event, push = await _project(owner, await _committed(owner, outcome="unable_to_determine", assessment="uncertain", attention="review"))
+>       assert event["state"] == "resting" and event["status"] == "resolved", "never Growling or Barking"
+E       AssertionError: never Growling or Barking
+E       assert ('growling' == 'resting'
+E         
+E         - resting
+E         + growling)
+
+tests/test_owner_fixes_proof.py:65: AssertionError
+_____ test_an_inconclusive_investigation_never_lowers_a_threat_list_match ______
+
+    async def test_an_inconclusive_investigation_never_lowers_a_threat_list_match():
+        owner, submission = f"proof-{uuid.uuid4().hex[:8]}", f"sub-{uuid.uuid4().hex[:12]}"
+        await db.patrol_events.insert_one(_device_record(owner, submission, state="barking",
+                                                         triage_investigation={"outcome": "POSSIBLE_THREAT_IDENTIFIED", "rulesMet": ["LINK-01"]}))
+        case = await _committed(owner, outcome="unable_to_determine", assessment="uncertain", attention="review", submission=submission)
+        event, _ = await _project(owner, case)
+        assert event["event_id"] == submission, "one record per check"
+>       assert event["state"] == "barking" and event["status"] == "active", "the listed link keeps the case raised"
+E       AssertionError: the listed link keeps the case raised
+E       assert ('growling' == 'barking'
+E         
+E         - barking
+E         + growling)
+
+tests/test_owner_fixes_proof.py:86: AssertionError
+______ test_an_investigation_ended_without_deciding_is_not_fully_checked _______
+
+    def test_an_investigation_ended_without_deciding_is_not_fully_checked():
+        view = projector.ended_view({"status": "expired", "routing": {"tc_flyby": {"outcome": "unable_to_determine"}}})
+        assert view["outcome"] == "unable_to_determine"
+>       assert view["state"] == "resting" and view["status"] == "resolved", "never 'ears up' or active"
+E       AssertionError: never 'ears up' or active
+E       assert ('ears_up' == 'resting'
+E         
+E         - resting
+E         + ears_up)
+
+tests/test_owner_fixes_proof.py:92: AssertionError
+____ test_an_investigation_answer_never_reopens_a_record_the_person_handled ____
+
+    async def test_an_investigation_answer_never_reopens_a_record_the_person_handled():
+        owner, submission = f"proof-{uuid.uuid4().hex[:8]}", f"sub-{uuid.uuid4().hex[:12]}"
+        handled_at = now_utc() - timedelta(hours=1)
+        await db.patrol_events.insert_one(_device_record(owner, submission, status="resolved", resolved_at=handled_at))
+        case = await _committed(owner, outcome="concerning", assessment="concern_found", attention="review", submission=submission)
+        event, push = await _project(owner, case)
+>       assert event["status"] == "resolved" and event["resolved_at"] is not None, "handled stays handled"
+E       AssertionError: handled stays handled
+E       assert ('active' == 'resolved'
+E         
+E         - resolved
+E         + active)
+
+tests/test_owner_fixes_proof.py:106: AssertionError
+_____________ test_a_rejudge_never_reopens_a_closed_triage_record ______________
+
+    async def test_a_rejudge_never_reopens_a_closed_triage_record():
+        owner = f"proof-{uuid.uuid4().hex[:8]}"
+        closed_at = now_utc() - timedelta(days=2)
+        wire = {"outcome": "LIMITED_UNABLE_TO_DETERMINE", "rules": [], "incompleteChecks": [],
+                "coverageGaps": [{"code": "INSUFFICIENT_EVIDENCE", "detail": "Not enough to decide."}]}
+        open_wire = {**wire}
+        await db.patrol_events.insert_many([
+            _device_record(owner, f"closed-{uuid.uuid4().hex[:8]}", adapter_label=TRIAGE_ADAPTER, state="ears_up", status="resolved",
+                           resolved_at=closed_at, triage_investigation=wire),
+            _device_record(owner, f"open-{uuid.uuid4().hex[:8]}", adapter_label=TRIAGE_ADAPTER, state="ears_up", status="active",
+                           triage_investigation=open_wire)])
+        await _patrol_records()
+        rows = {r["event_id"].split("-")[0]: r for r in await db.patrol_events.find({"device_id": owner}, {"_id": 0}).to_list(5)}
+        try:
+>           assert rows["closed"]["status"] == "resolved", "a re-judge changes words, never reopens"
+E           AssertionError: a re-judge changes words, never reopens
+E           assert 'active' == 'resolved'
+E             
+E             - resolved
+E             + active
+
+tests/test_owner_fixes_proof.py:124: AssertionError
+____ test_held_copies_older_than_24_hours_are_deleted_and_identifiers_kept _____
+
+    async def test_held_copies_older_than_24_hours_are_deleted_and_identifiers_kept():
+        owner, now = f"proof-{uuid.uuid4().hex[:8]}", now_utc()
+        old, fresh = now - timedelta(hours=24, minutes=1), now - timedelta(hours=23)
+        meta = lambda at: {"sender": "+61 448 221 905", "subject": "Parcel", "preview": "Your parcel is waiting, pay the fee now", "submitted_at": at}  # noqa: E731
+        await db.patrol_events.insert_many([_device_record(owner, "held-old", source_metadata=meta(old)),
+                                            _device_record(owner, "held-new", source_metadata=meta(fresh)),
+                                            _device_record(owner, "held-notime", occurred_at=old, source_metadata={**meta(None), "submitted_at": None})])
+        case_id = f"held-{uuid.uuid4().hex[:8]}"
+        await db.investigation_cases.insert_one({"owner_id": owner, "case_id": case_id, "created_at": old, "deleted": True,
+                                                 "source_metadata": {"sender": "a@b.co", "preview": "text"}})
+        try:
+>           await held_copies.sweep(now)
+                  ^^^^^^^^^^^^^^^^^
+E           AttributeError: 'NoneType' object has no attribute 'sweep'
+
+tests/test_owner_fixes_proof.py:144: AttributeError
+___________ test_the_24_hour_sweep_runs_with_every_maintenance_cycle ___________
+
+    def test_the_24_hour_sweep_runs_with_every_maintenance_cycle():
+>       assert held_copies.HELD_COPY_SECONDS == 24 * 3600
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'HELD_COPY_SECONDS'
+
+tests/test_owner_fixes_proof.py:160: AttributeError
+_____________ test_safe_browsing_counts_only_for_the_exact_address _____________
+
+    def test_safe_browsing_counts_only_for_the_exact_address():
+        pg = {"safe_browsing": {"https://evil.example.com.attacker.net/login": {"verdict": "malicious", "threat_types": ["SOCIAL_ENGINEERING"]}}}
+>       assert correlation._safe_browsing(pg, "evil.example.com", ["https://evil.example.com/login"]) == [], \
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "an address that merely contains the website's name is a different address"
+E       TypeError: _safe_browsing() takes 2 positional arguments but 3 were given
+
+tests/test_owner_fixes_proof.py:168: TypeError
+=============================== warnings summary ===============================
+../../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+  /root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_owner_fixes_proof.py::test_an_inconclusive_investigation_is_filed_as_not_fully_checked_with_no_alert
+FAILED tests/test_owner_fixes_proof.py::test_an_inconclusive_investigation_never_lowers_a_threat_list_match
+FAILED tests/test_owner_fixes_proof.py::test_an_investigation_ended_without_deciding_is_not_fully_checked
+FAILED tests/test_owner_fixes_proof.py::test_an_investigation_answer_never_reopens_a_record_the_person_handled
+FAILED tests/test_owner_fixes_proof.py::test_a_rejudge_never_reopens_a_closed_triage_record
+FAILED tests/test_owner_fixes_proof.py::test_held_copies_older_than_24_hours_are_deleted_and_identifiers_kept
+FAILED tests/test_owner_fixes_proof.py::test_the_24_hour_sweep_runs_with_every_maintenance_cycle
+FAILED tests/test_owner_fixes_proof.py::test_safe_browsing_counts_only_for_the_exact_address
+8 failed, 1 passed, 1 warning in 1.84s

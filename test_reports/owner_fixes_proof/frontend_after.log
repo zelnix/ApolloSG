@@ -1,0 +1,140 @@
+✔ the Evidence Lock is frozen: nothing in it can be changed, added or removed (1.420548ms)
+✔ explaining a result changes nothing in the lock or in the result it was locked from (172.24853ms)
+✔ a lock whose content no longer matches its fingerprint is never reworded — Apollo's words only (1.847408ms)
+✔ the lock keeps where a finding's extra confidence came from: case evidence, this device, previous reports (1.935055ms)
+✔ every screen says the case result's verdict and severity — for every outcome, attention and briefing (11.820011ms)
+✔ no screen reads the result's outcome or attention directly, or maps them to a severity of its own (2.356269ms)
+✔ DI and History are handed the same verdict the Findings Brief shows (0.620883ms)
+
+══ Threat-state correctness ══
+  PASS: T1: No threat + reduced protection → Resting
+  PASS: T2: Disabled gate → no growling/barking (got resting)
+  PASS: T3: Unsupported gate → no escalation (got resting)
+  PASS: T4: Setup missing → no escalation (got resting)
+  PASS: T5: Lost visibility → not barking (got resting)
+  PASS: T5b: visibilityLost flag set
+  PASS: T6: Suspicious evidence → growling (got growling)
+  PASS: T7: Unresolved barking stays barking even after 12h (got barking)
+  PASS: T8: Unverified enforcement → not biting (got resting)
+  PASS: T8b: No proper packet proof → not biting (got resting) — safeguard working
+
+══ Historical correctness ══
+  PASS: T9: 10 resolved findings → resting (got resting)
+  PASS: T9b: 0 attention items from resolved findings (got 0)
+  PASS: T10: Unresolved old growling → still growling (got growling)
+  PASS: T11: Old unresolved barking preserved (got barking)
+  PASS: T12: Resolved growling → not growling (got resting)
+  PASS: T13: Multiple observations preserved (got 3)
+
+══ Home prioritisation ══
+  PASS: T14: Single finding → no count summary
+  PASS: T14b: Has content
+  PASS: T15: Two findings → mentions both
+  PASS: T16: 4+ findings → concise summary (text: Something happened. There are other concerns too. Let's start with the most urge)
+  PASS: T17: Barking → urgent language (text: Apollo found signs of a scam in the Link checking check.)
+  PASS: T17b: Links to investigation
+  PASS: T18: Gate issue in protection list (got 1)
+  PASS: T18b: Gate issue NOT in security findings (got 0)
+  PASS: T19: No count-driven messaging (text: Something happened. There's also a concern about Something happened. I'll walk y)
+  PASS: T20: Security finding → not Protection Details (route: /patrol/link-test)
+  PASS: T20b: Links to investigation (route: /patrol/link-test)
+
+══ Regression safeguards ══
+  PASS: T21: Deterministic state resolution
+  PASS: T22: Without full packet proof structure → safeguard prevents biting (got resting)
+  PASS: T23: Simulated block → not biting (got resting)
+  PASS: T24: Event not mutated by state resolution
+  PASS: T25: State 'resting' is in approved set
+  PASS: T25: State 'growling' is in approved set
+  PASS: T25: State 'barking' is in approved set
+  PASS: T25: State 'ears_up' is in approved set
+  PASS: T25: State 'resting' is in approved set
+
+════════════════════════════════════════════════════════════
+Developer Correction Regression: 36/36 passed
+════════════════════════════════════════════════════════════
+✔ tests/developerCorrectionRegression.test.ts (178.165697ms)
+✔ the shared text has the result, what happened, what to do and an untappable website (0.749136ms)
+✔ a call shares its number; a website shares only its address (0.634643ms)
+✔ the wire carries only the summary fields, each whole (0.182804ms)
+✔ picks the sentence that states what was found and drops the instructions (1.592788ms)
+✔ instruction-only text yields nothing rather than an instruction in the hero (0.166903ms)
+✔ evidence that isn't on this device is never summarised (0.119166ms)
+✔ a very long sentence is kept whole, never cut short (0.325719ms)
+✔ a gate in Action needed becomes a specific attention item (gate named + Higgins step) (0.776989ms)
+✔ an active barking event becomes an attention item naming the gate and the fix (6.700659ms)
+✔ optional setup never creates an attention item (no false barking); growling events do appear (1.652875ms)
+✔ barking events are ranked above growling and ears_up events (46.488926ms)
+✔ a resolved barking event is no longer active, so it drops out of attention (0.205464ms)
+✔ gate failures are listed before event decisions (0.842986ms)
+✔ an email reads as type, subject, sender and finding, then when and Higgins' recommendation (39.942478ms)
+✔ long subjects and addresses are shortened to keep the two lines (0.748727ms)
+✔ the finding is the case's own status; Unable to determine is never shown as safe (0.462762ms)
+✔ a call names the number; Higgins Triage's short step is used when there is no briefing (0.697604ms)
+✔ while TC FlyBy or Magnum DI is still working the hero says to be careful, never 'Action required' (0.233674ms)
+✔ a text names its number: recorded on the case, kept with the original, or 'no # found' (0.728495ms)
+✔ an 'Important for you' card has the hero's structure with more room for detail (0.995472ms)
+✔ Home names the first concrete thing Apollo recorded, never a vague 'possible threat' or 'Be careful' (1.36665ms)
+✔ an email you submitted is named from the original kept on this device (0.460638ms)
+✔ heroWhen adds the year only when it isn't this year (0.202488ms)
+✔ the hero lists the case Apollo is reacting to first, then other cases, then protection problems (0.81762ms)
+✔ with nothing to show, Apollo's status is two short lines (0.100628ms)
+✔ entities decode once: quoted domains, ampersands, apostrophes, angle brackets and numeric forms (0.795841ms)
+✔ decoding happens exactly once — double-encoded text is not decoded twice (0.117157ms)
+✔ unknown, malformed and invalid entities are left exactly as written (0.09185ms)
+✔ the notification body is a short, specific summary naming the first concrete finding — not the Higgins explanation (10.253174ms)
+✔ presented text has no entities, is never cut short, is in Higgins Luddish, and the authoritative event is untouched (3.876465ms)
+✔ not a request to disclose: code delivery (6.344126ms)
+✔ not a request to disclose: code delivery with use (0.219956ms)
+✔ not a request to disclose: password changed notice (0.872619ms)
+✔ not a request to disclose: new sign-in notice (0.133441ms)
+✔ not a request to disclose: never share (0.420737ms)
+✔ not a request to disclose: discussion (0.11452ms)
+✔ not a request to disclose: newsletter (0.109704ms)
+✔ not a request to disclose: no one will ask (0.09446ms)
+✔ not a request to disclose: never, under any circumstances (0.101312ms)
+✔ not a request to disclose: never be asked (0.141414ms)
+✔ a real request to disclose: password disclosure (0.325029ms)
+✔ a real request to disclose: enter password (0.227758ms)
+✔ a real request to disclose: send code (0.132901ms)
+✔ a real request to disclose: read out code (0.089137ms)
+✔ a real request to disclose: code then read it back (0.059495ms)
+✔ a real request to disclose: card details (0.106829ms)
+✔ a real request to disclose: unrelated negation first (0.052584ms)
+✔ a real request to disclose: negated event first (0.063627ms)
+✔ a real request to disclose: don't worry (0.056537ms)
+✔ a real request to disclose: negated ask, then a real one (0.074897ms)
+✔ kinds are told apart (0.292065ms)
+✔ shortDomain reduces a link to its recognisable host (0.872518ms)
+✔ shortDomain keeps non-host text as given (0.124625ms)
+✔ website events name the domain (1.228756ms)
+✔ email, message, call and file events name their source (0.190109ms)
+✔ no recorded identifier yields no subject and the plain state line (0.109278ms)
+✔ long identifiers are kept whole, never cut short (0.107368ms)
+✔ row labels name the kind of thing for lists (0.254556ms)
+✔ a genuine code delivery flagged by the earlier rules is cleared, and the earlier record is kept (19.408054ms)
+✔ a real request for a code still reads as one: nothing changes (1.878733ms)
+✔ a recorded threat-list match on the case's link still counts: no lookup is repeated, none is dropped (1.114903ms)
+✔ only on-device Triage of texts and emails with a kept original, never a case with an investigation (0.438462ms)
+✔ a case the person already handled stays handled (0.80853ms)
+✔ a case Apollo had already closed is never reopened by a re-judge, even when the current rules find more (0.619801ms)
+✔ an original kept for more than 24 hours is gone: the case isn't re-judged from it (0.296767ms)
+✔ an email that only mentions a brand is no longer read as that brand (4.197315ms)
+✔ an ordinary sign-in request counts only with supporting context (1.046281ms)
+✔ a caution with no warning sign behind it is filed as checked; a warning or a guard finding never is (0.190249ms)
+✔ ordinary addresses read as the website and a short path (1.189231ms)
+✔ an enormous query string is never shown (0.258686ms)
+✔ a percent-encoded redirect shows only the address it starts from (0.162484ms)
+✔ every address in a sentence is shortened, and the sentence keeps its punctuation (0.152992ms)
+✔ a malformed address is still shortened, never printed raw (0.242743ms)
+✔ legitimate short addresses stay whole (0.117229ms)
+✔ Home: web addresses become their website before the sentence is capped (1.745588ms)
+✔ reports shorten addresses in every section but keep sources whole (2.350186ms)
+ℹ tests 84
+ℹ suites 0
+ℹ pass 84
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 755.68284

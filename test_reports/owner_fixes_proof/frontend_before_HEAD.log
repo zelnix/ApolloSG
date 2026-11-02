@@ -1,0 +1,704 @@
+✔ the Evidence Lock is frozen: nothing in it can be changed, added or removed (1.349019ms)
+✔ explaining a result changes nothing in the lock or in the result it was locked from (111.673417ms)
+✔ a lock whose content no longer matches its fingerprint is never reworded — Apollo's words only (1.731102ms)
+✔ the lock keeps where a finding's extra confidence came from: case evidence, this device, previous reports (1.842096ms)
+✖ every screen says the case result's verdict and severity — for every outcome, attention and briefing (0.946068ms)
+✔ no screen reads the result's outcome or attention directly, or maps them to a severity of its own (2.301591ms)
+✔ DI and History are handed the same verdict the Findings Brief shows (0.323356ms)
+
+══ Threat-state correctness ══
+  PASS: T1: No threat + reduced protection → Resting
+  PASS: T2: Disabled gate → no growling/barking (got resting)
+  PASS: T3: Unsupported gate → no escalation (got resting)
+  PASS: T4: Setup missing → no escalation (got resting)
+  PASS: T5: Lost visibility → not barking (got resting)
+  PASS: T5b: visibilityLost flag set
+  PASS: T6: Suspicious evidence → growling (got growling)
+  PASS: T7: Unresolved barking stays barking even after 12h (got barking)
+  PASS: T8: Unverified enforcement → not biting (got resting)
+  PASS: T8b: No proper packet proof → not biting (got resting) — safeguard working
+
+══ Historical correctness ══
+  PASS: T9: 10 resolved findings → resting (got resting)
+  PASS: T9b: 0 attention items from resolved findings (got 0)
+  PASS: T10: Unresolved old growling → still growling (got growling)
+  PASS: T11: Old unresolved barking preserved (got barking)
+  PASS: T12: Resolved growling → not growling (got resting)
+  PASS: T13: Multiple observations preserved (got 3)
+
+══ Home prioritisation ══
+  PASS: T14: Single finding → no count summary
+  PASS: T14b: Has content
+  PASS: T15: Two findings → mentions both
+  PASS: T16: 4+ findings → concise summary (text: Apollo flagged Something happened, along with other concerns. Let's start with t)
+  PASS: T17: Barking → urgent language (text: Apollo found something in the Link checking check. It needs your decision.)
+  PASS: T17b: Links to investigation
+  PASS: T18: Gate issue in protection list (got 1)
+  PASS: T18b: Gate issue NOT in security findings (got 0)
+  PASS: T19: No count-driven messaging (text: Apollo flagged Something happened. There's also a concern about Something happen)
+  PASS: T20: Security finding → not Protection Details (route: /patrol/link-test)
+  PASS: T20b: Links to investigation (route: /patrol/link-test)
+
+══ Regression safeguards ══
+  PASS: T21: Deterministic state resolution
+  PASS: T22: Without full packet proof structure → safeguard prevents biting (got resting)
+  PASS: T23: Simulated block → not biting (got resting)
+  PASS: T24: Event not mutated by state resolution
+  PASS: T25: State 'resting' is in approved set
+  PASS: T25: State 'growling' is in approved set
+  PASS: T25: State 'barking' is in approved set
+  PASS: T25: State 'ears_up' is in approved set
+  PASS: T25: State 'resting' is in approved set
+
+════════════════════════════════════════════════════════════
+Developer Correction Regression: 36/36 passed
+════════════════════════════════════════════════════════════
+✔ tests/developerCorrectionRegression.test.ts (139.111635ms)
+✔ the shared text has the result, what happened, what to do and an untappable website (0.707684ms)
+✔ a call shares its number; a website shares only its address (0.584116ms)
+✖ the wire carries only the summary fields, each whole (0.825458ms)
+✔ picks the sentence that states what was found and drops the instructions (1.830079ms)
+✔ instruction-only text yields nothing rather than an instruction in the hero (0.155516ms)
+✔ evidence that isn't on this device is never summarised (0.125769ms)
+✖ a very long sentence is kept whole, never cut short (1.372131ms)
+✔ a gate in Action needed becomes a specific attention item (gate named + Higgins step) (0.757713ms)
+✔ an active barking event becomes an attention item naming the gate and the fix (37.2185ms)
+✖ optional setup never creates an attention item (no false barking); growling events do appear (2.288534ms)
+✔ barking events are ranked above growling and ears_up events (1.746081ms)
+✔ a resolved barking event is no longer active, so it drops out of attention (0.155337ms)
+✔ gate failures are listed before event decisions (0.560653ms)
+✔ an email reads as type, subject, sender and finding, then when and Higgins' recommendation (4.740936ms)
+✔ long subjects and addresses are shortened to keep the two lines (28.817866ms)
+✔ the finding is the case's own status; Unable to determine is never shown as safe (0.474669ms)
+✖ a call names the number; Higgins Triage's short step is used when there is no briefing (1.353356ms)
+✖ while TC FlyBy or Magnum DI is still working the hero says to be careful, never 'Action required' (0.251117ms)
+✖ a text names its number: recorded on the case, kept with the original, or 'no # found' (0.794963ms)
+✔ an 'Important for you' card has the hero's structure with more room for detail (0.960984ms)
+✖ Home names the first concrete thing Apollo recorded, never a vague 'possible threat' or 'Be careful' (0.644954ms)
+✔ an email you submitted is named from the original kept on this device (0.402836ms)
+✔ heroWhen adds the year only when it isn't this year (0.182171ms)
+✔ the hero lists the case Apollo is reacting to first, then other cases, then protection problems (0.794177ms)
+✔ with nothing to show, Apollo's status is two short lines (0.097661ms)
+✔ entities decode once: quoted domains, ampersands, apostrophes, angle brackets and numeric forms (0.768673ms)
+✔ decoding happens exactly once — double-encoded text is not decoded twice (0.117262ms)
+✔ unknown, malformed and invalid entities are left exactly as written (0.098253ms)
+✖ the notification body is a short, specific summary naming the first concrete finding — not the Higgins explanation (1.08344ms)
+✖ presented text has no entities, is never cut short, is in Higgins Luddish, and the authoritative event is untouched (0.615423ms)
+✔ not a request to disclose: code delivery (6.168163ms)
+✔ not a request to disclose: code delivery with use (0.292883ms)
+✔ not a request to disclose: password changed notice (0.111957ms)
+✔ not a request to disclose: new sign-in notice (0.080454ms)
+✔ not a request to disclose: never share (0.155554ms)
+✔ not a request to disclose: discussion (0.091977ms)
+✔ not a request to disclose: newsletter (0.087664ms)
+✔ not a request to disclose: no one will ask (0.062154ms)
+✔ not a request to disclose: never, under any circumstances (0.081605ms)
+✔ not a request to disclose: never be asked (0.127446ms)
+✔ a real request to disclose: password disclosure (0.31219ms)
+✔ a real request to disclose: enter password (0.230958ms)
+✔ a real request to disclose: send code (0.070997ms)
+✔ a real request to disclose: read out code (0.070138ms)
+✔ a real request to disclose: code then read it back (0.068928ms)
+✔ a real request to disclose: card details (0.079953ms)
+✖ a real request to disclose: unrelated negation first (0.682269ms)
+✖ a real request to disclose: negated event first (0.157058ms)
+✖ a real request to disclose: don't worry (0.104505ms)
+✖ a real request to disclose: negated ask, then a real one (0.080552ms)
+✔ kinds are told apart (0.145408ms)
+✔ shortDomain reduces a link to its recognisable host (0.890205ms)
+✔ shortDomain keeps non-host text as given (0.110296ms)
+✔ website events name the domain (1.236347ms)
+✔ email, message, call and file events name their source (0.201055ms)
+✔ no recorded identifier yields no subject and the plain state line (0.107721ms)
+✖ long identifiers are kept whole, never cut short (0.783991ms)
+✔ row labels name the kind of thing for lists (0.261433ms)
+file:///tmp/headtree/frontend/tests/triageRejudge.test.ts:10
+import { REJUDGED_LINE } from "../src/domain/luddish/present.ts";
+         ^^^^^^^^^^^^^
+SyntaxError: The requested module '../src/domain/luddish/present.ts' does not provide an export named 'REJUDGED_LINE'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:327:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:431:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.19.0
+✖ tests/triageRejudge.test.ts (161.694793ms)
+✔ ordinary addresses read as the website and a short path (1.190496ms)
+✔ an enormous query string is never shown (0.249687ms)
+✔ a percent-encoded redirect shows only the address it starts from (0.171889ms)
+✔ every address in a sentence is shortened, and the sentence keeps its punctuation (0.158317ms)
+✔ a malformed address is still shortened, never printed raw (0.248221ms)
+✔ legitimate short addresses stay whole (0.123652ms)
+✖ Home: web addresses become their website before the sentence is capped (1.949129ms)
+✔ reports shorten addresses in every section but keep sources whole (2.324684ms)
+ℹ tests 75
+ℹ suites 0
+ℹ pass 58
+ℹ fail 17
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 640.164586
+
+✖ failing tests:
+
+test at tests/chainInvariants.test.ts:156:1
+✖ every screen says the case result's verdict and severity — for every outcome, attention and briefing (0.946068ms)
+  AssertionError [ERR_ASSERTION]: confirmed_threat/urgent/pass
+  + actual - expected
+  
+  + undefined
+  - false
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/chainInvariants.test.ts:167:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/familySummary.test.ts:31:1
+✖ the wire carries only the summary fields, each whole (0.825458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookali'
+  - "Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Don't act on it."
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/familySummary.test.ts:34:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookali',
+    expected: "Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Apollo found a lookalike address. Don't act on it.",
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/findingSentence.test.ts:33:1
+✖ a very long sentence is kept whole, never cut short (1.372131ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Apollo found a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very…'
+  - 'Apollo found a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing somewhere.'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/findingSentence.test.ts:35:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Apollo found a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very…',
+    expected: 'Apollo found a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing a very suspicious thing somewhere.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/homeAttention.test.ts:43:1
+✖ optional setup never creates an attention item (no false barking); growling events do appear (2.288534ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Suspicious app — flagged by Apollo'
+  - 'Suspicious app — has a warning sign'
+                      ^
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/homeAttention.test.ts:53:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Suspicious app — flagged by Apollo',
+    expected: 'Suspicious app — has a warning sign',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/homeHeroBrief.test.ts:51:1
+✖ a call names the number; Higgins Triage's short step is used when there is no briefing (1.353356ms)
+  AssertionError [ERR_ASSERTION]: with nothing more specific recorded, what its state means — never 'a possible threat'
+  + actual - expected
+  
+  + 'Call from +61 448 221 905, detected as a possible threat.'
+  - 'Call from +61 448 221 905, looks like a scam.'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/homeHeroBrief.test.ts:53:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Call from +61 448 221 905, detected as a possible threat.',
+    expected: 'Call from +61 448 221 905, looks like a scam.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/homeHeroBrief.test.ts:57:1
+✖ while TC FlyBy or Magnum DI is still working the hero says to be careful, never 'Action required' (0.251117ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Text message (no # found), detected as a possible threat.'
+  - 'Text message (no # found), looks like a scam.'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/homeHeroBrief.test.ts:59:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Text message (no # found), detected as a possible threat.',
+    expected: 'Text message (no # found), looks like a scam.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/homeHeroBrief.test.ts:64:1
+✖ a text names its number: recorded on the case, kept with the original, or 'no # found' (0.794963ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Call (no # found), detected as a possible threat.'
+  - 'Call (no # found), looks like a scam.'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/homeHeroBrief.test.ts:70:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Call (no # found), detected as a possible threat.',
+    expected: 'Call (no # found), looks like a scam.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/homeHeroBrief.test.ts:81:1
+✖ Home names the first concrete thing Apollo recorded, never a vague 'possible threat' or 'Be careful' (0.644954ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Text message: “Your parcel is waiting…” from +61 448 221 905, detected as a possible threat.'
+  - 'Text message: “Your parcel is waiting, pay…” from +61 448 221 905, asks for a one-time code.'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/homeHeroBrief.test.ts:86:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Text message: “Your parcel is waiting…” from +61 448 221 905, detected as a possible threat.',
+    expected: 'Text message: “Your parcel is waiting, pay…” from +61 448 221 905, asks for a one-time code.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/notificationText.test.ts:41:1
+✖ the notification body is a short, specific summary naming the first concrete finding — not the Higgins explanation (1.08344ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Higgins: The Instagram text you received has signs that need checking. Open ApolloSG to see what I found.'
+  - 'Higgins: The Instagram text you received has a warning sign: it uses Instagram&#39;s logo &amp; colours. Open ApolloSG to see what I found.'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/notificationText.test.ts:43:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Higgins: The Instagram text you received has signs that need checking. Open ApolloSG to see what I found.',
+    expected: 'Higgins: The Instagram text you received has a warning sign: it uses Instagram&#39;s logo &amp; colours. Open ApolloSG to see what I found.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/notificationText.test.ts:60:1
+✖ presented text has no entities, is never cut short, is in Higgins Luddish, and the authoritative event is untouched (0.615423ms)
+  AssertionError [ERR_ASSERTION]: only the OS shortens a notification
+  + actual - expected
+  
+  + 'Apollo is barking at xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…'
+  - 'Apollo is barking at xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/notificationText.test.ts:69:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Apollo is barking at xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…',
+    expected: 'Apollo is barking at xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/requestSignals.test.ts:34:46
+✖ a real request to disclose: unrelated negation first (0.682269ms)
+  AssertionError [ERR_ASSERTION]: unrelated negation first
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/requestSignals.test.ts:36:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/requestSignals.test.ts:34:46
+✖ a real request to disclose: negated event first (0.157058ms)
+  AssertionError [ERR_ASSERTION]: negated event first
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/requestSignals.test.ts:36:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/requestSignals.test.ts:34:46
+✖ a real request to disclose: don't worry (0.104505ms)
+  AssertionError [ERR_ASSERTION]: don't worry
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/requestSignals.test.ts:36:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/requestSignals.test.ts:34:46
+✖ a real request to disclose: negated ask, then a real one (0.080552ms)
+  AssertionError [ERR_ASSERTION]: negated ask, then a real one
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/requestSignals.test.ts:36:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/threatSubject.test.ts:53:1
+✖ long identifiers are kept whole, never cut short (0.783991ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…'
+  - 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com'
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/threatSubject.test.ts:56:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…',
+    expected: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.com',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/triageRejudge.test.ts:1:1
+✖ tests/triageRejudge.test.ts (161.694793ms)
+  'test failed'
+
+test at tests/urlPresentation.test.ts:63:1
+✖ Home: web addresses become their website before the sentence is capped (1.949129ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /const text = domainOnly\(\(event\.what_happened \|\| ""\)\.trim\(\)\);[\s\S]*return cleaned\.charAt\(0\)\.toUpperCase\(\) \+ cleaned\.slice\(1\);/. Input:
+  
+  "// Higgins-led Home voice. Produces ONE short paragraph that interprets Apollo's current behaviour\n" +
+    '// using REAL data — three independent conditions (threat status, protection coverage, user actions)\n' +
+    '// are assessed separately and never conflated.\n' +
+    '//\n' +
+    '// OPERATING STANDARD: Higgins is an authoritative cybersecurity expert.\n' +
+    '// INVESTIGATE → ASSESS → DIRECT → GUIDE → VERIFY.\n' +
+    '// Every actionable finding produces a specific instruction, not a vague suggestion.\n' +
+    '//\n' +
+    '// Pure, unit-testable: no React, no navigation.\n' +
+    '\n' +
+    'import type { AttentionItem } from "./homeAttention";\n' +
+    'import type { GatePresentation } from "./gates";\n' +
+    'import { briefed, firstFinding, needsYou } from "./caseBriefing.ts";\n' +
+    'import { hasRecordedFindings } from "./caseFacts.ts";\n' +
+    'import { sentences } from "./luddish/patterns.ts";\n' +
+    'import { subjectDescriptor, threatSubject } from "./threatSubject.ts";\n' +
+    'import { resolveHomeStatus, type HomeResolverInput } from "./homeStatusResolver.ts";\n' +
+    'import type { StateResolution } from "./stateMachine";\n' +
+    'import type { Capability, PatrolEvent } from "./types";\n' +
+    'import { domainOnly } from "./urlPresentation.ts";\n' +
+    '\n' +
+    'export interface HomeVoice {\n' +
+    '  /** The short Higgins paragraph the Home card shows (and reads aloud). */\n' +
+    '  text: string;\n' +
+    '  /** The one primary action label — contextual (e.g. "View what Apollo found", "View Protection Details"). */\n' +
+    '  ctaLabel: string;\n' +
+    '  /** Route to open on tap. May be undefined for benign states (no CTA shown). */\n' +
+    '  ctaRoute?: string;\n' +
+    '  /** Spoken version — identical to text; kept separate so screens can extend if needed. */\n' +
+    '  spoken: string;\n' +
+    '  /** Protection status indicator — independent of threat state (PRD Section 6). */\n' +
+    '  protectionStatus?: "watching" | "reduced" | "action_needed";\n' +
+    "  /** Higgins' explanation of protection issues — shown separately from the threat assessment. */\n" +
+    '  protectionGuidance?: string;\n' +
+    '}\n' +
+    '\n' +
+    '/** The ONE sentence from a finding that says what Apollo actually found — no instructions, no\n' +
+    ' *  settings paths, no what-to-do. Returns null when the event carries no such sentence, so callers\n' +
+    ' *  fall back to naming the check instead of inventing detail. Recorded findings only. */\n' +
+    'export function findingSentence(event: PatrolEvent): string | null {\n' +
+    '  if (!hasRecordedFindings(event)) return null;\n' +
+    '  // Web addresses read as their website before anything is split or capped.\n' +
+    '  const text = domainOnly((event.what_happened || "").trim());\n' +
+    '  if (!text) return null;\n' +
+    '  // Instructions belong in the case, never in the hero line.\n' +
+    '  const factual = sentences(text).filter((sentence) => !/→|\\bsettings\\b|^open\\b|^tap\\b|\\bgo to\\b/i.test(sentence));\n' +
+    '  const stated = factual.find((sentence) => /\\b(found|detected|observed|spotted|flagged|blocked|stopped|is active)\\b/i.test(sentence))\n' +
+    '    ?? factual[0];\n' +
+    '  if (!stated) return null;\n' +
+    '  const cleaned = stated.replace(/^(in it,|here,|in this case,)\\s*/i, "").trim();\n' +
+    '  if (!cleaned) return null;\n' +
+    '  const capped = cleaned.length > 170 ? `${cleaned.slice(0, 169).replace(/\\s+\\S*$/, "")}…` : cleaned;\n' +
+    '  return capped.charAt(0).toUpperCase() + capped.slice(1);\n' +
+    '}\n' +
+    '\n' +
+    "/** A finding in its Higgins Case Briefing's own words: the headline, then its first finding (subject always named).\n" +
+    ' *  Null when the event has no checked briefing. */\n' +
+    'export function briefedLine(event: PatrolEvent | undefined): string | null {\n' +
+    '  const b = briefed(event);\n' +
+    '  return b ? `${b.headline}: ${firstFinding(b)}${needsYou(event!) ? " It needs your decision." : ""}` : null;\n' +
+    '}\n' +
+    '\n' +
+    'const sentence = (text: string) => (/[.!?…]$/.test(text) ? text : `${text}.`);\n' +
+    '\n' +
+    '\n' +
+    '/** Human label for every Capability id, used when assembling the dynamic affected-gate list. */\n' +
+    'const CAPABILITY_LABEL: Record<Capability["id"], string> = {\n' +
+    '  link_guard: "Link checking",\n' +
+    '  site_guard: "Website protection",\n' +
+    '  connection_guard: "Internet monitoring",\n' +
+    '  known_threats: "Known Threat Lookup",\n' +
+    '  share_intake: "Share to ApolloSG",\n' +
+    '  message_guard: "Message screening",\n' +
+    '  app_guard: "App checking",\n' +
+    '};\n' +
+    '\n' +
+    '/** Join a list of names in plain English: ["A", "B", "C"] → "A, B and C". */\n' +
+    'export function joinNames(names: string[]): string {\n' +
+    '  const unique = Array.from(new Set(names.filter(Boolean)));\n' +
+    '  if (unique.length === 0) return "";\n' +
+    '  if (unique.length === 1) return unique[0];\n' +
+    '  if (unique.length === 2) return `${unique[0]} and ${unique[1]}`;\n' +
+    '  return `${unique.slice(0, -1).join(", ")} and ${unique[unique.length - 1]}`;\n' +
+    '}\n' +
+    '\n' +
+    '/** Capability IDs that represent genuinely automatic protection (continuous background monitoring\n' +
+    ` *  or enforcement). Manual-only checks (link, known_threats, share_intake, app) don't "run" in the\n` +
+    ` *  background, so they should never appear as "Apollo can't confirm X is running." */\n` +
+    'const AUTOMATIC_CAPABILITY_IDS = new Set<string>([\n' +
+    '  "site_guard", "connection_guard", "message_guard",\n' +
+    ']);\n' +
+    '\n' +
+    '/** Capabilities where automatic protection has GENUINELY degraded — not merely optional setup,\n' +
+    ' *  normal manual-check readiness, or unsupported platform features.\n' +
+    ' *  - "available" = the check is ready when you need it (not a failure)\n' +
+    ` *  - Manual-only capabilities never "run" continuously, so can't "fail to run"\n` +
+    ' *  - "unsupported" = platform limitation (not a failure of something that was working) */\n' +
+    'export function affectedCapabilities(capabilities: Capability[]): Capability[] {\n' +
+    '  return capabilities.filter(\n' +
+    '    (c) => c.status !== "active" && c.status !== "coming_later" && c.status !== "unsupported"\n' +
+    '      && c.status !== "available"\n' +
+    '      && AUTOMATIC_CAPABILITY_IDS.has(c.id),\n' +
+    '  );\n' +
+    '}\n' +
+    '\n' +
+    '/** Describe what Apollo noticed, in a verb that matches the state. Used when assembling multi-issue\n' +
+    ` *  paragraphs so "Apollo is barking because he spotted…" / "Apollo is growling because he's unsure…" */\n` +
+    'function verbForState(state: StateResolution["state"]): string {\n' +
+    '  switch (state) {\n' +
+    '    case "barking":  return "spotted";\n' +
+    '    case "biting":   return "stopped";\n' +
+    '    case "growling": return "noticed";\n' +
+    '    case "ears_up":  return "is looking at";\n' +
+    '    default:         return "is checking";\n' +
+    '  }\n' +
+    '}\n' +
+    '\n' +
+    '/** Build the short paragraph + CTA for the Home card.\n' +
+    ' *  Uses the central Home Status Resolver to separate threat status, protection coverage,\n' +
+    " *  and user actions — then produces Higgins' interpretation as one natural paragraph.\n" +
+    ' *\n' +
+    ' *  Priority (highest first):\n' +
+    ' *   1. Verified block (biting) → confirm what Apollo blocked, link to the investigation.\n' +
+    ' *   2. One specific high-priority concern → name the concern, link to the investigation.\n' +
+    ' *   3. Two current concerns → name both specifically.\n' +
+    ' *   4. Three+ current concerns → name the most important, summarise to Threats.\n' +
+    ' *   5. Visibility lost (protection unverified) → explain, link to Protection.\n' +
+    ' *   6. Patrolling / Sniffing → calm status line.\n' +
+    ' *\n' +
+    ' *  NEVER: count-driven messaging ("N findings"), generic directions, or\n' +
+    ' *  conflation of gate-health with security threats.\n' +
+    ' */\n' +
+    'export function buildHomeVoice(input: {\n' +
+    '  resolution: StateResolution;\n' +
+    '  attention: AttentionItem[];\n' +
+    '  gates: GatePresentation[];\n' +
+    '  capabilities: Capability[];\n' +
+    '}): HomeVoice {\n' +
+    '  const { resolution, attention, gates, capabilities } = input;\n' +
+    '  const state = resolution.state;\n' +
+    '\n' +
+    '  // Derive platformCanEnforce from capabilities (same logic as ApolloContext).\n' +
+    '  const platformCanEnforce = capabilities.some((c) => c.id === "site_guard" && c.status !== "unsupported");\n' +
+    '\n' +
+    '  // Run the three-pillar resolver to get the evidence-based status.\n' +
+    '  const homeStatus = resolveHomeStatus({\n' +
+    '    resolution,\n' +
+    '    attention,\n' +
+    '    gates,\n' +
+    '    capabilities,\n' +
+    '    findingCount: 0, // Not used for count-driven messaging\n' +
+    '    platformCanEnforce,\n' +
+    '  });\n' +
+    '\n' +
+    '  // Separate security findings from protection issues — never conflate.\n' +
+    '  const securityFindings = attention.filter((a) => a.kind === "event");\n' +
+    '  const protectionIssues = attention.filter((a) => a.kind === "gate");\n' +
+    '\n' +
+    '  // ── Resting: the resolver produces scenario-specific messaging ──\n' +
+    '  if (state === "resting" || (resolution.platformLimited && homeStatus.behavior === "resting")) {\n' +
+    '    // Use approved wording when no security threat\n' +
+    '    const restingText = homeStatus.explanation ||\n' +
+    `      "No security threats currently detected within Apollo's current protection capability.";\n` +
+    '    return {\n' +
+    '      text: restingText,\n' +
+    '      ctaLabel: homeStatus.primaryAction?.label ?? "View protection",\n' +
+    '      ctaRoute: homeStatus.primaryAction?.route ?? "/(tabs)/protection",\n' +
+    '      spoken: restingText,\n' +
+    '      protectionStatus: homeStatus.protectionStatus,\n' +
+    '      protectionGuidance: homeStatus.protectionGuidance,\n' +
+    '    };\n' +
+    '  }\n' +
+    '\n' +
+    '  if (state === "sniffing" || state === "ears_up") {\n' +
+    '    const drivingEvent = resolution.drivingEvent;\n' +
+    '    const verb = state === "ears_up" ? "has his ears up" : "is sniffing";\n' +
+    '    if (drivingEvent) {\n' +
+    '      const gateName = GATE_FOR_CATEGORY[drivingEvent.category] ?? "a security check";\n' +
+    '      const rawSubject = domainOnly((drivingEvent.headline || drivingEvent.what_happened || "").trim());\n' +
+    '      const subject = hasRecordedFindings(drivingEvent) ? rawSubject : "";\n' +
+    '      const text = state === "ears_up"\n' +
+    '        ? `ApolloSG ${verb} — something in ${gateName}${subject ? ` caught his attention: ${subject}` : " caught his attention"}. He\'s looking at it. I\'ll tell you exactly what to do once he\'s finished.`\n' +
+    '        : `ApolloSG ${verb} — Magnum DI is investigating ${gateName}${subject ? `: ${subject}` : ""}. I\'ll tell you exactly what to do once he\'s finished.`;\n' +
+    '      return {\n' +
+    '        text,\n' +
+    '        ctaLabel: "View what Apollo is checking",\n' +
+    '        ctaRoute: `/patrol/${encodeURIComponent(drivingEvent.event_id)}`,\n' +
+    '        spoken: text,\n' +
+    '      };\n' +
+    '    }\n' +
+    '    return {\n' +
+    '      text: state === "ears_up"\n' +
+    `        ? "Apollo has noticed something — something in a recent check caught his attention. I'll show you what he's found."\n` +
+    '        : "Apollo is sniffing — running his checks across your protections.",\n' +
+    '      ctaLabel: "View what Apollo is checking",\n' +
+    '      ctaRoute: "/(tabs)/patrol",\n' +
+    '      spoken: state === "ears_up"\n' +
+    `        ? "Apollo has noticed something — something caught his attention. I'll tell you what to do."\n` +
+    '        : "Apollo is sniffing — runni'... 7677 more characters
+  
+      at TestContext.<anonymous> (file:///tmp/headtree/frontend/tests/urlPresentation.test.ts:72:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// Higgins-led Home voice. Produces ONE short paragraph that interprets Apollo\'s current behaviour\n// using REAL data — three independent conditions (threat status, protection coverage, user actions)\n// are assessed separately and never conflated.\n//\n// OPERATING STANDARD: Higgins is an authoritative cybersecurity expert.\n// INVESTIGATE → ASSESS → DIRECT → GUIDE → VERIFY.\n// Every actionable finding produces a specific instruction, not a vague suggestion.\n//\n// Pure, unit-testable: no React, no navigation.\n\nimport type { AttentionItem } from "./homeAttention";\nimport type { GatePresentation } from "./gates";\nimport { briefed, firstFinding, needsYou } from "./caseBriefing.ts";\nimport { hasRecordedFindings } from "./caseFacts.ts";\nimport { sentences } from "./luddish/patterns.ts";\nimport { subjectDescriptor, threatSubject } from "./threatSubject.ts";\nimport { resolveHomeStatus, type HomeResolverInput } from "./homeStatusResolver.ts";\nimport type { StateResolution } from "./stateMachine";\nimport type { Capability, PatrolEvent } from "./types";\nimport { domainOnly } from "./urlPresentation.ts";\n\nexport interface HomeVoice {\n  /** The short Higgins paragraph the Home card shows (and reads aloud). */\n  text: string;\n  /** The one primary action label — contextual (e.g. "View what Apollo found", "View Protection Details"). */\n  ctaLabel: string;\n  /** Route to open on tap. May be undefined for benign states (no CTA shown). */\n  ctaRoute?: string;\n  /** Spoken version — identical to text; kept separate so screens can extend if needed. */\n  spoken: string;\n  /** Protection status indicator — independent of threat state (PRD Section 6). */\n  protectionStatus?: "watching" | "reduced" | "action_needed";\n  /** Higgins\' explanation of protection issues — shown separately from the threat assessment. */\n  protectionGuidance?: string;\n}\n\n/** The ONE sentence from a finding that says what Apollo actually found — no instructions, no\n *  settings paths, no what-to-do. Returns null when the event carries no such sentence, so callers\n *  fall back to naming the check instead of inventing detail. Recorded findings only. */\nexport function findingSentence(event: PatrolEvent): string | null {\n  if (!hasRecordedFindings(event)) return null;\n  // Web addresses read as their website before anything is split or capped.\n  const text = domainOnly((event.what_happened || "").trim());\n  if (!text) return null;\n  // Instructions belong in the case, never in the hero line.\n  const factual = sentences(text).filter((sentence) => !/→|\\bsettings\\b|^open\\b|^tap\\b|\\bgo to\\b/i.test(sentence));\n  const stated = factual.find((sentence) => /\\b(found|detected|observed|spotted|flagged|blocked|stopped|is active)\\b/i.test(sentence))\n    ?? factual[0];\n  if (!stated) return null;\n  const cleaned = stated.replace(/^(in it,|here,|in this case,)\\s*/i, "").trim();\n  if (!cleaned) return null;\n  const capped = cleaned.length > 170 ? `${cleaned.slice(0, 169).replace(/\\s+\\S*$/, "")}…` : cleaned;\n  return capped.charAt(0).toUpperCase() + capped.slice(1);\n}\n\n/** A finding in its Higgins Case Briefing\'s own words: the headline, then its first finding (subject always named).\n *  Null when the event has no checked briefing. */\nexport function briefedLine(event: PatrolEvent | undefined): string | null {\n  const b = briefed(event);\n  return b ? `${b.headline}: ${firstFinding(b)}${needsYou(event!) ? " It needs your decision." : ""}` : null;\n}\n\nconst sentence = (text: string) => (/[.!?…]$/.test(text) ? text : `${text}.`);\n\n\n/** Human label for every Capability id, used when assembling the dynamic affected-gate list. */\nconst CAPABILITY_LABEL: Record<Capability["id"], string> = {\n  link_guard: "Link checking",\n  site_guard: "Website protection",\n  connection_guard: "Internet monitoring",\n  known_threats: "Known Threat Lookup",\n  share_intake: "Share to ApolloSG",\n  message_guard: "Message screening",\n  app_guard: "App checking",\n};\n\n/** Join a list of names in plain English: ["A", "B", "C"] → "A, B and C". */\nexport function joinNames(names: string[]): string {\n  const unique = Array.from(new Set(names.filter(Boolean)));\n  if (unique.length === 0) return "";\n  if (unique.length === 1) return unique[0];\n  if (unique.length === 2) return `${unique[0]} and ${unique[1]}`;\n  return `${unique.slice(0, -1).join(", ")} and ${unique[unique.length - 1]}`;\n}\n\n/** Capability IDs that represent genuinely automatic protection (continuous background monitoring\n *  or enforcement). Manual-only checks (link, known_threats, share_intake, app) don\'t "run" in the\n *  background, so they should never appear as "Apollo can\'t confirm X is running." */\nconst AUTOMATIC_CAPABILITY_IDS = new Set<string>([\n  "site_guard", "connection_guard", "message_guard",\n]);\n\n/** Capabilities where automatic protection has GENUINELY degraded — not merely optional setup,\n *  normal manual-check readiness, or unsupported platform features.\n *  - "available" = the check is ready when you need it (not a failure)\n *  - Manual-only capabilities never "run" continuously, so can\'t "fail to run"\n *  - "unsupported" = platform limitation (not a failure of something that was working) */\nexport function affectedCapabilities(capabilities: Capability[]): Capability[] {\n  return capabilities.filter(\n    (c) => c.status !== "active" && c.status !== "coming_later" && c.status !== "unsupported"\n      && c.status !== "available"\n      && AUTOMATIC_CAPABILITY_IDS.has(c.id),\n  );\n}\n\n/** Describe what Apollo noticed, in a verb that matches the state. Used when assembling multi-issue\n *  paragraphs so "Apollo is barking because he spotted…" / "Apollo is growling because he\'s unsure…" */\nfunction verbForState(state: StateResolution["state"]): string {\n  switch (state) {\n    case "barking":  return "spotted";\n    case "biting":   return "stopped";\n    case "growling": return "noticed";\n    case "ears_up":  return "is looking at";\n    default:         return "is checking";\n  }\n}\n\n/** Build the short paragraph + CTA for the Home card.\n *  Uses the central Home Status Resolver to separate threat status, protection coverage,\n *  and user actions — then produces Higgins\' interpretation as one natural paragraph.\n *\n *  Priority (highest first):\n *   1. Verified block (biting) → confirm what Apollo blocked, link to the investigation.\n *   2. One specific high-priority concern → name the concern, link to the investigation.\n *   3. Two current concerns → name both specifically.\n *   4. Three+ current concerns → name the most important, summarise to Threats.\n *   5. Visibility lost (protection unverified) → explain, link to Protection.\n *   6. Patrolling / Sniffing → calm status line.\n *\n *  NEVER: count-driven messaging ("N findings"), generic directions, or\n *  conflation of gate-health with security threats.\n */\nexport function buildHomeVoice(input: {\n  resolution: StateResolution;\n  attention: AttentionItem[];\n  gates: GatePresentation[];\n  capabilities: Capability[];\n}): HomeVoice {\n  const { resolution, attention, gates, capabilities } = input;\n  const state = resolution.state;\n\n  // Derive platformCanEnforce from capabilities (same logic as ApolloContext).\n  const platformCanEnforce = capabilities.some((c) => c.id === "site_guard" && c.status !== "unsupported");\n\n  // Run the three-pillar resolver to get the evidence-based status.\n  const homeStatus = resolveHomeStatus({\n    resolution,\n    attention,\n    gates,\n    capabilities,\n    findingCount: 0, // Not used for count-driven messaging\n    platformCanEnforce,\n  });\n\n  // Separate security findings from protection issues — never conflate.\n  const securityFindings = attention.filter((a) => a.kind === "event");\n  const protectionIssues = attention.filter((a) => a.kind === "gate");\n\n  // ── Resting: the resolver produces scenario-specific messaging ──\n  if (state === "resting" || (resolution.platformLimited && homeStatus.behavior === "resting")) {\n    // Use approved wording when no security threat\n    const restingText = homeStatus.explanation ||\n      "No security threats currently detected within Apollo\'s current protection capability.";\n    return {\n      text: restingText,\n      ctaLabel: homeStatus.primaryAction?.label ?? "View protection",\n      ctaRoute: homeStatus.primaryAction?.route ?? "/(tabs)/protection",\n      spoken: restingText,\n      protectionStatus: homeStatus.protectionStatus,\n      protectionGuidance: homeStatus.protectionGuidance,\n    };\n  }\n\n  if (state === "sniffing" || state === "ears_up") {\n    const drivingEvent = resolution.drivingEvent;\n    const verb = state === "ears_up" ? "has his ears up" : "is sniffing";\n    if (drivingEvent) {\n      const gateName = GATE_FOR_CATEGORY[drivingEvent.category] ?? "a security check";\n      const rawSubject = domainOnly((drivingEvent.headline || drivingEvent.what_happened || "").trim());\n      const subject = hasRecordedFindings(drivingEvent) ? rawSubject : "";\n      const text = state === "ears_up"\n        ? `ApolloSG ${verb} — something in ${gateName}${subject ? ` caught his attention: ${subject}` : " caught his attention"}. He\'s looking at it. I\'ll tell you exactly what to do once he\'s finished.`\n        : `ApolloSG ${verb} — Magnum DI is investigating ${gateName}${subject ? `: ${subject}` : ""}. I\'ll tell you exactly what to do once he\'s finished.`;\n      return {\n        text,\n        ctaLabel: "View what Apollo is checking",\n        ctaRoute: `/patrol/${encodeURIComponent(drivingEvent.event_id)}`,\n        spoken: text,\n      };\n    }\n    return {\n      text: state === "ears_up"\n        ? "Apollo has noticed something — something in a recent check caught his attention. I\'ll show you what he\'s found."\n        : "Apollo is sniffing — running his checks across your protections.",\n      ctaLabel: "View what Apollo is checking",\n      ctaRoute: "/(tabs)/patrol",\n      spoken: state === "ears_up"\n        ? "Apollo has noticed something — something caught his attention. I\'ll tell you what to do."\n        : "Apollo is sniffing — runni'... 7677 more characters,
+    expected: /const text = domainOnly\(\(event\.what_happened \|\| ""\)\.trim\(\)\);[\s\S]*return cleaned\.charAt\(0\)\.toUpperCase\(\) \+ cleaned\.slice\(1\);/,
+    operator: 'match',
+    diff: 'simple'
+  }
