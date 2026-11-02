@@ -564,8 +564,8 @@ export default function ThreatCaseScreen() {
         </Text>
       </View>
 
-      {/* The top card scrolls away with the content and comes back only at the top; the tab bar stays pinned. */}
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }} stickyHeaderIndices={[1]} testID="tc-scroll">
+      {/* Content scrolls naturally — no stickyHeaderIndices which breaks flexDirection: "row" on Android. */}
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }} testID="tc-scroll">
         {/* What started this case, and when (shared with Ask Higgins) — the result is in Overview. Tagged whenever
             its input or an outside source behind it was simulated. */}
         <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.xs }}>

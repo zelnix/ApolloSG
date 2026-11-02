@@ -23,9 +23,9 @@ const REGIONS: { id: RegionFilter; label: string }[] = [
   { id: "UK", label: "UK" }, { id: "EU", label: "EU" }, { id: "GLOBAL", label: "Global" },
 ];
 const HOME = homeRegion();
-// "All" holds what applies everywhere, globally, or at home; an alert local to another country stays under that country.
+// "All" shows every alert regardless of region. Individual region chips narrow by source or applicability.
 const regionMatch = (a: GovernmentAlert, f: RegionFilter) =>
-  f === "ALL" ? appliesHere(a, HOME)
+  f === "ALL" ? true
   : f === "AU" ? a.region === "AU" || a.australianRelevance === "confirmed" || a.appliesIn === "global"
   : f === "GLOBAL" ? a.appliesIn === "global" || a.appliesIn === "everywhere"
   : a.region === f;
@@ -129,7 +129,8 @@ export default function GovernmentScamsScreen() {
     sort === "severity" ? SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || alertTime(b) - alertTime(a) : alertTime(b) - alertTime(a));
   const shown = useMemo(() => arrange(alerts), [alerts, region, sort]); // eslint-disable-line react-hooks/exhaustive-deps
   const shownEmerging = useMemo(() => arrange(emerging), [emerging, region, sort]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hiddenLocal = useMemo(() => [...alerts, ...emerging].filter((a) => !appliesHere(a, HOME)).length, [alerts, emerging]);
+  // Count alerts specific to another country (not global/everywhere/home). Shown as an informational note on region filters.
+  const otherCountryCount = useMemo(() => [...alerts, ...emerging].filter((a) => !appliesHere(a, HOME)).length, [alerts, emerging]);
   const info = { title: "About Scam Alerts", body: [coverage || "Specific scam campaigns reported by recognised government and official cyber-authority sources (Australia, USA, UK, EU), each read and explained from the source itself.", "Emerging patterns are techniques appearing across several reports with no single named campaign yet."] };
   const titleIcon = <HeaderIconTile icon={Megaphone} color={colors.growling} fg={colors.onBrand} testID="higgins-scams-title-icon" />;
 
@@ -201,9 +202,9 @@ export default function GovernmentScamsScreen() {
                 <Text style={s.sortText}>{SORT_LABEL[sort]}</Text><ChevronDown size={16} color={colors.onSurface} />
               </Pressable>
             </View>
-            {region === "ALL" && hiddenLocal > 0 ? (
-              <Text style={s.meta} testID="higgins-scams-local-hidden">
-                {`${hiddenLocal} alert${hiddenLocal === 1 ? " only applies" : "s only apply"} in another country, so ${hiddenLocal === 1 ? "it's" : "they're"} not listed here. Pick that country to see ${hiddenLocal === 1 ? "it" : "them"}.`}
+            {region !== "ALL" && otherCountryCount > 0 ? (
+              <Text style={s.meta} testID="higgins-scams-local-note">
+                {`Showing ${regionCount(region)} of ${alerts.length + emerging.length} total alerts. Switch to All to see everything.`}
               </Text>
             ) : null}
           </View>

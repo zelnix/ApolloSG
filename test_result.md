@@ -4202,3 +4202,57 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "FULL REGRESSION TEST SUITE VERIFICATION COMPLETE ✅ - ALL 109 TESTS PASSED. Executed: cd /app/backend && python -m pytest tests/test_user_guide.py tests/test_higgins_intent.py tests/test_alert_selection_rules.py tests/test_scam_analysis.py tests/test_sample_check_provenance.py -v. Results: (1) test_user_guide.py: 25/25 PASSED - Golden questions (13), User guide structure (4), Source hierarchy (3), Direct answer first (2), No module dump (2). (2) test_higgins_intent.py: 26/26 PASSED - Sharing intent classification (7), Privacy still works (6), Privacy regex context sensitive (5), Sharing help presenter (4), Direct answer first (2), Navigation for sharing (1), Product knowledge selects minimum (1). (3) test_alert_selection_rules.py: 33/33 PASSED - Freshness rules (6), News exclusion (5), Verified ongoing keywords (4), Growl uses eligibility (4), Severity not inflated by advice (3), Australian warnings still appear (3), Overseas news excluded (3), Verified global threats appear (3), Preparedness exclusion (2). (4) test_scam_analysis.py: 10/10 PASSED - Deterministic analysis (4), Growl rule (4), Pre filter (2). (5) test_sample_check_provenance.py: 15/15 PASSED - Sample check origin propagation (2), Provenance distinction (2), Not forcing verdict (2), Telemetry isolation (2), Pipeline integrity (2), KB isolation (1), Protection state isolation (1), Related cases isolation (1), Catalogue is authoritative (1), Email sample check implementation (1). (6) GET /api/health: 200 OK with correct schema. Test execution time: 2.36s with 2 warnings (PendingDeprecationWarning for multipart import - not critical). NO REGRESSIONS DETECTED. All key test areas verified: User Guide structure and golden questions, Higgins intent and privacy behaviors, alert selection rules, scam analysis deterministic logic, sample check provenance isolation. Backend service healthy and stable. All 109 expected tests passed successfully."
+
+
+
+## 2026-11-02 BUGFIX — Alert Totals: "All" showing Region total, Region label logic
+
+backend:
+  - task: "No backend changes needed — the alert data from /api/higgins/scams is correct; bug is frontend-only"
+    implemented: true
+    working: true
+    file: "backend/services/government_alerts.py"
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "main"
+        working: true
+        comment: "Backend snapshot() returns all eligible alerts correctly with proper region/appliesIn metadata. The bug is purely in the frontend regionMatch filter."
+
+frontend:
+  - task: "Fix Region filter 'All' to show all alerts, not just home-region subset"
+    implemented: true
+    working: true
+    file: "frontend/app/higgins/scams.tsx"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - agent: "main"
+        working: true
+        comment: "ROOT CAUSE: regionMatch() for f==='ALL' called appliesHere(a, HOME) which filtered to only alerts that apply everywhere/global/home country. This made 'All' total identical to the home region total. FIX: regionMatch for 'ALL' now returns true (no filtering). Also replaced the misleading 'X alerts not listed here' message with a helpful 'Showing N of M total alerts. Switch to All to see everything.' message that only appears on individual region filters. Frontend test suite 1359/1359 pass."
+  - task: "Fix Threat Case tab bar displaying vertically instead of horizontal row"
+    implemented: true
+    working: true
+    file: "frontend/app/patrol/[id].tsx"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - agent: "user"
+        working: false
+        comment: "User reported tabs displaying vertically on Threat Case screen (Findings Brief, Evidence, History, DI stacked instead of horizontal row). Ask Higgins view works correctly."
+      - agent: "main"
+        working: true
+        comment: "ROOT CAUSE: ScrollView in patrol/[id].tsx used stickyHeaderIndices={[1]} for the tab bar. On Android, stickyHeaderIndices wraps the element in a container that breaks flexDirection: 'row'. The Ask Higgins view (InvestigationView.tsx) does NOT use stickyHeaderIndices and renders correctly. FIX: Removed stickyHeaderIndices from the ScrollView, matching the Ask Higgins pattern where tabs scroll naturally with content. Both views now use identical tab bar structure. Frontend test suite 1359/1359 pass."
+
+test_plan:
+  current_focus:
+    - "Verify Scam Alerts 'All' filter shows more alerts than individual region filters"
+    - "Verify region chip counts differ (All > individual regions)"
+    - "Verify alert rendering still works after filter change"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Fixed TWO issues: (1) Alert Totals bug — 'All' region filter now shows ALL alerts without region filtering (was filtering to home-region, making All = Region count). (2) Threat Case tab bar vertical layout — removed stickyHeaderIndices from ScrollView which was breaking flexDirection: 'row' on Android. Both views now use identical tab structures matching Ask Higgins. Frontend 1359/1359 tests pass. To test: (a) Scam Alerts: verify 'All' chip count >= individual region counts. (b) Open any Threat Case: verify tabs (Findings Brief, Evidence, History, DI) display in a horizontal row. Auth: anonymous device, complete onboarding. Use ?__apollo_test_setup=1 to bypass onboarding if available."
