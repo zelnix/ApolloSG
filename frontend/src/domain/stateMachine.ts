@@ -110,8 +110,9 @@ export function resolveApolloState(input: StateInput): StateResolution {
   };
 
   // No active events. Recovery rules apply.
+  // ISOLATION: Sample Check events never trigger recovery cooldown — they are not genuine threats.
   const recentlyResolved = input.events
-    .filter((e) => e.resolved_at && e.state !== "resting")
+    .filter((e) => e.resolved_at && e.state !== "resting" && e.origin !== "sample_check")
     .sort((a, b) => Date.parse(b.resolved_at!) - Date.parse(a.resolved_at!))[0];
 
   if (recentlyResolved) {

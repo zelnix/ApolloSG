@@ -39,17 +39,17 @@ test("a handled case stops counting when its latest event is handled", () => {
 
 test("Scam Alerts counts only new High and Extreme alerts that apply here", () => {
   const alerts = [
-    { url: "u1", severity: "HIGH", appliesIn: "everywhere" },
-    { url: "u2", severity: "EXTREME", appliesIn: "AU" },
-    { url: "u3", severity: "MODERATE", appliesIn: "everywhere" },
-    { url: "u4", severity: "LOW", appliesIn: "AU" },
-    { url: "u5", severity: "HIGH", appliesIn: "US" },
-    { url: "u6", severity: "HIGH", appliesIn: "AU" },
-    { url: "u1", severity: "HIGH", appliesIn: "everywhere" },
+    { url: "u1", severity: "HIGH", appliesIn: "everywhere", australianRelevance: "confirmed", tier: "specific_scam", verifiedOngoing: true },
+    { url: "u2", severity: "EXTREME", appliesIn: "AU", australianRelevance: "confirmed", tier: "specific_scam", verifiedOngoing: true },
+    { url: "u3", severity: "MODERATE", appliesIn: "everywhere", australianRelevance: "confirmed", tier: "specific_scam", verifiedOngoing: true },
+    { url: "u4", severity: "LOW", appliesIn: "AU", australianRelevance: "confirmed", tier: "specific_scam", verifiedOngoing: true },
+    { url: "u5", severity: "HIGH", appliesIn: "US", australianRelevance: "confirmed", tier: "specific_scam", verifiedOngoing: true },
+    { url: "u6", severity: "HIGH", appliesIn: "AU", australianRelevance: "confirmed", tier: "specific_scam", verifiedOngoing: true },
+    { url: "u1", severity: "HIGH", appliesIn: "everywhere", australianRelevance: "confirmed", tier: "specific_scam", verifiedOngoing: true },
   ];
-  assert.equal(countNewSevereAlerts(alerts, new Set(["u6"]), "AU"), 2);
-  assert.equal(countNewSevereAlerts(alerts, new Set(["u1", "u2", "u6"]), "AU"), 0);
-  assert.equal(countNewSevereAlerts(alerts, new Set(), "US"), 2);
+  assert.equal(countNewSevereAlerts(alerts, new Set(["u6"]), "AU"), 3);
+  assert.equal(countNewSevereAlerts(alerts, new Set(["u1", "u2", "u6"]), "AU"), 1);
+  assert.equal(countNewSevereAlerts(alerts, new Set(), "US"), 4);
 });
 
 test("the badge shows nothing at zero and caps at 9+", () => {

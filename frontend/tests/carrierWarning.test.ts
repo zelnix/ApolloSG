@@ -16,7 +16,7 @@ test("a carrier warning is the person's report, never something ApolloSG saw", (
 test("Australian phones can say they got the warning, from Check a Number and from the carrier row", () => {
   const screen = read("../app/call-guard.tsx");
   assert.match(screen, /inAustralia \? \(\s*<Button testID="callguard-carrier-warning-button" variant="secondary" label="I got a ‘Potential Fraud’ warning"/);
-  assert.match(screen, /checkNumberRisk\(number\.trim\(\), undefined, \{ deliberate: true, carrierWarning: carrierWarning \?\? undefined, simulated \}\)/);
+  assert.match(screen, /checkNumberRisk\(number\.trim\(\), undefined, \{ deliberate: true, carrierWarning: carrierWarning \?\? undefined, simulated, origin \}\)/);
   assert.match(screen, /if \(params\.number\) void runInvestigation\(String\(params\.number\)\)/);
   assert.match(screen, /provenance: "user_reported" as const/);
   const row = read("../app/capability/[id].tsx");

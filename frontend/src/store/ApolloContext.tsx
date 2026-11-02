@@ -1118,8 +1118,10 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
   const correlationFor = useCallback((args: { indicator?: string | null; scentId?: string | null; mechanics: string[] }): { correlation: CorrelationInput; existingCaseId: string | null } => {
     const windowMs = 4 * 60 * 60 * 1000;
     const now = Date.now();
+    // ISOLATION: Sample Check events never participate in correlation — they must not provide an
+    // existingCaseId to a genuine check, nor appear as supporting evidence for one.
     const related = eventsRef.current.filter((e) =>
-      !e.resolved_at && now - Date.parse(e.occurred_at) <= windowMs &&
+      !e.resolved_at && e.origin !== "sample_check" && now - Date.parse(e.occurred_at) <= windowMs &&
       ((args.scentId && e.scent_id === args.scentId) ||
        (args.indicator && (e.local_indicator === args.indicator || e.indicator_host === args.indicator))));
     const existingCaseId = related.find((e) => !!e.investigation_case_id)?.investigation_case_id ?? null;
@@ -1615,7 +1617,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
       let investigationCaseId: string | null = existingCaseId;
       if ((triage.outcome === "POSSIBLE_THREAT_IDENTIFIED" || triage.outcome === "LIMITED_UNABLE_TO_DETERMINE" || reported) && !investigationCaseId) try {
         const investigationResult = await apiPost<{ case?: { id?: string | null } }>("/investigations", "number_risk_investigation", {
-          gate: "call", origin: options?.deliberate ? "user" : "apollo",
+          gate: "call", origin: options?.origin ?? (options?.deliberate ? "user" : "apollo"),
           question: `Investigate caller ${result.number}. Fraud score: ${result.fraud_score ?? "unknown"}/100.${reported ? ` ${reported}` : ""}`,
           submissions: [{ client_item_id: Crypto.randomUUID(), kind: "text", value: `Number: ${result.number}\nDecision: ${result.decision}\nFraud score: ${result.fraud_score ?? "unknown"}/100\n${result.voip ? "VOIP number" : ""}${result.recent_abuse ? "\nRecent abuse reported" : ""}`, label: "Risk check result" }],
           initial_findings: why,
@@ -1628,7 +1630,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
 
       const ev: PatrolEvent = {
         ...(existing ?? {
-          event_id: Crypto.randomUUID(), origin: options?.deliberate ? "user" as const : "apollo" as const, device_id: deviceId ?? "local", category: "call" as const, status: "active" as const,
+          event_id: Crypto.randomUUID(), origin: options?.origin ?? (options?.deliberate ? "user" as const : "apollo" as const), device_id: deviceId ?? "local", category: "call" as const, status: "active" as const,
           indicator_host: null, indicator_digest: null, local_indicator: result.number, verified_block: false,
           adapter_label: securityAdapter.label, occurred_at: new Date().toISOString(), resolved_at: null, trust_allowed: false, why: [],
         }),
@@ -1683,7 +1685,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
           : "the reputation service could not be reached or could not resolve the number";
         try {
           const created = await apiPost<{ case?: { id?: string | null } }>("/investigations", "number_risk_investigation", {
-            gate: "call", origin: options?.deliberate ? "user" : "apollo",
+            gate: "call", origin: options?.origin ?? (options?.deliberate ? "user" : "apollo"),
             question: `Investigate caller ${result.number}. ApolloSG's caller-reputation source returned no data for this number (${unreachable}), so nothing about it could be established on this device.${reported ? ` ${reported}` : ""}`,
             submissions: [{ client_item_id: Crypto.randomUUID(), kind: "text", value: `Number: ${result.number}\nReputation: no data returned (source: ${result.source})`, label: "Number with no reputation data" }],
             initial_findings: [...(reported ? [reported] : []), `ApolloSG's caller-reputation source returned no data for ${result.number} — ${unreachable}.`],
@@ -1703,7 +1705,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
       if (!investigationCaseId) {
         try {
           const created = await apiPost<{ case?: { id?: string | null } }>("/investigations", "number_risk_investigation", {
-            gate: "call", origin: options?.deliberate ? "user" : "apollo",
+            gate: "call", origin: options?.origin ?? (options?.deliberate ? "user" : "apollo"),
             question: `Investigate caller ${result.number}. ${reported} ApolloSG's caller-reputation source found no strong risk signal (fraud score ${result.fraud_score ?? "unknown"}/100).`,
             submissions: [{ client_item_id: Crypto.randomUUID(), kind: "text", value: `Number: ${result.number}\nDecision: ${result.decision}\nFraud score: ${result.fraud_score ?? "unknown"}/100\nCarrier warning reported by the person: yes`, label: "Number with a carrier warning" }],
             initial_findings: [reported],

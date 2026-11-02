@@ -55,7 +55,7 @@ const useStyles = makeStyles((c) => ({
 
 type FileAsset = { uri: string; name: string; mimeType?: string | null; size?: number };
 /** What the check could read of the file — the file's evidence profile is built from it. */
-type FileRead = { via: FileVia; simulated?: boolean; inspected: boolean; inspectionError?: string | null; sha256?: string | null };
+type FileRead = { via: FileVia; simulated?: boolean; inspected: boolean; inspectionError?: string | null; sha256?: string | null; origin?: "sample_check" };
 type PendingFile = { asset: FileAsset; inspected: Inspection; needsSource: boolean; needsPassword: boolean; sourceAnswered: boolean; owned: boolean; read: FileRead };
 
 export default function CheckFile() {
@@ -93,7 +93,7 @@ export default function CheckFile() {
       inspected: read.inspected, inspectionError: read.inspectionError ?? null, sha256: read.sha256 ?? null, passwordInMessage: file.passwordInMessage });
     let event: PatrolEvent | null = null;
     if (a.state !== "resting") {
-      event = await upsertEvent({ event_id: Math.random().toString(36).slice(2) + Date.now().toString(36), origin: "user", device_id: deviceId ?? "local", category: "known_threat", state: a.state, status: "active", headline: `File: ${a.title}`, what_happened: a.verdict, why: a.why, what_to_do: a.recommendation, indicator_host: a.urls[0] ? a.urls[0].replace(/^https?:\/\//i, "").split("/")[0] : null, indicator_digest: null, local_indicator: a.technical[0], verified_block: false, adapter_label: adapterLabel, occurred_at: new Date().toISOString(), resolved_at: null, trust_allowed: false, claimed_brand: null, scenario: a.scenario, evidence_profile: profile });
+      event = await upsertEvent({ event_id: Math.random().toString(36).slice(2) + Date.now().toString(36), origin: read.origin ?? "user", device_id: deviceId ?? "local", category: "known_threat", state: a.state, status: "active", headline: `File: ${a.title}`, what_happened: a.verdict, why: a.why, what_to_do: a.recommendation, indicator_host: a.urls[0] ? a.urls[0].replace(/^https?:\/\//i, "").split("/")[0] : null, indicator_digest: null, local_indicator: a.technical[0], verified_block: false, adapter_label: adapterLabel, occurred_at: new Date().toISOString(), resolved_at: null, trust_allowed: false, claimed_brand: null, scenario: a.scenario, evidence_profile: profile });
     }
     setResult({ submissionId: event?.event_id ?? Crypto.randomUUID(), a, event, profile });
     void markCheckDone("file");
@@ -130,12 +130,12 @@ export default function CheckFile() {
       const size = sample.content.length;
       if (Platform.OS === "web") {
         const blob = new Blob([sample.content], { type: sample.mime });
-        await analyseAsset({ uri: URL.createObjectURL(blob), name: sample.name, mimeType: sample.mime, size }, "unknown", false, "sample_check" as any);
+        await analyseAsset({ uri: URL.createObjectURL(blob), name: sample.name, mimeType: sample.mime, size }, "unknown", false, "picked", false, "sample_check");
         return;
       }
       const targetUri = (FS.cacheDirectory ?? "") + sample.name;
       await FS.writeAsStringAsync(targetUri, sample.content, { encoding: FS.EncodingType.UTF8 });
-      await analyseAsset({ uri: targetUri, name: sample.name, mimeType: sample.mime, size }, "unknown", true, "sample_check" as any);
+      await analyseAsset({ uri: targetUri, name: sample.name, mimeType: sample.mime, size }, "unknown", true, "picked", false, "sample_check");
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : "ApolloSG could not prepare the sample file.");
     }
@@ -163,7 +163,7 @@ export default function CheckFile() {
     sampleRan.current = true;
     void checkSampleFile(prodSample);
   }, [params.sample, ready, setupDone]); // eslint-disable-line react-hooks/exhaustive-deps
-  const analyseAsset = async (asset: { uri: string; name: string; mimeType?: string | null; size?: number }, assetSource: FileSource = source, owned: boolean = false, via: FileVia = "picked", simulated = false) => {
+  const analyseAsset = async (asset: { uri: string; name: string; mimeType?: string | null; size?: number }, assetSource: FileSource = source, owned: boolean = false, via: FileVia = "picked", simulated = false, origin?: "sample_check") => {
     setBusy(true);
     try {
       // ── Hard size gate: reject oversized files BEFORE inspection ──
@@ -197,7 +197,7 @@ export default function CheckFile() {
         if (innerErr instanceof Error && innerErr.message.includes("limit")) throw innerErr;
         inspected.inspectionError = 'This build could not read the file contents.';
       }
-      const read: FileRead = { via, simulated, inspected: !!inspected.headBytes && inspected.headBytes.length >= 4 && !inspected.inspectionError, inspectionError: inspected.inspectionError ?? null, sha256 };
+      const read: FileRead = { via, simulated, inspected: !!inspected.headBytes && inspected.headBytes.length >= 4 && !inspected.inspectionError, inspectionError: inspected.inspectionError ?? null, sha256, origin };
       const preliminary = analyseFile({ name: asset.name, size: asset.size ?? undefined, mime: asset.mimeType ?? null, ...inspected, source: assetSource, passwordInMessage: false });
       // The real, still-live handle is kept (never blanked) — Higgins needs it if the person later asks for a deeper,
       // explicitly-authorised cloud check. Filenames/size/mime travel as METADATA describing the file, never as a
