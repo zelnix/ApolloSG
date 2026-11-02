@@ -107,20 +107,34 @@ export async function openDeviceSettings(target: SettingsTarget, path: string, t
   } catch { toast(`Open Settings on your device: ${path}`); }
 }
 
-/** The closest supported Android settings destination for reviewing one permission on one app, plus the
- *  remaining navigation step (RN can open the broader/special-access screen, not an app-specific toggle,
- *  so we always tell the user what to tap next). `appName` is woven into the guidance. */
+/** The closest supported settings destination for reviewing one permission on one app.
+ *  Platform-aware: Android uses intent deep links, iOS opens the app's own settings page,
+ *  desktop shows the platform-specific navigation path. */
 export function permissionSettings(id: AppPermission, appName: string): { target: SettingsTarget; label: string; path: string } {
   const app = appName.trim() || "this app";
+
+  if (Platform.OS === "ios") {
+    // iOS: all app permissions are managed from the app's settings page or system Privacy screens.
+    switch (id) {
+      case "overlay": return { target: "apps", label: "Display over other apps", path: `Settings \u2192 ${app} \u2192 Allow Display Over Other Apps` };
+      case "notifications": return { target: "apps", label: "Notifications", path: `Settings \u2192 ${app} \u2192 Notifications` };
+      case "accessibility": return { target: "accessibility", label: "Accessibility", path: `Settings \u2192 Accessibility \u2192 ${app}` };
+      case "vpn": return { target: "vpn", label: "VPN", path: `Settings \u2192 General \u2192 VPN & Device Management \u2192 ${app} \u2192 Delete VPN` };
+      case "device_admin": return { target: "security", label: "Device management", path: `Settings \u2192 General \u2192 VPN & Device Management \u2192 ${app}` };
+      default: return { target: "apps", label: "App permissions", path: `Settings \u2192 ${app} \u2192 Permissions` };
+    }
+  }
+
+  // Android (default)
   switch (id) {
-    case "overlay": return { target: "overlay", label: "Display over other apps", path: `Settings → Apps → Special access → Display over other apps → ${app}` };
-    case "notifications": return { target: "notification_access", label: "Notification access", path: `Settings → Apps → Special access → Notification access → ${app}` };
-    case "accessibility": return { target: "accessibility", label: "Accessibility", path: `Settings → Accessibility → ${app} → turn off` };
-    case "vpn": return { target: "vpn", label: "VPN", path: `Settings → Network → VPN → ${app} → remove` };
-    case "device_admin": return { target: "device_admin", label: "Device admin apps", path: `Settings → Security → More security settings → Device admin apps → ${app} → deactivate` };
-    case "install_apps": return { target: "unknown_sources", label: "Install unknown apps", path: `Settings → Apps → Special access → Install unknown apps → ${app} → turn off` };
-    case "files": return { target: "all_files", label: "All-files access", path: `Settings → Apps → Special access → All files access → ${app}` };
-    default: return { target: "apps", label: "App permissions", path: `Settings → Apps → ${app} → Permissions` };
+    case "overlay": return { target: "overlay", label: "Display over other apps", path: `Settings \u2192 Apps \u2192 Special access \u2192 Display over other apps \u2192 ${app}` };
+    case "notifications": return { target: "notification_access", label: "Notification access", path: `Settings \u2192 Apps \u2192 Special access \u2192 Notification access \u2192 ${app}` };
+    case "accessibility": return { target: "accessibility", label: "Accessibility", path: `Settings \u2192 Accessibility \u2192 ${app} \u2192 turn off` };
+    case "vpn": return { target: "vpn", label: "VPN", path: `Settings \u2192 Network \u2192 VPN \u2192 ${app} \u2192 remove` };
+    case "device_admin": return { target: "device_admin", label: "Device admin apps", path: `Settings \u2192 Security \u2192 More security settings \u2192 Device admin apps \u2192 ${app} \u2192 deactivate` };
+    case "install_apps": return { target: "unknown_sources", label: "Install unknown apps", path: `Settings \u2192 Apps \u2192 Special access \u2192 Install unknown apps \u2192 ${app} \u2192 turn off` };
+    case "files": return { target: "all_files", label: "All-files access", path: `Settings \u2192 Apps \u2192 Special access \u2192 All files access \u2192 ${app}` };
+    default: return { target: "apps", label: "App permissions", path: `Settings \u2192 Apps \u2192 ${app} \u2192 Permissions` };
   }
 }
 
