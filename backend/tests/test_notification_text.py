@@ -58,8 +58,8 @@ def test_present_push_decodes_tidies_and_words_in_luddish_without_cutting_or_tou
 
 
 def test_owner_alert_names_the_first_concrete_finding():
-    assert owner_alert_summary(_event()) == ("Higgins: The Instagram link you sent has a warning sign: it uses Instagram&#39;s logo "
-                                             "&amp; colours. Open ApolloSG to see what I found.")
+    assert owner_alert_summary(_event()) == ("Higgins: The Instagram link you sent has a warning sign: it uses Instagram's logo "
+                                             "& colours. Open ApolloSG to see what I found.")
     assert owner_alert_summary(_event(category="message", background=True, state="barking")).startswith(
         "Higgins: The Instagram text you received looks like a scam: it uses Instagram")
     assert owner_alert_summary(_event(claimed_brand=None, why=[])).startswith("Higgins: The instagram.com-verify.top link you sent has signs")

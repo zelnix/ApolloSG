@@ -58,8 +58,10 @@ _NOT_A_REASON = {
 
 
 def _named(value: Any) -> str:
-    """A recorded identifier, whole."""
-    return re.sub(r"\s+", " ", value).strip() if isinstance(value, str) else ""
+    """A recorded identifier, whole. Entities are decoded so brand names read naturally."""
+    if not isinstance(value, str):
+        return ""
+    return re.sub(r"\s+", " ", decode_entities(value)).strip()
 
 
 def _host(value: Any) -> str:
@@ -101,7 +103,8 @@ def notification_subject(event: Any, source: dict | None = None) -> str:
 
 def _reason(event: Any) -> str:
     """The first concrete thing Apollo recorded about the event — a rule it met, a finding — or nothing."""
-    return next((w.strip() for w in event.why or [] if w.strip() and w.strip() not in _NOT_A_REASON), "")
+    raw = next((w.strip() for w in event.why or [] if w.strip() and w.strip() not in _NOT_A_REASON), "")
+    return decode_entities(raw) if raw else ""
 
 
 # The ordinary words a reason starts with; anything else (a name: "PhishTank lists …") keeps its capital in a sentence.
@@ -122,7 +125,11 @@ def _composed(event: Any, briefing: Any, source: dict | None) -> str:
     and the first concrete thing Apollo recorded."""
     if briefing is not None and briefing.headline and briefing.summary:
         from services.higgins.luddish import hold, restore
-        held, kept = hold(briefing.summary)
+        # Decode HTML entities (&#x27; → ', &amp; → &, etc.) eagerly — the briefing may carry single-
+        # or double-encoded entities from the AI layer, and the one-pass html.unescape in present_push
+        # only strips one layer.  Decoding here guarantees clean plain text in the notification.
+        clean_summary = decode_entities(decode_entities(briefing.summary))
+        held, kept = hold(clean_summary)
         first = restore((re.split(r"(?<=[.!?])\s", held.strip()) or [held])[0], kept).strip()
         needs = briefing.user_action_required and (briefing.action_reason or "").strip() and event.status not in ("resolved", "trusted")
         return f"Higgins: {first}{' This needs your decision.' if needs else ''} {_OPEN}"
