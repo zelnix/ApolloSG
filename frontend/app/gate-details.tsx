@@ -786,9 +786,10 @@ export default function GateDetailsScreen() {
         appStateRef.current.match(/inactive|background/) &&
         nextState === "active"
       ) {
-        // User returned from settings — trigger a health refresh
+        // User returned from settings — always trigger a health refresh so that any
+        // device setting change (Private DNS, VPN permission, etc.) is picked up.
         const currentStatus = gateStatusRef.current;
-        if (currentStatus && currentStatus !== "Watching") {
+        if (currentStatus) {
           setPreviousStatus(currentStatus);
           setRefreshing(true);
           runProtectionHealthCheck("foreground")
