@@ -5,6 +5,7 @@ import type { AppPermission } from "@/src/domain/appAnalysis";
 
 export type SettingsTarget = "apps" | "accessibility" | "vpn" | "security" | "unknown_sources" | "overlay" | "notification_access" | "all_files" | "developer" | "private_dns" | "device_admin";
 
+/** Primary intent for each target. */
 const ANDROID_INTENT: Record<SettingsTarget, string> = {
   apps: "android.settings.MANAGE_APPLICATIONS_SETTINGS",
   accessibility: "android.settings.ACCESSIBILITY_SETTINGS",
@@ -20,18 +21,62 @@ const ANDROID_INTENT: Record<SettingsTarget, string> = {
 };
 
 /**
+ * Fallback chains for targets where the primary intent may not exist on every device.
+ * Each entry is [intent, remainingPath | null]. null means "we reached the exact page".
+ */
+const FALLBACK_CHAINS: Partial<Record<SettingsTarget, Array<[string, string | null]>>> = {
+  device_admin: [
+    ["android.app.action.MANAGE_DEVICE_ADMINS", null],
+    ["android.settings.SECURITY_SETTINGS", "More security settings \u2192 Device admin apps"],
+  ],
+  private_dns: [
+    ["android.settings.PRIVATE_DNS_SETTINGS", null],
+    ["android.settings.APN_SETTINGS", "Private DNS"],
+    ["android.settings.WIRELESS_SETTINGS", "More connection settings \u2192 Private DNS"],
+  ],
+  vpn: [
+    ["android.settings.VPN_SETTINGS", null],
+    ["android.settings.WIRELESS_SETTINGS", "More connection settings \u2192 VPN"],
+  ],
+  all_files: [
+    ["android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION", null],
+    ["android.settings.MANAGE_APPLICATIONS_SETTINGS", "Special access \u2192 All files access"],
+  ],
+  unknown_sources: [
+    ["android.settings.MANAGE_UNKNOWN_APP_SOURCES", null],
+    ["android.settings.MANAGE_APPLICATIONS_SETTINGS", "Special access \u2192 Install unknown apps"],
+  ],
+  overlay: [
+    ["android.settings.action.MANAGE_OVERLAY_PERMISSION", null],
+    ["android.settings.MANAGE_APPLICATIONS_SETTINGS", "Special access \u2192 Display over other apps"],
+  ],
+  notification_access: [
+    ["android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS", null],
+    ["android.settings.MANAGE_APPLICATIONS_SETTINGS", "Special access \u2192 Notification access"],
+  ],
+};
+
+/**
+ * Try a chain of intents from most-specific to least. Returns null if the exact page opened,
+ * or a string describing the remaining navigation the user must do.
+ */
+async function tryIntentChain(chain: Array<[string, string | null]>): Promise<string | null> {
+  for (const [intent, remaining] of chain) {
+    try { await Linking.sendIntent(intent); return remaining; } catch { /* intent not available */ }
+  }
+  return "the setting you need";
+}
+
+/**
  * Android has no public intent for the Private DNS screen on every phone, so this tries several
  * intents from most-specific to least-specific, including Samsung-specific fallbacks.
  * Returns which one opened, so the caller can show the remaining path.
  */
 export async function openPrivateDnsSettings(): Promise<"private_dns" | "network" | "settings" | "failed"> {
   if (Platform.OS !== "android") return "failed";
-  // 1. Direct Private DNS intent (Android 14+ / API 34+)
-  try { await Linking.sendIntent(ANDROID_INTENT.private_dns); return "private_dns"; } catch { /* not on this device */ }
-  // 2. "More connection settings" on Samsung (contains Private DNS, VPN, Ethernet)
-  try { await Linking.sendIntent("android.settings.APN_SETTINGS"); return "network"; } catch { /* not on this device */ }
-  // 3. General network & internet / connections screen
-  try { await Linking.sendIntent("android.settings.WIRELESS_SETTINGS"); return "network"; } catch { /* not on this device */ }
+  const remaining = await tryIntentChain(FALLBACK_CHAINS.private_dns!);
+  if (remaining === null) return "private_dns";
+  if (remaining !== "the setting you need") return "network";
   try { await Linking.openSettings(); return "settings"; } catch { return "failed"; }
 }
 
@@ -41,12 +86,21 @@ export async function openDeviceSettings(target: SettingsTarget, path: string, t
       if ((await openPrivateDnsSettings()) !== "private_dns") toast(`Then go to: ${path}`);
       return;
     }
-    if (Platform.OS === "android" && target === "device_admin") {
-      // Try the direct Device Admin intent; fall back to Security if unavailable
-      try { await Linking.sendIntent(ANDROID_INTENT.device_admin); return; } catch { /* not on this device */ }
-      try { await Linking.sendIntent(ANDROID_INTENT.security); toast(`Then go to: More security settings → Device admin apps`); return; } catch { /* fallthrough */ }
+    if (Platform.OS === "android") {
+      const chain = FALLBACK_CHAINS[target];
+      if (chain) {
+        const remaining = await tryIntentChain(chain);
+        if (remaining !== null && remaining !== "the setting you need") {
+          toast(`Then go to: ${remaining}`);
+        } else if (remaining === "the setting you need") {
+          toast(`Open Settings on your device: ${path}`);
+        }
+        return;
+      }
+      // No fallback chain — try the single intent directly
+      await Linking.sendIntent(ANDROID_INTENT[target]);
+      return;
     }
-    if (Platform.OS === "android") { await Linking.sendIntent(ANDROID_INTENT[target]); return; }
     if (Platform.OS === "ios") { toast(`In Settings go to: ${path}`); await Linking.openSettings(); return; }
     // Desktop (Windows/macOS): no supported deep link — show the path to follow.
     toast(`On your device: ${path}`);
