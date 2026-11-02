@@ -177,12 +177,14 @@ def _link_rules() -> dict[str, Callable[[dict], Verdict]]:
         return unmet("brand in path without a sensitive action")
 
     def new_domain_form(ev: dict) -> Verdict:
+        if not ev.get("credential_interaction"):
+            return unmet("no sensitive form — domain age is irrelevant to this rule")
         age = _provider(ev, "domain_age")
         if not age:
             return NA
         if age.get("status") in ("unavailable", "error", "not_configured"):
             return gap("INTELLIGENCE_PROVIDER_UNAVAILABLE", "domain registration age unavailable")
-        if age.get("newly_registered") and ev.get("credential_interaction"):
+        if age.get("newly_registered"):
             return met("domain registered within 30 days", "credential, payment or identity form")
         return unmet("no newly registered domain combined with a sensitive form")
 
