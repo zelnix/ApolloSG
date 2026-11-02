@@ -40,6 +40,7 @@ import { buildReport, plainReport, shownPlainEnglish, stepText } from "@/src/dom
 import { luddishReport, luddishText } from "@/src/domain/luddish";
 import { investigationHistory, investigatorName, scrubMessage } from "@/src/domain/messageVoice";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { InvestigationTabBar, type InvestigationTabId } from "@/src/components/InvestigationTabBar";
 import type { CaseState } from "@/src/investigation/caseStore";
 import * as investigationApi from "@/src/investigation/client";
 import { listLocalReports, saveLocalReport, deleteLocalReport } from "@/src/investigation/localReports";
@@ -50,25 +51,11 @@ import { isExecutable, runAction, type ActionOutcome } from "@/src/settings/acti
 import { onRecheck, retryFailedAttempt } from "@/src/settings/recheck";
 
 // ── Types ────────────────────────────────────────────────────────────────────
-
-type TabId = "overview" | "evidence" | "history" | "di";
-const TAB_LABELS: { id: TabId; label: string }[] = [
-  { id: "overview", label: "Findings Brief" },
-  { id: "evidence", label: "Evidence" },
-  { id: "history", label: "History" },
-  { id: "di", label: "DI" },
-];
+// Tab type re-exported from the shared InvestigationTabBar component.
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 const useStyles = makeStyles((c) => ({
-  // ── Tab bar ──
-  tabBar: { flexDirection: "row" as const, flexWrap: "nowrap" as const, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.surfaceSecondary },
-  tab: { flex: 1, paddingVertical: 12, paddingHorizontal: spacing.sm, alignItems: "center" as const, borderBottomWidth: 2, borderBottomColor: "transparent" },
-  tabActive: { borderBottomColor: c.brandPrimary },
-  tabText: { fontFamily: fonts.textMedium, fontSize: 14, color: c.muted },
-  tabTextActive: { color: c.onSurface, fontFamily: fonts.textSemibold },
-
   // ── Findings Brief tab ──
   briefingText: { fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurfaceSecondary },
 
@@ -345,19 +332,6 @@ function DiagRow({ label, value, s }: { label: string; value: unknown; s: Return
   return <View style={s.diagRow}><Text style={s.diagLabel}>{label}</Text><Text style={s.diagValue}>{display}</Text></View>;
 }
 
-/** Tab bar matching the approved mock-up. */
-function TabBar({ active, onChange, s }: { active: TabId; onChange: (id: TabId) => void; s: ReturnType<typeof useStyles> }) {
-  return (
-    <View style={[s.tabBar, { flexDirection: "row" }]} testID="inv-tab-bar">
-      {TAB_LABELS.map(({ id, label }) => (
-        <Pressable key={id} style={[s.tab, active === id && s.tabActive]} onPress={() => onChange(id)} accessibilityRole="tab" accessibilityState={{ selected: active === id }} testID={`inv-tab-${id}`}>
-          <Text style={[s.tabText, active === id && s.tabTextActive]} numberOfLines={1}>{label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 /** Expandable Technical Error Details section. */
 function TechnicalErrorDetails({ failure, caseId, s }: { failure: Record<string, unknown> | null | undefined; caseId?: string; s: ReturnType<typeof useStyles> }) {
   const [expanded, setExpanded] = useState(false);
@@ -530,7 +504,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   // The check's own record on this device: who started it (when the case doesn't say) and Higgins Triage's record.
   const { events } = useApollo();
   const event = useMemo(() => (eventId ? events.find((e) => e.event_id === eventId) ?? null : null), [events, eventId]);
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [activeTab, setActiveTab] = useState<InvestigationTabId>("overview");
   const [actionNote, setActionNote] = useState<string | null>(null);
   const [confirmablePlanId, setConfirmablePlanId] = useState<string | null>(null);
   const [reports, setReports] = useState<investigationApi.SavedReport[]>([]);
@@ -686,8 +660,8 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       <SourceSummaryCard origin={caseData?.origin ?? event?.origin} at={caseData?.createdAt} caseKeys={[eventId, caseData?.id]}
         event={event} evidence={evidenceItems} gates={caseData?.gates} simulated={caseData?.simulated} testID="inv-source-summary" />
 
-      {/* ── Tab Navigation ── */}
-      <TabBar active={activeTab} onChange={setActiveTab} s={s} />
+      {/* ── Tab Navigation — shared component, identical to Threat Case ── */}
+      <InvestigationTabBar active={activeTab} onChange={setActiveTab} testID="inv-tab-bar" />
 
       {/* ━━━━ TAB 1: FINDINGS BRIEF — what the investigation concluded, from the Evidence Lock ━━━━ */}
       {activeTab === "overview" ? (

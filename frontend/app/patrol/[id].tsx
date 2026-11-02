@@ -58,14 +58,7 @@ import { markCaseSeen } from "@/src/store/seenCases";
 import { goBackOrHome } from "@/src/utils/navigation";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
-
-type TabKey = "overview" | "evidence" | "history" | "di";
-const TAB_LABELS: { id: TabKey; label: string }[] = [
-  { id: "overview", label: "Findings Brief" },
-  { id: "evidence", label: "Evidence" },
-  { id: "history", label: "History" },
-  { id: "di", label: "DI" },
-];
+import { InvestigationTabBar, type InvestigationTabId } from "@/src/components/InvestigationTabBar";
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
@@ -75,12 +68,6 @@ const useStyles = makeStyles((c) => ({
   headerRow: { paddingHorizontal: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingBottom: spacing.xs },
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontFamily: fonts.displayBold, fontSize: 16, color: c.onSurface, flex: 1 },
-  // Tab bar — hardened layout: flexDirection row + nowrap + flex:1 tabs
-  tabBar: { flexDirection: "row" as const, flexWrap: "nowrap" as const, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.surfaceSecondary },
-  tab: { flex: 1, paddingVertical: 12, paddingHorizontal: spacing.sm, alignItems: "center" as const, borderBottomWidth: 2, borderBottomColor: "transparent" },
-  tabActive: { borderBottomColor: c.brandPrimary },
-  tabText: { fontFamily: fonts.textMedium, fontSize: 14, color: c.muted },
-  tabTextActive: { color: c.onSurface, fontFamily: fonts.textSemibold },
   // Content
   content: { paddingHorizontal: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   // Repeat checks
@@ -504,7 +491,7 @@ export default function ThreatCaseScreen() {
   const event = events.find((e) => e.event_id === id);
   const investigation = useCaseInvestigation(event);
   const report = useMemo(() => (event ? threatReport(event, investigation) : null), [event, investigation]);
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [activeTab, setActiveTab] = useState<InvestigationTabId>("overview");
   // The item itself, as held on this device. Nothing here comes from the server's minimised copy.
   const [original, setOriginal] = useState<OriginalSource | null>(null);
   const investigationId = event?.investigation_case_id ?? null;
@@ -574,14 +561,8 @@ export default function ThreatCaseScreen() {
             event={event} evidence={investigation?.evidenceItems} gates={investigation?.gates} simulated={isSimulated(event)} testID="tc-source-summary" />
         </View>
 
-        {/* Tab bar — inline flexDirection: "row" as safety net for sticky header contexts */}
-        <View style={[s.tabBar, { flexDirection: "row" }]} testID="tc-tab-bar">
-          {TAB_LABELS.map(({ id: tabId, label }) => (
-            <Pressable key={tabId} style={[s.tab, activeTab === tabId && s.tabActive]} onPress={() => setActiveTab(tabId)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tabId }} testID={`tc-tab-${tabId}`}>
-              <Text style={[s.tabText, activeTab === tabId && s.tabTextActive]} numberOfLines={1}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {/* Tab bar — shared component, identical to Ask Higgins */}
+        <InvestigationTabBar active={activeTab} onChange={setActiveTab} testID="tc-tab-bar" />
 
         {/* Tab content */}
         <View style={{ paddingTop: spacing.sm }}>
