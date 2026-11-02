@@ -4,8 +4,8 @@
  * A Device Protection answers, in order: what's its state here (only what a real read said), what
  * changed, what it is and why it matters (Higgins' explanation — pre-written for the common ones,
  * otherwise written once and reused; never per person), what Higgins recommends, and how to check or
- * change it. A setting Apollo can't read stays "Check manually" — there is no way to mark it done,
- * because only a real read can mark it protected.
+ * change it. A setting Apollo can’t read shows “Check manually”; the user can then
+ * mark it “Looks good” or “Needs attention” so Apollo reflects their check.
  *
  * Opening a protection clears its "Changed" tag and the Home banner for it.
  */
@@ -28,6 +28,7 @@ import { recentChanges, whatToDoNow } from "@/src/domain/deviceProtectionChanges
 import { deviceProtectionExplanation, ExplanationPending, type ExplanationResult } from "@/src/higgins/protectionExplanation";
 import { useApollo } from "@/src/store/ApolloContext";
 import { acknowledgeProtectionChanges, useDeviceProtections } from "@/src/store/deviceProtectionStore";
+import { loadManualVerdicts, setManualVerdict, clearManualVerdict, type ManualVerdict } from "@/src/store/manualCheckStore";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { openDeviceSettings } from "@/src/utils/deviceSettings";
 import { goBackOrHome } from "@/src/utils/navigation";
@@ -57,6 +58,12 @@ const useStyles = makeStyles((c) => ({
   manualNote: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: c.ears_upTint },
   manualNoteText: { fontFamily: fonts.text, fontSize: 13, lineHeight: 19, color: c.onSurface, flex: 1 },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs },
+
+  verdictCard: { marginHorizontal: spacing.lg, marginTop: spacing.lg, borderRadius: radius.md, padding: spacing.lg, gap: spacing.md },
+  verdictRow: { flexDirection: "row", gap: spacing.sm },
+  verdictConfirmed: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  verdictText: { fontFamily: fonts.textMedium, fontSize: 14, lineHeight: 20, color: c.onSurface, flex: 1 },
+  verdictTime: { fontFamily: fonts.text, fontSize: 12, color: c.muted },
 
   actions: { paddingHorizontal: spacing.lg, marginTop: spacing.xl, gap: spacing.sm },
 }));
@@ -115,6 +122,30 @@ export default function CapabilityDetailScreen() {
   const guidance = protectionRow?.guidance ?? null;
   const action = capability?.action ?? guidance?.action ?? null;
   const manual = protectionRow?.health === "check_manually" || protectionRow?.health === "unable";
+
+  // Manual-check verdict: user can mark unreadable settings as "safe" or "concern"
+  const [manualVerdict, setManualVerdictState] = useState<ManualVerdict | null>(null);
+  const [verdictTime, setVerdictTime] = useState<string | null>(null);
+  useEffect(() => {
+    if (!manual) return;
+    void loadManualVerdicts().then((v) => {
+      const entry = v[String(id)];
+      if (entry) { setManualVerdictState(entry.verdict); setVerdictTime(entry.checkedAt); }
+    });
+  }, [manual, id]);
+
+  const handleVerdict = async (verdict: ManualVerdict) => {
+    await setManualVerdict(String(id), verdict);
+    setManualVerdictState(verdict);
+    setVerdictTime(new Date().toISOString());
+    showToast(verdict === "safe" ? "Marked as checked — looks good" : "Marked as needing attention", "neutral");
+  };
+
+  const handleClearVerdict = async () => {
+    await clearManualVerdict(String(id));
+    setManualVerdictState(null);
+    setVerdictTime(null);
+  };
 
   return (
     <View style={s.root} testID="capability-detail-screen">
@@ -222,12 +253,42 @@ export default function CapabilityDetailScreen() {
                   </View>
                 ))}
                 {manual ? (
-                  <View style={s.manualNote} testID="capability-manual-note">
-                    <Info size={16} color={colors.ears_upText} style={{ marginTop: 2 }} />
-                    <Text style={s.manualNoteText}>
-                      Apollo can’t read this setting, so it stays “{protectionRow.stateLabel}” — even after you’ve checked it. Only a real read from this device can mark it protected.
-                    </Text>
-                  </View>
+                  manualVerdict ? (
+                    <View style={[s.verdictCard, { backgroundColor: manualVerdict === "safe" ? colors.restingTint : colors.ears_upTint }]} testID="capability-verdict-confirmed">
+                      <View style={[s.verdictConfirmed, { flexDirection: "row" }]}>
+                        <Text style={s.verdictText}>
+                          {manualVerdict === "safe"
+                            ? "You checked this and it looks good."
+                            : "You flagged this as needing attention."}
+                        </Text>
+                      </View>
+                      {verdictTime ? <Text style={s.verdictTime}>Checked {dayLabel(verdictTime)}</Text> : null}
+                      <Pressable onPress={handleClearVerdict} testID="capability-verdict-clear">
+                        <Text style={[s.verdictTime, { textDecorationLine: "underline" }]}>Reset</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <View style={[s.verdictCard, { backgroundColor: colors.ears_upTint }]} testID="capability-verdict-ask">
+                      <Text style={s.verdictText}>
+                        Apollo can’t read this setting directly. After checking it yourself, let Apollo know:
+                      </Text>
+                      <View style={[s.verdictRow, { flexDirection: "row" }]}>
+                        <Button
+                          testID="capability-verdict-safe"
+                          label="Looks good"
+                          onPress={() => { void handleVerdict("safe"); }}
+                          size="small"
+                        />
+                        <Button
+                          testID="capability-verdict-concern"
+                          label="Needs attention"
+                          variant="ghost"
+                          onPress={() => { void handleVerdict("concern"); }}
+                          size="small"
+                        />
+                      </View>
+                    </View>
+                  )
                 ) : null}
               </View>
             ) : null}
