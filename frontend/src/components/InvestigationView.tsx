@@ -63,8 +63,8 @@ const TAB_LABELS: { id: TabId; label: string }[] = [
 
 const useStyles = makeStyles((c) => ({
   // ── Tab bar ──
-  tabBar: { flexDirection: "row" as const, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.surfaceSecondary },
-  tab: { flexGrow: 1, flexBasis: "auto" as const, paddingVertical: 12, paddingHorizontal: spacing.sm, alignItems: "center" as const, borderBottomWidth: 2, borderBottomColor: "transparent" },
+  tabBar: { flexDirection: "row" as const, flexWrap: "nowrap" as const, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.surfaceSecondary },
+  tab: { flex: 1, paddingVertical: 12, paddingHorizontal: spacing.sm, alignItems: "center" as const, borderBottomWidth: 2, borderBottomColor: "transparent" },
   tabActive: { borderBottomColor: c.brandPrimary },
   tabText: { fontFamily: fonts.textMedium, fontSize: 14, color: c.muted },
   tabTextActive: { color: c.onSurface, fontFamily: fonts.textSemibold },
@@ -348,7 +348,7 @@ function DiagRow({ label, value, s }: { label: string; value: unknown; s: Return
 /** Tab bar matching the approved mock-up. */
 function TabBar({ active, onChange, s }: { active: TabId; onChange: (id: TabId) => void; s: ReturnType<typeof useStyles> }) {
   return (
-    <View style={s.tabBar} testID="inv-tab-bar">
+    <View style={[s.tabBar, { flexDirection: "row" }]} testID="inv-tab-bar">
       {TAB_LABELS.map(({ id, label }) => (
         <Pressable key={id} style={[s.tab, active === id && s.tabActive]} onPress={() => onChange(id)} accessibilityRole="tab" accessibilityState={{ selected: active === id }} testID={`inv-tab-${id}`}>
           <Text style={[s.tabText, active === id && s.tabTextActive]} numberOfLines={1}>{label}</Text>

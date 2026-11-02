@@ -75,9 +75,9 @@ const useStyles = makeStyles((c) => ({
   headerRow: { paddingHorizontal: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingBottom: spacing.xs },
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontFamily: fonts.displayBold, fontSize: 16, color: c.onSurface, flex: 1 },
-  // Tab bar — matches InvestigationView's working horizontal layout
-  tabBar: { flexDirection: "row" as const, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.surfaceSecondary },
-  tab: { flexGrow: 1, flexBasis: "auto" as const, paddingVertical: 12, paddingHorizontal: spacing.sm, alignItems: "center" as const, borderBottomWidth: 2, borderBottomColor: "transparent" },
+  // Tab bar — hardened layout: flexDirection row + nowrap + flex:1 tabs
+  tabBar: { flexDirection: "row" as const, flexWrap: "nowrap" as const, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.surfaceSecondary },
+  tab: { flex: 1, paddingVertical: 12, paddingHorizontal: spacing.sm, alignItems: "center" as const, borderBottomWidth: 2, borderBottomColor: "transparent" },
   tabActive: { borderBottomColor: c.brandPrimary },
   tabText: { fontFamily: fonts.textMedium, fontSize: 14, color: c.muted },
   tabTextActive: { color: c.onSurface, fontFamily: fonts.textSemibold },
@@ -574,8 +574,8 @@ export default function ThreatCaseScreen() {
             event={event} evidence={investigation?.evidenceItems} gates={investigation?.gates} simulated={isSimulated(event)} testID="tc-source-summary" />
         </View>
 
-        {/* Tab bar */}
-        <View style={s.tabBar} testID="tc-tab-bar">
+        {/* Tab bar — inline flexDirection: "row" as safety net for sticky header contexts */}
+        <View style={[s.tabBar, { flexDirection: "row" }]} testID="tc-tab-bar">
           {TAB_LABELS.map(({ id: tabId, label }) => (
             <Pressable key={tabId} style={[s.tab, activeTab === tabId && s.tabActive]} onPress={() => setActiveTab(tabId)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tabId }} testID={`tc-tab-${tabId}`}>
               <Text style={[s.tabText, activeTab === tabId && s.tabTextActive]} numberOfLines={1}>{label}</Text>
