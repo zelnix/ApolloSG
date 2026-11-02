@@ -10,9 +10,11 @@
  * Opening a protection clears its "Changed" tag and the Home banner for it.
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import * as FS from "expo-file-system/legacy";
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
 import Info from "lucide-react-native/icons/info";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -32,6 +34,7 @@ import { loadManualVerdicts, setManualVerdict, clearManualVerdict, type ManualVe
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { openDeviceSettings } from "@/src/utils/deviceSettings";
 import { goBackOrHome } from "@/src/utils/navigation";
+import Constants from "expo-constants";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -145,7 +148,82 @@ export default function CapabilityDetailScreen() {
     await clearManualVerdict(String(id));
     setManualVerdictState(null);
     setVerdictTime(null);
+    setVerifyResult(null);
   };
+
+  // ── Screenshot verification flow ────────────────────────────────────────
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{ confirmed: boolean; summary: string; advice: string | null } | null>(null);
+
+  const BASE_URL = Constants.expoConfig?.extra?.EXPO_BACKEND_URL ?? "";
+
+  const pickAndVerify = useCallback(async () => {
+    try {
+      // Ask for photo library permission
+      let perm = await ImagePicker.getMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          showToast("Photo library access is needed to verify the setting.", "neutral");
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.7,
+        base64: false,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+
+      setVerifying(true);
+      setVerifyResult(null);
+
+      // Read image as base64
+      let imageBase64: string;
+      if (Platform.OS === "web") {
+        const resp = await fetch(result.assets[0].uri);
+        const blob = await resp.blob();
+        imageBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        imageBase64 = await FS.readAsStringAsync(result.assets[0].uri, { encoding: FS.EncodingType.Base64 });
+      }
+
+      const expectedState = guidance?.recommended ?? "disabled or off";
+      const response = await fetch(`${BASE_URL}/api/protections/device/verify-screenshot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          setting_id: String(id),
+          setting_name: protectionRow?.title ?? String(id),
+          expected_state: expectedState,
+          image_base64: imageBase64,
+          device_id: deviceId,
+        }),
+      });
+
+      if (!response.ok) {
+        setVerifyResult({ confirmed: false, summary: "Verification request failed.", advice: "Try again in a moment." });
+        return;
+      }
+
+      const data = await response.json();
+      setVerifyResult({ confirmed: data.confirmed, summary: data.summary, advice: data.advice });
+
+      // Auto-save verdict if AI confirms
+      if (data.confirmed) {
+        await handleVerdict("safe");
+      }
+    } catch (err) {
+      setVerifyResult({ confirmed: false, summary: "Something went wrong reading the screenshot.", advice: "Try again." });
+    } finally {
+      setVerifying(false);
+    }
+  }, [id, protectionRow, guidance, deviceId, BASE_URL]);
 
   return (
     <View style={s.root} testID="capability-detail-screen">
@@ -258,25 +336,54 @@ export default function CapabilityDetailScreen() {
                       <View style={[s.verdictConfirmed, { flexDirection: "row" }]}>
                         <Text style={s.verdictText}>
                           {manualVerdict === "safe"
-                            ? "You checked this and it looks good."
+                            ? (verifyResult?.confirmed ? "Higgins confirmed this looks good." : "You checked this and it looks good.")
                             : "You flagged this as needing attention."}
                         </Text>
                       </View>
+                      {verifyResult?.summary ? <Text style={s.text}>{verifyResult.summary}</Text> : null}
                       {verdictTime ? <Text style={s.verdictTime}>Checked {dayLabel(verdictTime)}</Text> : null}
                       <Pressable onPress={handleClearVerdict} testID="capability-verdict-clear">
-                        <Text style={[s.verdictTime, { textDecorationLine: "underline" }]}>Reset</Text>
+                        <Text style={[s.verdictTime, { textDecorationLine: "underline" }]}>Re-check</Text>
                       </Pressable>
+                    </View>
+                  ) : verifying ? (
+                    <View style={[s.verdictCard, { backgroundColor: colors.surfaceSecondary }]} testID="capability-verdict-verifying">
+                      <View style={[s.verdictConfirmed, { flexDirection: "row" }]}>
+                        <ActivityIndicator size="small" color={colors.brandPrimary} />
+                        <Text style={s.verdictText}>Higgins is checking your screenshot…</Text>
+                      </View>
+                    </View>
+                  ) : verifyResult && !verifyResult.confirmed ? (
+                    <View style={[s.verdictCard, { backgroundColor: colors.ears_upTint }]} testID="capability-verdict-not-confirmed">
+                      <Text style={[s.verdictText, { fontFamily: fonts.textSemibold }]}>Higgins couldn’t confirm this setting</Text>
+                      <Text style={s.text}>{verifyResult.summary}</Text>
+                      {verifyResult.advice ? <Text style={s.text}>{verifyResult.advice}</Text> : null}
+                      <View style={[s.verdictRow, { flexDirection: "row" }]}>
+                        <Button
+                          testID="capability-verdict-retry-screenshot"
+                          label="Send another screenshot"
+                          onPress={() => { void pickAndVerify(); }}
+                          size="small"
+                        />
+                        <Button
+                          testID="capability-verdict-manual-concern"
+                          label="Needs attention"
+                          variant="ghost"
+                          onPress={() => { void handleVerdict("concern"); }}
+                          size="small"
+                        />
+                      </View>
                     </View>
                   ) : (
                     <View style={[s.verdictCard, { backgroundColor: colors.ears_upTint }]} testID="capability-verdict-ask">
                       <Text style={s.verdictText}>
-                        Apollo can’t read this setting directly. After checking it yourself, let Apollo know:
+                        Apollo can’t read this setting directly. Take a screenshot showing it, and Higgins will check it for you.
                       </Text>
                       <View style={[s.verdictRow, { flexDirection: "row" }]}>
                         <Button
                           testID="capability-verdict-safe"
-                          label="Looks good"
-                          onPress={() => { void handleVerdict("safe"); }}
+                          label="Send screenshot to verify"
+                          onPress={() => { void pickAndVerify(); }}
                           size="small"
                         />
                         <Button

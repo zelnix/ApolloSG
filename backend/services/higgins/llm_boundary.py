@@ -123,6 +123,7 @@ class Purpose(str, Enum):
     VISION_INVESTIGATION = "vision_investigation"  # Vision Gate: photograph/upload → indicator extraction + routing
     TRIAGE = "triage"                         # Minimal structured triage: SAFE/SUSPICIOUS/UNCERTAIN only
     TC_FLYBY_SEARCH = "tc_flyby_search"             # TC FlyBy: narrow factual web search lookups about public identifiers
+    DEVICE_SETTING_VERIFICATION = "device_setting_verification"  # Screenshot verification of manual device settings
 
 
 # ── One outbound privacy decision per field ────────────────────────────────

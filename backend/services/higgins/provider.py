@@ -111,6 +111,8 @@ _BINARY_AUTHORISED_PURPOSES = frozenset({
     Purpose.INVESTIGATION,
     # The Vision Gate exists to have the model look at the person's privacy-screened image.
     Purpose.VISION_INVESTIGATION,
+    # Device setting screenshots are read to confirm the user configured the setting correctly.
+    Purpose.DEVICE_SETTING_VERIFICATION,
 })
 
 
