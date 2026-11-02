@@ -19,13 +19,17 @@ const ANDROID_INTENT: Record<SettingsTarget, string> = {
 };
 
 /**
- * Android has no public intent for the Private DNS screen on every phone, so this tries it first, then
- * the Network & internet screen, then Settings itself. Returns which one opened, so the caller can show
- * the remaining path when it wasn't the Private DNS screen itself.
+ * Android has no public intent for the Private DNS screen on every phone, so this tries several
+ * intents from most-specific to least-specific, including Samsung-specific fallbacks.
+ * Returns which one opened, so the caller can show the remaining path.
  */
 export async function openPrivateDnsSettings(): Promise<"private_dns" | "network" | "settings" | "failed"> {
   if (Platform.OS !== "android") return "failed";
+  // 1. Direct Private DNS intent (Android 14+ / API 34+)
   try { await Linking.sendIntent(ANDROID_INTENT.private_dns); return "private_dns"; } catch { /* not on this device */ }
+  // 2. "More connection settings" on Samsung (contains Private DNS, VPN, Ethernet)
+  try { await Linking.sendIntent("android.settings.APN_SETTINGS"); return "network"; } catch { /* not on this device */ }
+  // 3. General network & internet / connections screen
   try { await Linking.sendIntent("android.settings.WIRELESS_SETTINGS"); return "network"; } catch { /* not on this device */ }
   try { await Linking.openSettings(); return "settings"; } catch { return "failed"; }
 }

@@ -42,7 +42,7 @@ import { gateTone } from "@/src/domain/gates";
 import { GATE_CONTENT } from "@/src/domain/gateContent";
 import { userActionRoute } from "@/src/domain/userActions";
 import { apolloProtectionExplanation, type ExplanationResult } from "@/src/higgins/protectionExplanation";
-import { runProtectionHealthCheck } from "@/src/protection/healthCoordinator";
+import { runProtectionHealthCheck, requestSiteProtectionRecovery } from "@/src/protection/healthCoordinator";
 import { useProtectionHealth } from "@/src/protection/healthStore";
 import { useApollo } from "@/src/store/ApolloContext";
 import { goBackOrHome } from "@/src/utils/navigation";
@@ -544,6 +544,9 @@ function HigginsTroubleshootCard({
       Linking.openSettings();
     } else if (guidance.actionType === "navigate" && guidance.navRoute) {
       router.push(guidance.navRoute as never);
+    } else if (guidance.actionType === "navigate" && gate.primaryAction?.id === "restore_site") {
+      // "Turn on website protection" — no navigation route, trigger VPN permission request directly.
+      void requestSiteProtectionRecovery().then(() => onRefresh());
     } else if (guidance.actionType === "retry") {
       onRefresh();
     } else if (guidance.actionType === "ask_higgins") {
