@@ -3,13 +3,14 @@
 import { Linking, Platform } from "react-native";
 import type { AppPermission } from "@/src/domain/appAnalysis";
 
-export type SettingsTarget = "apps" | "accessibility" | "vpn" | "security" | "unknown_sources" | "overlay" | "notification_access" | "all_files" | "developer" | "private_dns";
+export type SettingsTarget = "apps" | "accessibility" | "vpn" | "security" | "unknown_sources" | "overlay" | "notification_access" | "all_files" | "developer" | "private_dns" | "device_admin";
 
 const ANDROID_INTENT: Record<SettingsTarget, string> = {
   apps: "android.settings.MANAGE_APPLICATIONS_SETTINGS",
   accessibility: "android.settings.ACCESSIBILITY_SETTINGS",
   vpn: "android.settings.VPN_SETTINGS",
   security: "android.settings.SECURITY_SETTINGS",
+  device_admin: "android.app.action.MANAGE_DEVICE_ADMINS",
   unknown_sources: "android.settings.MANAGE_UNKNOWN_APP_SOURCES",
   overlay: "android.settings.action.MANAGE_OVERLAY_PERMISSION",
   notification_access: "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS",
@@ -40,6 +41,11 @@ export async function openDeviceSettings(target: SettingsTarget, path: string, t
       if ((await openPrivateDnsSettings()) !== "private_dns") toast(`Then go to: ${path}`);
       return;
     }
+    if (Platform.OS === "android" && target === "device_admin") {
+      // Try the direct Device Admin intent; fall back to Security if unavailable
+      try { await Linking.sendIntent(ANDROID_INTENT.device_admin); return; } catch { /* not on this device */ }
+      try { await Linking.sendIntent(ANDROID_INTENT.security); toast(`Then go to: More security settings → Device admin apps`); return; } catch { /* fallthrough */ }
+    }
     if (Platform.OS === "android") { await Linking.sendIntent(ANDROID_INTENT[target]); return; }
     if (Platform.OS === "ios") { toast(`In Settings go to: ${path}`); await Linking.openSettings(); return; }
     // Desktop (Windows/macOS): no supported deep link — show the path to follow.
@@ -57,7 +63,7 @@ export function permissionSettings(id: AppPermission, appName: string): { target
     case "notifications": return { target: "notification_access", label: "Notification access", path: `Settings → Apps → Special access → Notification access → ${app}` };
     case "accessibility": return { target: "accessibility", label: "Accessibility", path: `Settings → Accessibility → ${app} → turn off` };
     case "vpn": return { target: "vpn", label: "VPN", path: `Settings → Network → VPN → ${app} → remove` };
-    case "device_admin": return { target: "security", label: "Device admin", path: `Settings → Security → Device admin apps → ${app} → deactivate` };
+    case "device_admin": return { target: "device_admin", label: "Device admin apps", path: `Settings → Security → More security settings → Device admin apps → ${app} → deactivate` };
     case "install_apps": return { target: "unknown_sources", label: "Install unknown apps", path: `Settings → Apps → Special access → Install unknown apps → ${app} → turn off` };
     case "files": return { target: "all_files", label: "All-files access", path: `Settings → Apps → Special access → All files access → ${app}` };
     default: return { target: "apps", label: "App permissions", path: `Settings → Apps → ${app} → Permissions` };
