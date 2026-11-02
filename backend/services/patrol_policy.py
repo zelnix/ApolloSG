@@ -125,7 +125,7 @@ def minimal_patrol(body, verified):
                 raise HTTPException(422, 'Evidence contains fields outside the minimal privacy boundary')
     # Never persist free-form local narratives from old clients either.
     payload.update(
-        **summary_narrative(body.category, body.state, verified),
+        **summary_narrative(body.category, body.state, verified, body.investigation_outcome),
         indicator_host=body.indicator_host if body.category != 'call' and domain_only(body.indicator_host) else None,
         claimed_brand=None, scenario=body.scenario if body.scenario and re.fullmatch(r'[A-Z]{1,3}\d{1,3}[a-z]?', body.scenario) else None,
         adapter_label=SUMMARY_ADAPTER, verified_block=verified,
