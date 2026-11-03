@@ -156,7 +156,7 @@ module.exports = {
       "expo-sharing",
       ["expo-camera", { cameraPermission: "Scan QR codes and photograph suspicious items for checking", microphonePermission: false, recordAudioAndroid: false }],
       // Same camera wording as expo-camera: both plugins write NSCameraUsageDescription, so they must agree.
-      ["expo-image-picker", { photosPermission: "Choose screenshots of suspicious messages to check for scams", cameraPermission: "Scan QR codes and photograph suspicious items for checking", microphonePermission: false }],
+      ["expo-image-picker", { photosPermission: "Choose screenshots to verify settings or check for scams", cameraPermission: "Scan QR codes and photograph suspicious items for checking", microphonePermission: false }],
       // Alert sounds play only while Apollo is open: no background music-player service (a Play declaration Apollo can't justify).
       ["expo-audio", { microphonePermission: false, enableBackgroundPlayback: false }],
       ["expo-build-properties", { android: { minSdkVersion: 26 }, ios: { deploymentTarget: "16.4" } }],

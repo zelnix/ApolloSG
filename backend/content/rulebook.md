@@ -1256,7 +1256,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 |---|---|---|
 | Notifications | Receive important threat and family alerts | During setup, or with Allow security alerts in Settings |
 | Camera | Scan QR codes and photograph suspicious items for checking | When the person scans a code or takes a photo |
-| Photos | Choose screenshots of suspicious messages to check for scams | When the person chooses a picture or a screenshot |
+| Photos | Choose screenshots to verify settings or check for scams | When the person chooses a picture or a screenshot |
 | Site Gate (Android) | Run Apollo's on-device VPN filter | When the person turns on website protection |
 | Notification access (Android) | Text Gate reads new text-message notifications | When the person turns on message screening |
 | Caller ID & spam app (Android) | Call Gate screens incoming calls | When the person turns on call screening |

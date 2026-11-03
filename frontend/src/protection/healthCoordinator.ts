@@ -133,7 +133,13 @@ export async function requestSiteProtectionRecovery(): Promise<ActionAttempt> {
     const attempt: ActionAttempt = { id: Crypto.randomUUID(), kind: "restore_site", caseId: null, planId: null, descriptorId: "permission.vpn_config", startedAt, expiresAt: new Date(Date.now() + 2 * 60 * 1000).toISOString(), returnedAt: null, status: "requested" };
     await recordAttempt(attempt); await storage.setItem(DESIRED_KEY, "true");
     const result = await securityAdapter.requestProtectionPermission("vpn_config");
-    if (result.status === "granted" || result.requestState === "already_granted") { await storage.setItem(DESIRED_KEY, "true"); await clearAttempt(); await runProtectionHealthCheck("protection_change"); return { ...attempt, status: "returned", returnedAt: new Date().toISOString() }; }
+    if (result.status === "granted" || result.requestState === "already_granted") {
+      // Permission exists — now actually (re)start the VPN service. Without this,
+      // a previously-granted-but-stopped VPN stays stopped because the permission
+      // check alone doesn't restart it.
+      try { await securityAdapter.startProtection(); } catch (e) { console.warn("[ProtectionRecovery] startProtection failed after permission grant:", e); }
+      await storage.setItem(DESIRED_KEY, "true"); await clearAttempt(); await runProtectionHealthCheck("protection_change"); return { ...attempt, status: "returned", returnedAt: new Date().toISOString() };
+    }
     if (result.requestState === "launch_failed" || result.requestState === "unsupported" || !result.canAskAgain) { await clearAttempt(); await runProtectionHealthCheck("user_action"); return { ...attempt, status: "failed" }; }
     const opened: ActionAttempt = { ...attempt, status: "opened" }; await recordAttempt(opened); return opened;
   })().finally(() => { promptInFlight = null; });
