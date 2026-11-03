@@ -1,7 +1,7 @@
 // Shared copy + config for Gates that need an explicit user permission or account connection.
-// Used by the setup walkthrough (app/setup-gates.tsx) and the Home reminder (GateNudge) so every
-// place that asks for the same access uses identical plain-English wording and the same ~3-day
-// "Not now" snooze. This does NOT change any Gate's underlying architecture or enforcement.
+// Used by the setup walkthrough (app/setup-gates.tsx) so every place that asks for the same
+// access uses identical plain-English wording and the same ~3-day "Not now" snooze.
+// This does NOT change any Gate's underlying architecture or enforcement.
 import { Platform } from "react-native";
 
 export type GatePermId = "site" | "text" | "call" | "email";
