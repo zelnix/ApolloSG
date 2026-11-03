@@ -97,6 +97,3 @@ Apollo-Android-18706c6e.apk
 Apollo-Android-047bc183.apk
 # Blanket .env exclusions removed — deployment automation needs these files tracked.
 # Developer-local overrides (.env.local, *.env.local) are still ignored above.
-.env
-.env.*
-*.env
