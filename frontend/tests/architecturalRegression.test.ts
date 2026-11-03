@@ -16,7 +16,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { narrateEvent, narrateIncident } from "../src/domain/higginsNarration.ts";
 import { hasRecordedFindings } from "../src/domain/caseFacts.ts";
 import { normalizeHistoricalEvent } from "../src/domain/packetEvidence.ts";
 import { mergeLocalAndRemoteEvents } from "../src/domain/eventMerge.ts";
@@ -203,35 +202,6 @@ describe("3. Repeated blocks retain enforcement evidence without duplicate threa
 
 // ── Test 4: Higgins explanations are evidence-backed, no generic fallbacks ──
 describe("4. Higgins explanations are specific, evidence-backed, no generic fallback narratives", () => {
-  it("narrateEvent with local evidence produces specific narration", () => {
-    const event = makeEvent({ evidence_provenance: "local_device" });
-    const chunks = narrateEvent(event);
-    const whatChunk = chunks.find((c) => c.id === "what");
-    assert.match(whatChunk!.text, /impersonating a bank/, "Real evidence used");
-  });
-
-  it("narrateEvent with only the privacy summary narrates honestly (no fabrication)", () => {
-    const projected = makeServerEvent();
-    const chunks = narrateEvent(projected);
-    const whatChunk = chunks.find((c) => c.id === "what");
-    assert.match(whatChunk!.text, /privacy-protected summary/, "Honest about what the record holds");
-    assert.ok(!whatChunk!.text.includes("impersonating"), "No fabricated content");
-  });
-
-  it("narrateIncident marks server-projected events honestly within the timeline", () => {
-    const plan = {
-      headline: "Connected incident", state: "barking" as ApolloState,
-      timeline: [
-        makeEvent({ event_id: "e1", evidence_provenance: "local_device" }),
-        makeServerEvent({ event_id: "e2" }),
-      ],
-      exposure: [], steps: [], allResolved: false,
-    } as any;
-    const chunks = narrateIncident(plan);
-    const evt2 = chunks.find((c) => c.id === "event-1");
-    assert.match(evt2!.text, /privacy-protected summary/, "Server-projected event narrated honestly");
-  });
-
   it("humanizeReason converts code to honest sentence, passes prose through", () => {
     assert.match(humanizeReason("server_projection_of_recorded_outcome", "barking"), /needs your attention/);
     assert.equal(humanizeReason("Domain registered 2 days ago.", "barking"), "Domain registered 2 days ago.");

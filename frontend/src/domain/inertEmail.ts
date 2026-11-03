@@ -61,21 +61,8 @@ colspan rowspan nowrap alt role span start type value checked selected disabled 
 frame rules hspace vspace clear noshade compact reversed cols rows multiple maxlength open datetime text link vlink alink char charoff
 axis bordercolor`.split(/\s+/));
 
-const NAMED: Record<string, string> = {
-  amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: "\u00a0", copy: "\u00a9", reg: "\u00ae", trade: "\u2122", hellip: "\u2026",
-  mdash: "\u2014", ndash: "\u2013", rsquo: "\u2019", lsquo: "\u2018", rdquo: "\u201d", ldquo: "\u201c", bull: "\u2022", middot: "\u00b7",
-  zwnj: "\u200c", zwj: "\u200d", shy: "\u00ad", raquo: "\u00bb", laquo: "\u00ab", euro: "\u20ac", pound: "\u00a3",
-};
-
-export function decodeEntities(text: string): string {
-  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);?/gi, (m, e: string) => {
-    if (e[0] === "#") {
-      const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-      return n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
-    }
-    return NAMED[e.toLowerCase()] ?? m;
-  });
-}
+import { decodeHtmlEntities as decodeEntities } from "@/src/utils/decodeHtmlEntities";
+export { decodeEntities };
 
 const escapeText = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const escapeAttr = (v: string) => escapeText(v).replace(/"/g, "&quot;");

@@ -103,7 +103,7 @@ export default function GovernmentScamsScreen() {
   // Smaller phones can't fit all six region chips, so they get a dropdown list instead.
   const compact = useWindowDimensions().width < COMPACT_WIDTH;
   const [regionOpen, setRegionOpen] = useState(false);
-  const regionCount = (id: RegionFilter) => alerts.filter((a) => regionMatch(a, id)).length;
+  const regionCount = (id: RegionFilter) => alerts.filter((a) => regionMatch(a, id)).length + emerging.filter((a) => regionMatch(a, id)).length;
 
   const load = (pull = false) => {
     if (pull) setRefreshing(true); else setLoading(true);
@@ -197,7 +197,7 @@ export default function GovernmentScamsScreen() {
               </View>
             ) : null}
             <View style={s.toolbar}>
-              <Text style={s.meta}>{`${shown.length} alert${shown.length === 1 ? "" : "s"}`}</Text>
+              <Text style={s.meta}>{`${shown.length + shownEmerging.length} alert${(shown.length + shownEmerging.length) === 1 ? "" : "s"}`}</Text>
               <Pressable testID="scam-sort" accessibilityRole="button" accessibilityLabel={`Sort: ${SORT_LABEL[sort]}`} accessibilityHint="Switches between latest and highest severity" onPress={() => setSort(sort === "latest" ? "severity" : "latest")} style={s.sort}>
                 <Text style={s.sortText}>{SORT_LABEL[sort]}</Text><ChevronDown size={16} color={colors.onSurface} />
               </Pressable>

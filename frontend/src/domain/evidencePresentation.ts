@@ -6,7 +6,7 @@
 // reaction and comment counts) is deliberately absent: the Evidence tab shows evidence, never a
 // reconstruction of the app it came from.
 
-import { decodeHtmlEntities } from "./emailCleaner.ts";
+import { decodeHtmlEntities } from "@/src/utils/decodeHtmlEntities";
 import type { OriginalSource } from "@/src/store/originalSource";
 
 export type EvidenceLayout = "email" | "screenshot" | "message" | "chat" | "post";

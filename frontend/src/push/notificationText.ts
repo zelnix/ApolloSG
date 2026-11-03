@@ -13,31 +13,8 @@ import { luddishText } from "../domain/luddish/index.ts";
 import { firstReason, reasonInSentence } from "../domain/luddish/present.ts";
 import { shortDomain } from "../domain/threatSubject.ts";
 import type { PatrolEvent } from "../domain/types";
+import { decodeHtmlEntities } from "../utils/decodeHtmlEntities.ts";
 import type { LocalAlert } from "./notifications";
-
-const NAMED: Record<string, string> = {
-  amp: "&", quot: "\"", apos: "'", lt: "<", gt: ">", nbsp: " ", ndash: "–", mdash: "—", hellip: "…",
-  lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", laquo: "«", raquo: "»", middot: "·", bull: "•",
-  copy: "©", reg: "®", trade: "™", euro: "€", pound: "£", cent: "¢", deg: "°", times: "×",
-};
-const ENTITY = /&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,15});/g;
-
-function fromCodePoint(code: number): string | null {
-  const valid = code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff);
-  return valid ? String.fromCodePoint(code) : null;
-}
-
-/** Decode HTML entities in ONE pass: "&amp;quot;" becomes "&quot;", never '"'. Unknown or invalid
- *  entities are left exactly as written. */
-export function decodeHtmlEntities(text: string): string {
-  return text.replace(ENTITY, (whole, body: string) => {
-    if (body.startsWith("#")) {
-      const hex = body[1] === "x" || body[1] === "X";
-      return fromCodePoint(parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10)) ?? whole;
-    }
-    return NAMED[body.toLowerCase()] ?? whole;
-  });
-}
 
 function tidy(text: string): string {
   return text.replace(/\s+/g, " ").trim();

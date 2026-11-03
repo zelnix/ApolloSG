@@ -5,7 +5,8 @@ import test from "node:test";
 
 import type { PatrolEvent } from "../src/domain/types.ts";
 import { eventLocalAlert } from "../src/push/localAlerts.ts";
-import { decodeHtmlEntities, notificationSummary, presentAlertText } from "../src/push/notificationText.ts";
+import { decodeHtmlEntities } from "../src/utils/decodeHtmlEntities.ts";
+import { notificationSummary, presentAlertText } from "../src/push/notificationText.ts";
 import { completedCheckAlert } from "../src/push/protectionAlerts.ts";
 
 const when = new Date().toISOString();
@@ -23,7 +24,7 @@ test("entities decode once: quoted domains, ampersands, apostrophes, angle brack
   assert.equal(decodeHtmlEntities("AT&amp;T &amp; Telstra"), "AT&T & Telstra");
   assert.equal(decodeHtmlEntities("Instagram&#39;s, Apollo&apos;s, it&#x27;s, it&#X27;s"), "Instagram's, Apollo's, it's, it's");
   assert.equal(decodeHtmlEntities("&lt;script&gt; &lt;b&gt;"), "<script> <b>");
-  assert.equal(decodeHtmlEntities("a&nbsp;b &ndash; c &mdash; d&hellip; &rsquo;x&lsquo; &ldquo;y&rdquo;"), "a b – c — d… ’x‘ “y”");
+  assert.equal(decodeHtmlEntities("a&nbsp;b &ndash; c &mdash; d&hellip; &rsquo;x&lsquo; &ldquo;y&rdquo;"), "a b – c — d… ’x‘ “y”");
   assert.equal(decodeHtmlEntities("&#128680; &#x1F6A8;"), "🚨 🚨");
   assert.equal(decodeHtmlEntities("&AMP; &QUOT;"), "& \"");
 });

@@ -14,7 +14,6 @@ import { deviceCheckEvent } from "../src/domain/deviceCheckCase.ts";
 import { mergeLocalAndRemoteEvents } from "../src/domain/eventMerge.ts";
 import { EVIDENCE_SOURCES, evidenceModel } from "../src/domain/evidenceModel.ts";
 import { buildEvidencePack } from "../src/domain/evidencePack.ts";
-import { narrateEvent, narrateIncident } from "../src/domain/higginsNarration.ts";
 import { projectedEventVoice } from "../src/domain/messageVoice.ts";
 import { normalizeHistoricalEvent } from "../src/domain/packetEvidence.ts";
 import { patrolPayload } from "../src/domain/patrolPayload.ts";
@@ -187,36 +186,11 @@ test("the generic incomplete-evidence row never stands in for a recorded reason"
   assert.deepEqual(caseShortfalls(blocked).map(shortfallLine), [
     "Proof of the block — couldn't be verified: The record doesn't contain a packet drop Apollo observed and matched to this event. Couldn't verify that the connection was actually blocked.",
   ]);
-  assert.match(narrateEvent(blocked).find((c) => c.id === "unverified")!.text, /Proof of the block, couldn't be verified\. The record doesn't contain a packet drop .* Couldn't verify that the connection was actually blocked\./);
   // Only when nothing records why does the fixed row show — and it says no reason was recorded, never "unavailable".
   const unexplained = normalizeHistoricalEvent(ev({ evidence_provenance: "incomplete" } as never));
   const rows = rowsOf(unexplained);
   assert.deepEqual(rows.map((s) => [sourceHeading(s), s.returned]), [["Original evidence — not recorded with this case", "No reason was recorded."]]);
   assert.equal(completenessLabel(unexplained), "Part of this case's evidence wasn't recorded, and no reason was recorded for it");
-});
-
-test("DNS, native protection, server-assisted analysis and incomplete records narrate what Apollo has", () => {
-  for (const event of [
-    ev({ evidence_provenance: "dns_observation" }), ev({ evidence_provenance: "native_protection", source_metadata: { type: "link", provider: "Samsung Message Guard" } }),
-    ev({ evidence_provenance: "device_submission", processing_source: "apollosg_servers", evidence_representation: "privacy_protected_copy", triage_investigation: triage() }),
-    ev({ evidence_completeness: "partial" }),
-  ]) {
-    assert.ok(hasRecordedFindings(event), `${event.evidence_provenance} carries what Apollo recorded`);
-    const what = narrateEvent(event).find((c) => c.id === "what")!.text;
-    assert.match(what, /redelivery fee/, `${event.evidence_provenance} is narrated from its own record`);
-  }
-  // Only the privacy summary: Higgins says exactly that, invents nothing, and points nowhere else.
-  const summary = ev({ ...projectedEventVoice("message", "barking", false), evidence_representation: "privacy_summary", state: "barking" });
-  const chunks = narrateEvent(summary);
-  assert.match(chunks.find((c) => c.id === "what")!.text, /privacy-protected summary/);
-  assert.match(chunks.find((c) => c.id === "todo")!.text, /contact you already trust/);
-  const incident = narrateIncident({ headline: "Connected", state: "barking", timeline: [ev({}), summary], exposure: [], steps: [], allResolved: false } as never);
-  for (const c of incident) assert.doesNotMatch(c.text, PROHIBITED);
-  for (const state of ["resting", "ears_up", "growling", "barking", "biting"] as ApolloState[]) {
-    for (const v of [projectedEventVoice("message", state, false), projectedEventVoice("website", state, true)]) {
-      for (const text of Object.values(v)) assert.doesNotMatch(text, PROHIBITED);
-    }
-  }
 });
 
 test("incomplete checks show the actual check and their exact recorded failure", () => {

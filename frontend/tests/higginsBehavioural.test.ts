@@ -16,7 +16,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { narrateEvent, narrateIncident } from "../src/domain/higginsNarration.ts";
 import { hasRecordedFindings } from "../src/domain/caseFacts.ts";
 import { buildHomeVoice, affectedCapabilities, joinNames } from "../src/domain/higginsHomeVoice.ts";
 import { projectedEventVoice, humanizeReason } from "../src/domain/messageVoice.ts";
