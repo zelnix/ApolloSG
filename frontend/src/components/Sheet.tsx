@@ -1,7 +1,7 @@
 // Lightweight bottom sheet built on Modal (no extra native deps).
 
 import React from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fonts, makeStyles, radius, spacing } from "@/src/theme";
@@ -21,15 +21,21 @@ export function Sheet({ visible, onClose, title, children, testID, scrollRef, fo
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} testID="sheet-backdrop" accessibilityLabel="Close" />
-        <View style={s.sheet} testID={testID}>
-          <View style={s.handle} />
-          <Text style={s.title}>{title}</Text>
-          <ScrollView ref={scrollRef} contentContainerStyle={[s.content, { paddingBottom: footer ? spacing.lg : insets.bottom + spacing.xl }]} keyboardShouldPersistTaps="handled" nestedScrollEnabled>{children}</ScrollView>
-          {footer ? <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]} testID={testID ? `${testID}-footer` : undefined}>{footer}</View> : null}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        <View style={s.backdrop}>
+          <Pressable style={{ flex: 1 }} onPress={onClose} testID="sheet-backdrop" accessibilityLabel="Close" />
+          <View style={s.sheet} testID={testID}>
+            <View style={s.handle} />
+            <Text style={s.title}>{title}</Text>
+            <ScrollView ref={scrollRef} contentContainerStyle={[s.content, { paddingBottom: footer ? spacing.lg : insets.bottom + spacing.xl }]} keyboardShouldPersistTaps="handled" nestedScrollEnabled>{children}</ScrollView>
+            {footer ? <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]} testID={testID ? `${testID}-footer` : undefined}>{footer}</View> : null}
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

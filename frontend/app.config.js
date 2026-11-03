@@ -98,6 +98,7 @@ module.exports = {
       },
       package: ANDROID_PACKAGE,
       googleServicesFile: "./google-services.json",
+      softwareKeyboardLayoutMode: "pan",
       permissions: [
         "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
         "android.permission.ACCESS_NETWORK_STATE",
