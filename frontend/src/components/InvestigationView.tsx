@@ -36,6 +36,8 @@ import { SourceList } from "@/src/components/report/SourceList";
 import { OutcomeExplainerLink } from "@/src/components/OutcomeExplainerLink";
 import { SourceSummaryCard } from "@/src/components/report/SourceSummaryCard";
 import { ServerCopyNote } from "@/src/components/ServerCopyNote";
+import { PhoneIdentityCard } from "@/src/components/PhoneIdentityCard";
+import { callNumberOf } from "@/src/domain/numberDetails";
 import { buildReport, plainReport, shownPlainEnglish, stepText } from "@/src/domain/reportSections";
 import { luddishReport, luddishText } from "@/src/domain/luddish";
 import { investigationHistory, investigatorName, scrubMessage } from "@/src/domain/messageVoice";
@@ -630,6 +632,29 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     id: action.id, text: stepText(response, i) || action.label, onPress: isExecutable(action) ? () => pressAction(action) : undefined,
   })) ?? [];
 
+  // ── Phone number for identity resolution ──
+  // When a case started from a call/number check, extract it so the identity card appears alongside the investigation.
+  // Also detect when the person typed a phone number into the text/message field.
+  const phoneNumber = useMemo(() => {
+    const origin = caseData?.origin ?? event?.origin;
+    // Explicit call check
+    const fromCall = callNumberOf(origin, event);
+    if (fromCall) return fromCall;
+    // Text/message checks: if the whole submitted content looks like a phone number, use it
+    const text = origin?.text?.trim() ?? origin?.fields?.find((f) => /^(content|text|message)$/i.test(f.label.trim()))?.value?.trim();
+    if (text) {
+      // Direct number entry: "0412345678" or "+61 412 345 678" or "13 22 21"
+      const stripped = text.replace(/[\s\-().+]/g, "");
+      if (stripped.length >= 6 && stripped.length <= 15 && /^\+?\d[\d\s\-().]{4,18}\d$/.test(text)) {
+        return text;
+      }
+      // Call picker format: "0412345678 (saved as John)" — extract the number before the parenthetical
+      const parenMatch = text.match(/^(\+?\d[\d\s\-().]{4,18}\d)\s*\(/);
+      if (parenMatch) return parenMatch[1].trim();
+    }
+    return null;
+  }, [caseData?.origin, event]);
+
   return <View style={{ gap: spacing.md }} testID={testID}>
 
     {/* ── Conversation history (all turns). The opening question is left out when the case began from a check: the
@@ -659,6 +684,9 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {/* ── What started it, and when (shared with a threat) — the result is in the Findings Brief ── */}
       <SourceSummaryCard origin={caseData?.origin ?? event?.origin} at={caseData?.createdAt} caseKeys={[eventId, caseData?.id]}
         event={event} evidence={evidenceItems} gates={caseData?.gates} simulated={caseData?.simulated} testID="inv-source-summary" />
+
+      {/* ── Caller Identity: who this number belongs to (only for call/number checks) ── */}
+      {phoneNumber ? <PhoneIdentityCard number={phoneNumber} testID="inv-phone-identity" /> : null}
 
       {/* ── Tab Navigation — shared component, identical to Threat Case ── */}
       <InvestigationTabBar active={activeTab} onChange={setActiveTab} testID="inv-tab-bar" />
