@@ -60,7 +60,12 @@ export function caseGroupKey(event: PatrolEvent): string {
   return event.case_key ?? event.patrol_record?.logicalIssueKey ?? (investigation ? `inv:${investigation}` : event.event_id);
 }
 
-/** One row per case, the latest record of each first — what the Threats list shows. */
+/** One row per case, the latest record of each first — what the Threats list shows.
+ *
+ *  Governing rule: automatic checking creates Patrol History. A possible, unresolved
+ *  or confirmed threat creates a Threats entry. Cases whose latest event resolved as
+ *  "no threat" are excluded — they remain in Patrol History for audit but do not
+ *  clutter the Threats list or inflate its badge counts. */
 export function threatCases(events: PatrolEvent[]): PatrolEvent[] {
   const seen = new Set<string>();
   return [...events]
@@ -69,7 +74,8 @@ export function threatCases(events: PatrolEvent[]): PatrolEvent[] {
       const key = caseGroupKey(event);
       if (seen.has(key)) return false;
       seen.add(key);
-      return true;
+      // Exclude "no threat" — only possible, unresolved or confirmed threats qualify.
+      return threatCaseStatus(event) !== "no_threat";
     });
 }
 

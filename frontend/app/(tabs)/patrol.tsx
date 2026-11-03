@@ -65,7 +65,8 @@ import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
 const THREATS_INFO: ScreenInfo = { title: "About Threats", body: [
-  "Threats lists everything Apollo has detected or investigated for you: blocked links, suspicious messages, calls and investigation cases.",
+  "Threats lists everything Apollo has detected or investigated that needs your attention: blocked links, suspicious messages, calls and investigation cases.",
+  "Automatic checks that find nothing wrong are recorded in Patrol History for your records — they don't appear here.",
   "Use the filter to see threats by status, and tap any threat to see its overview, the original evidence and its history.",
   "Each threat shows the evidence ApolloSG received for it — from a screenshot or a name only up to an original file or something ApolloSG saw itself. Sort by “Strongest evidence” to see the best-evidenced cases first.",
   "The line under the title shows when ApolloSG last ran a check or discovered a threat.",
@@ -93,13 +94,12 @@ function sourceIcon(cat: string, meta?: SourceMetadata | null) {
 
 // ── Filter types ─────────────────────────────────────────────────────────────
 
-type FilterKey = "all" | "investigating" | "blocked" | "resolved" | "no_threat";
+type FilterKey = "all" | "investigating" | "blocked" | "resolved";
 const FILTERS: { key: FilterKey; label: string; matchStatuses: ThreatCaseStatus[] }[] = [
   { key: "all", label: "All", matchStatuses: [] },
-  { key: "investigating", label: "Investigating", matchStatuses: ["investigating"] },
+  { key: "investigating", label: "Investigating", matchStatuses: ["investigating", "monitoring", "not_fully_checked", "attention"] },
   { key: "blocked", label: "Blocked", matchStatuses: ["blocked"] },
   { key: "resolved", label: "Resolved", matchStatuses: ["resolved"] },
-  { key: "no_threat", label: "No threat", matchStatuses: ["no_threat"] },
 ];
 
 type SortOrder = "latest" | "oldest" | "strongest";
@@ -268,14 +268,13 @@ export default function ThreatsScreen() {
 
   // Compute status counts for filter chips
   const statusCounts = useMemo(() => {
-    const counts: Record<FilterKey, number> = { all: 0, investigating: 0, blocked: 0, resolved: 0, no_threat: 0 };
+    const counts: Record<FilterKey, number> = { all: 0, investigating: 0, blocked: 0, resolved: 0 };
     for (const event of threatCases) {
       const status = threatCaseStatus(event);
       counts.all++;
-      if (status === "investigating") counts.investigating++;
+      if (status === "investigating" || status === "monitoring" || status === "not_fully_checked" || status === "attention") counts.investigating++;
       else if (status === "blocked") counts.blocked++;
       else if (status === "resolved") counts.resolved++;
-      else if (status === "no_threat") counts.no_threat++;
     }
     return counts;
   }, [threatCases]);
