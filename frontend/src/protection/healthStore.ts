@@ -8,7 +8,7 @@ const TITLES: Record<(typeof IDS)[number], string> = { site: "Site protection", 
 
 let snapshot: ProtectionHealthSnapshot = {
   revision: 0, checkedAt: null, trigger: null, checking: false, capabilities: [], protection: null, permissions: [], network: null, ruleBundle: null, lastCheckFailure: null,
-  gates: IDS.map((id) => ({ id, title: TITLES[id], purpose: "ApolloSG is preparing this protection.", currentHelp: "Checking current status.", statusLabel: "Check in progress" as const, tone: "neutral" as const, capability: { automatic: { kind: (id === "site" ? "enforcement" : "event_driven") as "enforcement" | "event_driven", state: "checking" as const }, onDemand: id === "site" ? undefined : { state: "ready" as const, action: { id: "open_check_it", label: "Open Check It" } } }, resolved: { coverageState: "unknown" as const, isAutomatic: id === "site" || id === "network" } })),
+  gates: IDS.map((id) => ({ id, title: TITLES[id], purpose: "ApolloSG is preparing this protection.", currentHelp: "Checking current status.", statusLabel: "Check in progress" as const, tone: "neutral" as const, capability: { automatic: { kind: (id === "site" ? "enforcement" : "event_driven") as "enforcement" | "event_driven", state: "checking" as const }, onDemand: id === "site" ? undefined : { state: "ready" as const, action: { id: "open_check_it", label: "Ask Higgins" } } }, resolved: { coverageState: "unknown" as const, isAutomatic: id === "site" || id === "network" } })),
 };
 const listeners = new Set<() => void>();
 

@@ -9,7 +9,7 @@ export interface UserAction { id: UserActionId; label: string }
 export const USER_ACTION_ROUTES: Partial<Record<UserActionId, string>> = {
   check_link: "/check", setup_text: "/text-guard", check_text: "/message", setup_call: "/call-guard", check_call: "/call",
   check_network: "/network", check_account: "/account", open_email: "/email", check_file: "/file", check_app: "/app-check",
-  check_device: "/device", open_check_it: "/(tabs)/check-it",
+  check_device: "/device", open_check_it: "/(tabs)/ask",
 };
 
 export function userActionRoute(id: UserActionId): string | null { return USER_ACTION_ROUTES[id] ?? null; }

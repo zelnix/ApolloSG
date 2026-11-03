@@ -2,7 +2,7 @@ import { apiDelete, apiGet, apiPost } from "@/src/api/client";
 import type { NavLink } from "./appMap";
 import type { DeviceSnapshot } from "./deviceSnapshot";
 
-export interface HigginsChatAction { kind: "app_destination"; destination: "check_it" | "higgins_case"; label: string; purpose: string }
+export interface HigginsChatAction { kind: "app_destination"; destination: "ask_higgins" | "higgins_case"; label: string; purpose: string }
 export interface HigginsContextUse { source: string; status: string; provenance: string[]; observedAt: string | null }
 /** Every answer comes from Apollo's own records or its knowledge base: Ask Higgins makes no AI call. */
 export interface HigginsChatReply { turnId: string; conversationId: string; answer: string; evidenceBasis: string[]; uncertainty: string[]; clarification: string | null; contextUsed: HigginsContextUse[]; suggestedActions: HigginsChatAction[]; navigation: NavLink[]; investigationAvailable: boolean; investigativeWorkStarted: false; retention: { serverContentExpiresAt: string; localContentMaxSeconds: 3600; receiptOnlyAfterExpiry: true } }

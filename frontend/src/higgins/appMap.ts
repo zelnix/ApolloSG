@@ -19,7 +19,6 @@ export const APOLLO_DESTINATIONS: Record<string, string> = {
   "/(tabs)/scams": "Scam Alerts",
   "/(tabs)/ask": "Ask Higgins",
   "/(tabs)/settings": "Settings",
-  "/(tabs)/check-it": "Check It",
   "/(tabs)/guard": "Your protections",
   "/(tabs)/protection": "Protections",
   "/(tabs)/learn": "Learn",

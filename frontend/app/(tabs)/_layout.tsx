@@ -18,7 +18,7 @@ const NAV_ICON_SIZE = 25;
 const TAB_COUNT = 5;
 
 // Tab order: Home → Threats → Ask Higgins → Alerts → Learn
-// Hidden tabs (accessible via routes but not in the tab bar): check-it, guard, protection, settings
+// Hidden tabs (accessible via routes but not in the tab bar): guard, protection, settings
 export default function TabsLayout() {
   const { colors } = useTheme();
   const { width: screenW, height: screenH } = useWindowDimensions();
@@ -91,7 +91,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="scams" options={{ title: alertsTitle, tabBarButtonTestID: "tab-scams", tabBarIcon: tabIcon(Megaphone), tabBarLabel: tabLabel(alertsTitle), tabBarBadge: alertsBadge, tabBarBadgeStyle: badgeStyle, tabBarAccessibilityLabel: newAlerts ? `${alertsTitle}, ${newAlerts} new serious alerts` : alertsTitle }} />
       <Tabs.Screen name="learn" options={{ title: learnTitle, tabBarButtonTestID: "tab-learn", tabBarIcon: tabIcon(BookOpen), tabBarLabel: tabLabel(learnTitle) }} />
       {/* Hidden tabs — still routable for deep links and backwards compatibility */}
-      <Tabs.Screen name="check-it" options={{ href: null }} />
       <Tabs.Screen name="guard" options={{ href: null }} />
       <Tabs.Screen name="protection" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />

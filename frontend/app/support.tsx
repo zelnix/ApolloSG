@@ -301,7 +301,7 @@ export default function SupportScreen() {
           {providerStatusLines(health.provider).map((line) => <Body key={line} style={s.detail} testID="support-higgins-provider">{line}</Body>)}
           <ResultRow id="report" label="Higgins reports" result={health.report} />
         </> : <Body style={s.detail}>No recent verified results. Run a check in the Check tab.</Body>}
-        <Button testID="support-go-to-check" label="Go to Check" icon={<ArrowRight size={18} color={colors.onBrandPrimary} />} onPress={() => router.push("/(tabs)/check-it")} />
+        <Button testID="support-go-to-check" label="Ask Higgins" icon={<ArrowRight size={18} color={colors.onBrandPrimary} />} onPress={() => router.push("/(tabs)/ask")} />
       </Section>
 
       {/* 4. App Logs & Diagnostics */}

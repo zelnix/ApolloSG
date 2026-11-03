@@ -101,7 +101,7 @@ const KNOWLEDGE_RESPONSES: Record<LocalKnowledgeIntent, string> = {
 const KNOWLEDGE_LINKS: Record<LocalKnowledgeIntent, NavLink[]> = {
   how_apollo_works: navLinks("/how-apollo-checks", "/gates"),
   what_is_higgins: navLinks("/higgins/learning"),
-  what_is_magnum_di: navLinks("/how-apollo-checks", "/(tabs)/check-it"),
+  what_is_magnum_di: navLinks("/how-apollo-checks", "/(tabs)/ask"),
   explain_feature: navLinks("/gates"),
   help_navigation: navLinks("/user-guide", "/(tabs)/home"),
   explain_alert: navLinks("/(tabs)/patrol"),
