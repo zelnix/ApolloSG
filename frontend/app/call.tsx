@@ -33,6 +33,7 @@ import { goBackOrHome } from "@/src/utils/navigation";
 import { InfoButton } from "@/src/components/InfoButton";
 import { CloseButton } from "@/src/components/CloseButton";
 import type { OfficialVerdict } from "@/src/domain/officialContacts";
+import { PhoneIdentityCard } from "@/src/components/PhoneIdentityCard";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -134,6 +135,12 @@ export default function CheckCall() {
     actions.push({ testID: "call-again", variant: "ghost", label: "Check another number", onPress: reset });
 
     const reminder = earlier ? <SameNumberReminder earlier={earlier} testID="call-earlier" /> : null;
+    const identityNotice = (
+      <>
+        {reminder}
+        {number.trim() ? <PhoneIdentityCard number={number} testID="call-identity" /> : null}
+      </>
+    );
     return (
       <>
         {result.event ? (
@@ -148,10 +155,10 @@ export default function CheckCall() {
             eventId={result.event.event_id}
             caseId={result.event.investigation_case_id ?? null}
             actions={actions}
-            notice={reminder}
+            notice={identityNotice}
           />
         ) : (
-          <CheckResultScreen result={model} actions={actions} notice={reminder} />
+          <CheckResultScreen result={model} actions={actions} notice={identityNotice} />
         )}
         {result.event ? (
           <RecoveryFlow event={result.event} kinds={["password", "code", "money", "card", "app", "remote", "called", "info"]} testID="call-recovery" />

@@ -4799,3 +4799,51 @@ Report: `/app/memory/REPORT_2026-11-01_evidence_retention.md`; proof: `/app/test
   return to foreground (ApolloContext AppState handler) and on notification received/tapped (`app/_layout.tsx fetchCasesNow`).
   Threat Case shows "Getting this case…" (`tc-loading`, `casesSyncing`) instead of "no longer available" while fetching.
 - Verified in preview: a case filed 45 s after Home loaded appeared on Home within 60 s without reopening.
+
+
+## ApolloSG Phone Number Identity & Caller/Sender Check — Phase 2: Backend Identity Resolution (2026-11-03)
+
+**What was built:**
+- Backend service `services/phone_identity.py` — full identity resolution pipeline:
+  1. Normalize number (E.164 via phonerisk/number_details)
+  2. Check `phone_identity` MongoDB cache (7-day fresh, 30-day stale window)
+  3. Check Official Organisation Directory (Tier 1 — org's own published numbers)
+  4. Check Apollo Knowledge Base (official_organisation records + government/regulatory records)
+  5. Web search via Brave (same engine as TC FlyBy) — only when above sources leave it unresolved
+  6. Deterministic association assessment (same fixed rules as frontend Phase 1: verified > strong > possible > unknown > conflicting)
+  7. Impersonation check (is the number published by the org it claims to be from?)
+  8. IPQS scam intel from cached phone_risk data
+  9. Cache result in `phone_identity` collection with full provenance
+
+- Router `routers/phone_identity.py` — `POST /api/number/identify` endpoint
+- Registered in `server.py` router list
+- Backend tests `tests/test_phone_identity.py` — 12/12 passing
+
+**Constraints followed:**
+- No paid reverse-lookup APIs (Truecaller, WhitePages, etc.)
+- Uses only existing Apollo sources: Official Org Directory, Apollo KB, Brave search
+- Every evidence item tracks source URL, publisher, tier and retrieval date
+
+**Phase 3: Frontend Identity Display (same session)**
+- Created `src/api/phoneIdentity.ts` — typed API client for the endpoint
+- Created `src/components/PhoneIdentityCard.tsx` — identity card UI:
+  - Entity name with Building icon (or question mark for unknown)
+  - Confidence badge (verified/strong/possible/unknown/conflicting) with colour coding
+  - Description of what the confidence level means
+  - Spoofing awareness warning for non-verified matches
+  - Impersonation warning when number isn't published by claimed org
+  - Scam intel from IPQS
+  - Evidence sources with tier-coloured dots and "View" links
+  - Detail chips (number type, carrier, geographic area)
+  - Freshness indicator
+- Added `number_identify` egress endpoint to privacy.ts
+- Integrated into `call-guard.tsx` (Check a Number result screen)
+- Integrated into `call.tsx` (Call Screening result screen)
+
+**Verified results:**
+- CommBank 13 22 21 → verified, Tier 1 from commbank.com.au
+- Westpac 132 032 → verified, Tier 1 from westpac.com.au
+- ANZ 131314 → verified, Tier 1
+- CommBank Sydney landline 02 9999 3283 → verified, Landline, NSW/ACT
+- Unknown mobile 0412000000 → unknown, Mobile, Optus
+

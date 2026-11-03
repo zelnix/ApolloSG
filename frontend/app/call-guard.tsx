@@ -46,6 +46,7 @@ import { markAlertOpened } from "@/src/push/alertLog";
 import { syncRepeatCallerAlerts } from "@/src/push/repeatCallerAlerts";
 import { regionCountry } from "@/src/telemetry/deviceInfo";
 import { dlog } from "@/src/utils/dlog";
+import { PhoneIdentityCard } from "@/src/components/PhoneIdentityCard";
 
 // ── Magnum DI investigation ──────────────────────────────────────────────────
 // The investigation itself is owned by `InvestigationFlow`, which attaches to the case Apollo's
@@ -292,7 +293,12 @@ export default function CheckNumber() {
         caseId={result.investigation_case_id ?? null}
         original={{ kind: "call", fields: [{ label: "Number", value: result.number }], capturedAt: result.checked_at }}
         actions={callActions}
-        notice={earlier ? <SameNumberReminder earlier={earlier} testID="callguard-earlier" /> : null}
+        notice={
+          <>
+            {earlier ? <SameNumberReminder earlier={earlier} testID="callguard-earlier" /> : null}
+            <PhoneIdentityCard number={result.number} testID="callguard-identity" />
+          </>
+        }
       />
     );
   }

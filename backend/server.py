@@ -42,7 +42,7 @@ from services import triage_engine
 from services import gmail as gmail_service
 from services import family_assist
 from services.threat_revalidation import ensure_indexes as ensure_threat_indexes, migrate_blocklist_entries
-from routers import admin, admin_portal, analysis, ask, call, devices, family, family_assist as family_assist_router, family_weekly, gmail, health, intel, investigations, learning as learning_router, learning_admin, patrol, posture, product, protections, push, triage_telemetry, usage
+from routers import admin, admin_portal, analysis, ask, call, devices, family, family_assist as family_assist_router, family_weekly, gmail, health, intel, investigations, learning as learning_router, learning_admin, patrol, phone_identity as phone_identity_router, posture, product, protections, push, triage_telemetry, usage
 from routers.family_weekly import weekly_checkin_loop
 from services.seed_learning_images import router as seed_images_router
 
@@ -369,7 +369,7 @@ async def deployment_health():
 
 
 # Every device-facing router is mounted under /api behind the device bearer gate (public paths are listed in core.auth).
-for r in (health, devices, intel, patrol, investigations, ask, learning_router, product, family, family_assist_router, family_weekly, push, analysis, gmail, call, posture, protections, triage_telemetry):
+for r in (health, devices, intel, patrol, investigations, ask, learning_router, product, family, family_assist_router, family_weekly, push, analysis, gmail, call, posture, protections, triage_telemetry, phone_identity_router):
     app.include_router(r.router, prefix="/api", dependencies=[Depends(enforce_device_auth)])
 app.include_router(family_assist_router.ws_router, prefix="/api")
 app.include_router(admin_portal.router, prefix="/api", tags=["admin-portal"])
