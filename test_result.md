@@ -4481,3 +4481,65 @@ agent_communication:
     message: "Implemented email evidence rendering fix: Original and Redacted tabs now use the same HTML renderer. FILE 1: frontend/src/domain/inertEmail.ts - Added redactInertEmail function that walks HTML document, applies text redaction only to text nodes, preserves HTML structure/attributes/styles, decodes entities before redacting, fast-path optimization. FILE 2: frontend/src/components/evidence/EvidenceArtefactCard.tsx - Changed shownEmail computation from mode === 'original' ? email : null to mode === 'redacted' ? redactInertEmail(email, redactInvestigationSecrets) : email. Moved useMemo before early returns. FILE 3: frontend/tests/inertEmail.test.ts - Added 5 new tests for redactInertEmail. Please verify: (1) Run inert email test suite (expect 16/16 pass), (2) Run evidence presentation test suite (expect 15/15 pass), (3) Static code analysis of EvidenceArtefactCard.tsx, (4) Frontend bundle compiles."
   - agent: "testing"
     message: "EMAIL EVIDENCE RENDERING VERIFICATION COMPLETE - ALL TESTS PASSED ✅. Verified that Original and Redacted tabs now use the same HTML renderer with credentials masked only in Redacted mode. ACCEPTANCE CRITERIA: (1) Inert email test suite: 16/16 tests PASSED (11 existing + 5 new redactInertEmail tests). (2) Evidence presentation test suite: 15/15 tests PASSED. (3) Static code analysis: EvidenceArtefactCard.tsx correctly uses redactInertEmail in useMemo (line 232), useMemo placed BEFORE all early returns (lines 248, 261, 276), both modes pass InertEmail object. (4) ESLint: 0 errors (1 minor warning about import ordering, not critical). (5) Frontend bundle: Compiles successfully, GET http://localhost:3000 returns 200. IMPLEMENTATION VERIFIED: redactInertEmail walks HTML document, applies redaction only to text nodes, preserves HTML structure/tag attributes/style blocks, decodes entities before redacting, re-encodes after, fast-path optimization when nothing changed. RESULT: Switching Original ↔ Redacted now looks like viewing two versions of the same email. Original = faithful safe rendering (InertEmailView with original HTML). Redacted = same rendering with sensitive information masked (InertEmailView with redacted HTML). No '[link] [link] [link]' output in either view. Test file: /app/test_email_evidence_rendering.py. All acceptance criteria met. READY FOR MAIN AGENT TO SUMMARIZE AND FINISH."
+
+
+
+## 2026-11-04 Email Evidence HTML Rendering in SourceSummaryCard
+
+frontend:
+  - task: "Add email HTML rendering to SourceSummaryCard using InertEmailView"
+    implemented: true
+    working: true
+    file: "frontend/src/components/report/SourceSummaryCard.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "main"
+        working: true
+        comment: "Added imports for inertEmail, InertEmail, readEmailBody, InertEmailView, and readKeptOriginalEmail. Added emailHtml state (InertEmail | null) to hold parsed email HTML. In useEffect that loads original data, now also loads raw email via readKeptOriginalEmail(keys) → readEmailBody(raw) → inertEmail() when case is an email. When card is expanded and emailHtml is available, renders InertEmailView instead of flat text with [link] markers. Falls back to text rendering when no email HTML is available. Added emailHtmlWrap and emailView styles."
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: SourceSummaryCard.tsx correctly implements email HTML rendering. STATIC CODE ANALYSIS: (1) emailHtml state declared at line 141: useState<InertEmail | null>(null). (2) emailHtml loaded in useEffect (lines 154-161): checks if email case, calls readKeptOriginalEmail(keys), readEmailBody(raw), inertEmail(), sets via setEmailHtml(parsed). (3) When expanded (lines 264-267): renders InertEmailView when open && email && emailHtml available. (4) Fallback to text rendering (line 268): uses Text component with preview.body when emailHtml is null. (5) InertEmailView imported from correct path (line 33): '@/src/components/evidence/InertEmailView'. (6) No [link] markers in HTML rendering path: InertEmailView uses emailHtml directly, no withoutLinks() function called. (7) All imports correct: inertEmail/InertEmail (line 30), readEmailBody (line 31), InertEmailView (line 33), readKeptOriginalEmail (line 39). ESLINT: SourceSummaryCard.tsx passes with 0 errors. EvidenceArtefactCard.tsx passes with 0 errors. FRONTEND BUNDLE: Compiles successfully, GET http://localhost:3000 returns HTTP 200. TEST SUITES: (1) inertEmail.test.ts: 16/16 PASSED. (2) evidencePresentation.test.ts: 15/15 PASSED. (3) appMenu.test.ts: 5/5 PASSED. BUG FIX VERIFIED: SourceSummaryCard 'What you submitted' card now renders email body as faithful HTML using InertEmailView (same as Evidence tab), not flat text with [link] [link] markers. Implementation matches specification exactly."
+
+  - task: "ESLint verification for SourceSummaryCard.tsx and EvidenceArtefactCard.tsx"
+    implemented: true
+    working: true
+    file: "frontend/src/components/report/SourceSummaryCard.tsx, frontend/src/components/evidence/EvidenceArtefactCard.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Both files pass ESLint with 0 errors. SourceSummaryCard.tsx: ✅ No issues found. EvidenceArtefactCard.tsx: ✅ No issues found."
+
+  - task: "Frontend bundle compiles and test suites pass"
+    implemented: true
+    working: true
+    file: "frontend/src/*, frontend/tests/*"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Frontend bundle compiles successfully. GET http://localhost:3000 returns HTTP 200. All test suites PASSED: (1) inertEmail.test.ts: 16/16 tests passed in 22ms. (2) evidencePresentation.test.ts: 15/15 tests passed in 13ms. (3) appMenu.test.ts: 5/5 tests passed in 9ms. Total: 36/36 tests passed. No regressions detected."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 3
+  run_ui: false
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented email HTML rendering in SourceSummaryCard. FILE: frontend/src/components/report/SourceSummaryCard.tsx - Added emailHtml state, loads email via readKeptOriginalEmail → readEmailBody → inertEmail in useEffect, renders InertEmailView when expanded and emailHtml available, falls back to text when null. Previously changed files: frontend/src/domain/inertEmail.ts (redactInertEmail function), frontend/src/components/evidence/EvidenceArtefactCard.tsx (uses redactInertEmail). Please verify: (1) Static code analysis of SourceSummaryCard.tsx (emailHtml state, useEffect loading, InertEmailView rendering, fallback, imports, no [link] markers), (2) ESLint on both SourceSummaryCard.tsx and EvidenceArtefactCard.tsx, (3) Frontend bundle compiles (GET http://localhost:3000 returns 200), (4) Test suites: inertEmail.test.ts (16/16), evidencePresentation.test.ts (15/15), appMenu.test.ts (all pass)."
+  - agent: "testing"
+    message: "EMAIL HTML RENDERING IN SOURCESUMMARYCARD VERIFICATION COMPLETE - ALL TESTS PASSED ✅. Verified that SourceSummaryCard 'What you submitted' card now renders email body as faithful HTML using InertEmailView, not flat text with [link] markers. STATIC CODE ANALYSIS: (1) emailHtml state declared (line 141). (2) emailHtml loaded in useEffect (lines 154-161) via readKeptOriginalEmail → readEmailBody → inertEmail. (3) When expanded, renders InertEmailView (lines 264-267) when emailHtml available. (4) Falls back to text rendering (line 268) when emailHtml is null. (5) InertEmailView imported from correct path (line 33). (6) No [link] markers in HTML rendering path - uses InertEmailView directly. (7) All imports correct. ESLINT: Both SourceSummaryCard.tsx and EvidenceArtefactCard.tsx pass with 0 errors. FRONTEND BUNDLE: Compiles successfully, GET http://localhost:3000 returns HTTP 200. TEST SUITES: (1) inertEmail.test.ts: 16/16 PASSED (22ms). (2) evidencePresentation.test.ts: 15/15 PASSED (13ms). (3) appMenu.test.ts: 5/5 PASSED (9ms). Total: 36/36 tests passed. BUG FIX COMPLETE: SourceSummaryCard now shows email's own HTML faithfully using InertEmailView (same as Evidence tab), not flat text with [link] [link] markers from withoutLinks() function. Implementation matches specification exactly. READY FOR MAIN AGENT TO SUMMARIZE AND FINISH."
