@@ -94,7 +94,11 @@ security, scam detection, phishing protection, call screening, anti-scam, link c
 
 
 ## Contact Email
-(Set in Play Console — use your support email)
+support@harmonywellnessgroup.com.au
 
 ## Privacy Policy URL
-(Set in Play Console — point to your hosted /privacy-policy endpoint)
+https://YOUR_PRODUCTION_DOMAIN/api/privacy-policy
+
+> Already hosted and serving. Replace `YOUR_PRODUCTION_DOMAIN` with your
+> deployed domain (e.g. `apollosg.app`). The same page is linked from inside
+> the app at Settings → Privacy policy.

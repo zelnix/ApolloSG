@@ -242,6 +242,7 @@ questions. Use the answers below:
 | Do you provide a way for users to request that their data is deleted? | **Yes** |
 | Has your app been independently security reviewed? | Select based on your status |
 | Does your app follow Google's Families Policy? | **No** (not a children's app) |
+| Privacy policy URL | `https://YOUR_PRODUCTION_DOMAIN/api/privacy-policy` (already hosted and serving) |
 
 ### Data deletion mechanisms:
 1. **Per-case delete** — Users can delete individual threat cases (`services/case_delete.py`)
