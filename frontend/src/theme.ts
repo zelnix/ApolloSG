@@ -5,6 +5,10 @@
 
 import { useMemo } from "react";
 import { Appearance, StyleSheet, useColorScheme, useWindowDimensions } from "react-native";
+import { fit, round, noFit } from "./theme-scaling";
+
+// Re-export scaling utilities so consumers keep importing from "@/src/theme"
+export { noFit } from "./theme-scaling";
 
 export type ColorScheme = "light" | "dark";
 
@@ -176,14 +180,6 @@ export function useTheme(): { scheme: ColorScheme; colors: ThemeColors } {
 const DESIGN_WIDTH = 390;
 const MIN_SCALE = 0.8;
 const MAX_FONT_SCALE = 1.15;
-const TEXT_KEYS = new Set(["fontSize", "lineHeight", "letterSpacing"]);
-const SPACE_KEYS = new Set([
-  "padding", "paddingHorizontal", "paddingVertical", "paddingTop", "paddingBottom", "paddingLeft", "paddingRight", "paddingStart", "paddingEnd",
-  "margin", "marginHorizontal", "marginVertical", "marginTop", "marginBottom", "marginLeft", "marginRight", "marginStart", "marginEnd",
-  "gap", "rowGap", "columnGap",
-]);
-
-const round = (value: number, step: number) => Math.round(value / step) * step;
 
 /** How much this screen shrinks spacing (`space`) and text (`text`, which also offsets an oversized system text setting). */
 export function useSizing(): { space: number; text: number } {
@@ -193,21 +189,6 @@ export function useSizing(): { space: number; text: number } {
   return { space, text: round((space * Math.min(system, MAX_FONT_SCALE)) / system, 0.01) };
 }
 
-function fit<T extends Record<string, any>>(styles: T, space: number, text: number): T {
-  if (space === 1 && text === 1) return styles;
-  const out: Record<string, any> = {};
-  for (const [name, style] of Object.entries(styles)) {
-    const next: Record<string, any> = { ...style };
-    for (const [key, value] of Object.entries(style ?? {})) {
-      if (typeof value !== "number") continue;
-      if (TEXT_KEYS.has(key)) next[key] = key === "letterSpacing" ? value * text : round(value * text, 0.5);
-      else if (SPACE_KEYS.has(key)) next[key] = Math.round(value * space);
-    }
-    out[name] = next;
-  }
-  return out as T;
-}
-
 export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
   factory: (colors: ThemeColors) => T & StyleSheet.NamedStyles<any>,
 ): () => T {
@@ -215,5 +196,27 @@ export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Name
     const { colors } = useTheme();
     const { space, text } = useSizing();
     return useMemo(() => StyleSheet.create(fit(factory(colors), space, text)), [colors, space, text]);
+  };
+}
+
+/** Theme-aware styles WITHOUT responsive scaling.
+ *
+ *  Use for layout-critical components (tab bars, toolbars, flex rows) where
+ *  `fit()` scaling has historically caused flexDirection / alignment breakage
+ *  on Android Native. The factory still receives theme colors, so the result
+ *  respects light / dark mode — it just skips the `fit()` pipeline entirely.
+ *
+ *  ```ts
+ *  const useStyles = makeStaticStyles((c) => ({
+ *    bar: { flexDirection: "row" as const, backgroundColor: c.surfaceSecondary },
+ *  }));
+ *  ```
+ */
+export function makeStaticStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
+  factory: (colors: ThemeColors) => T & StyleSheet.NamedStyles<any>,
+): () => T {
+  return function useStaticStyles(): T {
+    const { colors } = useTheme();
+    return useMemo(() => StyleSheet.create(factory(colors)), [colors]);
   };
 }

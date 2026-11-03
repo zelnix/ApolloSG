@@ -1,11 +1,11 @@
 /**
  * Shared tab bar for investigation views (Ask Higgins + Threat Cases).
- * Uses plain StyleSheet.create — NOT makeStyles — to guarantee flexDirection: "row"
- * is never stripped by the fit() pipeline on any device or screen size.
+ * Uses makeStaticStyles — theme-aware colors without fit() responsive scaling —
+ * to guarantee flexDirection: "row" is never stripped on any device or screen size.
  */
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { fonts, useTheme } from "@/src/theme";
+import { Pressable, Text, View } from "react-native";
+import { fonts, makeStaticStyles } from "@/src/theme";
 
 export type InvestigationTabId = "overview" | "evidence" | "history" | "di";
 
@@ -21,18 +21,15 @@ export function InvestigationTabBar({ active, onChange, testID = "inv-tab-bar" }
   onChange: (id: InvestigationTabId) => void;
   testID?: string;
 }) {
-  const { colors } = useTheme();
+  const s = useStyles();
   return (
-    <View
-      style={[styles.bar, { borderBottomColor: colors.border, backgroundColor: colors.surfaceSecondary }]}
-      testID={testID}
-    >
+    <View style={s.bar} testID={testID}>
       {TAB_LABELS.map(({ id, label }) => {
         const selected = active === id;
         return (
           <Pressable
             key={id}
-            style={[styles.tab, selected && { borderBottomColor: colors.brandPrimary }]}
+            style={[s.tab, selected && s.tabActive]}
             onPress={() => onChange(id)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
@@ -40,9 +37,8 @@ export function InvestigationTabBar({ active, onChange, testID = "inv-tab-bar" }
           >
             <Text
               style={[
-                styles.tabText,
-                { color: selected ? colors.onSurface : colors.muted,
-                  fontFamily: selected ? fonts.textSemibold : fonts.textMedium },
+                s.tabText,
+                selected ? s.tabTextSelected : s.tabTextDefault,
               ]}
               numberOfLines={1}
             >
@@ -55,21 +51,34 @@ export function InvestigationTabBar({ active, onChange, testID = "inv-tab-bar" }
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStaticStyles((c) => ({
   bar: {
-    flexDirection: "row",
-    flexWrap: "nowrap",
+    flexDirection: "row" as const,
+    flexWrap: "nowrap" as const,
     borderBottomWidth: 1,
+    borderBottomColor: c.border,
+    backgroundColor: c.surfaceSecondary,
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 8,
-    alignItems: "center",
+    alignItems: "center" as const,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
+  },
+  tabActive: {
+    borderBottomColor: c.brandPrimary,
   },
   tabText: {
     fontSize: 14,
   },
-});
+  tabTextSelected: {
+    color: c.onSurface,
+    fontFamily: fonts.textSemibold,
+  },
+  tabTextDefault: {
+    color: c.muted,
+    fontFamily: fonts.textMedium,
+  },
+}));
