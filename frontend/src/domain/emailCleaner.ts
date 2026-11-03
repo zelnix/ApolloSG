@@ -4,6 +4,24 @@
  * for the backend analysis engine.
  */
 
+/** Decode common HTML entities found in email text.
+ *  Applied unconditionally — entities can survive in text that had its tags stripped
+ *  elsewhere (by the email client, the backend, or a previous processing step). */
+export function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&[a-zA-Z]+;/g, " ");
+}
+
 /** Strip HTML tags and decode common entities. */
 function stripHtml(html: string): string {
   let text = html
@@ -13,17 +31,9 @@ function stripHtml(html: string): string {
     // Block-level elements → newline
     .replace(/<\/?(div|p|br|tr|li|h[1-6]|blockquote|section|article|header|footer|table|thead|tbody|hr)[^>]*>/gi, "\n")
     // Remove all remaining tags
-    .replace(/<[^>]+>/g, "")
-    // Decode common HTML entities
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&[a-zA-Z]+;/g, " ");
+    .replace(/<[^>]+>/g, "");
+  // Decode entities (shared with non-HTML text)
+  text = decodeHtmlEntities(text);
   return text;
 }
 
@@ -102,6 +112,9 @@ export function cleanEmailForDisplay(raw: string): string {
   const isHtml = /<(?:html|head|body|div|p|span|table|tr|td|a |br|img)\b/i.test(text);
   if (isHtml) {
     text = stripHtml(text);
+  } else {
+    // Even non-HTML text can contain entities from partial processing (e.g. &nbsp;)
+    text = decodeHtmlEntities(text);
   }
 
   text = cleanUrls(text);

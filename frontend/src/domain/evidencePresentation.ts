@@ -6,6 +6,7 @@
 // reaction and comment counts) is deliberately absent: the Evidence tab shows evidence, never a
 // reconstruction of the app it came from.
 
+import { decodeHtmlEntities } from "./emailCleaner.ts";
 import type { OriginalSource } from "@/src/store/originalSource";
 
 export type EvidenceLayout = "email" | "screenshot" | "message" | "chat" | "post";
@@ -60,7 +61,8 @@ export function linksIn(...values: (string | null | undefined)[]): string[] {
   return [...new Set(found.map((u) => u.replace(/[.,;:]$/, "")))];
 }
 
-/** Header lines the captured text itself carries. Parsing is reading — every value is in the bytes. */
+/** Header lines the captured text itself carries. Parsing is reading — every value is in the bytes.
+ *  HTML entities are decoded since email text may have been partially processed upstream. */
 function parseHeaders(text: string | null | undefined): { fields: EvidenceField[]; body: string | null } {
   if (!text) return { fields: [], body: null };
   const lines = text.split("\n");
@@ -70,9 +72,9 @@ function parseHeaders(text: string | null | undefined): { fields: EvidenceField[
     const line = lines[i].trim();
     if (!line) { if (fields.length) continue; break; }
     const header = line.match(HEADER_LINE);
-    if (header) { fields.push({ label: titleCase(header[1]), value: header[2].trim() }); continue; }
+    if (header) { fields.push({ label: titleCase(header[1]), value: decodeHtmlEntities(header[2].trim()) }); continue; }
     const fromPrefix = line.match(FROM_PREFIX);
-    if (fromPrefix && !fields.some((f) => /^from$/i.test(f.label))) { fields.push({ label: "From", value: fromPrefix[1].trim() }); continue; }
+    if (fromPrefix && !fields.some((f) => /^from$/i.test(f.label))) { fields.push({ label: "From", value: decodeHtmlEntities(fromPrefix[1].trim()) }); continue; }
     break;
   }
   const body = lines.slice(i).join("\n").trim();
@@ -149,7 +151,7 @@ export function describeArtefact(src: OriginalSource, hasImage = false): Artefac
     occurredAt: valueOf(fields, LABEL.time),
     fields,
     attachments: fields.filter((f) => LABEL.attachment.test(f.label.trim())).map((f) => f.value),
-    body: src.fields?.length ? (src.text?.trim() || null) : parsed.body,
+    body: decodeHtmlEntities(src.fields?.length ? (src.text?.trim() || "") : (parsed.body || "")) || null,
     links: linksIn(src.text, src.url),
     bannerTitle: `This is the original ${banner}`,
     bannerBody: `You are viewing the exact ${banner} ${src.origin === "this_device" ? "as captured on this device" : "ApolloSG received for this investigation"}. It is stored only on this device and has not been modified.`,
