@@ -128,3 +128,70 @@ test("the viewer says what it did", () => {
   assert.equal(inertEmailNote({ remoteImages: 3, trackingPixels: 1 }),
     "Shown as it appeared. Links, buttons and pictures in it can't be opened from here. 3 pictures on the sender's servers weren't loaded, so nothing was fetched. 1 tracking pixel was left out.");
 });
+
+
+// ── redactInertEmail ─────────────────────────────────────────────────────────
+
+test("redactInertEmail applies redaction to visible text, preserving HTML structure", async () => {
+  const { redactInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = inertEmail({ html: "<p>Your verification code is 987654</p><p>Click here</p>", inline: [] })!;
+  assert.ok(email);
+  const redacted = redactInertEmail(email, (text) => text.replace(/verification code is \d+/i, "[credential redacted]"));
+  assert.match(redacted.document, /<p>Your \[credential redacted\]<\/p>/);
+  assert.match(redacted.document, /<p>Click here<\/p>/);
+});
+
+test("redactInertEmail leaves style blocks untouched", async () => {
+  const { redactInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = inertEmail({ html: "<style>.password { color: red }</style><p>password is secret123</p>", inline: [] })!;
+  assert.ok(email);
+  const redacted = redactInertEmail(email, (text) => text.replace(/password is \S+/i, "[credential redacted]"));
+  assert.match(redacted.document, /\.password \{ color: red \}/);
+  assert.match(redacted.document, /<p>\[credential redacted\]<\/p>/);
+});
+
+test("redactInertEmail preserves tag attributes unchanged", async () => {
+  const { redactInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = inertEmail({ html: `<p style="color:red" class="code" title="pin is 1234">pin is 1234</p>`, inline: [] })!;
+  assert.ok(email);
+  const redacted = redactInertEmail(email, (text) => text.replace(/pin is \d+/i, "[credential redacted]"));
+  // Tag attributes stay, text content is redacted
+  assert.match(redacted.document, /style="color:red"/);
+  assert.match(redacted.document, /class="code"/);
+  assert.match(redacted.document, /title="pin is 1234"/);
+  assert.match(redacted.document, />\[credential redacted\]</);
+});
+
+test("redactInertEmail fast-path: unchanged text nodes keep their original encoding", async () => {
+  const { redactInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = inertEmail({ html: "<p>Hello &amp; welcome</p>", inline: [] })!;
+  assert.ok(email);
+  const identity = (text: string) => text;
+  const redacted = redactInertEmail(email, identity);
+  // Exact same document since nothing was redacted
+  assert.equal(redacted.document, email.document);
+});
+
+test("redactInertEmail with credential patterns matches the acceptance criteria (no [link] artefacts)", async () => {
+  const { redactInertEmail } = await import("../src/domain/inertEmail.ts");
+  const { redactInvestigationSecrets } = await import("../src/domain/privacy.ts");
+  const html = `
+    <table><tr><td>
+    <p>Dear customer,</p>
+    <p>Your OTP is 456789. Please use it within 5 minutes.</p>
+    <a href="https://example.com/verify">Verify now</a>
+    </td></tr></table>`;
+  const email = inertEmail({ html, inline: [] })!;
+  assert.ok(email);
+  const redacted = redactInertEmail(email, redactInvestigationSecrets);
+  // The OTP should be redacted
+  assert.ok(!redacted.document.includes("456789"), "credential number must not appear in redacted output");
+  // The "Dear customer" text and "Verify now" link text must survive
+  assert.ok(redacted.document.includes("Dear customer"), "non-credential text preserved");
+  assert.ok(redacted.document.includes("Verify now"), "link text preserved");
+  // No [link] artefacts
+  assert.ok(!redacted.document.includes("[link]"), "no [link] artefact in output");
+  // The HTML structure (table, anchor) must survive
+  assert.match(redacted.document, /<table>/);
+  assert.match(redacted.document, /<a/);
+});

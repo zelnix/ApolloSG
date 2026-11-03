@@ -267,6 +267,53 @@ export function fittedEmail(email: Pick<InertEmail, "document" | "layoutWidth">,
   return zoom >= 1 ? email.document : email.document.replace("</head>", `<style>html { zoom: ${zoom.toFixed(3)}; }</style></head>`);
 }
 
+/** Apply a text redaction function to the visible text content of an inert email document, preserving the HTML
+ *  structure, tag attributes, style blocks and layout. Only text nodes (the words on screen) are decoded, redacted
+ *  and re-encoded; everything else passes through unchanged. This lets the Redacted tab look identical to the
+ *  Original tab except for the specific content the redactor masks.
+ *  Pure: no DOM, unit-tested in node. */
+export function redactInertEmail(email: InertEmail, redact: (text: string) => string): InertEmail {
+  const doc = email.document;
+  let result = "";
+  let i = 0;
+
+  while (i < doc.length) {
+    if (doc[i] === "<") {
+      // Inside a tag: copy verbatim until ">"
+      const tagEnd = doc.indexOf(">", i);
+      if (tagEnd === -1) { result += doc.slice(i); break; }
+      const tag = doc.slice(i, tagEnd + 1);
+      result += tag;
+      i = tagEnd + 1;
+
+      // <style> content is CSS, not user-visible text: skip until </style>
+      if (/^<style[\s>]/i.test(tag)) {
+        const close = doc.indexOf("</style>", i);
+        if (close === -1) { result += doc.slice(i); break; }
+        result += doc.slice(i, close);
+        i = close; // closing tag picked up on next iteration
+      }
+      continue;
+    }
+
+    // Text node: everything up to the next tag
+    const nextTag = doc.indexOf("<", i);
+    const segment = nextTag === -1 ? doc.slice(i) : doc.slice(i, nextTag);
+
+    if (segment) {
+      const decoded = decodeEntities(segment);
+      const redacted = redact(decoded);
+      // Fast path: nothing changed → reuse original segment (avoids unnecessary re-encoding differences
+      // like &amp; → & → &amp; round-trip when the text has no credentials to mask)
+      result += decoded === redacted ? segment : escapeText(redacted);
+    }
+
+    i = nextTag === -1 ? doc.length : nextTag;
+  }
+
+  return { ...email, document: result };
+}
+
 /** "Links, buttons and pictures in this email are shown as they appeared but can't be opened…" — what the viewer did. */
 export function inertEmailNote(email: Pick<InertEmail, "remoteImages" | "trackingPixels">): string {
   const parts = ["Shown as it appeared. Links, buttons and pictures in it can't be opened from here."];

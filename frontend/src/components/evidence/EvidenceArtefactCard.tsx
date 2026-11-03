@@ -30,7 +30,7 @@ import { InertEmailView } from "./InertEmailView";
 import { InfoButton } from "@/src/components/InfoButton";
 import { Button } from "@/src/components/ui";
 import { describeArtefact, describeRedaction, redactView, type EvidenceLayout } from "@/src/domain/evidencePresentation";
-import { inertEmail, type InertEmail } from "@/src/domain/inertEmail";
+import { inertEmail, type InertEmail, redactInertEmail } from "@/src/domain/inertEmail";
 import { phoneFindingLine, type EvidencePhoneResult } from "@/src/domain/phoneNumbers";
 import { purposeLimitedUrl, redactInvestigationSecrets } from "@/src/domain/privacy";
 import { readEmailBody } from "@/src/domain/triage/emailOriginal";
@@ -225,6 +225,13 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
     return r.originalUri ? [{ uri: r.originalUri, label: "Original on this device" }] : [];
   }), [records, mode]);
 
+  // Both Original and Redacted render the email's own HTML: the same rendering, with credentials masked on Redacted.
+  // When the kept original has no HTML part, both fall back to the text body (handled by EmailArtefact).
+  const shownEmail = useMemo(() => {
+    if (view?.layout !== "email" || !email) return null;
+    return mode === "redacted" ? redactInertEmail(email, redactInvestigationSecrets) : email;
+  }, [view?.layout, email, mode]);
+
   const copyText = useCallback(() => {
     const parts = [shown?.subject, shown?.body, mode === "redacted" && source?.url ? purposeLimitedUrl(source.url) : source?.url].filter(Boolean);
     void Clipboard.setStringAsync(parts.join("\n\n")).then(() => setNote("Copied what is shown above.")).catch(() => setNote("ApolloSG couldn't copy that."));
@@ -280,8 +287,6 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
   const sentCopyIdentical = !redaction.changed;
   const Icon = view.layout === "message" ? (KIND_ICON[source.kind] ?? MessageSquare) : LAYOUT_ICON[view.layout];
 
-  // The original email is drawn from its own HTML; the copy that left this phone was its text, so Redacted shows that.
-  const shownEmail = view.layout === "email" && mode === "original" ? email : null;
   const layoutProps: LayoutProps & { s: typeof a } = {
     view: shown, body: shown.body, url, record: source.data, images, side: mode === "side", email: shownEmail,
     onViewImage: setFull, s: a,

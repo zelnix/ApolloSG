@@ -4401,3 +4401,83 @@ agent_communication:
     message: "Fixed the P0 bug: incorrect 'Region' and 'All' alert totals on the Scam Alerts screen (frontend/app/higgins/scams.tsx). ROOT CAUSE: regionCount() only counted from the 'alerts' array but ignored the 'emerging' array. FIX: Updated regionCount to sum both arrays, and the toolbar counter to show combined total. Auth: anonymous device auto-registers. Web preview requires completing onboarding to reach the Scam Alerts tab (known limitation). Backend endpoint: GET /api/higgins/scams (device auth required). Please verify: (1) the backend /api/higgins/scams returns both alerts and emerging arrays, (2) the frontend bundle compiles without errors, (3) static analysis confirms both arrays are used in regionCount and toolbar count."
   - agent: "testing"
     message: "SCAM ALERTS REGION COUNT BUG FIX VERIFICATION COMPLETE - ALL TESTS PASSED ✅. Verified the fix for incorrect 'Region' and 'All' alert totals on the Scam Alerts screen. BACKEND: GET /api/higgins/scams returns correct structure with both 'alerts' array (8 specific_scam items) and 'emerging' array (0 emerging_pattern items). All required keys present (alerts, emerging, pendingCount, lastSourcedAt, growling). FRONTEND BUNDLE: Compiles successfully - entry.bundle returns 18.5MB JavaScript (not JSON error). STATIC CODE ANALYSIS (THE CORE OF THE FIX): Line 106 correctly shows 'alerts.filter(...).length + emerging.filter(...).length' - regionCount now sums BOTH arrays. Line 200 correctly shows 'shown.length + shownEmerging.length' - toolbar count includes both types. regionMatch function handles all filter options correctly (ALL, AU, US, UK, EU, GLOBAL). The fix is WORKING correctly. Region chip counts and 'All' total now include BOTH specific alerts (alerts array) AND emerging patterns (emerging array). Test file: /app/backend_test.py. Total: 4/4 tests passed. READY FOR MAIN AGENT TO SUMMARIZE AND FINISH."
+
+
+
+## 2026-11-04 Email Evidence Rendering — Original and Redacted tabs use the same HTML renderer
+
+frontend:
+  - task: "Add redactInertEmail function to walk HTML document and apply text redaction only to text nodes"
+    implemented: true
+    working: true
+    file: "frontend/src/domain/inertEmail.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "main"
+        working: true
+        comment: "Added new function redactInertEmail(email: InertEmail, redact: (text: string) => string): InertEmail. Walks the HTML document, applies text redaction only to text nodes (between tags). Preserves HTML structure, tag attributes, style blocks. Decodes HTML entities before redacting, re-encodes after. Fast-path: if nothing changed, reuses original HTML segment."
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: redactInertEmail function working correctly. All 16 inert email tests PASSED including 5 new tests for redactInertEmail: (1) Applies redaction to visible text, preserving HTML structure. (2) Leaves style blocks untouched. (3) Preserves tag attributes unchanged. (4) Fast-path: unchanged text nodes keep original encoding. (5) With credential patterns: no [link] artefacts in output. Static code analysis confirms: function walks HTML document (while loop), preserves style blocks (regex check), decodes entities before redacting, fast-path optimization (decoded === redacted check). Implementation matches specification exactly."
+
+  - task: "Update EvidenceArtefactCard.tsx to use redactInertEmail for both Original and Redacted modes"
+    implemented: true
+    working: true
+    file: "frontend/src/components/evidence/EvidenceArtefactCard.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "main"
+        working: true
+        comment: "Changed how shownEmail is computed: previously mode === 'original' ? email : null (Redacted got null → flat text). Now: mode === 'redacted' ? redactInertEmail(email, redactInvestigationSecrets) : email (both modes use HTML rendering). Moved the useMemo before early returns to satisfy React hooks rules."
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: EvidenceArtefactCard.tsx correctly uses redactInertEmail. Static code analysis confirms: (1) redactInertEmail imported from inertEmail.ts. (2) shownEmail useMemo at line 230-233 uses 'mode === \"redacted\" ? redactInertEmail(email, redactInvestigationSecrets) : email'. (3) useMemo is placed BEFORE all early returns (lines 248, 261, 276). (4) Both Original and Redacted mode pass an InertEmail object (not null) to EmailArtefact. ESLint reports no errors (1 minor warning about import ordering in inertEmail.ts, not critical). Implementation satisfies React hooks rules and acceptance criteria."
+
+  - task: "Frontend test suites pass (inertEmail.test.ts and evidencePresentation.test.ts)"
+    implemented: true
+    working: true
+    file: "frontend/tests/inertEmail.test.ts, frontend/tests/evidencePresentation.test.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "main"
+        working: true
+        comment: "Added 5 new tests for redactInertEmail to inertEmail.test.ts. All tests should pass."
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: All frontend test suites PASSED. (1) Inert email test suite: 16/16 tests passed (11 existing + 5 new redactInertEmail tests). New tests verify: redaction applies to visible text preserving HTML structure, style blocks untouched, tag attributes preserved, fast-path optimization works, no [link] artefacts with credential patterns. (2) Evidence presentation test suite: 15/15 tests passed. No regressions detected. Test execution time: inertEmail 21ms, evidencePresentation 12ms."
+
+  - task: "Frontend bundle compiles without errors"
+    implemented: true
+    working: true
+    file: "frontend/src/*"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Frontend bundle compiles successfully. GET http://localhost:3000 returns HTTP 200. No compilation errors. ESLint clean on both changed files (0 errors, 1 minor warning about import ordering which is a style preference, not a functional issue)."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 2
+  run_ui: false
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented email evidence rendering fix: Original and Redacted tabs now use the same HTML renderer. FILE 1: frontend/src/domain/inertEmail.ts - Added redactInertEmail function that walks HTML document, applies text redaction only to text nodes, preserves HTML structure/attributes/styles, decodes entities before redacting, fast-path optimization. FILE 2: frontend/src/components/evidence/EvidenceArtefactCard.tsx - Changed shownEmail computation from mode === 'original' ? email : null to mode === 'redacted' ? redactInertEmail(email, redactInvestigationSecrets) : email. Moved useMemo before early returns. FILE 3: frontend/tests/inertEmail.test.ts - Added 5 new tests for redactInertEmail. Please verify: (1) Run inert email test suite (expect 16/16 pass), (2) Run evidence presentation test suite (expect 15/15 pass), (3) Static code analysis of EvidenceArtefactCard.tsx, (4) Frontend bundle compiles."
+  - agent: "testing"
+    message: "EMAIL EVIDENCE RENDERING VERIFICATION COMPLETE - ALL TESTS PASSED ✅. Verified that Original and Redacted tabs now use the same HTML renderer with credentials masked only in Redacted mode. ACCEPTANCE CRITERIA: (1) Inert email test suite: 16/16 tests PASSED (11 existing + 5 new redactInertEmail tests). (2) Evidence presentation test suite: 15/15 tests PASSED. (3) Static code analysis: EvidenceArtefactCard.tsx correctly uses redactInertEmail in useMemo (line 232), useMemo placed BEFORE all early returns (lines 248, 261, 276), both modes pass InertEmail object. (4) ESLint: 0 errors (1 minor warning about import ordering, not critical). (5) Frontend bundle: Compiles successfully, GET http://localhost:3000 returns 200. IMPLEMENTATION VERIFIED: redactInertEmail walks HTML document, applies redaction only to text nodes, preserves HTML structure/tag attributes/style blocks, decodes entities before redacting, re-encodes after, fast-path optimization when nothing changed. RESULT: Switching Original ↔ Redacted now looks like viewing two versions of the same email. Original = faithful safe rendering (InertEmailView with original HTML). Redacted = same rendering with sensitive information masked (InertEmailView with redacted HTML). No '[link] [link] [link]' output in either view. Test file: /app/test_email_evidence_rendering.py. All acceptance criteria met. READY FOR MAIN AGENT TO SUMMARIZE AND FINISH."
