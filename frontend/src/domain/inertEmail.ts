@@ -314,6 +314,32 @@ export function redactInertEmail(email: InertEmail, redact: (text: string) => st
   return { ...email, document: result };
 }
 
+/** Build a minimal InertEmail from plain text when the raw .eml HTML is not available.
+ *  Cleans extraction artefacts ([link], [image], [Hero image], …), converts URLs into visible but inert spans,
+ *  and wraps everything in the same locked-down CSP document so the evidence tab renders through InertEmailView
+ *  instead of falling back to flat text. */
+export function textToInertEmail(text: string): InertEmail {
+  // 1. Remove common extraction artefacts: [link], [image], [image: ...], [Hero image], etc.
+  let cleaned = text
+    .replace(/\[(?:link|image)[^\]]*\]/gi, "")         // [link], [image], [image: foo]
+    .replace(/\[(?:encoded content)\]/gi, "")            // [encoded content]
+    .replace(/\[(?:Unsubscribe link)\]/gi, "")           // [Unsubscribe link]
+    .replace(/\n{3,}/g, "\n\n")                         // collapse excess blank lines from removals
+    .trim();
+  // 2. Escape for HTML
+  cleaned = escapeText(cleaned);
+  // 3. Convert URLs to visible, styled but inert spans (pointer-events: none is in BASE_CSS)
+  cleaned = cleaned.replace(
+    /https?:\/\/[^\s"')]+/g,
+    (url) => `<span style="color:#1155CC;word-break:break-all">${url}</span>`,
+  );
+  // 4. Preserve paragraphs
+  cleaned = cleaned.split(/\n{2,}/).map((p) => `<p style="margin:0 0 12px">${p.replace(/\n/g, "<br>")}</p>`).join("\n");
+  // 5. Wrap in the same locked-down document the real inertEmail produces
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${CSP}"><style>${BASE_CSS}</style></head><body>${cleaned}</body></html>`;
+  return { document: doc, links: [], layoutWidth: null, remoteImages: 0, trackingPixels: 0 };
+}
+
 /** "Links, buttons and pictures in this email are shown as they appeared but can't be opened…" — what the viewer did. */
 export function inertEmailNote(email: Pick<InertEmail, "remoteImages" | "trackingPixels">): string {
   const parts = ["Shown as it appeared. Links, buttons and pictures in it can't be opened from here."];

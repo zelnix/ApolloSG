@@ -195,3 +195,52 @@ test("redactInertEmail with credential patterns matches the acceptance criteria 
   assert.match(redacted.document, /<table>/);
   assert.match(redacted.document, /<a/);
 });
+
+
+// ── textToInertEmail (plain-text fallback for evidence tab) ───────────────────
+
+test("textToInertEmail removes [link] and [image] artefacts", async () => {
+  const { textToInertEmail } = await import("../src/domain/inertEmail.ts");
+  const text = "Hello [link] world [image: banner] [link] end";
+  const email = textToInertEmail(text);
+  assert.ok(!email.document.includes("[link]"), "no [link] in output");
+  assert.ok(!email.document.includes("[image"), "no [image in output");
+  assert.ok(email.document.includes("Hello"), "preserves real text");
+  assert.ok(email.document.includes("world"), "preserves real text");
+  assert.ok(email.document.includes("end"), "preserves real text");
+});
+
+test("textToInertEmail wraps text in a locked-down CSP document", async () => {
+  const { textToInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = textToInertEmail("Just a paragraph.");
+  assert.match(email.document, /Content-Security-Policy/);
+  assert.match(email.document, /script-src 'none'/);
+  assert.match(email.document, /<body>/);
+  assert.match(email.document, /Just a paragraph\./);
+});
+
+test("textToInertEmail makes URLs visible but inert", async () => {
+  const { textToInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = textToInertEmail("Visit https://example.com/page today");
+  assert.match(email.document, /https:\/\/example\.com\/page/);
+  // URL should be in a span, not an <a> tag
+  assert.match(email.document, /<span/);
+  assert.ok(!email.document.includes("<a "), "no anchor tags — URLs are inert");
+});
+
+test("textToInertEmail preserves paragraph breaks", async () => {
+  const { textToInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = textToInertEmail("First paragraph.\n\nSecond paragraph.");
+  // Should have two <p> elements
+  const pCount = (email.document.match(/<p /g) ?? []).length;
+  assert.ok(pCount >= 2, `expected at least 2 paragraphs, got ${pCount}`);
+});
+
+test("textToInertEmail returns zero links, zero remote images", async () => {
+  const { textToInertEmail } = await import("../src/domain/inertEmail.ts");
+  const email = textToInertEmail("Check https://example.com and https://other.com");
+  assert.equal(email.links.length, 0, "no extractable links — it's a text fallback");
+  assert.equal(email.remoteImages, 0);
+  assert.equal(email.trackingPixels, 0);
+  assert.equal(email.layoutWidth, null);
+});

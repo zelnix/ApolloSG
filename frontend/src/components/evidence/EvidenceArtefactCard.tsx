@@ -30,7 +30,7 @@ import { InertEmailView } from "./InertEmailView";
 import { InfoButton } from "@/src/components/InfoButton";
 import { Button } from "@/src/components/ui";
 import { describeArtefact, describeRedaction, redactView, type EvidenceLayout } from "@/src/domain/evidencePresentation";
-import { inertEmail, type InertEmail, redactInertEmail } from "@/src/domain/inertEmail";
+import { inertEmail, type InertEmail, redactInertEmail, textToInertEmail } from "@/src/domain/inertEmail";
 import { phoneFindingLine, type EvidencePhoneResult } from "@/src/domain/phoneNumbers";
 import { purposeLimitedUrl, redactInvestigationSecrets } from "@/src/domain/privacy";
 import { readEmailBody } from "@/src/domain/triage/emailOriginal";
@@ -225,12 +225,15 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
     return r.originalUri ? [{ uri: r.originalUri, label: "Original on this device" }] : [];
   }), [records, mode]);
 
-  // Both Original and Redacted render the email's own HTML: the same rendering, with credentials masked on Redacted.
-  // When the kept original has no HTML part, both fall back to the text body (handled by EmailArtefact).
+  // Both Original and Redacted render the email's own HTML: same rendering, credentials masked on Redacted.
+  // When the kept .eml has HTML → use it. Otherwise, wrap the captured text in styled HTML so the evidence tab
+  // NEVER falls back to flat text with [link] artefacts.
   const shownEmail = useMemo(() => {
-    if (view?.layout !== "email" || !email) return null;
-    return mode === "redacted" ? redactInertEmail(email, redactInvestigationSecrets) : email;
-  }, [view?.layout, email, mode]);
+    if (view?.layout !== "email") return null;
+    const base = email ?? (view.body ? textToInertEmail(view.body) : null);
+    if (!base) return null;
+    return mode === "redacted" ? redactInertEmail(base, redactInvestigationSecrets) : base;
+  }, [view?.layout, view?.body, email, mode]);
 
   const copyText = useCallback(() => {
     const parts = [shown?.subject, shown?.body, mode === "redacted" && source?.url ? purposeLimitedUrl(source.url) : source?.url].filter(Boolean);

@@ -27,7 +27,7 @@ import {
 } from "@/src/domain/caseSourceSummary";
 import { callNumberOf } from "@/src/domain/numberDetails";
 import { isEmailCase, NOT_PROVIDED } from "@/src/domain/emailRecord";
-import { inertEmail, type InertEmail } from "@/src/domain/inertEmail";
+import { inertEmail, type InertEmail, textToInertEmail } from "@/src/domain/inertEmail";
 import { readEmailBody } from "@/src/domain/triage/emailOriginal";
 import { formatDateTime } from "@/src/domain/threatCase";
 import { InertEmailView } from "@/src/components/evidence/InertEmailView";
@@ -261,9 +261,9 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
           </View>
           {expandable && open ? (
             <>
-              {email && emailHtml ? (
+              {email && (emailHtml || preview.body) ? (
                 <View style={s.emailHtmlWrap} testID={`${testID}-email-html`}>
-                  <InertEmailView email={emailHtml} style={s.emailView} testID={`${testID}-email-view`} />
+                  <InertEmailView email={emailHtml ?? textToInertEmail(preview.body!)} style={s.emailView} testID={`${testID}-email-view`} />
                 </View>
               ) : email && preview.body ? <Text style={s.fullText} selectable testID={`${testID}-body`}>{preview.body}</Text> : null}
               {preview.details.length ? (
