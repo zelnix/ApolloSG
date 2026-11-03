@@ -4847,3 +4847,36 @@ Report: `/app/memory/REPORT_2026-11-01_evidence_retention.md`; proof: `/app/test
 - CommBank Sydney landline 02 9999 3283 → verified, Landline, NSW/ACT
 - Unknown mobile 0412000000 → unknown, Mobile, Optus
 
+
+
+## ApolloSG Phone Number Identity — Phase 4: Higgins Explanation + 22 Acceptance Tests (2026-11-03)
+
+**Part A: Higgins Plain-English Explanation**
+- Created `src/domain/phoneIdentityExplanation.ts` — deterministic (no AI) explanation generator:
+  - `explainIdentity(result)` → `IdentityExplanation` with:
+    - `headline`: one-line finding ("This is CommBank's published number." / "Apollo couldn't identify who this number belongs to.")
+    - `body`: 2–4 sentence Higgins paragraph (what was found, what evidence means)
+    - `whatToDo`: actionable advice based on confidence level
+    - `spoofing`: caller-ID spoofing awareness (null for verified/unknown)
+    - `scamWarning`: IPQS/abuse intel passthrough
+    - `impersonationWarning`: when number claims identity that doesn't match org's published numbers
+
+- Integrated into `PhoneIdentityCard.tsx`:
+  - "Higgins says" section with headline + body paragraph
+  - "What to do" section with actionable advice
+  - Spoofing/impersonation/scam warnings driven by the explanation generator
+
+**Part B: 22 Acceptance Test Scenarios**
+- Created `tests/phoneIdentityAcceptance.test.ts` — all 22 passing:
+  - A1-A6: Normalization (mobile, landline, service, 1300, international, edge cases)
+  - B7-B12: Identity resolution integration tests (CommBank verified, landline+geographic, unknown mobile, caching, input validation 422, auth 401)
+  - C13-C17: Association assessment (verified, strong, strong-multi-web, possible, conflicting)
+  - D18-D22: Explanation generation (verified headline/body, unknown non-alarmist, spoofing awareness, scam intel, impersonation warning)
+- All 48 Phase 1 tests still green
+- All 12 backend tests still green
+
+**Files created/modified:**
+- `src/domain/phoneIdentityExplanation.ts` (new — explanation generator)
+- `tests/phoneIdentityAcceptance.test.ts` (new — 22 acceptance tests)
+- `src/components/PhoneIdentityCard.tsx` (updated — Higgins explanation integration)
+

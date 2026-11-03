@@ -20,6 +20,7 @@ import {
 } from "react-native";
 
 import { identifyNumber, type PhoneIdentityResult } from "@/src/api/phoneIdentity";
+import { explainIdentity, type IdentityExplanation } from "@/src/domain/phoneIdentityExplanation";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
 /* ── Confidence display mapping ───────────────────────────────────────────── */
@@ -32,14 +33,6 @@ const CONFIDENCE_LABEL: Record<Confidence, string> = {
   possible: "Possible match",
   unknown: "Unknown",
   conflicting: "Conflicting info",
-};
-
-const CONFIDENCE_DESCRIPTION: Record<Confidence, string> = {
-  verified: "This number is published on the organisation's own website.",
-  strong: "Multiple independent sources associate this number with this organisation.",
-  possible: "One or more sources mention this number, but it hasn't been confirmed on official channels.",
-  unknown: "Apollo couldn't determine who this number belongs to from its available sources.",
-  conflicting: "Different sources name different organisations for this number. Treat the caller's identity as unverified.",
 };
 
 /* ── Styles ────────────────────────────────────────────────────────────────── */
@@ -197,6 +190,41 @@ const useStyles = makeStyles((c) => ({
     fontSize: 14,
     color: c.muted,
   },
+  higginsSection: {
+    gap: spacing.sm,
+  },
+  higginsLabel: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    textTransform: "uppercase" as const,
+    color: c.muted,
+  },
+  higginsBody: {
+    fontFamily: fonts.text,
+    fontSize: 14,
+    lineHeight: 21,
+    color: c.onSurface,
+  },
+  whatToDo: {
+    gap: spacing.sm,
+    backgroundColor: c.surfaceTertiary,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  whatToDoLabel: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    textTransform: "uppercase" as const,
+    color: c.muted,
+  },
+  whatToDoText: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: c.onSurface,
+  },
   freshness: {
     fontFamily: fonts.text,
     fontSize: 11,
@@ -260,6 +288,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
 
   const badgeColors = confidenceBadgeColors(association_confidence, colors);
   const ConfidenceIcon = confidenceIcon(association_confidence);
+  const explanation = explainIdentity(result);
 
   return (
     <View style={s.card} testID={testID}>
@@ -288,34 +317,44 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         </Text>
       </View>
 
-      {/* Description */}
-      <Text style={s.description}>{CONFIDENCE_DESCRIPTION[association_confidence]}</Text>
+      {/* Higgins says — plain-English explanation */}
+      <View style={s.higginsSection}>
+        <Text style={s.higginsLabel}>Higgins says</Text>
+        <Text style={s.higginsBody} testID={testID ? `${testID}-headline` : undefined}>
+          {explanation.headline}
+        </Text>
+        <Text style={s.description}>{explanation.body}</Text>
+      </View>
 
-      {/* Spoofing awareness (always shown for identified numbers) */}
-      {associated_entity && association_confidence !== "verified" ? (
+      {/* What to do */}
+      <View style={s.whatToDo}>
+        <Text style={s.whatToDoLabel}>What to do</Text>
+        <Text style={s.whatToDoText} testID={testID ? `${testID}-advice` : undefined}>
+          {explanation.whatToDo}
+        </Text>
+      </View>
+
+      {/* Spoofing awareness (from explanation — shown for non-verified identified numbers) */}
+      {explanation.spoofing ? (
         <View style={s.spoofing} testID={testID ? `${testID}-spoofing` : undefined}>
           <TriangleAlert size={16} color={colors.growlingText} />
-          <Text style={s.spoofingText}>
-            Caller ID can be spoofed. Even when a number is associated with an organisation, verify the caller independently before sharing sensitive information.
-          </Text>
+          <Text style={s.spoofingText}>{explanation.spoofing}</Text>
         </View>
       ) : null}
 
       {/* Known impersonation warning */}
-      {known_impersonation ? (
+      {explanation.impersonationWarning ? (
         <View style={s.scamIntel} testID={testID ? `${testID}-impersonation` : undefined}>
           <ShieldAlert size={16} color={colors.barkingText} />
-          <Text style={s.scamText}>
-            This number is not published by the organisation it claims to be from. It may be spoofing a legitimate organisation.
-          </Text>
+          <Text style={s.scamText}>{explanation.impersonationWarning}</Text>
         </View>
       ) : null}
 
       {/* Scam intel */}
-      {scam_intel ? (
+      {explanation.scamWarning ? (
         <View style={s.scamIntel} testID={testID ? `${testID}-scam` : undefined}>
           <ShieldAlert size={16} color={colors.barkingText} />
-          <Text style={s.scamText}>{scam_intel}</Text>
+          <Text style={s.scamText}>{explanation.scamWarning}</Text>
         </View>
       ) : null}
 
