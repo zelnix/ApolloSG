@@ -57,6 +57,7 @@
     "test:family": "node --test tests/familyWeekly.test.ts",
     "test:higgins": "node --test tests/higginsGreeting.test.ts",
     "test:fit": "node --test tests/theme-fit.test.ts",
+    "test:phone-identity": "node --test tests/phoneIdentity.test.ts",
     "test:narration": "node --test tests/higginsNarration.test.ts",
     "test:truth": "node --test tests/protectionTruth.test.ts",
     "test:failure": "node --test tests/failureModes.test.ts",
