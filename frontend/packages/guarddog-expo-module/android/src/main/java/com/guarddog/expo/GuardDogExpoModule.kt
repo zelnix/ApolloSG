@@ -170,16 +170,19 @@ class GuardDogExpoModule : Module() {
             val config = GuardDogVpnRuntime.config ?: throw CodedException("ERR_NOT_CONFIGURED", "configure() not called", null)
             if (!state.consentGranted || VpnService.prepare(context) != null) throw CodedException("ERR_CONSENT", "VPN consent not granted", null)
             if (engine.acceptedBundle() == null) throw CodedException("ERR_NO_BUNDLE", "no accepted signed rule bundle", null)
-            // Resolve + verify DNS/IP binding, then run the rule authority chain BEFORE the service starts.
+            // Physical-device fix (2026-06, P1): binding check is best-effort. On real carrier
+            // networks the BlockTest host may fail DNS. The VPN service has its own off-thread
+            // binding check and falls back to Website Gate-only mode gracefully.
             val binding = ControlledEndpointResolver(config, GuardDogVpnRuntime.resolver).verifyBinding()
-            val ipv4 = when (binding) {
-                is BindingResult.Match -> binding.ipv4
-                is BindingResult.Mismatch -> { state.transition(VpnLifecycleState.Failed("DNS/IP mismatch")); throw CodedException("ERR_DNS_BINDING", "resolved ${binding.resolved} != ${binding.expected}", null) }
-                is BindingResult.ResolutionFailed -> { state.transition(VpnLifecycleState.Failed("resolution failed")); throw CodedException("ERR_DNS_BINDING", "host did not resolve", null) }
-            }
-            when (val auth = engine.authorizeControlledTarget(config.controlledHost, ipv4)) {
-                is BlockAuthorization.NotAuthorized -> throw CodedException("ERR_RULE_AUTHORITY", auth.reason, null)
-                is BlockAuthorization.Authorized -> Unit
+            when (binding) {
+                is BindingResult.Match -> {
+                    when (val auth = engine.authorizeControlledTarget(config.controlledHost, binding.ipv4)) {
+                        is BlockAuthorization.NotAuthorized -> android.util.Log.w("GuardDogBridge", "BlockTest rules rejected (${auth.reason}); proceeding with Website Gate-only")
+                        is BlockAuthorization.Authorized -> Unit
+                    }
+                }
+                is BindingResult.Mismatch -> android.util.Log.w("GuardDogBridge", "BlockTest DNS/IP mismatch; proceeding with Website Gate-only")
+                is BindingResult.ResolutionFailed -> android.util.Log.w("GuardDogBridge", "BlockTest host did not resolve; proceeding with Website Gate-only")
             }
             context.startForegroundService(Intent(context, GuardDogVpnService::class.java).setAction(GuardDogVpnService.ACTION_START))
             promise.resolve(GuardDogExpoAdapters.toRecord(state.current()))

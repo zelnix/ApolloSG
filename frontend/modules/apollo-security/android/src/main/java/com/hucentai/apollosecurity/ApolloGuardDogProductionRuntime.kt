@@ -295,12 +295,29 @@ internal class ApolloGuardDogProductionRuntime(private val context: Context) {
     requireProductionEnabled(); val activeConfig = checkNotNull(config); check(ruleBundleCurrent()) { "ApolloSG's Threat Domain List is missing or out of date" }
     check(VpnService.prepare(context) == null) { "VPN consent is not granted" }
     val activeEngine = checkNotNull(engine)
-    // Controlled endpoint is optional — only resolve, verify, and authorize when configured
+    // Controlled endpoint binding: attempt when configured, but NOT fatal on failure.
+    // Physical-device fix (2026-06, P1): on real carrier networks the BlockTest host
+    // (apolloverify.harmonywellnessgroup.com.au) may fail DNS resolution, return a CDN
+    // IP, or time out. Previously this threw and aborted the entire start — even though
+    // the VPN service's own off-thread binding check would have gracefully fallen back to
+    // Website Gate-only mode (establishWithoutBlockTest). Now: succeed → authorize M1;
+    // fail → log + proceed, the service handles the fallback to M2 Website Gate-only.
     if (activeConfig.hasControlledEndpoint) {
-      val resolved = when (val binding = ControlledEndpointResolver(activeConfig.vpn(), GuardDogVpnRuntime.resolver).verifyBinding()) {
-        is BindingResult.Match -> binding.ipv4; is BindingResult.Mismatch -> error("DNS/IP binding mismatch"); is BindingResult.ResolutionFailed -> error("Controlled host did not resolve")
+      try {
+        val binding = ControlledEndpointResolver(activeConfig.vpn(), GuardDogVpnRuntime.resolver).verifyBinding()
+        when (binding) {
+          is BindingResult.Match -> {
+            val auth = activeEngine.authorizeControlledTarget(activeConfig.controlledHost!!, binding.ipv4)
+            if (auth !is BlockAuthorization.Authorized) {
+              android.util.Log.w("GuardDogProd", "BlockTest authorized but rules rejected it; Website Gate-only protection will start")
+            }
+          }
+          is BindingResult.Mismatch -> android.util.Log.w("GuardDogProd", "BlockTest DNS/IP mismatch (expected ${binding.expected}, resolved ${binding.resolved}); Website Gate-only protection will start")
+          is BindingResult.ResolutionFailed -> android.util.Log.w("GuardDogProd", "BlockTest host did not resolve (${binding.host}); Website Gate-only protection will start")
+        }
+      } catch (e: Exception) {
+        android.util.Log.w("GuardDogProd", "BlockTest binding check failed: ${e.message}; Website Gate-only protection will start")
       }
-      check(activeEngine.authorizeControlledTarget(activeConfig.controlledHost!!, resolved) is BlockAuthorization.Authorized) { "Rules did not authorize the controlled target" }
     }
     val upstream = checkNotNull(networkObserver.currentIpv4Dns()) { "No physical-network IPv4 DNS resolver is currently available" }
     observedUpstreamDns = upstream
@@ -343,7 +360,31 @@ internal class ApolloGuardDogProductionRuntime(private val context: Context) {
     val bundleExpiry = acceptedBundleExpiresAt ?: return false
     return now.isBefore(bundleExpiry) && engine?.acceptedBundle() != null
   }
-  private fun actualOperational(): Boolean { val runtime = RecoveryInspector.inspect(context, state); return ruleBundleCurrent() && state.current().state == ProtectionState.ACTIVE && runtime.tunOpen && runtime.selectiveRouteActive && runtime.dropReporterAttached && GuardDogVpnRuntime.websiteGateActive }
+  /**
+   * Physical-device fix (2026-06, P1 Android VPN failure): when the BlockTest controlled endpoint
+   * (`apolloverify.harmonywellnessgroup.com.au`) does not resolve on a physical network (carrier DNS
+   * filtering, DNS hijacking, or the endpoint is simply unreachable), `GuardDogVpnService` correctly
+   * falls back to `establishWithoutBlockTest()`, which starts the M2 Website Gate DNS/sinkhole
+   * pipeline WITHOUT an M1 `PacketDropReporter`. The previous `actualOperational()` required BOTH
+   * `dropReporterAttached` (M1) AND `websiteGateActive` (M2), so it returned false in Website
+   * Gate-only mode — causing `startLocked()` to time out after 8 seconds and KILL the working VPN.
+   *
+   * Fix: at least ONE enforcement mechanism (M1 drop reporter OR M2 Website Gate) must be active.
+   * Both fields remain truthfully reported in [statusLocked] — this change only affects the
+   * operational DERIVATION, not the raw observations.
+   */
+  private fun actualOperational(): Boolean {
+    val runtime = RecoveryInspector.inspect(context, state)
+    // At least one enforcement pipeline must be active:
+    // - M1: PacketDropReporter (controlled endpoint /32 route packet matching)
+    // - M2: Website Gate (DNS sinkhole pipeline)
+    val enforcing = runtime.dropReporterAttached || GuardDogVpnRuntime.websiteGateActive
+    return ruleBundleCurrent() &&
+      state.current().state == ProtectionState.ACTIVE &&
+      runtime.tunOpen &&
+      runtime.selectiveRouteActive &&
+      enforcing
+  }
 
   fun status(): String = transitions.serialized { if (!ruleBundleCurrent() && ownsEnforcement()) stopLocked() else statusLocked() }
   private fun statusLocked(recheckAuthority: Boolean = true): String {
@@ -353,7 +394,8 @@ internal class ApolloGuardDogProductionRuntime(private val context: Context) {
     val reason = when {
       acceptedBundleExpiresAt == null -> "ApolloSG hasn't received its Threat Domain List yet"; recheckAuthority && !ruleBundleCurrent() -> "ApolloSG's Threat Domain List is out of date"
       !operational && systemStartFailure != null -> "Android asked ApolloSG to reconnect its protection (Always-on VPN) and it couldn't: $systemStartFailure"
-      requested && !GuardDogVpnRuntime.websiteGateActive -> "Website Gate DNS/sinkhole runtime is inactive"; requested && !operational -> "TUN/route/reporter observations are incomplete"; else -> null }
+      requested && !GuardDogVpnRuntime.websiteGateActive && !runtime.dropReporterAttached -> "No enforcement pipeline is active (neither Website Gate DNS nor controlled endpoint packet filter)"
+      requested && !operational -> "TUN/route observations are incomplete"; else -> null }
     // Android only answers these for the app whose VPN is currently connected, so they are read
     // while Apollo's tunnel is up and are otherwise unknown (null) — never "off".
     val alwaysOn: Any = if (operational) ApolloVpnSystemState.alwaysOn() ?: JSONObject.NULL else JSONObject.NULL
