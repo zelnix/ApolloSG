@@ -126,6 +126,14 @@ class Finding(Wire):
     evidence_ids: list[str] = Field(default_factory=list)
     source_ids: list[str] = Field(default_factory=list)
     supersedes_finding_ids: list[str] = Field(default_factory=list)
+    # ── Structured evidence metadata (optional, populated by evidence evaluation) ──
+    subject_attribution: Optional[str] = None        # who/what this finding is about
+    relevance: Optional[Literal["primary", "supporting", "excluded"]] = None
+    exclusion_reason: Optional[str] = None
+    correlation_group: Optional[str] = None          # group ID for correlated findings
+    legitimate_hypothesis: Optional[str] = None      # why this might be legitimate
+    malicious_hypothesis: Optional[str] = None       # why this might be malicious
+    hypothesis_balance: Optional[Literal["legitimate", "malicious", "ambiguous", "verified_threat"]] = None
 
 
 class Question(Wire):

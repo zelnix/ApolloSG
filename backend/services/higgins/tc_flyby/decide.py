@@ -35,6 +35,7 @@ import re
 from dataclasses import dataclass, field
 
 from services.higgins.brand_domains import registrable
+from services.higgins.tc_flyby import evidence_evaluation
 from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Check, Plan, digits
 
 #: Signals that are warning signs (with "concern"). "weak" signals are never a warning sign by themselves.
@@ -163,7 +164,12 @@ def _contradicted(plan_: Plan) -> bool:
 
 
 def provisional(plan_: Plan) -> Decision | None:
-    """The concern outcome the established evidence already supports, if any."""
+    """The concern outcome the established evidence already supports, if any.
+
+    The four-stage evidence evaluation pipeline reviews the provisional result and may
+    advise a downgrade when all supporting evidence has plausible legitimate explanations
+    and no authoritative source confirms a threat.  Verified threats are never downgraded.
+    """
     for c, f in _live(plan_):
         if f["signal"] == "concern" and f["decisive"]:
             return Decision("tc_flyby_search" if c.route == "web_search" else "tc_flyby_official", "confirmed_threat", "threat")
@@ -171,12 +177,22 @@ def provisional(plan_: Plan) -> Decision | None:
     if p and p["stage"] == "full" and not _contradicted(plan_):
         return Decision("tc_flyby_kb", "likely_scam", "pattern")
     if corroborated_impersonation(plan_):
-        return Decision("tc_flyby_official", "concerning", "impersonation")
+        preliminary = Decision("tc_flyby_official", "concerning", "impersonation")
+        # Evidence evaluation: should this impersonation concern be downgraded?
+        downgrade, reason = evidence_evaluation.should_downgrade_provisional(plan_, preliminary.outcome)
+        if downgrade:
+            return None  # let the case proceed to Magnum DI for fuller analysis
+        return preliminary
     if p and p["stage"] == "opening" and not _contradicted(plan_):
         return Decision("tc_flyby_kb", "concerning", "pattern")
     found = signals(plan_)
     if found:
-        return Decision(_route([c for c, _ in found]), "concerning", "signals")
+        preliminary = Decision(_route([c for c, _ in found]), "concerning", "signals")
+        # Evidence evaluation: should this signals-based concern be downgraded?
+        downgrade, reason = evidence_evaluation.should_downgrade_provisional(plan_, preliminary.outcome)
+        if downgrade:
+            return None  # let the case proceed to Magnum DI for fuller analysis
+        return preliminary
     return None
 
 
