@@ -91,6 +91,8 @@ const useStyles = makeStyles((c) => ({
   starterText: { fontFamily: fonts.textMedium, fontSize: 14, color: c.brandPrimary },
 
   composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, backgroundColor: c.glass, borderTopWidth: 1, borderTopColor: c.border },
+  clearRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: spacing.xs, backgroundColor: c.glass, borderTopWidth: 1, borderTopColor: c.border },
+  clearText: { fontFamily: fonts.text, fontSize: 13, color: c.muted },
   repeatRow: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, alignItems: "center" },
   repeatChip: { maxWidth: 240, minHeight: 36, paddingHorizontal: spacing.md, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceSecondary, justifyContent: "center" },
   repeatText: { fontFamily: fonts.textMedium, fontSize: 13, color: c.onSurfaceSecondary },
@@ -556,7 +558,6 @@ export default function Ask() {
             </View>
           </View>
           <View style={s.headerActions}>
-            <Pressable testID="higgins-clear-chat" accessibilityRole="button" accessibilityLabel="Clear chat history" hitSlop={8} style={s.menuBtn} onPress={() => setConfirmClear(true)}><Trash2 size={15} color={colors.onSurface} /></Pressable>
             <AlertsButton testID="higgins-alerts" />
             <Pressable testID="higgins-header-info" accessibilityRole="button" accessibilityLabel="About Higgins" hitSlop={8} style={s.menuBtn} onPress={() => setAboutOpen(true)}><Info size={17} color={colors.onSurface} /></Pressable>
             <AppMenuButton testID="higgins-app-menu" />
@@ -629,6 +630,13 @@ export default function Ask() {
       </ScrollView> : null}
 
       {/* Notifications: the bell in the header carries the "notifications are off" warning dot. */}
+
+      {!investigationMode && chatMessages.length > 0 ? (
+        <Pressable testID="higgins-clear-chat" accessibilityRole="button" onPress={() => setConfirmClear(true)} style={s.clearRow}>
+          <Trash2 size={14} color={colors.muted} />
+          <Text style={s.clearText}>Clear conversation</Text>
+        </Pressable>
+      ) : null}
 
       <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         <Pressable testID="ask-check-button" accessibilityRole="button" accessibilityLabel="Submit something for Higgins to check" onPress={() => setCheckSheetOpen(true)} disabled={busy} style={[s.attachBtn, { opacity: busy ? 0.5 : 1 }]}><CirclePlus size={24} color={colors.brandPrimary} /></Pressable>
