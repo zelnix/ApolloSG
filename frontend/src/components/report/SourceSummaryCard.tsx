@@ -27,16 +27,12 @@ import {
 } from "@/src/domain/caseSourceSummary";
 import { callNumberOf } from "@/src/domain/numberDetails";
 import { isEmailCase, NOT_PROVIDED } from "@/src/domain/emailRecord";
-import { inertEmail, type InertEmail, textToInertEmail } from "@/src/domain/inertEmail";
-import { readEmailBody } from "@/src/domain/triage/emailOriginal";
 import { formatDateTime } from "@/src/domain/threatCase";
-import { InertEmailView } from "@/src/components/evidence/InertEmailView";
 import { NumberDetails } from "./NumberDetails";
 import type { ApolloState, PatrolEvent } from "@/src/domain/types";
 import type { CaseOrigin, EvidenceItem } from "@/src/investigation/types";
 import { listImageEvidence, subscribeImageEvidence, type ImageEvidenceRecord } from "@/src/store/imageEvidence";
 import { getCaseOriginal, originalSourceDeletedAt, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
-import { readKeptOriginalEmail } from "@/src/store/originalEmail";
 import { fonts, makeStyles, radius, spacing, useTheme, type ThemeColors } from "@/src/theme";
 
 type Icon = React.ComponentType<{ size: number; color: string }>;
@@ -44,6 +40,15 @@ const PREVIEW_ICON: Record<PreviewIcon, Icon> = {
   sms: MessageSquare, email: Mail, link: Link, call: Phone, file: FileText, picture: ImageIcon, app: Smartphone, device: Shield, item: FileText,
 };
 const FACT_ICON: Record<DetectionFact["id"], Icon> = { from: Phone, type: MessageSquare, detected_by: Clock, reason: ShieldCheck };
+
+/** Remove extraction artefacts ([link], [image], [image: …]) from an email text summary for clean display. */
+function cleanEmailSummary(text: string): string {
+  return text
+    .replace(/\[(?:link|image)[^\]]*\]/gi, "")
+    .replace(/\[(?:encoded content|Unsubscribe link)\]/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 type CardTone = "sniffing" | "resting" | "ears_up" | "growling" | "barking";
 /** What Apollo detected is tinted by how serious Apollo recorded it as. */
@@ -71,8 +76,6 @@ const useStyles = makeStyles((c) => ({
   detail: { fontFamily: fonts.text, fontSize: 14, lineHeight: 20, color: c.onSurface },
   detailLabel: { fontFamily: fonts.textSemibold, color: c.onSurfaceSecondary },
   fullText: { fontFamily: fonts.text, fontSize: 14, lineHeight: 21, color: c.onSurface, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider },
-  emailHtmlWrap: { paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider, borderRadius: radius.md, overflow: "hidden" as const },
-  emailView: { minHeight: 200, borderRadius: radius.md, backgroundColor: c.surface },
   expand: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, minHeight: 44, borderRadius: radius.md, backgroundColor: c.surface },
   expandText: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.brand },
   tile: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" },
@@ -138,7 +141,6 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
   // Where an earlier version of ApolloSG deleted this phone's copy of the original (a rule since removed).
   const [deletedAt, setDeletedAt] = useState<string | null>(null);
   const [images, setImages] = useState<ImageEvidenceRecord[]>([]);
-  const [emailHtml, setEmailHtml] = useState<InertEmail | null>(null);
   const [open, setOpen] = useState(false);
   const keyList = caseKeys.filter((k): k is string => !!k).join("|");
 
@@ -151,15 +153,7 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
       if (!found) for (const key of keys) gone = gone ?? await originalSourceDeletedAt(key).catch(() => null);
       const pictures = new Map<string, ImageEvidenceRecord>();
       for (const key of keys) for (const r of await listImageEvidence(key).catch(() => [])) pictures.set(r.id, r);
-      // Load the original email HTML for faithful rendering (same pipeline as the Evidence tab).
-      let parsed: InertEmail | null = null;
-      if (found?.kind === "email" || isEmailCase(event, found, gates)) {
-        try {
-          const raw = await readKeptOriginalEmail(keys);
-          if (raw) parsed = inertEmail(readEmailBody(raw));
-        } catch { /* best effort: falls back to text preview */ }
-      }
-      if (live) { setOriginal(found); setDeletedAt(gone); setImages([...pictures.values()]); setEmailHtml(parsed); }
+      if (live) { setOriginal(found); setDeletedAt(gone); setImages([...pictures.values()]); }
     };
     void load();
     const offOriginal = subscribeOriginalSource(() => void load());
@@ -246,7 +240,7 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
               {email && (!open || !preview.body) ? (
                 // The email's own words: a line of them folded (in full once opened), or why there are none.
                 <Text style={s.line} numberOfLines={2} testID={`${testID}-message`}>
-                  {`Message: ${preview.body ? preview.body.replace(/\s+/g, " ").trim() : deletedAt ? DELETED_HERE : NOT_PROVIDED}`}
+                  {`Message: ${preview.body ? cleanEmailSummary(preview.body).replace(/\s+/g, " ").trim() : deletedAt ? DELETED_HERE : NOT_PROVIDED}`}
                 </Text>
               ) : !email && preview.body ? (
                 <Text style={s.line} numberOfLines={open ? undefined : preview.body.includes("\n") ? 10 : 3} selectable={open} testID={`${testID}-body`}>{preview.body}</Text>
@@ -261,11 +255,7 @@ export function SourceSummaryCard({ origin, at, caseKeys, event, evidence, gates
           </View>
           {expandable && open ? (
             <>
-              {email && (emailHtml || preview.body) ? (
-                <View style={s.emailHtmlWrap} testID={`${testID}-email-html`}>
-                  <InertEmailView email={emailHtml ?? textToInertEmail(preview.body!)} style={s.emailView} testID={`${testID}-email-view`} />
-                </View>
-              ) : email && preview.body ? <Text style={s.fullText} selectable testID={`${testID}-body`}>{preview.body}</Text> : null}
+              {email && preview.body ? <Text style={s.fullText} selectable testID={`${testID}-body`}>{cleanEmailSummary(preview.body)}</Text> : null}
               {preview.details.length ? (
                 <View style={s.details} testID={`${testID}-details`}>
                   {preview.details.map((d, i) => (
