@@ -258,18 +258,30 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
   const [result, setResult] = useState<PhoneIdentityResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  const stripped = number?.replace(/[\s\-()]/g, "") ?? "";
+  const valid = stripped.length >= 7;
 
   useEffect(() => {
-    if (!number || number.replace(/[\s\-()]/g, "").length < 7) return;
+    if (!number || !valid) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setResult(null);
     identifyNumber(number, country)
       .then((r) => { if (!cancelled) setResult(r); })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Could not identify this number."); })
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : "Could not identify this number.";
+        console.warn("[PhoneIdentityCard] identifyNumber failed:", msg);
+        if (!cancelled) setError(msg);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [number, country]);
+  }, [number, country, valid, attempt]);
+
+  // Nothing to show when the input is too short
+  if (!number || !valid) return null;
 
   if (loading) {
     return (
@@ -282,7 +294,36 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
     );
   }
 
-  if (error || !result) return null;
+  // Error or no result — show a visible fallback with retry instead of disappearing
+  if (error || !result) {
+    return (
+      <View style={s.card} testID={testID}>
+        <View style={s.header}>
+          <View style={[s.iconWell, { backgroundColor: colors.unknownTint }]}>
+            <CircleQuestionMark size={20} color={colors.unknownText} />
+          </View>
+          <View style={s.headerText}>
+            <Text style={s.title}>Caller identity</Text>
+            <Text style={s.entity}>Lookup unavailable</Text>
+          </View>
+        </View>
+        <Text style={s.description}>
+          {error
+            ? "Apollo couldn't look up this number right now. This may be a temporary network issue."
+            : "No identity information available for this number."}
+        </Text>
+        <Pressable
+          onPress={() => setAttempt((a) => a + 1)}
+          style={[s.badge, { backgroundColor: colors.brandPrimary + "18" }]}
+          accessibilityRole="button"
+          accessibilityLabel="Retry identity lookup"
+          hitSlop={8}
+        >
+          <Text style={[s.badgeText, { color: colors.brandPrimary }]}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   const { associated_entity, association_confidence, evidence, scam_intel, known_impersonation, number_type, network, geographic, freshness } = result;
 
