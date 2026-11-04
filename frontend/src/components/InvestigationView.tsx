@@ -47,6 +47,7 @@ import type { CaseState } from "@/src/investigation/caseStore";
 import * as investigationApi from "@/src/investigation/client";
 import { listLocalReports, saveLocalReport, deleteLocalReport } from "@/src/investigation/localReports";
 import { useApollo } from "@/src/store/ApolloContext";
+import { getCaseOriginal, subscribeOriginalSource, type OriginalSource } from "@/src/store/originalSource";
 import { canResubmit, resubmitLabels, resubmitWaitSeconds } from "@/src/investigation/resubmit";
 import type { ActionProposal, EvidenceItem } from "@/src/investigation/types";
 import { isExecutable, runAction, type ActionOutcome } from "@/src/settings/actions";
@@ -634,14 +635,27 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
 
   // ── Phone number for identity resolution ──
   // When a case started from a call/number check, extract it so the identity card appears alongside the investigation.
-  // Also detect when the person typed a phone number into the text/message field.
+  // Also detect when a phone number appears in the submitted text/message content.
+  const [originalSource, setOriginalSource] = useState<OriginalSource | null>(null);
+  useEffect(() => {
+    const keys = [eventId, caseData?.id].filter((k): k is string => !!k);
+    if (!keys.length) return;
+    let live = true;
+    void getCaseOriginal(keys).then((found) => { if (live) setOriginalSource(found); }).catch(() => {});
+    const off = subscribeOriginalSource(() => void getCaseOriginal(keys).then((found) => { if (live) setOriginalSource(found); }).catch(() => {}));
+    return () => { live = false; off(); };
+  }, [eventId, caseData?.id]);
+
   const phoneNumber = useMemo(() => {
-    const origin = caseData?.origin ?? event?.origin;
-    // Explicit call check
-    const fromCall = callNumberOf(origin, event);
+    // 1. Explicit call check — uses the kept original and the PatrolEvent
+    const fromCall = callNumberOf(originalSource, event);
     if (fromCall) return fromCall;
-    // Text/message checks: if the whole submitted content looks like a phone number, use it
-    const text = origin?.text?.trim() ?? origin?.fields?.find((f) => /^(content|text|message)$/i.test(f.label.trim()))?.value?.trim();
+    // 2. Text/message checks: look for a phone number in the submitted content
+    //    Try the kept OriginalSource first (most reliable), then fall back to the PatrolEvent's recorded preview.
+    const text = originalSource?.text?.trim()
+      ?? originalSource?.fields?.find((f) => /^(content|text|message|number)$/i.test(f.label.trim()))?.value?.trim()
+      ?? event?.source_metadata?.preview?.trim()
+      ?? event?.local_indicator?.trim();
     if (text) {
       // Direct number entry: "0412345678" or "+61 412 345 678" or "13 22 21"
       const stripped = text.replace(/[\s\-().+]/g, "");
@@ -653,7 +667,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       if (parenMatch) return parenMatch[1].trim();
     }
     return null;
-  }, [caseData?.origin, event]);
+  }, [originalSource, event]);
 
   return <View style={{ gap: spacing.md }} testID={testID}>
 
