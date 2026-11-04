@@ -122,7 +122,11 @@ async def lifespan(_: FastAPI):
     await ensure_triage_history_indexes()
     from services.triage.telemetry import ensure_indexes as ensure_triage_telemetry_indexes
     await ensure_triage_telemetry_indexes()
-    await db.admin_sessions.create_index("expires_at")
+    try:
+        await db.admin_sessions.create_index("expires_at", expireAfterSeconds=0)
+    except Exception:
+        # Production Atlas may already have this index — tolerate conflicts on startup.
+        pass
     await ensure_mailbox_monitor_indexes()
     await push.ensure_indexes()
     await family_assist.ensure_indexes()
