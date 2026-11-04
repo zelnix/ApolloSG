@@ -474,6 +474,9 @@ const useStyles = makeStyles((c) => ({
     fontSize: 13,
     lineHeight: 18,
   },
+  recoveryFallback: {
+    gap: spacing.sm,
+  },
 }));
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -539,14 +542,28 @@ function HigginsTroubleshootCard({
   const isFixed = justVerified && gate.tone === "good" && previousStatus !== null && previousStatus !== "Watching";
   const isStillBroken = justVerified && gate.tone !== "good" && previousStatus !== null;
 
+  const [siteRecoveryFailed, setSiteRecoveryFailed] = useState(false);
+
   const handleAction = useCallback(() => {
     if (guidance.actionType === "open_settings") {
       Linking.openSettings();
     } else if (guidance.actionType === "navigate" && guidance.navRoute) {
       router.push(guidance.navRoute as never);
     } else if (guidance.actionType === "navigate" && gate.primaryAction?.id === "restore_site") {
-      // "Turn on website protection" — no navigation route, trigger VPN permission request directly.
-      void requestSiteProtectionRecovery().then(() => onRefresh());
+      // "Turn on website protection" — try programmatic VPN recovery first.
+      setSiteRecoveryFailed(false);
+      void requestSiteProtectionRecovery()
+        .then((result) => {
+          if (result?.status === "failed") {
+            // VPN recovery failed — show fallback to open device settings
+            setSiteRecoveryFailed(true);
+          }
+          onRefresh();
+        })
+        .catch(() => {
+          setSiteRecoveryFailed(true);
+          onRefresh();
+        });
     } else if (guidance.actionType === "retry") {
       onRefresh();
     } else if (guidance.actionType === "ask_higgins") {
@@ -669,6 +686,25 @@ function HigginsTroubleshootCard({
           <Text style={[s.verifyText, { color: colors.ears_upText }]}>
             {stillBrokenNote}
           </Text>
+        </View>
+      ) : null}
+
+      {/* Site recovery fallback: when programmatic VPN recovery fails, offer device settings */}
+      {siteRecoveryFailed && gate.id === "site" ? (
+        <View style={s.recoveryFallback}>
+          <Text style={s.higginsBody}>
+            Apollo couldn&apos;t restart protection automatically. You can turn it on manually in your device settings.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open device settings"
+            testID="gate-open-settings-fallback"
+            onPress={() => Linking.openSettings()}
+            style={({ pressed }) => [s.actionBtn, { backgroundColor: colors.gold, opacity: pressed ? 0.82 : 1 }]}
+          >
+            <ExternalLink size={16} color={colors.onBrand} />
+            <Text style={[s.actionBtnText, { color: colors.onBrand }]}>Open device settings</Text>
+          </Pressable>
         </View>
       ) : null}
 
