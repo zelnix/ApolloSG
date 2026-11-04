@@ -665,6 +665,16 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       // Call picker format: "0412345678 (saved as John)" — extract the number before the parenthetical
       const parenMatch = text.match(/^(\+?\d[\d\s\-().]{4,18}\d)\s*\(/);
       if (parenMatch) return parenMatch[1].trim();
+      // Number followed by descriptive text: "0452638791 text message saying..."
+      // Extract the leading phone-number-like sequence before alphabetic characters.
+      const leadMatch = text.match(/^(\+?\d[\d\s\-().]{4,18}\d)(?:\s+[a-zA-Z]|\s*$)/);
+      if (leadMatch) return leadMatch[1].trim();
+      // Fallback: first phone-like sequence anywhere in text (at least 8 digits)
+      const anyMatch = text.match(/(\+?\d[\d\s\-().]{6,18}\d)/);
+      if (anyMatch) {
+        const digits = anyMatch[1].replace(/\D/g, "");
+        if (digits.length >= 8 && digits.length <= 15) return anyMatch[1].trim();
+      }
     }
     return null;
   }, [originalSource, event]);
@@ -679,8 +689,8 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     </View>)}
     {turns.length && (turns.length > 1 || openingQuestion) ? <View style={s.user} testID="inv-current-question"><Text style={s.text}>{turns[turns.length - 1].question}</Text></View> : null}
 
-    {/* ── Working / progress state ── */}
-    {working ? <Card style={s.card} testID="inv-progress"><View style={s.row}><ActivityIndicator color={colors.gold} /><Body>{phase === "reconnecting" ? "Connection interrupted \u2014 reconnecting to the same investigation\u2026" : phase === "waiting_device" ? "Checking this device for a fresh observation\u2026" : "Apollo is investigating\u2026"}</Body></View>
+    {/* ── Working / progress state — hidden once we have a response ── */}
+    {working && !response ? <Card style={s.card} testID="inv-progress"><View style={s.row}><ActivityIndicator color={colors.gold} /><Body>{phase === "reconnecting" ? "Connection interrupted \u2014 reconnecting to the same investigation\u2026" : phase === "waiting_device" ? "Checking this device for a fresh observation\u2026" : "Apollo is investigating\u2026"}</Body></View>
       {progress.slice(-3).map((line, i) => <Text key={`${i}-${line}`} style={s.muted}>{line}</Text>)}
       {caseData?.activeJobId ? <Button testID="inv-cancel" variant="ghost" label="Cancel this investigation" onPress={onCancel} /> : null}</Card> : null}
 

@@ -22,7 +22,7 @@ import Smartphone from "lucide-react-native/icons/smartphone";
 import Trash2 from "lucide-react-native/icons/trash";
 import X from "lucide-react-native/icons/x";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Modal, Pressable, Text, View } from "react-native";
+import { Image, Modal, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConversationArtefact, EmailArtefact, FieldRows, PostArtefact, ScreenshotArtefact, useArtefactStyles, type ArtefactImage, type LayoutProps } from "./ArtefactLayouts";
@@ -153,6 +153,7 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
 }) {
   const s = useStyles(); const a = useArtefactStyles(); const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
   const [src, setSrc] = useState<OriginalSource | null | undefined>(undefined);
   const [records, setRecords] = useState<ImageEvidenceRecord[]>([]);
   const [mode, setMode] = useState<Mode>("original");
@@ -442,7 +443,7 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
             <Text style={s.emailViewerTitle} numberOfLines={1}>{shown.subject ?? "Original email"}</Text>
             <Pressable onPress={() => setEmailFull(false)} accessibilityRole="button" accessibilityLabel="Close full screen" hitSlop={12} style={s.viewerClose} testID={`${testID}-email-viewer-close`}><X size={22} color={colors.onSurface} /></Pressable>
           </View>
-          {shownEmail ? <InertEmailView email={shownEmail} style={{ flex: 1 }} /> : null}
+          {shownEmail ? <InertEmailView email={shownEmail} style={Platform.OS === "android" ? { height: winH - insets.top - insets.bottom - 56 } : { flex: 1 }} /> : null}
         </View>
       </Modal>
     </View>
