@@ -9,7 +9,7 @@ import { sentences } from "./luddish/patterns.ts";
 import { compactUrls } from "./urlPresentation.ts";
 
 /** `explain`: Apollo's fixed explanation of a jargon word in the finding — explanatory, never evidence. */
-export interface ReportFinding { text: string; detail: string | null; explain?: string | null }
+export interface ReportFinding { text: string; detail: string | null; explain?: string | null; findingId?: string }
 export interface ReportSection { title: string; paragraphs: string[] }
 export interface Report {
   answer: string[];
@@ -144,7 +144,7 @@ export function buildReport(input: ReportInput): Report {
 
   // 2. What was found — each fact once; one the answer already states isn't listed again.
   const candidates: ReportFinding[] = input.findings?.length
-    ? input.findings.map((f) => ({ text: plainLine(f.text), detail: [BASIS[f.basis] ?? f.basis, CONFIDENCE[f.confidence] ?? f.confidence].filter(Boolean).join(" · ") || null }))
+    ? input.findings.map((f) => ({ text: plainLine(f.text), detail: [BASIS[f.basis] ?? f.basis, CONFIDENCE[f.confidence] ?? f.confidence].filter(Boolean).join(" · ") || null, findingId: f.id }))
     : [...section(FOUND), ...(input.fallbackFound ?? [])].map((text) => ({ text: plainLine(text), detail: null }));
   const found: ReportFinding[] = [];
   for (const f of candidates) {

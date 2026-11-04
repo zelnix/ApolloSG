@@ -82,8 +82,8 @@ def test_a_clear_message_names_only_what_was_checked():
 def _impersonation_plan() -> triage.Plan:
     plan = _plan("CommBank: please read the notice about your account changes at https://commbank-notice.net/info")
     impersonation = _check(plan, "impersonation")
-    impersonation.facts.append(fact("The material names CommBank, but commbank-notice.net is not CommBank's domain (commbank.com.au).", "anomaly",
-                                    topic="impersonation") | {"place": "commbank-notice.net"})
+    impersonation.facts.append(fact("commbank-notice.net carries CommBank's name, but it is not CommBank's domain (commbank.com.au) — the name has other words added to it.", "anomaly",
+                                    topic="lookalike") | {"place": "commbank-notice.net"})
     impersonation.status = "needs_reasoning"
     _resolve(_check(plan, "link"), _listed_clean("commbank-notice.net"), _registered("commbank-notice.net", young=True))
     return plan

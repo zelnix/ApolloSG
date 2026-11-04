@@ -752,6 +752,50 @@ async def list_sources(case_id: str, request: Request, cursor: Optional[str] = N
     return JSONResponse({"items": rows[start:start + 100], "nextCursor": str(start + 100) if len(rows) > start + 100 else None, "total": len(rows)}, headers=NO_STORE)
 
 
+# ------------------------------------------------------------------ finding feedback (false-positive reporting)
+class FindingFeedback(Wire):
+    finding_id: str = Field(pattern=UUID_PATTERN)
+    verdict: str = Field(pattern=r"^(incorrect|legitimate)$")
+    reason: str = Field(default="", max_length=500)
+
+@router.post("/investigations/{case_id}/feedback", status_code=201)
+async def submit_finding_feedback(case_id: str, body: FindingFeedback, request: Request):
+    """Record user feedback that a specific finding is incorrect or about a legitimate sender.
+    This does NOT auto-whitelist senders or domains — it is stored for review and calibration only."""
+    owner = owner_of(request)
+    case = await repo.get_case(owner, case_id)
+    # Verify the finding ID exists in the case response
+    findings = (case.get("response") or {}).get("findings") or []
+    if not any(f.get("id") == body.finding_id for f in findings):
+        return JSONResponse({"error": "finding_not_found", "detail": f"No finding '{body.finding_id}' in this case."}, status_code=404)
+    doc = {
+        "case_id": case_id,
+        "finding_id": body.finding_id,
+        "device_id": owner,
+        "verdict": body.verdict,
+        "reason": body.reason,
+        "created_at": now_utc(),
+    }
+    # Upsert: one feedback per finding per device
+    await db.finding_feedback.update_one(
+        {"case_id": case_id, "finding_id": body.finding_id, "device_id": owner},
+        {"$set": doc},
+        upsert=True,
+    )
+    return JSONResponse({"ok": True, "findingId": body.finding_id, "verdict": body.verdict}, status_code=201, headers=NO_STORE)
+
+@router.get("/investigations/{case_id}/feedback")
+async def list_finding_feedback(case_id: str, request: Request):
+    """List all feedback this device has submitted for findings in a case."""
+    owner = owner_of(request)
+    await repo.get_case(owner, case_id)
+    rows = await db.finding_feedback.find(
+        {"case_id": case_id, "device_id": owner},
+        {"_id": 0, "finding_id": 1, "verdict": 1, "reason": 1, "created_at": 1},
+    ).to_list(100)
+    return JSONResponse({"items": rows}, headers=NO_STORE)
+
+
 # ------------------------------------------------------------------ resumable uploads
 @router.post("/investigations/{case_id}/uploads", status_code=201)
 async def create_upload(case_id: str, body: CreateUpload, request: Request):

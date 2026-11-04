@@ -4,11 +4,12 @@
 // used on Evidence.
 import ChevronRight from "lucide-react-native/icons/chevron-right";
 import CircleQuestionMark from "lucide-react-native/icons/circle-question-mark";
+import Flag from "lucide-react-native/icons/flag";
 import Gavel from "lucide-react-native/icons/gavel";
 import Search from "lucide-react-native/icons/search";
 import ShieldCheck from "lucide-react-native/icons/shield-check";
-import React, { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 
 import type { BriefVerdict } from "@/src/domain/briefVerdict";
 import { luddishReport, luddishText } from "@/src/domain/luddish";
@@ -16,15 +17,18 @@ import { sentences } from "@/src/domain/luddish/patterns";
 import { scrubMessage } from "@/src/domain/messageVoice";
 import type { Report } from "@/src/domain/reportSections";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { listFindingFeedback, submitFindingFeedback } from "@/src/investigation/client";
 
 export interface BriefStep { id: string; text: string; onPress?: () => void }
 
 const ARTICLES = new Set(["a", "an", "the"]);
 const words = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter((w) => w && !ARTICLES.has(w)).join(" ");
 
+export interface BriefFinding { text: string; findingId?: string }
+
 /** What the brief says, section by section, in Higgins' plain words: the verdict's short reason (never the verdict
  *  again), the key findings and what isn't certain. An answer to a general question is the answer itself. */
-export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label" | "caution">): { summary: string[]; findings: string[]; uncertain: string[] } {
+export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label" | "caution">): { summary: string[]; findings: BriefFinding[]; uncertain: string[] } {
   const r = luddishReport(report);
   const first = r.answer[0] ?? "";
   const label = verdict.label ? words(verdict.label) : null;
@@ -34,7 +38,7 @@ export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label
     : r.answer;
   return {
     summary: summary.map(scrubMessage),
-    findings: r.found.map((f) => scrubMessage(f.text)).filter(Boolean),
+    findings: r.found.map((f) => ({ text: scrubMessage(f.text), findingId: f.findingId })).filter((f) => f.text),
     uncertain: r.uncertain.map(scrubMessage).filter(Boolean),
   };
 }
@@ -51,7 +55,13 @@ const useStyles = makeStyles((c) => ({
   bullet: { flexDirection: "row", gap: spacing.sm },
   dot: { fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurface },
   item: { flex: 1, fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurface },
+  reportedItem: { opacity: 0.55 },
   link: { color: c.brandPrimary, fontFamily: fonts.textMedium },
+  flagBtn: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 14 },
+  feedbackBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.pill, alignSelf: "flex-start" },
+  badgeIncorrect: { backgroundColor: c.barkingTint },
+  badgeLegitimate: { backgroundColor: c.restingTint },
+  feedbackBadgeText: { fontFamily: fonts.textSemibold, fontSize: 10, color: c.onSurfaceSecondary },
 }));
 
 function Section({ bg, circle, icon, title, testID, children }: {
@@ -79,10 +89,85 @@ function Bullets({ items, testID }: { items: string[]; testID: string }) {
   ))}</>;
 }
 
-export function FindingsBrief({ report, verdict, steps, ids }: {
+function FindingBullets({ items, caseId, testID }: { items: BriefFinding[]; caseId?: string; testID: string }) {
+  const s = useStyles();
+  const { colors } = useTheme();
+  const [reported, setReported] = useState<Record<string, "incorrect" | "legitimate">>({});
+  const [sending, setSending] = useState<string | null>(null);
+
+  // Load existing feedback for this case
+  useEffect(() => {
+    if (!caseId) return;
+    listFindingFeedback(caseId).then((res) => {
+      const map: Record<string, "incorrect" | "legitimate"> = {};
+      for (const fb of res.items) map[fb.findingId] = fb.verdict as "incorrect" | "legitimate";
+      setReported(map);
+    }).catch(() => {});
+  }, [caseId]);
+
+  const onReport = useCallback((findingId: string, text: string) => {
+    if (!caseId || !findingId || reported[findingId]) return;
+    Alert.alert(
+      "Report this finding",
+      `Is this finding incorrect or about a legitimate sender?\n\n"${text.slice(0, 120)}${text.length > 120 ? "..." : ""}"`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Incorrect", style: "destructive", onPress: () => send(findingId, "incorrect") },
+        { text: "Legitimate", onPress: () => send(findingId, "legitimate") },
+      ],
+    );
+  }, [caseId, reported]);
+
+  const send = useCallback(async (findingId: string, verdict: "incorrect" | "legitimate") => {
+    if (!caseId) return;
+    setSending(findingId);
+    try {
+      await submitFindingFeedback(caseId, findingId, verdict);
+      setReported((prev) => ({ ...prev, [findingId]: verdict }));
+    } catch {
+      Alert.alert("Could not submit", "Please try again later.");
+    } finally {
+      setSending(null);
+    }
+  }, [caseId]);
+
+  return <>{items.map((f, i) => {
+    const hasId = !!f.findingId && !!caseId;
+    const fb = f.findingId ? reported[f.findingId] : undefined;
+    return (
+      <View key={`${i}-${f.text}`} style={s.bullet} testID={`${testID}-${i}`}>
+        <Text style={s.dot}>{"\u2022"}</Text>
+        <Text style={[s.item, fb ? s.reportedItem : undefined]}>{f.text}</Text>
+        {hasId ? (
+          sending === f.findingId ? (
+            <ActivityIndicator size="small" color={colors.muted} style={{ marginLeft: 4, width: 28 }} />
+          ) : fb ? (
+            <View style={[s.feedbackBadge, fb === "incorrect" ? s.badgeIncorrect : s.badgeLegitimate]}>
+              <Text style={s.feedbackBadgeText}>{fb === "incorrect" ? "Reported" : "OK"}</Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => onReport(f.findingId!, f.text)}
+              hitSlop={8}
+              style={({ pressed }) => [s.flagBtn, { opacity: pressed ? 0.5 : 1 }]}
+              accessibilityLabel="Report this finding"
+              testID={`${testID}-${i}-flag`}
+            >
+              <Flag size={14} color={colors.muted} />
+            </Pressable>
+          )
+        ) : null}
+      </View>
+    );
+  })}</>;
+}
+
+export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
   report: Report; verdict: BriefVerdict; steps: BriefStep[];
   /** testID prefix: "inv" on Ask Higgins, "tc-overview" on a threat. */
   ids: string;
+  /** Case ID for finding feedback. When provided, each finding gets a report button. */
+  caseId?: string;
 }) {
   const s = useStyles();
   const { colors } = useTheme();
@@ -122,7 +207,7 @@ export function FindingsBrief({ report, verdict, steps, ids }: {
 
       {findings.length ? (
         <Section bg={colors.goldTint} circle={colors.ears_upTint} icon={<Search size={22} color={colors.ears_upText} />} title="Key findings" testID={`${ids}-findings`}>
-          <Bullets items={findings} testID={`${ids}-finding`} />
+          <FindingBullets items={findings} caseId={caseId} testID={`${ids}-finding`} />
         </Section>
       ) : null}
 

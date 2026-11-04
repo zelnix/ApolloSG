@@ -708,7 +708,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {/* ━━━━ TAB 1: FINDINGS BRIEF — what the investigation concluded, from the Evidence Lock ━━━━ */}
       {activeTab === "overview" ? (
         <View style={{ gap: spacing.md }} testID="inv-tab-overview-content">
-          {report && verdict ? <View testID="inv-overview"><FindingsBrief report={report} verdict={verdict} steps={steps} ids="inv" /></View> : null}
+          {report && verdict ? <View testID="inv-overview"><FindingsBrief report={report} verdict={verdict} steps={steps} ids="inv" caseId={caseData?.id} /></View> : null}
           {response?.outcome ? <OutcomeExplainerLink outcome={response.outcome} testID="inv-outcome-explainer" /> : null}
           {response?.history?.length ? <RelatedCases event={event} response={response} ids="inv" /> : null}
         <Card style={[s.card, { gap: spacing.md }]} testID="inv-overview-more">

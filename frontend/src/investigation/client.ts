@@ -84,6 +84,16 @@ export function submitTurn(caseId: string, body: { expectedRevision: number; tur
 }
 export function resumeJob(caseId: string, jobId: string, expectedRevision: number) { return postWithKey<{ job: Job }>(`/investigations/${caseId}/jobs/${jobId}/resume`, { expectedRevision }, safeUUID()); }
 export function cancelJob(caseId: string, jobId: string, expectedRevision: number) { return apiPost<{ status: string; outcome: "cancelled" | "completed" | "failed" | "superseded"; cancelled: boolean; cleanupStatus: string; caseRevision: number; responseRevision: number | null }>(`/investigations/${caseId}/jobs/${jobId}/cancel`, "investigation", { expectedRevision }); }
+
+// ── Finding feedback (false-positive reporting) ──
+export interface FindingFeedbackItem { findingId: string; verdict: "incorrect" | "legitimate"; reason: string; createdAt: string }
+export function submitFindingFeedback(caseId: string, findingId: string, verdict: "incorrect" | "legitimate", reason = "") {
+  return apiPost<{ ok: boolean; findingId: string; verdict: string }>(`/investigations/${caseId}/feedback`, "investigation", { findingId, verdict, reason });
+}
+export function listFindingFeedback(caseId: string) {
+  return apiGet<{ items: FindingFeedbackItem[] }>(`/investigations/${caseId}/feedback`);
+}
+
 export function submitDeviceResult(caseId: string, result: DeviceResult) { return postWithKey<{ accepted: boolean; jobId: string }>(`/investigations/${caseId}/device-results`, result as unknown as Record<string, unknown>, result.requestId); }
 export function addObservationEvidence(expectedRevision: number, caseId: string, deviceResult: DeviceResult) {
   return apiPost<{ evidence: EvidenceItem; caseRevision: number }>(`/investigations/${caseId}/evidence`, "investigation", { expectedRevision, clientItemId: Crypto.randomUUID(), parentId: null, kind: "observation", deviceResult: deviceResult as unknown as Record<string, unknown> });

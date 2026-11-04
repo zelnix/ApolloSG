@@ -159,6 +159,19 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
         errors.append(f"outcome '{model.outcome}' requires assessment '{outcomes.ASSESSMENT[model.outcome]}'; reconcile the outcome with the assessment")
     errors += floor_errors(model, floor)
 
+    # ── CONFIDENCE: concern outcomes require at least one substantive finding ──
+    if model.outcome in ("concerning", "likely_scam") and model.findings:
+        max_confidence = max((f.confidence for f in model.findings), default="low")
+        if max_confidence == "low":
+            errors.append(f"outcome '{model.outcome}' requires at least one finding with 'medium' or 'high' confidence; "
+                          "all findings are 'low' confidence — either raise the confidence of a finding backed by verified "
+                          "evidence, or lower the outcome to 'unable_to_determine'")
+
+    # ── COMPLETENESS: partial investigations cannot exceed 'concerning' ──
+    if model.completion == "partial" and model.outcome in ("likely_scam", "confirmed_threat"):
+        errors.append(f"outcome '{model.outcome}' is not supported when completion is 'partial': an incomplete investigation "
+                      "cannot establish more than 'concerning'. Set the outcome to 'concerning' or complete the investigation")
+
     # ── DIRECT: actionable concerns must have specific instructions ──
     for idx, action in enumerate(model.actions):
         if action.kind in CAPABILITY_ACTIONS and (not action.capability_id or action.capability_id not in capability_ids):

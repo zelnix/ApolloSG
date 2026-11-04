@@ -77,12 +77,61 @@ def _ambiguous(f: dict) -> bool:
 def corroborated_impersonation(plan_: Plan) -> list[dict]:
     """The material names an organisation, a link in it isn't that organisation's own (not one of its published
     domains or country sites), and an independent fact about that same link backs it up (newly registered,
-    flagged, redirected to another site, a direct download)."""
-    mismatched = [f for c in plan_.checks if c.kind == "impersonation" for f in c.facts
-                  if f.get("topic") in ("impersonation", "lookalike", "shared_service")]
+    flagged, redirected to another site, a direct download).
+
+    An organisation merely *mentioned* in a legitimate sender's material is not impersonation. Two guards:
+
+    1. **Verified sender**: when another brand's impersonation check resolved clear (the material's links
+       genuinely belong to that brand), an 'unrelated' domain mismatch for a different brand is expected and
+       is excluded — the sender is identified, the other brand is just mentioned.
+
+    2. **Corroboration strength**: a domain that doesn't carry the brand's name at all (topic 'impersonation',
+       i.e. the classify() result was 'unrelated') needs concern-level corroboration — an official warning or
+       a decisive listing. Weak signals (newly registered, IPQS flag, redirect) don't establish impersonation
+       when the domain makes no attempt to look like the brand. Lookalike and shared-service domains, which
+       actively mimic the brand, are corroborated by any signal (the existing behaviour)."""
+    # Brands whose impersonation check resolved clear: the material's links belong to that brand.
+    verified_sender = {c.subject for c in plan_.checks
+                       if c.kind == "impersonation" and c.status == "resolved"
+                       and any(f["signal"] == "clear" for f in c.facts)}
+
+    mismatched: list[dict] = []
+    for c in plan_.checks:
+        if c.kind != "impersonation":
+            continue
+        for f in c.facts:
+            if f.get("topic") not in ("impersonation", "lookalike", "shared_service"):
+                continue
+            # Guard 1: if the sender is verified as another brand, an 'unrelated' mismatch for this brand
+            # means it is merely mentioned — not impersonation.
+            if f.get("topic") == "impersonation" and verified_sender and c.subject not in verified_sender:
+                continue
+            mismatched.append(f)
+
+    if not mismatched:
+        return []
+
     places = {registrable(f["place"]) for f in mismatched if f.get("place")}
-    support = [f for c in plan_.checks if c.kind == "link" and registrable(c.subject) in places
-               for f in c.facts if f["class"] == "live_evidence" and f["signal"] in CORROBORATES]
+
+    # Guard 2: per-place corroboration strength.
+    # Lookalike / shared-service domains: any signal corroborates (concern, anomaly, weak).
+    # Unrelated domains (topic "impersonation"): only concern-level signals corroborate.
+    strong_places = {registrable(f["place"]) for f in mismatched
+                     if f.get("place") and f.get("topic") in ("lookalike", "shared_service")}
+    unrelated_places = places - strong_places
+
+    support: list[dict] = []
+    for c in plan_.checks:
+        if c.kind != "link" or registrable(c.subject) not in places:
+            continue
+        for f in c.facts:
+            if f["class"] != "live_evidence":
+                continue
+            reg = registrable(c.subject)
+            if reg in strong_places and f["signal"] in CORROBORATES:
+                support.append(f)
+            elif reg in unrelated_places and f["signal"] == "concern":
+                support.append(f)
     return mismatched + support if support else []
 
 

@@ -43,11 +43,18 @@ def _finding(source_ids: list[str], evidence_ids: list[str]) -> dict:
                                                       "issue is merged into one consolidated finding rather than "
                                                       "returned as several near-identical versions. Equivalent "
                                                       "hostnames (example.com and www.example.com) are the same "
-                                                      "destination."},
+                                                      "destination. A third-party search result or reputation score "
+                                                      "is supporting context, not proof of wrongdoing — never the "
+                                                      "sole basis for a concern-level finding."},
             "basis": _enum(bases,
                            "observation: present in the supplied evidence (requires at least one evidenceId). "
                            "user_report: stated by the person. inference: reasoned from the evidence."),
-            "confidence": _enum(["low", "medium", "high"], "Confidence in this finding."),
+            "confidence": _enum(["low", "medium", "high"],
+                                "high: an authoritative or official source directly establishes this fact. "
+                                "medium: the evidence supports it but is not definitive. "
+                                "low: inferred, from an unverified third-party source, or a weak signal on "
+                                "its own. Confidence and risk level are independent: a high-risk scenario "
+                                "with thin evidence is high risk but low confidence."),
             "evidenceIds": _id_list(evidence_ids, "Ids of the supplied evidence items this finding rests on."),
             "sourceIds": _id_list(source_ids, "Ids of registered sources, if any."),
             "supersedesFindingIds": {"type": "array", "items": _STRING, "description": "Ids of earlier findings this replaces, if any."},
@@ -101,23 +108,35 @@ def response_schema(*, evidence_ids: list[str] = (), source_ids: list[str] = (),
         "properties": {
             "overview": {"type": "string", "description": "2-4 plain sentences: what this is and what to do now. "
                                                           "The overall conclusion only — it does not enumerate the "
-                                                          "evidence, list the findings or repeat any finding's text."},
+                                                          "evidence, list the findings or repeat any finding's text. "
+                                                          "Before assessing risk, first identify the actual sender "
+                                                          "from the evidence (sender domain, return-path, email "
+                                                          "headers). A promotional email from one business that "
+                                                          "mentions other brands is not impersonation of those brands."},
             "explanationMarkdown": {"type": "string", "description": "The briefing shown to the person, in Markdown: "
                                                                      "why the findings matter and how they fit "
                                                                      "together. It does not restate the overview and "
                                                                      "does not re-list the findings, uncertainties, "
                                                                      "scope or actions — each of those is returned in "
-                                                                     "its own field and is displayed separately."},
+                                                                     "its own field and is displayed separately. "
+                                                                     "Tone must be proportionate to demonstrated risk: "
+                                                                     "low-confidence findings are presented as "
+                                                                     "observations, not as warnings. Do not use "
+                                                                     "alarming language unless high-confidence evidence "
+                                                                     "of harm exists."},
             "assessment": _enum(["concern_found", "no_concern_found_within_scope", "uncertain"],
                                 "'concern_found' requires at least one finding."),
             "outcome": {"type": "string", "enum": list(outcomes.OUTCOMES), "nullable": True, "description": outcomes.CRITERIA},
             "attention": _enum(["none", "review", "action_needed", "urgent"],
                                "'action_needed'/'urgent' require attentionReason and at least one action."),
             "attentionReason": {"type": "string", "nullable": True, "description": "One sentence on why this needs the "
-                                                                                   "person's attention — the consequence "
-                                                                                   "of acting on it. Never a copy of a "
-                                                                                   "finding or of the overview. Null when "
-                                                                                   "attention is 'none'."},
+                                                                                   "person's attention — the concrete "
+                                                                                   "consequence of acting on it, based on "
+                                                                                   "what the evidence actually shows. Never "
+                                                                                   "a copy of a finding or of the overview. "
+                                                                                   "Null when attention is 'none'. Must not "
+                                                                                   "escalate beyond what the evidence "
+                                                                                   "supports."},
             "findings": {"type": "array", "items": _finding(source_ids, evidence_ids), "description": "The evidence-backed facts. Compare them "
                                                                                                       "before answering and merge any that make "
                                                                                                       "the same point."},

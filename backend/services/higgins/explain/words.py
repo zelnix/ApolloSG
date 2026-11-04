@@ -46,7 +46,7 @@ GLOSSARY: tuple[tuple[str, str, str], ...] = (
     ("redirect", r"\bredirect(?:s|ed|ing)?\b", "A redirect sends you on from the address you tapped to a different one."),
     ("Safe Browsing", r"\bSafe Browsing\b", "Google Safe Browsing is Google's list of websites known to be harmful."),
     ("IPQualityScore", r"\b(?:IPQualityScore|IPQS|fraud score)\b",
-     "IPQualityScore rates how risky a link or phone number looks. Its score is a likelihood, not proof."),
+     "IPQualityScore rates how risky a link or phone number looks. Its score is a likelihood estimate, not proof — many legitimate new websites score high."),
     ("blocklist", r"\bblocklist(?:ed)?\b", "A blocklist is a list of addresses already known to be harmful."),
     ("VoIP", r"\bVoIP\b", "A VoIP number runs over the internet, and anyone can set one up in minutes."),
     ("ABN", r"\bA[BC]N\b", "An ABN or ACN is the public number of a business registered in Australia."),
@@ -76,7 +76,7 @@ def jargon(text: str, explained: set[str]) -> str:
 # How serious it is, in plain words: one fixed line per attention level, never anything else.
 SEVERITY = {
     "none": "How serious: nothing Apollo found needs action.",
-    "review": "How serious: worth a careful look before you act on it.",
+    "review": "How serious: worth a careful look, but nothing here is proven harmful.",
     "action_needed": "How serious: you need to act. See what you can do.",
     "urgent": "How serious: urgent. Act now.",
 }
@@ -84,7 +84,7 @@ SEVERITY = {
 # Who established a finding, and how firmly. {by} is TC FlyBy or Magnum DI.
 BASIS = {"observation": "Seen directly by {by}", "user_report": "From what you told Apollo",
          "inference": "{by}'s reading of the evidence, not seen directly"}
-CONFIDENCE = {"high": "High confidence", "medium": "Medium confidence", "low": "Low confidence"}
+CONFIDENCE = {"high": "High confidence", "medium": "Medium confidence", "low": "Low confidence — supporting context only"}
 
 
 def detail(basis: str, confidence: str, by: str) -> str:
