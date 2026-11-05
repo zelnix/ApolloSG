@@ -209,9 +209,8 @@ function FindingBullets({ items, caseId, testID }: { items: BriefFinding[]; case
     const category = f.category;
     const split = category ? null : splitFindingLabel(f.text);
     return (
-      <View key={`${i}-${f.text}`} style={s.bullet} testID={`${testID}-${i}`}>
-        <Text style={s.dot}>{"\u2022"}</Text>
-        <Text style={[s.item, fb ? s.reportedItem : undefined]}>
+      <View key={`${i}-${f.text}`} style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.xs }} testID={`${testID}-${i}`}>
+        <Text style={[s.item, fb ? s.reportedItem : undefined, { flex: 1 }]}>
           {category ? <><Text style={s.findingLabel}>{category}: </Text>{f.text}</> : split ? <><Text style={s.findingLabel}>{split.label}: </Text>{split.body}</> : f.text}
         </Text>
         {hasId ? (
@@ -262,7 +261,7 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
     if (summary.length) parts.push(summary.join("\n"));
     if (findings.length) {
       parts.push(`\n${findingsTitle(verdict.tone)}`);
-      findings.forEach((f) => parts.push(`\u2022 ${f.category ? `${f.category}: ` : ""}${f.text}`));
+      findings.forEach((f) => parts.push(`${f.category ? `${f.category}: ` : ""}${f.text}`));
     }
     if (uncertain.length) {
       parts.push("\nWhat isn't certain");

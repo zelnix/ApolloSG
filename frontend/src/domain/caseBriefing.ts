@@ -71,7 +71,7 @@ export function caseResult(response: HigginsResponse): CaseResult {
     : response.completion === "waiting_user" && !!clean(response.question?.reasonNeeded);
   const notFullyChecked = code === UNDECIDED && !actionLevel && !owed;
   return {
-    verdict: (b?.status || null) ?? outcomeLabel(code),
+    verdict: outcomeLabel(code) ?? (b?.status || null),
     verdictCode: code,
     tone: outcomeTone(code),
     severity: notFullyChecked ? "resting" : actionLevel ? "barking" : attention === "review" ? "growling" : "resting",
