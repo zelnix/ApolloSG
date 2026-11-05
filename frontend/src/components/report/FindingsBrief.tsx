@@ -63,14 +63,18 @@ function dedupFindings(raw: BriefFinding[]): BriefFinding[] {
 }
 
 /** What the brief says, section by section, in Higgins' plain words: the verdict's short reason (never the verdict
- *  again), the key findings and what isn't certain. An answer to a general question is the answer itself. */
+ *  again), the key findings and what isn't certain. An answer to a general question is the answer itself.
+ *  When the verdict label consumes the entire answer, the most useful context from "What it means" is used instead,
+ *  so the brief never shows an empty summary beside the verdict. */
 export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label" | "caution">): { summary: string[]; findings: BriefFinding[]; uncertain: string[] } {
   const r = luddishReport(report);
   const first = r.answer[0] ?? "";
   const label = verdict.label ? words(verdict.label) : null;
   const reason = label ? sentences(first).filter((x) => words(x) !== label).slice(0, 2).join(" ") : "";
+  // When the verdict label consumed the first answer sentence, use means or the next answer paragraph as context
+  const contextReason = reason || (r.means.length ? r.means[0] : r.answer[1] ?? "");
   const summary = label
-    ? [[reason, verdict.caution && !first.includes(verdict.caution) ? verdict.caution : ""].filter(Boolean).join(" ")].filter(Boolean)
+    ? [[contextReason, verdict.caution && !first.includes(verdict.caution) && !contextReason.includes(verdict.caution) ? verdict.caution : ""].filter(Boolean).join(" ")].filter(Boolean)
     : r.answer;
   // Semantic dedup: collapse findings with identical cores (e.g. multiple blocklist hits), then cap.
   const allFindings = r.found.map((f) => ({ text: scrubMessage(f.text), findingId: f.findingId })).filter((f) => f.text);

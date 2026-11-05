@@ -1,5 +1,58 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+
+## Higgins Reporting & Evidence-to-Language Acceptance Contract (P0) — 2026-11-05
+
+### Changes made:
+
+**1. Composer consolidation improvements (`compose.ts`)**
+- Enhanced `alreadySaid()` to check against combined text of all said entries (at 85% threshold), not just individual entries. This catches redundant "means" text whose words are spread across the brief and multiple findings.
+
+**2. Report section dedup improvements (`reportSections.ts`)**
+- Lowered the semantic-dedup threshold in `Said.repeats()` from 5 to 3 meaning-bearing words, catching more short-sentence repetitions.
+- Added combined-meaning check: a sentence whose words are 85% covered by the combined set of all previously said sentences is now treated as a repeat.
+
+**3. Findings Brief summary enrichment (`FindingsBrief.tsx`)**
+- When the verdict label consumes the entire first answer sentence, the brief now falls back to the "What it means" text or the next answer paragraph for context, so the brief never shows an empty summary beside the verdict.
+- The caution check also accounts for the contextReason now.
+
+**4. Evidence Lock wording (from previous task — `diTrace.ts`)**
+- Already updated: Evidence Lock label "Preserved" (not "Locked"), summary says "preserves the original decision… does not independently verify that conclusion."
+
+**5. Regression test fixtures (`reporting.fixtures.ts`)**
+Created 7 structured fixtures covering:
+- Legitimate marketing email (Adidas via Salesforce)
+- Unverified marketing email
+- Suspicious marketing email (sender inconsistencies)
+- Confirmed phishing email
+- Partial service failure (lookup unavailable)
+- Conflicting evidence (new domain, SPF passes)
+- Who Called (Perth number, possible RAC WA association — Brief 2 contextual standard)
+
+Each fixture tests 7 properties:
+1. Verdict agrees with locked verdict
+2. Material claims supported by evidence
+3. Missing/failed checks represented honestly
+4. No duplicated findings
+5. Readability target met
+6. Actions match risk/uncertainty
+7. Technical provenance unchanged
+
+Plus forbidden-phrase checks per scenario (never "safe" in limited, never "confirmed" without evidence, etc.)
+
+### Files changed:
+- `/app/frontend/src/domain/luddish/compose.ts` — Better consolidation in `alreadySaid`
+- `/app/frontend/src/domain/reportSections.ts` — Better semantic dedup in `Said.repeats`
+- `/app/frontend/src/components/report/FindingsBrief.tsx` — Summary enrichment in `briefSections`
+- `/app/frontend/src/domain/luddish/__tests__/reporting.fixtures.ts` — Regression fixtures (NEW)
+
+### Architecture preserved:
+- No new infrastructure, models, services or Gates introduced
+- Evidence Lock → Composer → Readability → Fidelity → Higgins path unchanged
+- Fidelity check protections unchanged
+- Existing state rules and verdict model unchanged
+
+
 ## History & DI Presentation Improvements (Section 10, P1) — 2026-11-05
 
 ### Changes made:

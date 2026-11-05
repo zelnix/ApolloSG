@@ -51,11 +51,21 @@ export interface LuddishExplanation {
 export const isJargon = (t: LuddishTerm) => !t.familiar && !t.plain && t.category !== "apollosg";
 export const jargonIn = (text: string) => termsIn(text).filter(isJargon);
 
-/** The same point already made by one of `said` (three quarters of its meaning-bearing words). */
+/** The same point already made by one of `said` (three quarters of its meaning-bearing words), or a point whose words
+ *  are spread across multiple pieces already said (85% of its meaning-bearing words appear in the combined text). */
 export function alreadySaid(text: string, said: readonly string[]): boolean {
   const a = new Set(canon(text));
   if (!a.size) return true;
-  return said.some((s) => { const b = new Set(canon(s)); let hit = 0; for (const w of a) if (b.has(w)) hit++; return hit / a.size >= 0.75; });
+  // Check against individual entries: three-quarters overlap is a near-restatement
+  if (said.some((s) => { const b = new Set(canon(s)); let hit = 0; for (const w of a) if (b.has(w)) hit++; return hit / a.size >= 0.75; })) return true;
+  // Also check against combined text of all entries: if the meaning is spread across
+  // multiple pieces already said, it is still redundant (higher threshold to avoid false positives)
+  if (said.length > 1) {
+    const combined = new Set(said.flatMap(canon));
+    let hit = 0; for (const w of a) if (combined.has(w)) hit++;
+    if (combined.size && hit / a.size >= 0.85) return true;
+  }
+  return false;
 }
 
 const TECHNICAL_LABEL: Record<string, string> = { headline: "Apollo's answer", finding: "Finding", explanation: "Higgins' explanation", reason: "Why it matters",

@@ -104,11 +104,16 @@ class Said {
   /** Already said word for word, inside something longer. */
   contains(text: string) { const n = normal(text); return !!n && this.texts.some((t) => t.includes(n)); }
   /** Mostly said already: word for word, in other words (three quarters of its meaningful words are in one
-   *  sentence already said), or half or more of its four-word runs have appeared. */
+   *  sentence already said, or spread across all said entries at 85%), or half or more of its four-word runs have appeared. */
   repeats(text: string) {
     if (this.contains(text)) return true;
     const m = meaning(text);
-    if (m.size >= 5 && this.meanings.some((said) => sameMeaning(m, said))) return true;
+    if (m.size >= 3 && this.meanings.some((said) => sameMeaning(m, said))) return true;
+    // Combined-meaning check: the point is spread across multiple things already said
+    if (m.size >= 3 && this.meanings.length > 1) {
+      const combined = new Set(this.meanings.flatMap((s) => [...s]));
+      if (overlap(m, combined) >= 0.85 && negated(m) === [...this.meanings].some(negated)) return true;
+    }
     const g = grams(words(text));
     if (g.length < 2) return false;
     return g.filter((x) => this.gramSet.has(x)).length / g.length >= 0.5;
