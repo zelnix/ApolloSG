@@ -33,6 +33,9 @@ export interface PhoneIdentityResult {
 
   checked_at: string | null;
   freshness: "fresh" | "cached" | "stale" | null;
+
+  /** Per-source execution status: "match" | "no_match" | "empty_response" | "unavailable" | "timeout" | "not_checked" */
+  lookup_status?: Record<string, string>;
 }
 
 /* ── API call ──────────────────────────────────────────────────────────────── */

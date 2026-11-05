@@ -276,6 +276,9 @@ export interface SourceMetadata {
   auth_passed?: boolean | null;
   link_count?: number | null;
   provider?: string | null;
+  /** The actual mailbox account email address (e.g. "user@gmail.com"), available when the
+   *  case was created by a connected-mailbox monitor scan. */
+  account?: string | null;
   // Text/SMS fields
   preview?: string | null;
   content_complete?: boolean | null;

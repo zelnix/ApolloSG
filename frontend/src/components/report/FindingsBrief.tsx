@@ -26,6 +26,42 @@ const words = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().
 
 export interface BriefFinding { text: string; findingId?: string }
 
+/** Maximum key findings shown in the primary brief: technical detail stays on the DI tab. */
+const MAX_BRIEF_FINDINGS = 5;
+
+/** Semantic core: strip specific host/list/address names so "X on blocklist A" and "X on blocklist B" share a core. */
+const semanticCore = (t: string): string =>
+  t.toLowerCase()
+    // strip URLs, domains, IPs, email addresses
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\b[\w.-]+\.[a-z]{2,}\b/g, "")
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "")
+    .replace(/\S+@\S+/g, "")
+    // strip quoted strings
+    .replace(/"[^"]*"/g, "")
+    .replace(/[^a-z ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Collapse semantically similar findings. When several findings share the same semantic core,
+ *  keep the first (most specific) and drop the rest. The findingId of the first representative is kept. */
+function dedupFindings(raw: BriefFinding[]): BriefFinding[] {
+  const seen = new Map<string, number>(); // core → index in `out`
+  const out: BriefFinding[] = [];
+  for (const f of raw) {
+    const core = semanticCore(f.text);
+    if (!core) continue;
+    const existing = seen.get(core);
+    if (existing !== undefined) {
+      // Already have a finding with this semantic core — skip this duplicate.
+      continue;
+    }
+    seen.set(core, out.length);
+    out.push(f);
+  }
+  return out;
+}
+
 /** What the brief says, section by section, in Higgins' plain words: the verdict's short reason (never the verdict
  *  again), the key findings and what isn't certain. An answer to a general question is the answer itself. */
 export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label" | "caution">): { summary: string[]; findings: BriefFinding[]; uncertain: string[] } {
@@ -36,9 +72,12 @@ export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label
   const summary = label
     ? [[reason, verdict.caution && !first.includes(verdict.caution) ? verdict.caution : ""].filter(Boolean).join(" ")].filter(Boolean)
     : r.answer;
+  // Semantic dedup: collapse findings with identical cores (e.g. multiple blocklist hits), then cap.
+  const allFindings = r.found.map((f) => ({ text: scrubMessage(f.text), findingId: f.findingId })).filter((f) => f.text);
+  const deduped = dedupFindings(allFindings).slice(0, MAX_BRIEF_FINDINGS);
   return {
     summary: summary.map(scrubMessage),
-    findings: r.found.map((f) => ({ text: scrubMessage(f.text), findingId: f.findingId })).filter((f) => f.text),
+    findings: deduped,
     uncertain: r.uncertain.map(scrubMessage).filter(Boolean),
   };
 }

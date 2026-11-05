@@ -1,11 +1,14 @@
 /**
- * PhoneIdentityCard — displays who a phone number belongs to.
+ * PhoneIdentityCard — Who Called: compact inline card identifying a phone number.
  *
- * Shows: associated entity, confidence badge, evidence sources, spoofing awareness.
- * Designed to sit inside the Check a Number result screen (call-guard.tsx).
+ * Default: single-row summary (icon + entity/number + confidence chip).
+ * Expanded on tap: Higgins explanation, evidence, spoofing, detail chips.
+ * Designed to sit contextually alongside Higgins' explanation, never dominating it.
  */
 
 import Building from "lucide-react-native/icons/building";
+import ChevronDown from "lucide-react-native/icons/chevron-down";
+import ChevronUp from "lucide-react-native/icons/chevron-up";
 import CircleCheck from "lucide-react-native/icons/circle-check";
 import CircleQuestionMark from "lucide-react-native/icons/circle-question-mark";
 import ShieldAlert from "lucide-react-native/icons/shield-alert";
@@ -38,42 +41,88 @@ const CONFIDENCE_LABEL: Record<Confidence, string> = {
 /* ── Styles ────────────────────────────────────────────────────────────────── */
 
 const useStyles = makeStyles((c) => ({
-  card: {
+  /* ── Compact (always visible) ──────────────────────────────────────────── */
+  compact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
     backgroundColor: c.surfaceSecondary,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderWidth: 0.5,
     borderColor: c.border,
   },
-  header: {
+  compactHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
+    minHeight: 44,
   },
-  iconWell: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  compactIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerText: {
+  compactBody: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
-  title: {
-    fontFamily: fonts.displayBold,
-    fontSize: 14,
-    letterSpacing: 0.5,
+  compactLabel: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 11,
+    letterSpacing: 0.3,
     textTransform: "uppercase" as const,
     color: c.muted,
   },
-  entity: {
+  compactEntity: {
     fontFamily: fonts.displayBold,
-    fontSize: 18,
+    fontSize: 15,
     color: c.onSurface,
   },
+  compactMuted: {
+    flex: 1,
+    fontFamily: fonts.text,
+    fontSize: 13,
+    color: c.muted,
+  },
+  compactLink: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 13,
+  },
+  chipSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  chipText: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 10,
+  },
+
+  /* ── Card (wraps compact header + expanded body) ───────────────────────── */
+  card: {
+    backgroundColor: c.surfaceSecondary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    borderWidth: 0.5,
+    borderColor: c.border,
+  },
+  expandedBody: {
+    gap: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 0.5,
+    borderTopColor: c.border,
+  },
+
+  /* ── Expanded sections (reused from before, tightened) ─────────────────── */
   badge: {
     flexDirection: "row",
     alignItems: "center",
@@ -89,8 +138,8 @@ const useStyles = makeStyles((c) => ({
   },
   description: {
     fontFamily: fonts.text,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
     color: c.onSurfaceSecondary,
   },
   spoofing: {
@@ -99,15 +148,15 @@ const useStyles = makeStyles((c) => ({
     gap: spacing.sm,
     backgroundColor: c.growlingWash,
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderWidth: 0.5,
     borderColor: c.growling,
   },
   spoofingText: {
     flex: 1,
     fontFamily: fonts.textSemibold,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
     color: c.growlingText,
   },
   scamIntel: {
@@ -116,15 +165,15 @@ const useStyles = makeStyles((c) => ({
     gap: spacing.sm,
     backgroundColor: c.barkingWash,
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderWidth: 0.5,
     borderColor: c.barking,
   },
   scamText: {
     flex: 1,
     fontFamily: fonts.textSemibold,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
     color: c.barkingText,
   },
   evidenceSection: {
@@ -132,7 +181,7 @@ const useStyles = makeStyles((c) => ({
   },
   evidenceLabel: {
     fontFamily: fonts.textSemibold,
-    fontSize: 12,
+    fontSize: 11,
     color: c.muted,
     letterSpacing: 0.3,
     textTransform: "uppercase" as const,
@@ -141,93 +190,82 @@ const useStyles = makeStyles((c) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 2,
   },
   evidenceDot: {
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
     borderRadius: 3,
   },
   evidenceText: {
     flex: 1,
     fontFamily: fonts.text,
-    fontSize: 13,
+    fontSize: 12,
     color: c.onSurfaceSecondary,
   },
   evidenceLink: {
     fontFamily: fonts.text,
-    fontSize: 12,
+    fontSize: 11,
     color: c.brandPrimary,
     textDecorationLine: "underline" as const,
   },
   details: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   detailChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingVertical: 4,
+    paddingVertical: 3,
     paddingHorizontal: spacing.sm,
     backgroundColor: c.surfaceTertiary,
     borderRadius: radius.sm,
   },
   detailText: {
     fontFamily: fonts.text,
-    fontSize: 12,
+    fontSize: 11,
     color: c.onSurfaceSecondary,
   },
-  loadingWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  loadingText: {
-    fontFamily: fonts.text,
-    fontSize: 14,
-    color: c.muted,
-  },
   higginsSection: {
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   higginsLabel: {
     fontFamily: fonts.textSemibold,
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: 0.3,
     textTransform: "uppercase" as const,
     color: c.muted,
   },
   higginsBody: {
     fontFamily: fonts.text,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     color: c.onSurface,
   },
   whatToDo: {
-    gap: spacing.sm,
+    gap: spacing.xs,
     backgroundColor: c.surfaceTertiary,
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   whatToDoLabel: {
     fontFamily: fonts.textSemibold,
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: 0.3,
     textTransform: "uppercase" as const,
     color: c.muted,
   },
   whatToDoText: {
     fontFamily: fonts.textSemibold,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
     color: c.onSurface,
   },
   freshness: {
     fontFamily: fonts.text,
-    fontSize: 11,
+    fontSize: 10,
     color: c.muted,
     alignSelf: "flex-end",
   },
@@ -259,6 +297,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
   const stripped = number?.replace(/[\s\-()]/g, "") ?? "";
   const valid = stripped.length >= 7;
@@ -280,157 +319,140 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
     return () => { cancelled = true; };
   }, [number, country, valid, attempt]);
 
-  // Nothing to show when the input is too short
   if (!number || !valid) return null;
 
+  /* Loading state — compact spinner */
   if (loading) {
     return (
-      <View style={s.card} testID={testID}>
-        <View style={s.loadingWrap}>
-          <ActivityIndicator size="small" color={colors.muted} />
-          <Text style={s.loadingText}>Identifying number…</Text>
-        </View>
+      <View style={s.compact} testID={testID}>
+        <ActivityIndicator size="small" color={colors.muted} />
+        <Text style={s.compactLabel}>Who Called</Text>
+        <Text style={s.compactMuted}>Looking up…</Text>
       </View>
     );
   }
 
-  // Error or no result — show a visible fallback with retry instead of disappearing
+  /* Error / no result — compact retry */
   if (error || !result) {
     return (
-      <View style={s.card} testID={testID}>
-        <View style={s.header}>
-          <View style={[s.iconWell, { backgroundColor: colors.unknownTint }]}>
-            <CircleQuestionMark size={20} color={colors.unknownText} />
-          </View>
-          <View style={s.headerText}>
-            <Text style={s.title}>Caller identity</Text>
-            <Text style={s.entity}>Lookup unavailable</Text>
-          </View>
+      <View style={s.compact} testID={testID}>
+        <View style={[s.compactIcon, { backgroundColor: colors.unknownTint }]}>
+          <CircleQuestionMark size={14} color={colors.unknownText} />
         </View>
-        <Text style={s.description}>
-          {error
-            ? "Apollo couldn't look up this number right now. This may be a temporary network issue."
-            : "No identity information available for this number."}
-        </Text>
-        <Pressable
-          onPress={() => setAttempt((a) => a + 1)}
-          style={[s.badge, { backgroundColor: colors.brandPrimary + "18" }]}
-          accessibilityRole="button"
-          accessibilityLabel="Retry identity lookup"
-          hitSlop={8}
-        >
-          <Text style={[s.badgeText, { color: colors.brandPrimary }]}>Try again</Text>
+        <Text style={s.compactLabel}>Who Called</Text>
+        <Text style={s.compactMuted} numberOfLines={1}>Lookup unavailable</Text>
+        <Pressable onPress={() => setAttempt((a) => a + 1)} hitSlop={8}
+          accessibilityRole="button" accessibilityLabel="Retry identity lookup">
+          <Text style={[s.compactLink, { color: colors.brandPrimary }]}>Retry</Text>
         </Pressable>
       </View>
     );
   }
 
-  const { associated_entity, association_confidence, evidence, scam_intel, known_impersonation, number_type, network, geographic, freshness } = result;
-
+  const { associated_entity, association_confidence, evidence, number_type, network, geographic, freshness } = result;
   const badgeColors = confidenceBadgeColors(association_confidence, colors);
   const ConfidenceIcon = confidenceIcon(association_confidence);
   const explanation = explainIdentity(result);
+  const Chevron = expanded ? ChevronUp : ChevronDown;
 
   return (
     <View style={s.card} testID={testID}>
-      {/* Header: icon + entity name */}
-      <View style={s.header}>
-        <View style={[s.iconWell, { backgroundColor: badgeColors.tint }]}>
-          {associated_entity ? (
-            <Building size={20} color={badgeColors.fg} />
-          ) : (
-            <CircleQuestionMark size={20} color={colors.muted} />
-          )}
+      {/* ─ Compact header: always visible, tap to expand ─ */}
+      <Pressable
+        style={s.compactHeader}
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={expanded ? "Collapse Who Called details" : "Expand Who Called details"}
+      >
+        <View style={[s.compactIcon, { backgroundColor: badgeColors.tint }]}>
+          {associated_entity
+            ? <Building size={14} color={badgeColors.fg} />
+            : <CircleQuestionMark size={14} color={colors.muted} />}
         </View>
-        <View style={s.headerText}>
-          <Text style={s.title}>Caller identity</Text>
-          <Text style={s.entity} testID={testID ? `${testID}-entity` : undefined}>
+        <View style={s.compactBody}>
+          <Text style={s.compactLabel}>Who Called</Text>
+          <Text style={s.compactEntity} numberOfLines={1} testID={testID ? `${testID}-entity` : undefined}>
             {associated_entity ?? "Unknown caller"}
           </Text>
         </View>
-      </View>
-
-      {/* Confidence badge */}
-      <View style={[s.badge, { backgroundColor: badgeColors.tint }]}>
-        <ConfidenceIcon size={14} color={badgeColors.fg} />
-        <Text style={[s.badgeText, { color: badgeColors.fg }]} testID={testID ? `${testID}-confidence` : undefined}>
-          {CONFIDENCE_LABEL[association_confidence]}
-        </Text>
-      </View>
-
-      {/* Higgins says — plain-English explanation */}
-      <View style={s.higginsSection}>
-        <Text style={s.higginsLabel}>Higgins says</Text>
-        <Text style={s.higginsBody} testID={testID ? `${testID}-headline` : undefined}>
-          {explanation.headline}
-        </Text>
-        <Text style={s.description}>{explanation.body}</Text>
-      </View>
-
-      {/* What to do */}
-      <View style={s.whatToDo}>
-        <Text style={s.whatToDoLabel}>What to do</Text>
-        <Text style={s.whatToDoText} testID={testID ? `${testID}-advice` : undefined}>
-          {explanation.whatToDo}
-        </Text>
-      </View>
-
-      {/* Spoofing awareness (from explanation — shown for non-verified identified numbers) */}
-      {explanation.spoofing ? (
-        <View style={s.spoofing} testID={testID ? `${testID}-spoofing` : undefined}>
-          <TriangleAlert size={16} color={colors.growlingText} />
-          <Text style={s.spoofingText}>{explanation.spoofing}</Text>
+        <View style={[s.chipSmall, { backgroundColor: badgeColors.tint }]}>
+          <ConfidenceIcon size={10} color={badgeColors.fg} />
+          <Text style={[s.chipText, { color: badgeColors.fg }]}>{CONFIDENCE_LABEL[association_confidence]}</Text>
         </View>
-      ) : null}
+        <Chevron size={16} color={colors.muted} />
+      </Pressable>
 
-      {/* Known impersonation warning */}
-      {explanation.impersonationWarning ? (
-        <View style={s.scamIntel} testID={testID ? `${testID}-impersonation` : undefined}>
-          <ShieldAlert size={16} color={colors.barkingText} />
-          <Text style={s.scamText}>{explanation.impersonationWarning}</Text>
-        </View>
-      ) : null}
+      {/* ─ Expanded detail: only when tapped ─ */}
+      {expanded ? (
+        <View style={s.expandedBody}>
+          {/* Higgins says */}
+          <View style={s.higginsSection}>
+            <Text style={s.higginsLabel}>Higgins says</Text>
+            <Text style={s.higginsBody} testID={testID ? `${testID}-headline` : undefined}>{explanation.headline}</Text>
+            <Text style={s.description}>{explanation.body}</Text>
+          </View>
 
-      {/* Scam intel */}
-      {explanation.scamWarning ? (
-        <View style={s.scamIntel} testID={testID ? `${testID}-scam` : undefined}>
-          <ShieldAlert size={16} color={colors.barkingText} />
-          <Text style={s.scamText}>{explanation.scamWarning}</Text>
-        </View>
-      ) : null}
+          {/* What to do */}
+          <View style={s.whatToDo}>
+            <Text style={s.whatToDoLabel}>What to do</Text>
+            <Text style={s.whatToDoText} testID={testID ? `${testID}-advice` : undefined}>{explanation.whatToDo}</Text>
+          </View>
 
-      {/* Evidence sources */}
-      {evidence.length > 0 ? (
-        <View style={s.evidenceSection}>
-          <Text style={s.evidenceLabel}>Sources</Text>
-          {evidence.map((e, i) => (
-            <View key={`${e.source}-${i}`} style={s.evidenceRow}>
-              <View style={[s.evidenceDot, { backgroundColor: tierDotColor(e.source_type, colors) }]} />
-              <Text style={s.evidenceText} numberOfLines={1}>
-                {e.publisher}{e.claim !== e.publisher ? ` — ${e.claim}` : ""}
-              </Text>
-              {e.source.startsWith("http") ? (
-                <Pressable onPress={() => Linking.openURL(e.source)} accessibilityRole="link" hitSlop={8}>
-                  <Text style={s.evidenceLink}>View</Text>
-                </Pressable>
-              ) : null}
+          {/* Spoofing awareness */}
+          {explanation.spoofing ? (
+            <View style={s.spoofing} testID={testID ? `${testID}-spoofing` : undefined}>
+              <TriangleAlert size={14} color={colors.growlingText} />
+              <Text style={s.spoofingText}>{explanation.spoofing}</Text>
             </View>
-          ))}
+          ) : null}
+
+          {/* Known impersonation */}
+          {explanation.impersonationWarning ? (
+            <View style={s.scamIntel} testID={testID ? `${testID}-impersonation` : undefined}>
+              <ShieldAlert size={14} color={colors.barkingText} />
+              <Text style={s.scamText}>{explanation.impersonationWarning}</Text>
+            </View>
+          ) : null}
+
+          {/* Scam intel */}
+          {explanation.scamWarning ? (
+            <View style={s.scamIntel} testID={testID ? `${testID}-scam` : undefined}>
+              <ShieldAlert size={14} color={colors.barkingText} />
+              <Text style={s.scamText}>{explanation.scamWarning}</Text>
+            </View>
+          ) : null}
+
+          {/* Evidence sources */}
+          {evidence.length > 0 ? (
+            <View style={s.evidenceSection}>
+              <Text style={s.evidenceLabel}>Sources</Text>
+              {evidence.map((e, i) => (
+                <View key={`${e.source}-${i}`} style={s.evidenceRow}>
+                  <View style={[s.evidenceDot, { backgroundColor: tierDotColor(e.source_type, colors) }]} />
+                  <Text style={s.evidenceText} numberOfLines={1}>{e.publisher}{e.claim !== e.publisher ? ` — ${e.claim}` : ""}</Text>
+                  {e.source.startsWith("http") ? (
+                    <Pressable onPress={() => Linking.openURL(e.source)} accessibilityRole="link" hitSlop={8}>
+                      <Text style={s.evidenceLink}>View</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {/* Detail chips */}
+          <View style={s.details}>
+            {number_type ? <View style={s.detailChip}><Text style={s.detailText}>{number_type}</Text></View> : null}
+            {network ? <View style={s.detailChip}><Text style={s.detailText}>{network}</Text></View> : null}
+            {geographic ? <View style={s.detailChip}><Text style={s.detailText}>{geographic}</Text></View> : null}
+          </View>
+
+          {freshness ? (
+            <Text style={s.freshness}>
+              {freshness === "fresh" ? "Just checked" : freshness === "cached" ? "Cached result" : "Stale — rechecking soon"}
+            </Text>
+          ) : null}
         </View>
-      ) : null}
-
-      {/* Detail chips */}
-      <View style={s.details}>
-        {number_type ? <View style={s.detailChip}><Text style={s.detailText}>{number_type}</Text></View> : null}
-        {network ? <View style={s.detailChip}><Text style={s.detailText}>{network}</Text></View> : null}
-        {geographic ? <View style={s.detailChip}><Text style={s.detailText}>{geographic}</Text></View> : null}
-      </View>
-
-      {/* Freshness indicator */}
-      {freshness ? (
-        <Text style={s.freshness}>
-          {freshness === "fresh" ? "Just checked" : freshness === "cached" ? "Cached result" : "Stale — rechecking soon"}
-        </Text>
       ) : null}
     </View>
   );

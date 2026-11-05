@@ -140,7 +140,7 @@ async def ensure_indexes() -> None:
     await db.gmail_connections.create_index([("monitoring_enabled", 1), ("monitor_lease_until", 1)])
 
 
-async def _submit_shared_case(provider: str, device_id: str, message: dict[str, Any], intake_mode: str) -> bool:
+async def _submit_shared_case(provider: str, device_id: str, message: dict[str, Any], intake_mode: str, account_email: str | None = None) -> bool:
     digest = _message_digest(provider, str(message.get("id", "")))
     key = {"provider": provider, "device_id": device_id, "message_digest": digest}
     try:
@@ -375,6 +375,7 @@ async def _submit_shared_case(provider: str, device_id: str, message: dict[str, 
         "auth_passed": bool(auth_results and any(auth_results.get(m) == "pass" for m in ("spf", "dkim", "dmarc"))),
         "link_count": len(links),
         "provider": provider,
+        "account": account_email,
     }
     if case_updates:
         await db.investigation_cases.update_one(
@@ -476,7 +477,7 @@ async def scan_gmail_through_shared_pipeline(device_id: str, intake_mode: str, e
         messages, next_cursor = await gmail.scan_inbox_page(device_id, cursor, **scan_kwargs)
         accepted = 0
         for message in messages:
-            accepted += int(await _submit_shared_case("gmail", device_id, message, intake_mode))
+            accepted += int(await _submit_shared_case("gmail", device_id, message, intake_mode, account_email=account))
         times = [int(m["internal_date"]) for m in messages if str(m.get("internal_date") or "").isdigit()]
         paused = {r["message_digest"] async for r in db.mailbox_assessment_receipts.find(
             {"provider": "gmail", "device_id": device_id, "state": "budget_paused",

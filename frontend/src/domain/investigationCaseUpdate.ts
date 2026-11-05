@@ -45,7 +45,11 @@ function actionFrom(inv: DeviceInvestigation): string {
     : undefined;
   const chosen = recommended ?? actions[0];
   if (chosen?.instruction?.trim()) return chosen.instruction.trim();
-  if (response.assessment === "no_concern_found_within_scope") return "Nothing to do — nothing in what you submitted needs action.";
+  // A safe assessment means no concern was found within what was checked — it is NOT a guarantee and
+  // NOT administrative closure. The person should know what was covered and that what wasn't covered
+  // could still matter. Never say "nothing to do" as if closure is a safety determination.
+  if (response.assessment === "no_concern_found_within_scope")
+    return "No concern was found in what Apollo checked. If anything about it changes or you receive a follow-up, check again.";
   return "Review the findings above and verify anything you are unsure of directly with the organisation.";
 }
 

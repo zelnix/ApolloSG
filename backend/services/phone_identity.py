@@ -69,6 +69,10 @@ class PhoneIdentityResult(BaseModel):
     checked_at: Optional[str] = None
     freshness: Optional[str] = None        # fresh / cached / stale
 
+    # Lookup execution status — distinguishes "checked, nothing found" from "service unavailable"
+    # Per source: "match" / "no_match" / "empty_response" / "unavailable" / "timeout" / "not_checked"
+    lookup_status: dict[str, str] = Field(default_factory=dict)
+
 
 # ── Normalisation helpers ──────────────────────────────────────────────────────
 
@@ -262,10 +266,11 @@ async def _check_apollo_kb(e164: str) -> list[IdentityEvidence]:
 
 # ── Stage 4: Web search (Brave, same as TC FlyBy) ─────────────────────────────
 
-async def _web_search(e164: str, national_form: str) -> list[IdentityEvidence]:
-    """Search the web for this number. Same source-reading rules as TC FlyBy."""
+async def _web_search(e164: str, national_form: str) -> tuple[list[IdentityEvidence], str]:
+    """Search the web for this number. Returns (evidence, status).
+    Status: 'match' | 'no_match' | 'empty_response' | 'unavailable' | 'timeout' | 'not_checked'."""
     if not brave_search.configured():
-        return []
+        return [], "unavailable"
 
     # Build search query with number variants
     queries = []
@@ -283,15 +288,21 @@ async def _web_search(e164: str, national_form: str) -> list[IdentityEvidence]:
 
     q = " OR ".join(queries[:3])
     if not q:
-        return []
+        return [], "not_checked"
 
     evidence = []
     try:
         results = await brave_search.search(q, correlation_id=f"phone-identity-{_digits(e164)[-6:]}",
                                              trigger_source="phone_identity")
+    except TimeoutError:
+        log.info("phone_identity web search timeout: e164=%s…%s", e164[:4], e164[-3:])
+        return [], "timeout"
     except (brave_search.SearchUnavailable, Exception) as exc:
         log.info("phone_identity web search unavailable: %s", exc)
-        return []
+        return [], "unavailable"
+
+    if not results:
+        return [], "empty_response"
 
     digits_tail = _digits(e164)[-8:] if len(_digits(e164)) >= 8 else _digits(e164)
 
@@ -338,7 +349,7 @@ async def _web_search(e164: str, national_form: str) -> list[IdentityEvidence]:
             retrieved_at=now_utc().isoformat(),
         ))
 
-    return evidence
+    return evidence, ("match" if evidence else "no_match")
 
 
 def _host(url: str) -> str:
@@ -427,20 +438,28 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
 
     # Step 3: Number details from numbering plan
     details = _number_details(e164, country)
+    lookup_status: dict[str, str] = {}
 
     # Step 4: Official Organisation Directory (Tier 1)
     evidence = _check_org_directory(e164)
+    lookup_status["org_directory"] = "match" if evidence else "no_match"
 
     # Step 5: Apollo Knowledge Base
     if not evidence:
         kb_evidence = await _check_apollo_kb(e164)
         evidence.extend(kb_evidence)
+        lookup_status["apollo_kb"] = "match" if kb_evidence else "no_match"
+    else:
+        lookup_status["apollo_kb"] = "not_checked"
 
     # Step 6: Web search (only if we still don't have evidence)
     if not evidence:
         national_form = _national(e164)
-        web_evidence = await _web_search(e164, national_form)
+        web_evidence, web_status = await _web_search(e164, national_form)
         evidence.extend(web_evidence)
+        lookup_status["web_search"] = web_status
+    else:
+        lookup_status["web_search"] = "not_checked"
 
     # Step 7: Scam intel
     scam_intel = await _check_scam_intel(e164)
@@ -475,6 +494,7 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
         known_impersonation=known_impersonation,
         checked_at=now.isoformat(),
         freshness="fresh",
+        lookup_status=lookup_status,
     )
 
     # Step 10: Cache the result
