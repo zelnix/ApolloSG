@@ -33,7 +33,6 @@ import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsB
 import { RelatedCases } from "@/src/components/report/RelatedCases";
 import { investigationVerdict } from "@/src/domain/briefVerdict";
 import { SourceList } from "@/src/components/report/SourceList";
-import { OutcomeExplainerLink } from "@/src/components/OutcomeExplainerLink";
 import { SourceSummaryCard } from "@/src/components/report/SourceSummaryCard";
 import { ServerCopyNote } from "@/src/components/ServerCopyNote";
 import { PhoneIdentityCard } from "@/src/components/PhoneIdentityCard";
@@ -792,7 +791,6 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {activeTab === "overview" ? (
         <View style={{ gap: spacing.md }} testID="inv-tab-overview-content">
           {report && verdict ? <View testID="inv-overview"><FindingsBrief report={report} verdict={verdict} steps={steps} ids="inv" caseId={caseData?.id} /></View> : null}
-          {response?.outcome ? <OutcomeExplainerLink outcome={response.outcome} testID="inv-outcome-explainer" /> : null}
           {response?.history?.length ? <RelatedCases event={event} response={response} ids="inv" /> : null}
         <Card style={[s.card, { gap: spacing.md }]} testID="inv-overview-more">
           {!response && failure ? (

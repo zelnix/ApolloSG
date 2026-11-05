@@ -44,7 +44,6 @@ import { LIMITED_CAUTION, LIMITED_TODO, plainTriageText } from "@/src/domain/tri
 import { looksLikeInternalCode } from "@/src/domain/messageVoice";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
 import { investigationVerdict, resultVerdict, riskPill, type BriefVerdict } from "@/src/domain/briefVerdict";
-import { OutcomeExplainerLink } from "@/src/components/OutcomeExplainerLink";
 import { SourceSummaryCard } from "@/src/components/report/SourceSummaryCard";
 import { RelatedCases } from "@/src/components/report/RelatedCases";
 import { ServerCopyNote } from "@/src/components/ServerCopyNote";
