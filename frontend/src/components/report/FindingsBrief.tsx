@@ -45,7 +45,7 @@ function actionsTitle(tone: string): string {
   }
 }
 
-export interface BriefFinding { text: string; findingId?: string }
+export interface BriefFinding { text: string; findingId?: string; category?: string | null }
 
 /** Maximum key findings shown in the primary brief: technical detail stays on the DI tab. */
 const MAX_BRIEF_FINDINGS = 5;
@@ -98,7 +98,7 @@ export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label
     ? [[contextReason, verdict.caution && !first.includes(verdict.caution) && !contextReason.includes(verdict.caution) ? verdict.caution : ""].filter(Boolean).join(" ")].filter(Boolean)
     : r.answer;
   // Semantic dedup: collapse findings with identical cores (e.g. multiple blocklist hits), then cap.
-  const allFindings = r.found.map((f) => ({ text: scrubMessage(f.text), findingId: f.findingId })).filter((f) => f.text);
+  const allFindings = r.found.map((f) => ({ text: scrubMessage(f.text), findingId: f.findingId, category: f.category })).filter((f) => f.text);
   const deduped = dedupFindings(allFindings).slice(0, MAX_BRIEF_FINDINGS);
   return {
     summary: summary.map(scrubMessage),
@@ -207,12 +207,14 @@ function FindingBullets({ items, caseId, testID }: { items: BriefFinding[]; case
   return <>{items.map((f, i) => {
     const hasId = !!f.findingId && !!caseId;
     const fb = f.findingId ? reported[f.findingId] : undefined;
-    const split = splitFindingLabel(f.text);
+    // Prefer the category from the report; fall back to pattern-matching the text
+    const category = f.category;
+    const split = category ? null : splitFindingLabel(f.text);
     return (
       <View key={`${i}-${f.text}`} style={s.bullet} testID={`${testID}-${i}`}>
         <Text style={s.dot}>{"\u2022"}</Text>
         <Text style={[s.item, fb ? s.reportedItem : undefined]}>
-          {split ? <><Text style={s.findingLabel}>{split.label}: </Text>{split.body}</> : f.text}
+          {category ? <><Text style={s.findingLabel}>{category}: </Text>{f.text}</> : split ? <><Text style={s.findingLabel}>{split.label}: </Text>{split.body}</> : f.text}
         </Text>
         {hasId ? (
           sending === f.findingId ? (
@@ -261,7 +263,7 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
         <Section bg={tone.bg} circle={tone.solid} icon={<Gavel size={22} color="#FFFFFF" />} testID={`${ids}-verdict`}>
           {/* Titled like every other card; the pills sit under the title so they never crowd it on a phone. */}
           <Text style={s.title}>
-            {verdict.label ? <>{"Verdict: "}<Text style={{ color: tone.ink }} testID={`${ids}-verdict-label`}>{verdict.label}</Text></> : "Higgins' answer"}
+            {verdict.label ? <>{"What was found: "}<Text style={{ color: tone.ink }} testID={`${ids}-verdict-label`}>{verdict.label}</Text></> : "What was found"}
           </Text>
           {verdict.risk || verdict.status ? (
             <View style={s.pills}>
@@ -293,9 +295,20 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
         </Section>
       ) : null}
 
-      {steps.length ? (
+      {(steps.length || report.orgActions?.length) ? (
         <Section bg={colors.restingTint} circle={colors.restingTint} icon={<ShieldCheck size={22} color={colors.restingText} />} title={actionsTitle(verdict.tone)} testID={`${ids}-todo`}>
-          {steps.map((step) => {
+          {/* Organisation-specific actions first (when an impersonated org is detected) */}
+          {report.orgActions?.length ? report.orgActions.map((action, i) => {
+            const split = splitFindingLabel(action);
+            return (
+              <View key={`org-${i}`} style={s.bullet} testID={`${ids}-org-action-${i}`}>
+                <Text style={s.dot}>{"\u2022"}</Text>
+                <Text style={s.item}>{split ? <><Text style={s.findingLabel}>{split.label}: </Text>{split.body}</> : action}</Text>
+              </View>
+            );
+          }) : null}
+          {/* Generic steps (only show if no org-specific actions, to avoid duplication) */}
+          {!report.orgActions?.length ? steps.map((step) => {
             const text = luddishText(scrubMessage(step.text), true);
             return step.onPress ? (
               <Pressable key={step.id} style={({ pressed }) => [s.bullet, { minHeight: 44, alignItems: "center", opacity: pressed ? 0.7 : 1 }]} onPress={step.onPress}
@@ -310,7 +323,7 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
                 <Text style={s.item}>{text}</Text>
               </View>
             );
-          })}
+          }) : null}
         </Section>
       ) : null}
     </View>

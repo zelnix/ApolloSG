@@ -193,9 +193,9 @@ export function investigationHistory(args: {
 // --- Higgins investigation verdicts (plain English, never raw enum values) ---------------------------
 export function assessmentLabel(assessment: string): string {
   switch (assessment) {
-    case "concern_found": return "Concern found";
-    case "no_concern_found_within_scope": return "No concern found in the checks performed";
-    case "uncertain": return "Not fully certain yet";
+    case "concern_found": return "Suspicious indicators found";
+    case "no_concern_found_within_scope": return "No concerns found in the checks performed";
+    case "uncertain": return "Apollo couldn't fully determine the risk";
     default: return "Checked";
   }
 }
@@ -212,11 +212,11 @@ export function attentionLabel(attention: string): string {
 /** Apollo's case outcome, as the person sees it. Null/unknown (a general question) shows no label. */
 export function outcomeLabel(outcome: string | null | undefined): string | null {
   switch (outcome) {
-    case "no_scam_indicators": return "No scam indicators found";
-    case "concerning": return "Concerning";
-    case "likely_scam": return "Likely scam";
-    case "confirmed_threat": return "Confirmed scam or threat";
-    case "unable_to_determine": return "Unable to determine";
+    case "no_scam_indicators": return "This appears safe and legitimate";
+    case "concerning": return "This is suspicious — exercise caution";
+    case "likely_scam": return "This is a scam — do not engage";
+    case "confirmed_threat": return "This is a confirmed scam or threat";
+    case "unable_to_determine": return "Apollo couldn't fully determine the risk";
     default: return null;
   }
 }

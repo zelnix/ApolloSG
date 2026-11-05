@@ -5,11 +5,14 @@
 // further are said once there. Pure: no React, no native imports.
 import type { Finding, HigginsResponse, PlainEnglish, SourceReference } from "../investigation/types";
 import { plainEvidenceRefs, type EvidenceRef } from "./evidenceRefs.ts";
+import { categorize } from "./findingCategorizer.ts";
 import { sentences } from "./luddish/patterns.ts";
+import { detectOrg, type OrgEntry } from "./orgDirectory.ts";
 import { compactUrls } from "./urlPresentation.ts";
 
-/** `explain`: Apollo's fixed explanation of a jargon word in the finding — explanatory, never evidence. */
-export interface ReportFinding { text: string; detail: string | null; explain?: string | null; findingId?: string }
+/** `explain`: Apollo's fixed explanation of a jargon word in the finding — explanatory, never evidence.
+ *  `category`: semantic label assigned by the finding categorizer (e.g. "Fake URL", "Panic Tactics"). */
+export interface ReportFinding { text: string; detail: string | null; explain?: string | null; findingId?: string; category?: string | null }
 export interface ReportSection { title: string; paragraphs: string[] }
 export interface Report {
   answer: string[];
@@ -23,6 +26,10 @@ export interface Report {
   sources: SourceReference[];
   /** Higgins Luddish L1's plain notes beside the answer: approved dictionary meanings, never evidence. */
   notes?: string[];
+  /** The impersonated organisation detected from the findings (null when none detected). */
+  detectedOrg?: OrgEntry | null;
+  /** Organisation-specific recommended actions (empty when no org detected). */
+  orgActions?: string[];
 }
 
 export interface ReportInput {
@@ -207,7 +214,28 @@ export function buildReport(input: ReportInput): Report {
   for (const line of method) if (!said.repeats(line)) { how.push(line); said.add(line); }
 
   const used = new Set(input.sourceIds ?? []);
-  return presented({ answer, found, means, more, uncertain, how: how.length ? [how.join(" ")] : [], sources: (input.sources ?? []).filter((s) => used.has(s.id)) }, input.evidence);
+  const report = presented({ answer, found, means, more, uncertain, how: how.length ? [how.join(" ")] : [], sources: (input.sources ?? []).filter((s) => used.has(s.id)) }, input.evidence);
+
+  // Post-processing: categorize findings and detect impersonated organisation
+  const allText = [...report.answer, ...report.found.map((f) => f.text), ...report.means].join(" ");
+  const org = detectOrg(allText);
+
+  // Apply semantic labels to findings
+  for (const f of report.found) {
+    f.category = categorize(f.text);
+  }
+
+  // Generate organisation-specific actions
+  if (org) {
+    report.detectedOrg = org;
+    report.orgActions = [
+      `Do not click any links or enter your details.`,
+      `Report the message: ${org.reportScam}`,
+      `If you already clicked or entered credentials: ${org.ifCompromised}`,
+    ];
+  }
+
+  return report;
 }
 
 /** What people read: web addresses shortened in the prose, and "How ApolloSG checked" naming each item it refers to in
@@ -237,7 +265,7 @@ export function plainReport(plain: PlainEnglish, sources?: SourceReference[], so
   const used = new Set(sourceIds ?? []);
   // A line about how Apollo checked is on the DI tab, never under what isn't certain.
   const method = plain.uncertain.filter((line) => NOT_TAKEN.test(line) || METHOD_LINE.test(line));
-  return presented({
+  const report = presented({
     // The result, then what the case is about ("What it is: the Stoko email address hello@stoko.com.").
     answer: [plain.result, plain.subject].filter((line): line is string => !!line),
     severity: plain.severity || null,
@@ -248,6 +276,25 @@ export function plainReport(plain: PlainEnglish, sources?: SourceReference[], so
     how: plain.how.length || method.length ? [[...plain.how, ...method].join(" ")] : [],
     sources: (sources ?? []).filter((s) => used.has(s.id)),
   }, evidence);
+
+  // Post-processing: categorize findings and detect impersonated organisation
+  const allText = [...report.answer, ...report.found.map((f) => f.text), ...report.means].join(" ");
+  const org = detectOrg(allText);
+
+  for (const f of report.found) {
+    f.category = categorize(f.text);
+  }
+
+  if (org) {
+    report.detectedOrg = org;
+    report.orgActions = [
+      `Do not click any links or enter your details.`,
+      `Report the message: ${org.reportScam}`,
+      `If you already clicked or entered credentials: ${org.ifCompromised}`,
+    ];
+  }
+
+  return report;
 }
 
 /** A step of what to do: in Higgins' plain English when it's shown, else Apollo's own wording. */
