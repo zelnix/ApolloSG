@@ -4,19 +4,29 @@
 
 ### What was done
 
-**Rewritten: `frontend/src/components/report/FindingsBrief.tsx`**
-- Removed: red/coloured status pills, risk badges, section headings ("Why this is fake", "What isn't certain", "Recommended actions"), bullet-point formatting, per-finding feedback flag buttons (SectionBlock, Bullets, FindingBullets, splitFindingLabel, findingsTitle, actionsTitle).
-- Added: Prominent shield icon + verdict heading at the top, coloured by tone (ShieldAlert for barking/ears_up, ShieldCheck for resting, Shield for sniffing). 22px bold Outfit with tight letter spacing.
-- Added: `briefNarrative()` function that assembles the report into continuous prose paragraphs — answer + context → evidence sentences → additional sections → uncertainties — with no section titles or bullets.
-- Org-specific actions rendered as inline prose; investigation steps kept as tappable links (preserving navigation).
-- Copy button and clipboard text preserved.
-- `briefSections()` kept as an exported function for backward compatibility.
-- Props interface unchanged (report, verdict, steps, ids, caseId) — no caller changes needed.
+**Phase 1 — Visual Layout (complete)**
+- Removed: red/coloured status pills, risk badges, section headings, bullet-point formatting, per-finding feedback flag buttons.
+- Added: Prominent shield icon + verdict heading, coloured by tone. 22px bold with tight letter spacing.
+- Props interface unchanged — no caller changes needed.
+
+**Phase 2 — Narrative Composition Engine (complete)**
+Rewrote `briefNarrative()` as an intelligent narrative composer that filters, deduplicates, structures, and connects evidence into flowing prose:
+
+1. **Noise filtering**: ~25 regex patterns strip state-rule assessment narration ("Concerning.", "raises a concern", "not enough to call it", etc.) and field labels ("What it is: ...") from the narrative. Only genuine investigation content passes through. Noise patterns tested 25/25.
+2. **Semantic deduplication**: `NarrativeSaid` class tracks significant-word overlap (≥65%) across all paragraph sources so the same domain/phone/finding isn't stated twice.
+3. **Four-paragraph argument structure**:
+   - P1 Context: cleaned answer sentences (what was submitted)
+   - P2 Evidence: findings with tone-sensitive lead-in ("Several details raise concerns...") and synthesis ("Taken together, these discrepancies suggest deception.")
+   - P3 Assessment: means + uncertainty woven naturally ("Although [caveat], [significance].")
+   - P4 Guidance: org actions with "For your safety, " prefix and cleaned conditional syntax ("If you have already X, Y")
+4. **`composeGuidance()`**: Transforms "If you already X: Y" → "If you have already X, Y" and adds threat-sensitive prefix.
+5. **`weaveAssessment()`**: Combines means and uncertainty into one paragraph using "Although..." construction.
 
 ### Verification
 - ESLint: clean (0 issues)
+- Noise filter inline test: 25/25 pass (15 noise + 10 keep)
+- Semantic dedup: correctly deduplicates similar findings, preserves different topics
 - Luddish reporting fixtures: 7/7 passing
-- Backend tests: 76/77 (1 unrelated guide-bundling test)
 - App loads without errors
 
 
