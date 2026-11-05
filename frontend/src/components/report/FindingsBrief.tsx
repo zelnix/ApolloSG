@@ -24,6 +24,15 @@ export interface BriefStep { id: string; text: string; onPress?: () => void }
 const ARTICLES = new Set(["a", "an", "the"]);
 const words = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter((w) => w && !ARTICLES.has(w)).join(" ");
 
+/** Context-sensitive title for the findings section: say *why* it's bad when the verdict says it is. */
+function findingsTitle(tone: string): string {
+  switch (tone) {
+    case "barking": return "Why this is fake";
+    case "ears_up": return "Why this is suspicious";
+    default: return "Key findings";
+  }
+}
+
 export interface BriefFinding { text: string; findingId?: string }
 
 /** Maximum key findings shown in the primary brief: technical detail stays on the DI tab. */
@@ -98,6 +107,7 @@ const useStyles = makeStyles((c) => ({
   bullet: { flexDirection: "row", gap: spacing.sm },
   dot: { fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurface },
   item: { flex: 1, fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurface },
+  findingLabel: { fontFamily: fonts.textSemibold, fontSize: 15, lineHeight: 22, color: c.onSurface },
   reportedItem: { opacity: 0.55 },
   link: { color: c.brandPrimary, fontFamily: fonts.textMedium },
   flagBtn: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 14 },
@@ -130,6 +140,14 @@ function Bullets({ items, testID }: { items: string[]; testID: string }) {
       <Text style={s.item}>{text}</Text>
     </View>
   ))}</>;
+}
+
+/** Split a finding into a bold label and body when it follows "Label: explanation" or "Label — explanation" patterns. */
+function splitFindingLabel(text: string): { label: string; body: string } | null {
+  // Match "Word(s): rest" or "Word(s) — rest" at the start, where the label is short and capitalised
+  const m = text.match(/^([A-Z][A-Za-z &/'-]{1,35})(?::\s*|\s*[—–]\s*)(.+)$/s);
+  if (m) return { label: m[1], body: m[2] };
+  return null;
 }
 
 function FindingBullets({ items, caseId, testID }: { items: BriefFinding[]; caseId?: string; testID: string }) {
@@ -177,10 +195,13 @@ function FindingBullets({ items, caseId, testID }: { items: BriefFinding[]; case
   return <>{items.map((f, i) => {
     const hasId = !!f.findingId && !!caseId;
     const fb = f.findingId ? reported[f.findingId] : undefined;
+    const split = splitFindingLabel(f.text);
     return (
       <View key={`${i}-${f.text}`} style={s.bullet} testID={`${testID}-${i}`}>
         <Text style={s.dot}>{"\u2022"}</Text>
-        <Text style={[s.item, fb ? s.reportedItem : undefined]}>{f.text}</Text>
+        <Text style={[s.item, fb ? s.reportedItem : undefined]}>
+          {split ? <><Text style={s.findingLabel}>{split.label}: </Text>{split.body}</> : f.text}
+        </Text>
         {hasId ? (
           sending === f.findingId ? (
             <ActivityIndicator size="small" color={colors.muted} style={{ marginLeft: 4, width: 28 }} />
@@ -249,7 +270,7 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
       ) : null}
 
       {findings.length ? (
-        <Section bg={colors.goldTint} circle={colors.ears_upTint} icon={<Search size={22} color={colors.ears_upText} />} title="Key findings" testID={`${ids}-findings`}>
+        <Section bg={colors.goldTint} circle={colors.ears_upTint} icon={<Search size={22} color={colors.ears_upText} />} title={findingsTitle(verdict.tone)} testID={`${ids}-findings`}>
           <FindingBullets items={findings} caseId={caseId} testID={`${ids}-finding`} />
         </Section>
       ) : null}
@@ -261,7 +282,7 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
       ) : null}
 
       {steps.length ? (
-        <Section bg={colors.restingTint} circle={colors.restingTint} icon={<ShieldCheck size={22} color={colors.restingText} />} title="What you can do" testID={`${ids}-todo`}>
+        <Section bg={colors.restingTint} circle={colors.restingTint} icon={<ShieldCheck size={22} color={colors.restingText} />} title="Recommended actions" testID={`${ids}-todo`}>
           {steps.map((step) => {
             const text = luddishText(scrubMessage(step.text), true);
             return step.onPress ? (
