@@ -599,7 +599,17 @@ function TierRow({ tier, colors, s, testID }: {
       <View style={s.tierContent}>
         <Text style={[s.tierLabel, { color: badgeColors.fg }]}>{label}</Text>
         <Text style={s.tierHeadline}>{tier.headline}</Text>
+        {tier.location ? <Text style={s.tierDetail}>Location: {tier.location}</Text> : null}
         {tier.detail ? <Text style={s.tierDetail}>{tier.detail}</Text> : null}
+        {tier.businessUnits.length > 0 ? (
+          <View style={{ gap: 2, marginTop: 2 }}>
+            {tier.businessUnits.map((bu, i) => (
+              <Text key={i} style={s.tierDetail}>{"\u2022"} {bu}</Text>
+            ))}
+          </View>
+        ) : null}
+        {tier.callback ? <Text style={[s.tierDetail, { fontFamily: fonts.textSemibold }]}>Callback: {tier.callback}</Text> : null}
+        {tier.callbackNote ? <Text style={[s.tierDetail, { fontStyle: "italic" }]}>{tier.callbackNote}</Text> : null}
         <View style={[s.tierQualifier, { backgroundColor: badgeColors.tint }]}>
           <Text style={[s.tierQualifierText, { color: badgeColors.fg }]}>{tier.qualifier}</Text>
         </View>

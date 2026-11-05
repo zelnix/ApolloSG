@@ -35,6 +35,14 @@ export interface TierExplanation {
   qualifier: string;
   /** Visual confidence signal. */
   confidence: "high" | "medium" | "low";
+  /** Named business units or divisions (e.g. ["Kleenheat", "CSBP"]). */
+  businessUnits: string[];
+  /** How to reach them back. */
+  callback: string | null;
+  /** Extra context about calling back. */
+  callbackNote: string | null;
+  /** Physical location. */
+  location: string | null;
 }
 
 export interface IdentityExplanation {
@@ -363,6 +371,10 @@ function buildTierExplanations(tiers: PrefixIntelligenceTier[]): TierExplanation
     detail: t.detail,
     qualifier: humanQualifier(t.qualifier),
     confidence: t.confidence,
+    businessUnits: t.business_units ?? [],
+    callback: t.callback ?? null,
+    callbackNote: t.callback_note ?? null,
+    location: t.location ?? null,
   }));
 }
 

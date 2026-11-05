@@ -26,6 +26,14 @@ export interface PrefixIntelligenceTier {
   confidence: "high" | "medium" | "low";
   prefix: string;
   detail: string | null;
+  /** Named sub-brands, divisions, or business units of the entity. */
+  business_units?: string[];
+  /** How to reach them back — phone, email, or instruction. */
+  callback?: string | null;
+  /** Extra context about calling back (e.g. outbound lines don't accept incoming). */
+  callback_note?: string | null;
+  /** Physical location of the entity. */
+  location?: string | null;
 }
 
 export interface PhoneIdentityResult {

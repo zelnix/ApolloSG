@@ -58,6 +58,10 @@ class PrefixIntelligenceTier(BaseModel):
     confidence: str                        # "high" | "medium" | "low"
     prefix: str                            # The prefix or number that was matched
     detail: Optional[str] = None           # Additional geographic or context info
+    business_units: list[str] = Field(default_factory=list)  # Named sub-brands or divisions
+    callback: Optional[str] = None         # How to reach them back (phone or email)
+    callback_note: Optional[str] = None    # Extra context about calling back (e.g. "outbound lines don't accept incoming")
+    location: Optional[str] = None         # Physical location of the entity
 
 
 class PhoneIdentityResult(BaseModel):
@@ -201,6 +205,8 @@ AU_SUB_AREA_PREFIXES: dict[str, dict] = {
     "0864": {"area": "Perth metropolitan", "state": "Western Australia"},
     "0865": {"area": "Perth metropolitan", "state": "Western Australia"},
     "089": {"area": "Northern Territory", "state": "Northern Territory"},
+    "0893": {"area": "Perth southern suburbs", "state": "Western Australia"},
+    "0894": {"area": "Perth northern suburbs", "state": "Western Australia"},
     "0889": {"area": "Darwin and surrounds", "state": "Northern Territory"},
     "088": {"area": "South Australia", "state": "South Australia"},
     "0882": {"area": "Adelaide metropolitan", "state": "South Australia"},
@@ -225,19 +231,81 @@ AU_SUB_AREA_PREFIXES: dict[str, dict] = {
 # Known number-block associations: prefix → likely entity.
 # These are NEVER "verified" — they represent "possible association" or "lead" intelligence only.
 AU_NUMBER_BLOCK_ASSOCIATIONS: dict[str, dict] = {
-    "08611664": {"entity": "RAC WA", "context": "RAC contacts members about roadside assistance, insurance, membership and travel services.", "confidence": "low"},
-    "08611663": {"entity": "RAC WA", "context": "RAC contacts members about roadside assistance, insurance, membership and travel services.", "confidence": "low"},
-    "0861166": {"entity": "RAC WA", "context": "RAC uses Perth-area numbers in the 08 6116 range for customer contact.", "confidence": "low"},
-    "131111": {"entity": "RAC WA Roadside Assistance", "context": "RAC WA's nationally recognised roadside assistance hotline.", "confidence": "high"},
-    "131132": {"entity": "NRMA", "context": "NRMA roadside assistance hotline.", "confidence": "high"},
-    "132211": {"entity": "Telstra", "context": "Telstra's main customer service line.", "confidence": "high"},
-    "131444": {"entity": "Police Assistance Line", "context": "Non-emergency police reporting across Australia.", "confidence": "high"},
-    "131450": {"entity": "Translating and Interpreting Service", "context": "Australian Government translating service.", "confidence": "high"},
-    "000": {"entity": "Emergency Services", "context": "Triple Zero — police, fire, ambulance.", "confidence": "high"},
-    "131114": {"entity": "Lifeline", "context": "24-hour crisis support and suicide prevention.", "confidence": "high"},
-    "1300363400": {"entity": "NBN Co", "context": "National Broadband Network customer service.", "confidence": "medium"},
-    "1300555135": {"entity": "ATO", "context": "Australian Taxation Office general enquiries.", "confidence": "medium"},
-    "1300360380": {"entity": "Centrelink", "context": "Centrelink (Services Australia) general line.", "confidence": "medium"},
+    "0893129222": {
+        "entity": "WesCEF (Wesfarmers Chemicals, Energy & Fertilisers)",
+        "context": "Corporate headquarters of WesCEF, a major Wesfarmers subsidiary operating across chemicals, energy and fertilisers in Western Australia.",
+        "confidence": "high",
+        "location": "Perth, Western Australia",
+        "business_units": ["Kleenheat (LPG / natural gas)", "CSBP Fertilisers & Chemicals", "Australian Gold Reagents (AGR)", "Covalent Lithium"],
+        "callback": "Call (08) 9312 9222 or email corpcomms@wescef.com.au",
+    },
+    "089312922": {
+        "entity": "WesCEF (Wesfarmers Chemicals, Energy & Fertilisers)",
+        "context": "Corporate headquarters of WesCEF in Perth. A call from this range could be related to general corporate enquiries or one of their business units.",
+        "confidence": "medium",
+        "location": "Perth, Western Australia",
+        "business_units": ["Kleenheat (LPG / natural gas)", "CSBP Fertilisers & Chemicals", "Australian Gold Reagents (AGR)", "Covalent Lithium"],
+        "callback": "Call (08) 9312 9222 or email corpcomms@wescef.com.au",
+    },
+    "08611664": {
+        "entity": "RAC WA",
+        "context": "Calls from RAC's (08) 6116 direct-dial range typically originate from their Member Services, Insurance, or Travel & Touring divisions for routine customer communications.",
+        "confidence": "medium",
+        "location": "Perth, Western Australia",
+        "business_units": [
+            "Policy & Membership: Renewals, payment follow-ups, or updates regarding roadside assistance or vehicle/home insurance",
+            "Service Follow-ups: Enquiries related to an open claim, auto service appointment, or travel booking",
+            "Member Offers: Marketing or survey follow-ups for active RAC members",
+        ],
+        "callback": "General Enquiries & Membership: 13 17 03 · Roadside Assistance: 13 11 11 · Insurance Claims: 13 17 03",
+        "callback_note": "Outbound call-centre lines often do not accept direct incoming calls — calling (08) 6116 6418 back may give a busy signal or automated prompt.",
+    },
+    "08611663": {
+        "entity": "RAC WA",
+        "context": "Calls from RAC's (08) 6116 direct-dial range typically originate from their Member Services, Insurance, or Travel & Touring divisions.",
+        "confidence": "medium",
+        "location": "Perth, Western Australia",
+        "business_units": [
+            "Policy & Membership: Renewals, payment follow-ups, or updates",
+            "Service Follow-ups: Open claims, auto service, travel bookings",
+            "Member Offers: Marketing or survey follow-ups for active RAC members",
+        ],
+        "callback": "General Enquiries & Membership: 13 17 03 · Roadside Assistance: 13 11 11 · Insurance Claims: 13 17 03",
+        "callback_note": "Outbound call-centre lines often do not accept direct incoming calls.",
+    },
+    "0861166": {
+        "entity": "RAC WA",
+        "context": "Perth landline block (08 6116 XXXX) assigned to RAC WA (Royal Automobile Club of Western Australia). Calls from this range are routine customer communications.",
+        "confidence": "low",
+        "location": "Perth, Western Australia",
+        "business_units": [
+            "Policy & Membership: Renewals, payments, roadside assistance or insurance updates",
+            "Service Follow-ups: Open claims, auto service, travel bookings",
+            "Member Offers: Marketing or survey follow-ups",
+        ],
+        "callback": "General Enquiries & Membership: 13 17 03 · Roadside Assistance: 13 11 11 · Insurance Claims: 13 17 03",
+        "callback_note": "Outbound call-centre lines often do not accept direct incoming calls.",
+    },
+    "131111": {"entity": "RAC WA Roadside Assistance", "context": "RAC WA's nationally recognised roadside assistance hotline.", "confidence": "high",
+               "business_units": [], "callback": "Call 13 11 11"},
+    "131132": {"entity": "NRMA", "context": "NRMA roadside assistance hotline.", "confidence": "high",
+               "business_units": [], "callback": "Call 13 11 32"},
+    "132211": {"entity": "Telstra", "context": "Telstra's main customer service line.", "confidence": "high",
+               "business_units": [], "callback": "Call 13 22 00 (general) or 132 211 (faults)"},
+    "131444": {"entity": "Police Assistance Line", "context": "Non-emergency police reporting across Australia.", "confidence": "high",
+               "business_units": [], "callback": "Call 13 14 44 or 000 for emergencies"},
+    "131450": {"entity": "Translating and Interpreting Service", "context": "Australian Government translating service.", "confidence": "high",
+               "business_units": [], "callback": "Call 13 14 50"},
+    "000": {"entity": "Emergency Services", "context": "Triple Zero — police, fire, ambulance.", "confidence": "high",
+            "business_units": [], "callback": "Call 000"},
+    "131114": {"entity": "Lifeline", "context": "24-hour crisis support and suicide prevention.", "confidence": "high",
+               "business_units": [], "callback": "Call 13 11 14"},
+    "1300363400": {"entity": "NBN Co", "context": "National Broadband Network customer service.", "confidence": "medium",
+                   "business_units": [], "callback": "Call 1800 687 626"},
+    "1300555135": {"entity": "ATO", "context": "Australian Taxation Office general enquiries.", "confidence": "medium",
+                   "business_units": [], "callback": "Call 13 28 61 (individual) or 13 28 66 (business)"},
+    "1300360380": {"entity": "Centrelink", "context": "Centrelink (Services Australia) general line.", "confidence": "medium",
+                   "business_units": [], "callback": "Call 13 24 68"},
 }
 
 
@@ -329,6 +397,10 @@ def _prefix_intelligence(e164: str, details: dict) -> list[PrefixIntelligenceTie
                 confidence=conf,
                 prefix=prefix,
                 detail=context,
+                business_units=block.get("business_units", []),
+                callback=block.get("callback"),
+                callback_note=block.get("callback_note"),
+                location=block.get("location"),
             ))
             break  # Only the most specific match
 
@@ -347,6 +419,10 @@ def _prefix_intelligence(e164: str, details: dict) -> list[PrefixIntelligenceTie
                     confidence=block["confidence"],
                     prefix=prefix,
                     detail=block["context"],
+                    business_units=block.get("business_units", []),
+                    callback=block.get("callback"),
+                    callback_note=block.get("callback_note"),
+                    location=block.get("location"),
                 ))
                 break
 
@@ -364,6 +440,10 @@ def _prefix_intelligence(e164: str, details: dict) -> list[PrefixIntelligenceTie
                     confidence=block["confidence"],
                     prefix=prefix,
                     detail=block["context"],
+                    business_units=block.get("business_units", []),
+                    callback=block.get("callback"),
+                    callback_note=block.get("callback_note"),
+                    location=block.get("location"),
                 ))
                 break
 
