@@ -3,7 +3,6 @@
 // Context, never evidence (domain/caseHistory.ts). Shared by a Threat Case and Ask Higgins.
 import { useRouter } from "expo-router";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import Clock from "lucide-react-native/icons/clock";
 import Link2 from "lucide-react-native/icons/link-2";
 import React, { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -25,13 +24,7 @@ const useStyles = makeStyles((c) => ({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: c.divider, minHeight: 44 },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface },
-  encounterHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider },
-  encounterIcon: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: c.surfaceTertiary },
-  encounterTitle: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface },
   weight: { fontFamily: fonts.text, fontSize: 13, lineHeight: 18, color: c.onSurfaceSecondary, padding: spacing.sm, borderRadius: radius.md, backgroundColor: c.surfaceTertiary },
-  bullet: { flexDirection: "row", gap: spacing.sm },
-  dot: { fontFamily: fonts.text, fontSize: 14, lineHeight: 20, color: c.onSurface },
-  item: { flex: 1, fontFamily: fonts.text, fontSize: 14, lineHeight: 20, color: c.onSurface },
 }));
 
 function rowTitle(row: RelatedRow): string {
@@ -75,20 +68,6 @@ export function RelatedCases({ event, response, ids }: {
         }) : (
           <Text style={s.sub} testID={`${ids}-related-cases-empty`}>No related cases. Related emails, messages or links on this device will appear here.</Text>
         )}
-        {history.encountered.length ? (
-          <View style={{ gap: spacing.xs }} testID={`${ids}-encountered`}>
-            <View style={s.encounterHead}>
-              <View style={s.encounterIcon}><Clock size={12} color={colors.onSurfaceSecondary} /></View>
-              <Text style={s.encounterTitle}>Previous reports</Text>
-            </View>
-            {history.encountered.map((n) => (
-              <View key={n.key} style={s.bullet} testID={`${ids}-${n.key}`}>
-                <Text style={s.dot}>{"\u2022"}</Text>
-                <Text style={s.item}>{n.text}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
         {weight ? <Text style={s.weight} testID={`${ids}-related-weight`}>{weight}</Text> : null}
       </View>
     </View>
