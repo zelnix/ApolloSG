@@ -29,7 +29,19 @@ function findingsTitle(tone: string): string {
   switch (tone) {
     case "barking": return "Why this is fake";
     case "ears_up": return "Why this is suspicious";
+    case "resting": return "Why this appears genuine";
     default: return "Key findings";
+  }
+}
+
+/** Context-sensitive title for the actions section. */
+function actionsTitle(tone: string): string {
+  switch (tone) {
+    case "barking":
+    case "ears_up":
+      return "Recommended actions";
+    default:
+      return "What to do next";
   }
 }
 
@@ -282,7 +294,7 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
       ) : null}
 
       {steps.length ? (
-        <Section bg={colors.restingTint} circle={colors.restingTint} icon={<ShieldCheck size={22} color={colors.restingText} />} title="Recommended actions" testID={`${ids}-todo`}>
+        <Section bg={colors.restingTint} circle={colors.restingTint} icon={<ShieldCheck size={22} color={colors.restingText} />} title={actionsTitle(verdict.tone)} testID={`${ids}-todo`}>
           {steps.map((step) => {
             const text = luddishText(scrubMessage(step.text), true);
             return step.onPress ? (

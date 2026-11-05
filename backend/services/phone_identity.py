@@ -691,6 +691,51 @@ def _check_impersonation(e164: str, entity: Optional[str]) -> bool:
     return False
 
 
+# ── Unknown caller guidance ────────────────────────────────────────────────────
+
+def _unknown_caller_guidance(
+    e164: str,
+    details: dict,
+    geo_tier: Optional[PrefixIntelligenceTier],
+    block_tier: Optional[PrefixIntelligenceTier],
+) -> list[str]:
+    """Build contextual actionable guidance when the caller identity is unknown."""
+    guidance: list[str] = []
+    number_type = details.get("number_type", "").lower()
+    country_code = details.get("country_code", "")
+
+    # Geographic context warning
+    if geo_tier:
+        area_desc = geo_tier.description.split("(")[0].strip().rstrip(".")
+        if "mobile" in area_desc.lower():
+            guidance.append("This is a mobile number — the caller could be anywhere in Australia.")
+        else:
+            # Clean up: "Australian geographic number in the Sydney metropolitan" → "Sydney metropolitan landline"
+            clean = area_desc.lower().replace("australian geographic number in the ", "").replace("australian ", "").strip()
+            guidance.append(f"This is a {clean} landline — if you weren't expecting a call from this area, treat it with caution.")
+
+    # If a block tier found a possible association, reference it
+    if block_tier and block_tier.entity:
+        guidance.append(f"The number range is associated with {block_tier.entity}, so this may be a legitimate call from their organisation.")
+
+    # General guidance
+    if not block_tier or not block_tier.entity:
+        guidance.append("If you answered and were asked for personal or financial details, do not provide them over the phone.")
+        guidance.append("You can try calling the number back — if it's a legitimate business, they'll typically have a reception or voicemail.")
+
+    # Number-type-specific advice
+    if "landline" in number_type or "geographic" in number_type:
+        guidance.append("Landline numbers are harder to spoof than mobiles, but still exercise normal caution.")
+    elif "mobile" in number_type:
+        guidance.append("Mobile numbers are frequently used in phone scams. Be especially cautious if the caller created urgency or asked for money.")
+
+    # AU-specific reporting
+    if country_code == "AU":
+        guidance.append("If you suspect a scam, report it to Scamwatch (scamwatch.gov.au) or call 1300 795 995.")
+
+    return guidance
+
+
 # ── Main resolution pipeline ──────────────────────────────────────────────────
 
 async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdentityResult:
@@ -765,12 +810,38 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
         geographic = area_map.get(nat)
 
     # Step 10: Build caller tier from exact-number lookup results
+    # For unknown callers, build richer guidance using geographic context
+    geo_tier = next((t for t in prefix_tiers if t.tier == "geographic"), None)
+    block_tier = next((t for t in prefix_tiers if t.tier == "number_block"), None)
+
+    if entity:
+        caller_desc = f"Exact-number lookup identified {entity} ({confidence} confidence)."
+        caller_detail = (
+            f"Based on {len(evidence)} source(s): "
+            + ", ".join(sorted({e.publisher for e in evidence}))
+        )
+        caller_guidance: list[str] = []
+    else:
+        # Build contextual unknown-caller description
+        area_hint = ""
+        if geo_tier and geo_tier.detail:
+            area_hint = f" {geo_tier.description.rstrip('.')}"
+        caller_desc = f"Apollo couldn't confirm who owns this number.{area_hint}"
+
+        # Build sources-checked summary
+        sources_checked = []
+        for src, status in lookup_status.items():
+            if status in ("match", "no_match"):
+                sources_checked.append(src.replace("_", " ").title())
+        checked_text = f"Apollo checked {len(sources_checked)} source(s) ({', '.join(sources_checked[:4])})" if sources_checked else "Apollo checked its available sources"
+        caller_detail = f"{checked_text} but found no published owner for this number."
+
+        # Contextual guidance for unknown callers
+        caller_guidance = _unknown_caller_guidance(e164, details, geo_tier, block_tier)
+
     caller_tier = PrefixIntelligenceTier(
         tier="caller",
-        description=(
-            f"Exact-number lookup identified {entity} ({confidence} confidence)."
-            if entity else "No exact-number identity was established."
-        ),
+        description=caller_desc,
         entity=entity,
         qualifier={
             "verified": "verified identity",
@@ -784,11 +855,10 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
             "possible": "low",
         }.get(confidence, "low"),
         prefix=e164,
-        detail=(
-            f"Based on {len(evidence)} source(s): "
-            + ", ".join(sorted({e.publisher for e in evidence}))
-            if evidence else "Apollo checked its Official Organisation Directory, knowledge base, and public sources."
-        ),
+        detail=caller_detail,
+        business_units=caller_guidance,  # Reuse business_units field for guidance steps when unknown
+        callback="Search the number online — other Australians may have reported it on reverse-lookup sites." if not entity else None,
+        callback_note=None,
     )
 
     # Assemble all tiers: geographic → number_block → caller
