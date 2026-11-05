@@ -1,5 +1,42 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## History & DI Presentation Improvements (Section 10, P1) — 2026-11-05
+
+### Changes made:
+
+**1. History Tab — Administrative closure vs investigation outcome (InvestigationView.tsx)**
+- Extended `TimelineEntry` with `entryKind` field classifying events as `process`, `user_action`, `administrative_closure`, `investigation_outcome`, or `error`.
+- TC FlyBy-settled cases now show "Case settled" with a `RULE-BASED` badge (grey) and body text explaining automated checks resolved the case without deep investigation.
+- Magnum DI-completed cases show "Investigation complete" with an `INVESTIGATED` badge (green), clearly distinguishing from administrative closures.
+- Timeline dot colours reflect entry kind: grey for administrative closure, green for investigation outcome.
+
+**2. DI Tab — Progressive disclosure (DiReport.tsx)**
+- Decision path step details now collapsed by default behind a "Show N details" toggle with chevron icons.
+- Outside Research sources: individual source fact lists (Supports / Points the other way / Also informs) are collapsed behind a tap-to-expand summary showing the cited fact count.
+- Sources list truncated to first 3 by default with "Show all N sources" expander.
+- "How ApolloSG checked" and "Related history" sections wrapped in `CollapsibleSection` — closed by default with subtitle preview.
+
+**3. Evidence Lock — Accurate preservation language (diTrace.ts)**
+- Lock label changed from "Locked" to "Preserved".
+- Summary reworded: "The Evidence Lock preserves [who]'s original decision as it was at the time. It records what was concluded — it does not independently verify that conclusion."
+- Fact/verdict details use "Recorded verdict" and "Captured N facts" instead of "Locked verdict" and "Locked N facts".
+- Higgins fidelity check detail uses "recorded result" instead of "locked result".
+
+**4. Magnum DI engagement clarity (diTrace.ts)**
+- When not engaged because TC FlyBy settled: label changed from "Not engaged" to "Not needed", summary now explains "TC FlyBy's automated checks resolved all identified questions", detail adds "Deep investigation was not required".
+- When not engaged because no investigation opened: summary explains "Higgins Triage did not open an investigation", detail adds "Triage rules did not indicate the need".
+- When TC FlyBy settles: first detail now reads "This is an administrative determination from rule-based checks, not a deep investigation by Magnum DI."
+
+**5. History dedup (InvestigationView.tsx)**
+- Added `dedupeRetries()` to collapse consecutive retry timeline entries of the same kind into a single grouped entry (e.g. "3 automatic retries — 2 failed, 1 succeeded").
+
+### Files changed:
+- `/app/frontend/src/domain/diTrace.ts` — Evidence Lock, Magnum DI, TC FlyBy wording
+- `/app/frontend/src/components/DiReport.tsx` — Progressive disclosure UI
+- `/app/frontend/src/components/InvestigationView.tsx` — History tab entry kinds, badges, dedup
+
+
+
 ## Fix: Check This Call crashed on suspicious calls (2026-11-01, session 3)
 - Cause: the Production Sample Checks change added `origin: options?.origin ?? "user"` inside `checkCall` (ApolloContext.tsx) without an `options` parameter → "options is not defined" thrown for every call check that files a case (anything not clean).
 - Fix: `checkCall(input, options?: CallCheckOptions)` with new `CallCheckOptions { origin?: "sample_check" }` (same pattern as the other checks); context type updated. Callers unchanged (app/call.tsx passes none → origin "user").

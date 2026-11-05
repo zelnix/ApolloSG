@@ -111,6 +111,9 @@ const useStyles = makeStyles((c) => ({
   timelineTitle: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface, lineHeight: 20, flex: 1 },
   timelineTime: { fontFamily: fonts.text, fontSize: 11, color: c.muted },
   timelineBody: { fontFamily: fonts.text, fontSize: 13, lineHeight: 19, color: c.onSurfaceSecondary, marginTop: 4 },
+  // ── Entry kind badges ──
+  entryBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, alignSelf: "flex-start" as const, marginTop: 4 },
+  entryBadgeText: { fontFamily: fonts.textSemibold, fontSize: 10, letterSpacing: 0.3, textTransform: "uppercase" as const },
 
   // ── Technical Error Details ──
   diagSection: { gap: spacing.sm },
@@ -301,26 +304,85 @@ function formatEvBytes(bytes: number): string {
 }
 
 /** Timeline entry for History tab. */
-interface TimelineEntry { title: string; body: string; at: string; iconType: "create" | "working" | "retry" | "complete" | "failed" | "question" }
+interface TimelineEntry {
+  title: string;
+  body: string;
+  at: string;
+  iconType: "create" | "working" | "retry" | "complete" | "failed" | "question";
+  /** Classifies the entry so the UI can distinguish administrative closures from real investigation outcomes. */
+  entryKind: "process" | "user_action" | "administrative_closure" | "investigation_outcome" | "error";
+}
+
+/** Collapse consecutive retry entries of the same kind into a single grouped entry. */
+function dedupeRetries(entries: TimelineEntry[]): TimelineEntry[] {
+  const result: TimelineEntry[] = [];
+  let retryGroup: TimelineEntry[] = [];
+  const flushRetries = () => {
+    if (retryGroup.length === 0) return;
+    if (retryGroup.length === 1) { result.push(retryGroup[0]); }
+    else {
+      const successes = retryGroup.filter((e) => e.body.startsWith("Succeeded"));
+      const failures = retryGroup.filter((e) => !e.body.startsWith("Succeeded"));
+      const parts: string[] = [];
+      if (failures.length) parts.push(`${failures.length} failed`);
+      if (successes.length) parts.push(`${successes.length} succeeded`);
+      result.push({
+        title: `${retryGroup.length} automatic retries`,
+        body: `${parts.join(", ")}. Last attempt: ${retryGroup[retryGroup.length - 1].body}`,
+        at: retryGroup[retryGroup.length - 1].at,
+        iconType: successes.length ? "complete" : "retry",
+        entryKind: "process",
+      });
+    }
+    retryGroup = [];
+  };
+  for (const entry of entries) {
+    if (entry.iconType === "retry") { retryGroup.push(entry); }
+    else { flushRetries(); result.push(entry); }
+  }
+  flushRetries();
+  return result;
+}
 
 function buildTimeline(state: CaseState): TimelineEntry[] {
   const entries: TimelineEntry[] = [];
   const { caseData, turns, failure, phase, response } = state;
   const name = investigatorName(caseData?.answeredBy);
-  if (caseData) entries.push({ title: "Investigation opened", body: "ApolloSG began the investigation.", at: caseData.createdAt, iconType: "create" });
-  for (const turn of turns) entries.push({ title: "Follow-up submitted", body: `You asked: "${turn.question.slice(0, 100)}${turn.question.length > 100 ? "\u2026" : ""}"`, at: turn.committedAt, iconType: "question" });
+  const isFlyby = caseData?.answeredBy ? /^tc_flyby/i.test(caseData.answeredBy) : false;
+  if (caseData) entries.push({ title: "Investigation opened", body: "ApolloSG began the investigation.", at: caseData.createdAt, iconType: "create", entryKind: "process" });
+  for (const turn of turns) entries.push({ title: "Follow-up submitted", body: `You asked: "${turn.question.slice(0, 100)}${turn.question.length > 100 ? "\u2026" : ""}"`, at: turn.committedAt, iconType: "question", entryKind: "user_action" });
   const history = ((failure as unknown as Record<string, unknown> | null)?.retryHistory ?? (failure as unknown as Record<string, unknown> | null)?.retry_history ?? []) as Record<string, unknown>[];
   for (const rh of history) {
-    entries.push({ title: kindLabel(String(rh.kind ?? "Retry")), body: `${rh.outcome === "success" ? "Succeeded" : "Failed"}${rh.failureCode || rh.failure_code ? ` \u2014 ${rh.failureCode ?? rh.failure_code}` : ""}`, at: String(rh.timestamp ?? caseData?.createdAt ?? ""), iconType: rh.outcome === "success" ? "complete" : "retry" });
+    entries.push({ title: kindLabel(String(rh.kind ?? "Retry")), body: `${rh.outcome === "success" ? "Succeeded" : "Failed"}${rh.failureCode || rh.failure_code ? ` \u2014 ${rh.failureCode ?? rh.failure_code}` : ""}`, at: String(rh.timestamp ?? caseData?.createdAt ?? ""), iconType: rh.outcome === "success" ? "complete" : "retry", entryKind: "process" });
   }
   if (response && (phase === "answered" || phase === "waiting_user")) {
-    entries.push({ title: response.completion === "complete" ? "Investigation complete" : "Results available", body: response.completion === "complete" ? `${name} completed the investigation within scope.` : response.completion === "partial" ? `${name} provided partial results.` : "Magnum DI is waiting for your answer.", at: caseData?.updatedAt ?? caseData?.createdAt ?? "", iconType: "complete" });
+    if (isFlyby) {
+      entries.push({
+        title: "Case settled",
+        body: caseData?.settledReason?.sentence
+          ?? `${name}'s automated checks resolved this case. No deep investigation was required.`,
+        at: caseData?.updatedAt ?? caseData?.createdAt ?? "",
+        iconType: "complete",
+        entryKind: "administrative_closure",
+      });
+    } else {
+      entries.push({
+        title: response.completion === "complete" ? "Investigation complete" : "Results available",
+        body: response.completion === "complete" ? `${name} completed the investigation within scope.`
+          : response.completion === "partial" ? `${name} provided partial results.`
+          : "Magnum DI is waiting for your answer.",
+        at: caseData?.updatedAt ?? caseData?.createdAt ?? "",
+        iconType: "complete",
+        entryKind: "investigation_outcome",
+      });
+    }
   } else if (phase === "failed") {
-    entries.push({ title: "Investigation incomplete", body: failure?.message ?? state.error ?? "The investigation could not be completed.", at: caseData?.updatedAt ?? caseData?.createdAt ?? "", iconType: "failed" });
+    entries.push({ title: "Investigation incomplete", body: failure?.message ?? state.error ?? "The investigation could not be completed.", at: caseData?.updatedAt ?? caseData?.createdAt ?? "", iconType: "failed", entryKind: "error" });
   } else if (phase === "expired") {
-    entries.push({ title: "Server copy cleaned up", body: "Original evidence was cleaned up from the server. Saved findings remain on this device.", at: caseData?.updatedAt ?? "", iconType: "failed" });
+    entries.push({ title: "Server copy cleaned up", body: "Original evidence was cleaned up from the server. Saved findings remain on this device.", at: caseData?.updatedAt ?? "", iconType: "failed", entryKind: "process" });
   }
-  return entries.sort((a, b) => a.at.localeCompare(b.at));
+  const sorted = entries.sort((a, b) => a.at.localeCompare(b.at));
+  return dedupeRetries(sorted);
 }
 
 function timelineDotColor(type: string): string {
@@ -878,8 +940,16 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
           <Card style={[s.card, { gap: spacing.md }]} testID="inv-history-timeline">
             {timeline.map((entry, i) => {
               const isLast = i === timeline.length - 1;
-              const dotBg = timelineDotColor(entry.iconType);
+              const dotBg = entry.entryKind === "administrative_closure" ? "#6B7280"
+                : entry.entryKind === "investigation_outcome" ? "#16A34A"
+                : timelineDotColor(entry.iconType);
               const IconEl = entry.iconType === "create" ? Search : entry.iconType === "complete" ? CircleCheck : entry.iconType === "failed" ? CircleAlert : entry.iconType === "retry" ? RefreshCw : entry.iconType === "question" ? MessageSquare : Clock;
+              // Badge config for entry kind
+              const badge = entry.entryKind === "administrative_closure"
+                ? { label: "RULE-BASED", bg: colors.surfaceTertiary, fg: colors.muted }
+                : entry.entryKind === "investigation_outcome"
+                ? { label: "INVESTIGATED", bg: colors.restingTint, fg: colors.restingText }
+                : null;
               return (
                 <View key={i} style={s.timelineItem} testID={`inv-history-${i}`}>
                   <View style={s.timelineTrack}>
@@ -891,6 +961,11 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
                       <Text style={s.timelineTitle}>{entry.title}</Text>
                       {entry.at ? <Text style={s.timelineTime}>{new Date(entry.at).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}</Text> : null}
                     </View>
+                    {badge ? (
+                      <View style={[s.entryBadge, { backgroundColor: badge.bg }]}>
+                        <Text style={[s.entryBadgeText, { color: badge.fg }]}>{badge.label}</Text>
+                      </View>
+                    ) : null}
                     <Text style={s.timelineBody}>{entry.body}</Text>
                   </View>
                 </View>

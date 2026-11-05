@@ -115,7 +115,8 @@ function flybyStep(trace: DiTrace | null, hasCase: boolean): TraceStep {
   if (flyby.resolved) {
     return {
       id: "flyby", name, status: "settled", label: `Settled · ${outcomeLabel(flyby.outcome) ?? "result recorded"}`,
-      summary: reason?.by === "TC FlyBy" ? reason.sentence : "TC FlyBy settled this case.", details: common,
+      summary: reason?.by === "TC FlyBy" ? reason.sentence : "TC FlyBy settled this case with its automated checks.",
+      details: ["This is an administrative determination from rule-based checks, not a deep investigation by Magnum DI.", ...common],
     };
   }
   return {
@@ -153,8 +154,12 @@ function magnumStep(trace: DiTrace | null, records: DiTransaction[], hasCase: bo
         : "Magnum DI investigated the case.",
     };
   }
-  if (trace?.flyby?.resolved) return { id: "magnum", name, status: "not_engaged", label: "Not engaged", summary: "Magnum DI was not engaged — TC FlyBy settled the case.", details: [] };
-  if (!hasCase) return { id: "magnum", name, status: "not_engaged", label: "Not engaged", summary: "Magnum DI was not engaged.", details: [] };
+  if (trace?.flyby?.resolved) return { id: "magnum", name, status: "not_engaged", label: "Not needed",
+    summary: "Magnum DI was not engaged because TC FlyBy's automated checks resolved all identified questions.",
+    details: ["Deep investigation was not required — the rule-based checks were sufficient for this case."] };
+  if (!hasCase) return { id: "magnum", name, status: "not_engaged", label: "Not needed",
+    summary: "Magnum DI was not engaged because Higgins Triage did not open an investigation.",
+    details: ["Triage rules did not indicate the need for a full investigation."] };
   if (trace?.flyby) return { id: "magnum", name, status: "pending", label: "No record yet", summary: "Escalated to Magnum DI. No Magnum DI record is stored for this case yet.", details: [] };
   return { id: "magnum", name, status: "not_recorded", label: "No record", summary: "No Magnum DI record is stored for this case.", details: [] };
 }
@@ -180,24 +185,24 @@ function lockStep(trace: DiTrace | null, triage: TriageInvestigationRecord | nul
   const facts = factCount(response);
   const verdict = presented?.verdict ? `${presented.verdict}${presented.risk ? ` · ${presented.risk}` : ""}` : null;
   const details = [
-    ...(verdict ? [`Locked verdict: ${verdict}`] : []),
-    ...(facts ? [`Locked ${plural(facts.total, "fact")}${facts.contrary ? `, ${facts.contrary} pointing the other way` : ""}.`] : []),
+    ...(verdict ? [`Recorded verdict: ${verdict}`] : []),
+    ...(facts ? [`Captured ${plural(facts.total, "fact")}${facts.contrary ? `, ${facts.contrary} pointing the other way` : ""}.`] : []),
   ];
   const higgins = trace?.higgins;
   if (higgins?.status === "PASS") {
     details.push(higgins.mode === "repaired"
-      ? "Higgins' plain English was checked against the locked result; the parts that didn't match are shown in Apollo's own wording."
-      : "Higgins' plain English was checked against the locked result and matched it.");
+      ? "Higgins' plain English was checked against the recorded result; the parts that didn't match are shown in Apollo's own wording."
+      : "Higgins' plain English was checked against the recorded result and matched it.");
   } else if (higgins?.status === "FAIL") {
-    details.push("Higgins' plain English didn't match the locked result, so Apollo's own wording is shown.");
+    details.push("Higgins' plain English didn't match the recorded result, so Apollo's own wording is shown.");
   } else if (hasCase) {
     details.push("No check of Higgins' plain English is recorded for this result.");
   } else if (triage?.outcome === "LIMITED_UNABLE_TO_DETERMINE") {
     details.push("Higgins advised treating it with caution — it is never shown as safe.");
   }
   return {
-    id: "lock", name, status: higgins?.status === "FAIL" ? "failed" : "ran", label: "Locked",
-    summary: `${who}'s result was locked before Higgins explained it, so the explanation can't change what was found.`, details,
+    id: "lock", name, status: higgins?.status === "FAIL" ? "failed" : "ran", label: "Preserved",
+    summary: `The Evidence Lock preserves ${who}'s original decision as it was at the time. It records what was concluded — it does not independently verify that conclusion.`, details,
   };
 }
 

@@ -5,7 +5,9 @@
 // model are never shown. Shown on both the Threat Case screen and Ask Higgins. Evidence is never modified here.
 
 import React, { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import ChevronDown from "lucide-react-native/icons/chevron-down";
+import ChevronUp from "lucide-react-native/icons/chevron-up";
 
 import { apiGet } from "@/src/api/client";
 import { SettledByBadge } from "@/src/components/SettledByBadge";
@@ -42,6 +44,12 @@ const useStyles = makeStyles((c) => ({
   source: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider, gap: 4 },
   sourceTitle: { fontFamily: fonts.textSemibold, fontSize: 14, lineHeight: 19, color: c.onSurface },
   factLabel: { fontFamily: fonts.textSemibold, fontSize: 12, marginTop: 2 },
+  // Expandable sections
+  expandToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm },
+  expandLabel: { fontFamily: fonts.textSemibold, fontSize: 12, color: c.brandPrimary },
+  sectionToggle: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
+  sectionToggleText: { fontFamily: fonts.textSemibold, fontSize: 16, color: c.onSurface, flex: 1 },
+  detailSummary: { fontFamily: fonts.text, fontSize: 12, color: c.muted, marginTop: 2 },
 }));
 
 type DiState = { loading: boolean; error: string | null; records: DiTransaction[]; trace: DiTrace | null };
@@ -82,6 +90,13 @@ function useStatusColors(): Record<TraceStatus, { dot: string; bg: string; fg: s
 function DecisionTrace({ steps, settled }: { steps: TraceStep[]; settled: React.ReactNode }) {
   const s = useStyles();
   const tones = useStatusColors();
+  const { colors } = useTheme();
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  const toggleStep = (id: string) => setExpandedSteps((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
   return (
     <Card testID="tc-di-trace">
       <Text style={s.sectionTitle}>Decision path</Text>
@@ -89,6 +104,8 @@ function DecisionTrace({ steps, settled }: { steps: TraceStep[]; settled: React.
       <Text style={[s.note, { marginBottom: spacing.md }]}>{TRACE_ORDER}</Text>
       {steps.map((step, i) => {
         const tone = tones[step.status];
+        const hasDetails = step.details.length > 0;
+        const isExpanded = expandedSteps.has(step.id);
         return (
           <View key={step.id} style={s.stepRow} testID={`tc-di-step-${step.id}`}>
             <View style={s.stepRail}>
@@ -103,7 +120,13 @@ function DecisionTrace({ steps, settled }: { steps: TraceStep[]; settled: React.
                 </View>
               </View>
               <Text style={s.value} selectable testID={`tc-di-step-${step.id}-summary`}>{step.summary}</Text>
-              {step.details.map((d, j) => <Text key={j} style={s.stepDetail} selectable testID={`tc-di-step-${step.id}-detail-${j}`}>{`• ${d}`}</Text>)}
+              {hasDetails ? (
+                <Pressable style={s.expandToggle} onPress={() => toggleStep(step.id)} hitSlop={8} testID={`tc-di-step-${step.id}-toggle`}>
+                  <Text style={s.expandLabel}>{isExpanded ? "Hide details" : `Show ${step.details.length} detail${step.details.length > 1 ? "s" : ""}`}</Text>
+                  {isExpanded ? <ChevronUp size={14} color={colors.brandPrimary} /> : <ChevronDown size={14} color={colors.brandPrimary} />}
+                </Pressable>
+              ) : null}
+              {hasDetails && isExpanded ? step.details.map((d, j) => <Text key={j} style={s.stepDetail} selectable testID={`tc-di-step-${step.id}-detail-${j}`}>{`• ${d}`}</Text>) : null}
             </View>
           </View>
         );
@@ -125,9 +148,43 @@ function FactList({ label, facts, color, testID }: { label: string; facts: strin
   );
 }
 
+function ResearchSource({ r, i }: { r: ResearchRow; i: number }) {
+  const s = useStyles();
+  const { colors } = useTheme();
+  const hasFacts = r.supports.length > 0 || r.against.length > 0 || r.other.length > 0;
+  const [expanded, setExpanded] = useState(false);
+  const factCount = r.supports.length + r.against.length + r.other.length;
+  return (
+    <View style={s.source} testID={`tc-di-research-${i}`}>
+      <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={6}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={[s.sourceTitle, { flex: 1 }]} selectable>{r.title}</Text>
+          {hasFacts ? (expanded ? <ChevronUp size={14} color={colors.muted} /> : <ChevronDown size={14} color={colors.muted} />) : null}
+        </View>
+        <Text style={s.note} selectable>
+          {[r.site && r.site !== r.title ? r.site : null, r.standing, r.how, r.at ? formatDateTime(r.at) : null, r.reused ? "From an earlier check" : null].filter(Boolean).join(" · ")}
+        </Text>
+        {!expanded && hasFacts ? <Text style={[s.note, { fontStyle: "italic" }]}>{`${factCount} fact${factCount !== 1 ? "s" : ""} cited — tap to expand`}</Text> : null}
+      </Pressable>
+      {expanded || !hasFacts ? <>
+        <FactList label="Supports" facts={r.supports} color={colors.onSurface} testID={`tc-di-research-${i}-supports`} />
+        <FactList label="Points the other way" facts={r.against} color={colors.ears_upText} testID={`tc-di-research-${i}-against`} />
+        <FactList label="Also informs" facts={r.other} color={colors.onSurfaceSecondary} testID={`tc-di-research-${i}-other`} />
+        {!r.supports.length && !r.against.length && !r.other.length ? (
+          <Text style={s.stepDetail} testID={`tc-di-research-${i}-uncited`}>Consulted, but no fact rests on it.</Text>
+        ) : null}
+      </> : null}
+    </View>
+  );
+}
+
 function Research({ rows }: { rows: ResearchRow[] }) {
   const s = useStyles();
   const { colors } = useTheme();
+  const [showAll, setShowAll] = useState(false);
+  const INITIAL_SHOWN = 3;
+  const visibleRows = showAll ? rows : rows.slice(0, INITIAL_SHOWN);
+  const hasMore = rows.length > INITIAL_SHOWN;
   return (
     <Card testID="tc-di-research">
       <Text style={s.sectionTitle}>Outside research</Text>
@@ -136,20 +193,36 @@ function Research({ rows }: { rows: ResearchRow[] }) {
       ) : (
         <Text style={s.sourceSub} testID="tc-di-research-none">No outside research is recorded for this case.</Text>
       )}
-      {rows.map((r, i) => (
-        <View key={r.id} style={s.source} testID={`tc-di-research-${i}`}>
-          <Text style={s.sourceTitle} selectable>{r.title}</Text>
-          <Text style={s.note} selectable>
-            {[r.site && r.site !== r.title ? r.site : null, r.standing, r.how, r.at ? formatDateTime(r.at) : null, r.reused ? "From an earlier check" : null].filter(Boolean).join(" · ")}
-          </Text>
-          <FactList label="Supports" facts={r.supports} color={colors.onSurface} testID={`tc-di-research-${i}-supports`} />
-          <FactList label="Points the other way" facts={r.against} color={colors.ears_upText} testID={`tc-di-research-${i}-against`} />
-          <FactList label="Also informs" facts={r.other} color={colors.onSurfaceSecondary} testID={`tc-di-research-${i}-other`} />
-          {!r.supports.length && !r.against.length && !r.other.length ? (
-            <Text style={s.stepDetail} testID={`tc-di-research-${i}-uncited`}>Consulted, but no fact rests on it.</Text>
-          ) : null}
-        </View>
-      ))}
+      {visibleRows.map((r, i) => <ResearchSource key={r.id} r={r} i={i} />)}
+      {hasMore && !showAll ? (
+        <Pressable style={[s.expandToggle, { justifyContent: "center" }]} onPress={() => setShowAll(true)} hitSlop={8} testID="tc-di-research-show-all">
+          <Text style={s.expandLabel}>{`Show all ${rows.length} sources`}</Text>
+          <ChevronDown size={14} color={colors.brandPrimary} />
+        </Pressable>
+      ) : null}
+    </Card>
+  );
+}
+
+// ── Collapsible section wrapper ──────────────────────────────────────────────
+
+function CollapsibleSection({ title, subtitle, children, testID, defaultOpen = false }: {
+  title: string; subtitle?: string; children: React.ReactNode; testID: string; defaultOpen?: boolean;
+}) {
+  const s = useStyles();
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card testID={testID}>
+      <Pressable style={s.sectionToggle} onPress={() => setOpen((v) => !v)} hitSlop={8} testID={`${testID}-toggle`}>
+        <Text style={s.sectionToggleText}>{title}</Text>
+        {open ? <ChevronUp size={16} color={colors.muted} /> : <ChevronDown size={16} color={colors.muted} />}
+      </Pressable>
+      {!open && subtitle ? <Text style={s.detailSummary}>{subtitle}</Text> : null}
+      {open ? <>
+        {subtitle ? <Text style={[s.sourceSub, { marginBottom: spacing.xs }]}>{subtitle}</Text> : null}
+        {children}
+      </> : null}
     </Card>
   );
 }
@@ -220,22 +293,19 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
       <Research rows={outsideResearch(sources ?? [], response ?? null)} />
 
       {how?.length ? (
-        <Card testID="tc-di-how">
-          <Text style={s.sectionTitle}>How ApolloSG checked</Text>
+        <CollapsibleSection title="How ApolloSG checked" testID="tc-di-how" defaultOpen={false}>
           {how.map((line, i) => <Text key={`${i}-${line}`} style={s.sourceSub} testID={`tc-di-how-${i}`}>{line}</Text>)}
-        </Card>
+        </CollapsibleSection>
       ) : null}
 
       {history?.length ? (
-        <Card testID="tc-di-history">
-          <Text style={s.sectionTitle}>Related history</Text>
-          <Text style={s.sourceSub}>Context TC FlyBy and Magnum DI had, never evidence for this case. It can't change the verdict.</Text>
+        <CollapsibleSection title="Related history" testID="tc-di-history" subtitle="Context TC FlyBy and Magnum DI had, never evidence for this case. It can't change the verdict." defaultOpen={false}>
           {history.map((n, i) => (
             <Text key={`${i}-${n.text}`} style={s.sourceSub} testID={`tc-di-history-${i}`}>
               {`${n.source}: ${n.text}${n.findingIds.length ? ` Raised the confidence of ${n.findingIds.length === 1 ? "one finding" : `${n.findingIds.length} findings`}.` : ""}`}
             </Text>
           ))}
-        </Card>
+        </CollapsibleSection>
       ) : null}
     </View>
   );
