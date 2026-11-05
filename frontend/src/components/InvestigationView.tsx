@@ -558,12 +558,20 @@ function EvidenceSourceCard({ ev, caseId, onViewFull, s }: {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction, testID = "investigation", eventId, openingQuestion = true }: {
+export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction, testID = "investigation", eventId, openingQuestion = true, tabsOnly = false, initialEvidence, overrideReport, overrideVerdict }: {
   state: CaseState; onAnswer?: (text: string) => void; onRetry: () => void; onCancel: () => void; onAction?: (action: ActionProposal, outcome: ActionOutcome) => void; testID?: string;
   /** The Threat Case this investigation belongs to, when there is one: the original may be kept under its id. */
   eventId?: string | null;
   /** Show the question that opened the case. False when a check opened it: the question is Apollo's own wording. */
   openingQuestion?: boolean;
+  /** Render ONLY the tab bar + tab content (for embedding in Threats screen). Parent provides ScrollView and header. */
+  tabsOnly?: boolean;
+  /** Pre-populated evidence items (avoids a server round-trip for completed investigations). */
+  initialEvidence?: EvidenceItem[];
+  /** Use this report instead of computing from the response (for triage-only threats). */
+  overrideReport?: Report;
+  /** Use this verdict instead of computing from the response. */
+  overrideVerdict?: BriefVerdict;
 }) {
   const s = useStyles(); const { colors } = useTheme();
   // The check's own record on this device: who started it (when the case doesn't say) and Higgins Triage's record.
@@ -579,7 +587,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   const [failedRecheck, setFailedRecheck] = useState(false);
   const [evidencePopupVisible, setEvidencePopupVisible] = useState(false);
   const [focusEvidenceId, setFocusEvidenceId] = useState<string | null>(null);
-  const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([]);
+  const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>(initialEvidence ?? []);
   const [hasLocalOriginal, setHasLocalOriginal] = useState(false);
   const [pdfExporting, setPdfExporting] = useState(false);
   const [pdfNote, setPdfNote] = useState<string | null>(null);
@@ -654,10 +662,10 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   const showResubmit = phase === "failed" && canResubmit(failure);
   const resubmit = resubmitLabels(waitSeconds, retrying);
   const resubmitDisabled = retrying || waitSeconds > 0;
-  const showTabs = !!(response || (failure && caseData && !working));
+  const showTabs = tabsOnly || !!(response || (failure && caseData && !working));
   // Higgins' report, built the same way as a threat's Findings Brief: each fact once.
   // Higgins' plain English when it passed its Fidelity Check; otherwise Apollo's own wording.
-  const report = useMemo(() => {
+  const computedReport = useMemo(() => {
     if (!response) return null;
     const plain = shownPlainEnglish(response);
     if (plain) return plainReport(plain, sources, response.sourceIds, evidenceItems);
@@ -667,6 +675,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       alreadySaid: [caseData?.settledReason?.sentence], evidence: evidenceItems,
     });
   }, [response, sources, caseData?.settledReason, evidenceItems]);
+  const report = overrideReport ?? computedReport;
 
   // ── Categorised evidence items ──
   const originalEvidence = useMemo(() => evidenceItems.filter((e) => e.origin === "user_submission" || e.origin === "device_observation"), [evidenceItems]);
@@ -675,7 +684,8 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   const timeline = useMemo(() => buildTimeline(state), [state]);
 
   // The Findings Brief's verdict and how serious it is, from the Case Briefing — read the same way on a threat.
-  const verdict = useMemo(() => (response ? investigationVerdict(response) : null), [response]);
+  const computedVerdict = useMemo(() => (response ? investigationVerdict(response) : null), [response]);
+  const verdict = overrideVerdict ?? computedVerdict;
   // Whoever actually settled this result: TC FlyBy or Magnum DI.
   const investigator = investigatorName(caseData?.answeredBy);
   // What you can do: the investigation's own steps. One Apollo can carry out (open a setting, a verified source) is tappable.
@@ -744,6 +754,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
 
     {/* ── Conversation history (all turns). The opening question is left out when the case began from a check: the
         card at the top already shows what was submitted, and the question is Apollo's own wording. ── */}
+    {!tabsOnly ? <>
     {turns.slice(0, -1).map((turn, i) => <View key={turn.turnId} style={s.turn} testID={`inv-turn-${turn.turnId}`}>
       {i > 0 || openingQuestion ? <View style={s.user}><Text style={s.text}>{turn.question}</Text></View> : null}
       <Text style={s.text}>{luddishText(scrubMessage(turn.response.overview))}</Text>
@@ -763,15 +774,16 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
         <Text style={s.higginsExplainText}>{higginsExplanation(failure as unknown as Record<string, unknown> | null, true)}</Text>
       </View>
     </Card> : null}
+    </> : null}
 
     {/* ── Status Card + Four-Tab Report ── */}
     {showTabs ? <>
       {/* ── What started it, and when (shared with a threat) — the result is in the Findings Brief ── */}
-      <SourceSummaryCard origin={caseData?.origin ?? event?.origin} at={caseData?.createdAt} caseKeys={[eventId, caseData?.id]}
-        event={event} evidence={evidenceItems} gates={caseData?.gates} simulated={caseData?.simulated} testID="inv-source-summary" />
+      {!tabsOnly ? <SourceSummaryCard origin={caseData?.origin ?? event?.origin} at={caseData?.createdAt} caseKeys={[eventId, caseData?.id]}
+        event={event} evidence={evidenceItems} gates={caseData?.gates} simulated={caseData?.simulated} testID="inv-source-summary" /> : null}
 
       {/* ── Who Called: who this number belongs to (only for call/number checks) ── */}
-      {phoneNumber ? <PhoneIdentityCard number={phoneNumber} testID="inv-phone-identity" /> : null}
+      {!tabsOnly && phoneNumber ? <PhoneIdentityCard number={phoneNumber} testID="inv-phone-identity" /> : null}
 
       {/* ── Tab Navigation — shared component, identical to Threat Case ── */}
       <InvestigationTabBar active={activeTab} onChange={setActiveTab} testID="inv-tab-bar" />
@@ -963,7 +975,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     </> : null}
 
     {/* ── Follow-ups on the finished investigation — answered from its record, never re-investigated ── */}
-    {state.followUps.map((item) => <View key={item.turnId} style={s.turn} testID={`inv-followup-${item.turnId}`}>
+    {!tabsOnly ? state.followUps.map((item) => <View key={item.turnId} style={s.turn} testID={`inv-followup-${item.turnId}`}>
       <View style={s.user}><Text style={s.text}>{item.question}</Text></View>
       <Card style={s.card}>
         <View style={s.higginsExplanation}>
@@ -972,10 +984,10 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
         </View>
         <Text style={s.muted}>{`From ${investigator}'s finished investigation. Nothing new was analysed.`}</Text>
       </Card>
-    </View>)}
+    </View>) : null}
 
     {/* ── Question from Higgins (outside tabs — transient) ── */}
-    {question && phase === "waiting_user" ? <View style={s.question} testID="inv-question"><Text style={s.text}>{scrubMessage(question.text)}</Text><Text style={s.muted}>Why Magnum DI asks: {scrubMessage(question.reasonNeeded)}</Text>
+    {!tabsOnly && question && phase === "waiting_user" ? <View style={s.question} testID="inv-question"><Text style={s.text}>{scrubMessage(question.text)}</Text><Text style={s.muted}>Why Magnum DI asks: {scrubMessage(question.reasonNeeded)}</Text>
       {question.answerType === "yes_no" ? <View style={s.row}><Button testID="inv-answer-yes" label="Yes" onPress={() => onAnswer?.("Yes")} /><Button testID="inv-answer-no" variant="ghost" label="No" onPress={() => onAnswer?.("No")} /></View> : null}
       {question.answerType === "choice" ? <View style={s.row}>{question.choices.map((c) => <Button key={c} testID={`inv-answer-${c}`} variant="ghost" label={c} onPress={() => onAnswer?.(c)} />)}</View> : null}</View> : null}
 
@@ -989,10 +1001,10 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     ) : null}
 
     {/* ── Lifecycle notice ── */}
-    {state.notice ? <Card style={s.card} testID="inv-lifecycle-notice"><Body>{state.notice}</Body></Card> : null}
+    {!tabsOnly && state.notice ? <Card style={s.card} testID="inv-lifecycle-notice"><Body>{state.notice}</Body></Card> : null}
 
     {/* ── Error without tabs (edge case: failed before case created) ── */}
-    {error && !showTabs && (phase === "failed" || phase === "expired") ? <Card style={s.card} testID="inv-error">
+    {!tabsOnly && error && !showTabs && (phase === "failed" || phase === "expired") ? <Card style={s.card} testID="inv-error">
       <View style={s.higginsExplanation}>
         <Text style={s.higginsExplainLabel}>Higgins</Text>
         <Text style={s.higginsExplainText}>{failure ? higginsExplanation(failure as unknown as Record<string, unknown> | null, false) : error}</Text>
@@ -1002,7 +1014,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     </Card> : null}
 
     {/* ── Partial failure indicator (outside tabs) ── */}
-    {failure && phase !== "failed" && !showTabs ? <Text style={s.muted} testID="inv-partial-reason">Incomplete: {failure.message}</Text> : null}
+    {!tabsOnly && failure && phase !== "failed" && !showTabs ? <Text style={s.muted} testID="inv-partial-reason">Incomplete: {failure.message}</Text> : null}
 
     {/* ── Evidence popup (shared across all tabs) ── */}
     {caseData ? <EvidencePopup visible={evidencePopupVisible} onClose={() => setEvidencePopupVisible(false)}

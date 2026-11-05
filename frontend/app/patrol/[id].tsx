@@ -37,7 +37,9 @@ import { buildCaseSources, type CaseSource } from "@/src/domain/caseSources";
 import { buildEvidencePack } from "@/src/domain/evidencePack";
 import { DiReport, useDiTransactions } from "@/src/components/DiReport";
 import { recheckPlan } from "@/src/domain/recheckPlan";
-import { CaseEvidenceTab } from "@/src/components/report/CaseEvidenceTab";
+import { InvestigationView } from "@/src/components/InvestigationView";
+import type { CaseState } from "@/src/investigation/caseStore";
+import type { InvestigationCase } from "@/src/investigation/types";
 import { LIMITED_CAUTION, LIMITED_TODO, plainTriageText } from "@/src/domain/triage/contract";
 import { looksLikeInternalCode } from "@/src/domain/messageVoice";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
@@ -158,123 +160,6 @@ function threatVerdict(event: PatrolEvent, response: HigginsResponse | null, sta
   return { label: STATUS_LABELS[status], tone: limited ? "sniffing" : recordedTone(event.state), risk: limited ? null : riskPill(event.state), caution: limited ? LIMITED_CAUTION : null };
 }
 
-function BriefContent({ event, status, verdict, shownWhatToDo, original, investigation, report }: {
-  event: PatrolEvent; status: ThreatCaseStatus; verdict: BriefVerdict; shownWhatToDo: string; original: OriginalSource | null; investigation: DeviceInvestigation | null; report: Report;
-}) {
-  const s = useStyles();
-  const response = investigation?.response ?? null;
-  const limited = !response && event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE" && !incompleteOnly(event);
-
-  // What to do — the investigation's own steps, or an explicit statement that nothing needs doing.
-  const action = (shownWhatToDo || "").trim();
-  const noAction = !action || /^no action required\.?$/i.test(action) || (limited && /^(nothing to (do|worry)|no action)/i.test(action));
-  const note = event.resolved_at
-    ? "Nothing to do — this case is closed."
-    : status === "investigating"
-      ? "Nothing to do right now. I'll tell you as soon as the investigation finishes."
-      : null;
-  const steps: BriefStep[] = !note && response?.actions.length
-    ? response.actions.map((a, i) => ({ id: a.id, text: stepText(response, i) || a.label }))
-    : [{ id: "todo", text: note ?? (noAction ? (limited ? LIMITED_TODO : "Nothing to do.") : plainTriageText(action)) }];
-  // "Send to family": the result, what happened, what to do and the website or number — nothing else.
-  const summary: FamilySummary = {
-    eventId: event.event_id, state: event.state, result: verdict.label ?? STATUS_LABELS[status],
-    headline: presentEvent(event).title || (report.answer[0] ?? "A threat Apollo found"),
-    whatHappened: report.answer.join(" ").trim(),
-    whatToDo: scrubMessage(note ?? (noAction ? "Nothing to do." : action)).trim(),
-    involved: involvedIn(event), caseRef: threatCaseId(event), occurredAt: event.occurred_at,
-  };
-
-  return (
-    <View style={s.content} testID="tc-overview-briefing">
-      {/* The Findings Brief — the same component as Ask Higgins. */}
-      <FindingsBrief report={report} verdict={verdict} steps={steps} ids="tc-overview" />
-      {response?.outcome ? <OutcomeExplainerLink outcome={response.outcome} testID="tc-overview-outcome-explainer" /> : null}
-
-      <FamilyNotes eventId={event.event_id} />
-
-      <ShareWithFamily summary={summary} when={formatDateTime(event.occurred_at)} />
-
-      {/* Actions */}
-      {event.resolved_at ? <ReopenCase event={event} /> : <EventActions event={event} hideAsk />}
-      {!event.resolved_at && event.reopened_at ? <RecheckCase event={event} /> : null}
-
-      {/* Repeat checks of this device: one case, every check listed. */}
-      {event.case_key ? <CaseCheckRuns event={event} original={original} /> : null}
-
-      {/* Cases on this device Apollo connected to this one, and what was previously encountered. */}
-      <RelatedCases event={event} response={response} ids="tc" />
-    </View>
-  );
-}
-
-const CHANGE_PREFIX: Record<string, string> = { fixed: "Fixed", new_problem: "New", still_open: "Still open", not_confirmed: "Not confirmed" };
-
-/** Repeat checks on the same subject are ONE case. This restates how many checks have been filed
- *  against it, what changed since the previous check, and lets the person open any earlier check.
- *  Nothing is re-analysed here — every line comes from what each check recorded at the time. */
-function CaseCheckRuns({ event, original }: { event: PatrolEvent; original: OriginalSource | null }) {
-  const s = useStyles();
-  const router = useRouter();
-  const { events } = useApollo();
-  const runs = events
-    .filter((e) => caseGroupKey(e) === caseGroupKey(event))
-    .sort((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at));
-  const index = runs.findIndex((e) => e.event_id === event.event_id);
-  const previousRun = index >= 0 ? runs[index + 1] ?? null : null;
-
-  // What changed since the check immediately before this one — compared from what each check
-  // actually recorded. Nothing is compared when the earlier check kept no comparable results.
-  const [progress, setProgress] = useState<DeviceCheckProgress | null>(null);
-  useEffect(() => {
-    let live = true;
-    const current = comparableChecks(original?.data);
-    if (!previousRun || !current) { setProgress(null); return; }
-    void getOriginalSource(previousRun.event_id)
-      .then((prior) => {
-        const before = comparableChecks(prior?.data);
-        if (live) setProgress(before ? compareDeviceChecks(before, current) : null);
-      })
-      .catch(() => { if (live) setProgress(null); });
-    return () => { live = false; };
-  }, [previousRun, original]);
-
-  if (runs.length < 2) return null;
-  const earlier = runs.filter((e) => e.event_id !== event.event_id).slice(0, 5);
-
-  return (
-    <Card style={{ gap: spacing.xs }} testID="tc-overview-runs">
-      <Text style={s.sectionTitle}>Checks on this case</Text>
-      <Text style={s.reportBody} testID="tc-overview-runs-count">
-        Checked {runs.length} times · last checked {formatDateTime(runs[0].occurred_at)}
-      </Text>
-      {progress ? (
-        <View style={{ gap: spacing.xs, marginTop: spacing.xs }} testID="tc-overview-runs-progress">
-          <Text style={s.reportLabel}>Since the check before this one</Text>
-          <Text style={s.reportBody} testID="tc-overview-runs-progress-summary">{progress.summary}</Text>
-          {progress.changes.map((change) => (
-            <Text key={change.id} style={s.relatedSub} testID={`tc-overview-runs-change-${change.id}`}>
-              {CHANGE_PREFIX[change.kind]} — {change.title}: {change.detail}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-      {earlier.map((run) => (
-        <Pressable
-          key={run.event_id}
-          testID={`tc-overview-run-${run.event_id}`}
-          accessibilityRole="button"
-          accessibilityLabel={`Open the check from ${formatDateTime(run.occurred_at)}`}
-          onPress={() => router.push(`/patrol/${encodeURIComponent(run.event_id)}`)}
-          style={({ pressed }) => [{ paddingVertical: spacing.xs, opacity: pressed ? 0.7 : 1 }]}
-        >
-          <Text style={s.relatedSub}>{formatDateTime(run.occurred_at)} — {run.headline}</Text>
-        </Pressable>
-      ))}
-    </Card>
-  );
-}
-
 /** After a reopen, Apollo can look again. This re-runs the same pipeline — detection → Triage →
  *  Magnum DI if Triage escalates — and opens the fresh result, or sends the person to the Gate that
  *  performs the live read. It never pretends to re-check something it can no longer see. */
@@ -373,110 +258,49 @@ function useCaseInvestigation(event: PatrolEvent | undefined): DeviceInvestigati
   return inv;
 }
 
-/** One-tap copy or share of the recorded facts + sources, for a bank, the police or family. */
-function EvidencePackButton({ event, facts, sources }: { event: PatrolEvent; facts: string[]; sources: CaseSource[] }) {
-  const { showToast } = useApollo();
-  const [copied, setCopied] = useState(false);
-  const pack = () => buildEvidencePack({ event, facts, sources });
-  const copy = async () => {
-    try {
-      await Clipboard.setStringAsync(pack());
-      setCopied(true);
-      showToast("Facts and sources copied. Paste them into an email, message or report.", "neutral");
-    } catch {
-      showToast("ApolloSG couldn't copy to the clipboard on this device.", "growling");
-    }
+// ── CaseState builder for tabsOnly InvestigationView ────────────────────────
+
+function threatCaseState(event: PatrolEvent, investigation: DeviceInvestigation | null): CaseState {
+  const caseId = event.investigation_case_id ?? event.patrol_record?.investigationCaseId ?? null;
+  const caseData: InvestigationCase | null = investigation ? {
+    schemaVersion: 1 as const,
+    id: investigation.caseId,
+    revision: 0,
+    status: investigation.status,
+    question: investigation.question,
+    createdAt: investigation.createdAt,
+    updatedAt: investigation.completedAt,
+    response: investigation.response,
+    gates: investigation.gates,
+    answeredBy: investigation.answeredBy ?? null,
+    settledReason: investigation.settledReason ?? null,
+    simulated: investigation.simulated,
+    origin: investigation.origin ?? null,
+  } : caseId ? {
+    schemaVersion: 1 as const,
+    id: caseId,
+    revision: 0,
+    status: "completed",
+    question: event.what_happened ?? event.headline ?? "",
+    createdAt: event.occurred_at,
+    updatedAt: event.resolved_at ?? event.occurred_at,
+    response: null,
+  } : null;
+  return {
+    phase: investigation?.response ? "answered" : "answered",
+    operationId: null,
+    caseData,
+    job: null,
+    progress: [],
+    response: investigation?.response ?? null,
+    sources: investigation?.sources ?? [],
+    turns: investigation?.turns ?? [],
+    failure: null,
+    question: null,
+    error: null,
+    notice: null,
+    followUps: [],
   };
-  const share = async () => {
-    try {
-      await Share.share({ message: pack(), title: `Apollo Threat Case ${threatCaseId(event)}` });
-    } catch {
-      showToast("ApolloSG couldn't open the share sheet on this device.", "growling");
-    }
-  };
-  return (
-    <View style={{ flexDirection: "row", gap: spacing.sm }}>
-      <View style={{ flex: 1 }}>
-        <Button
-          testID="tc-evidence-pack"
-          variant="secondary"
-          label={copied ? "Copied — facts & sources" : "Copy facts & sources"}
-          onPress={() => void copy()}
-        />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Button
-          testID="tc-evidence-share"
-          variant="secondary"
-          label="Share"
-          onPress={() => void share()}
-        />
-      </View>
-    </View>
-  );
-}
-
-/** The Evidence tab: the case's material facts, strongest first, each with who found and confirmed it → the original,
- *  as it arrived (inert) → Evidence trail → Copy / Share (components/report/CaseEvidenceTab, built from
- *  domain/caseEvidence). Nothing is reconstructed from Magnum prose or Higgins' explanation. */
-function EvidenceContent({ event, investigation }: { event: PatrolEvent; investigation: DeviceInvestigation | null }) {
-  // The recorded facts of the finding — what Apollo found, never why it matters: the finding statement itself,
-  // Apollo's recorded signals, and evidence the deterministic Triage investigation actually captured. Checks that
-  // didn't finish aren't findings: they're listed on the item, each with its recorded reason.
-  const observedFacts = useMemo(() => Array.from(new Set([
-    (event.headline || "").trim(),
-    ...(event.why ?? []).map((w) => w.trim()),
-    ...(event.triage_investigation?.rules ?? [])
-      .filter((r) => r.result === "met")
-      .flatMap((r) => r.evidence)
-      .map((e) => plainTriageText(e.trim())),
-  ].filter((line) => !!line && !looksLikeInternalCode(line) && !/^(Couldn't check|Not completed):/.test(line)))), [event]);
-  const sources = buildCaseSources({ event, investigation });
-  return (
-    <CaseEvidenceTab event={event} investigation={investigation} facts={observedFacts}
-      footer={<EvidencePackButton event={event} facts={observedFacts} sources={sources} />} />
-  );
-}
-
-// ── History Tab ──────────────────────────────────────────────────────────────
-
-function HistoryContent({ event, investigation: inv, verdict }: { event: PatrolEvent; investigation: DeviceInvestigation | null; verdict: string | null }) {
-  const s = useStyles();
-  const { colors } = useTheme();
-  const di = useDiTransactions(event.investigation_case_id ?? event.patrol_record?.investigationCaseId ?? null);
-  // Only what this case recorded, oldest first (domain/caseAuditTrail). Sources are on Evidence; related cases on the Findings Brief.
-  const trail = useMemo(() => caseAuditTrail({ event, investigation: inv, trace: di.trace, records: di.records, verdict }),
-    [event, inv, di.trace, di.records, verdict]);
-  const dot: Record<AuditTone, string> = {
-    start: colors.brandPrimary, check: colors.sniffingText, escalated: colors.ears_upText, done: colors.restingText,
-    warning: colors.barkingText, closed: colors.muted,
-  };
-
-  return (
-    <View style={s.content}>
-      <Card style={{ gap: 0 }} testID="tc-history-timeline">
-        {trail.map((entry, i) => (
-          <View key={entry.id} style={s.timelineRow} testID={`tc-history-${entry.id}`}>
-            <View style={s.timelineDotCol}>
-              <View style={[s.timelineDot, { backgroundColor: dot[entry.tone] }]} />
-              {i < trail.length - 1 ? <View style={s.timelineLine} /> : null}
-            </View>
-            <View style={s.timelineContent}>
-              {entry.at ? (
-                <Text style={s.timelineTime}>{formatDateTime(entry.at)}</Text>
-              ) : (
-                <Text style={s.timelineInProgress}>{entry.pending ? "In progress" : "Time not recorded"}</Text>
-              )}
-              <Text style={s.timelineTitle}>{entry.title}</Text>
-              <Text style={s.timelineDesc}>{entry.description}</Text>
-            </View>
-          </View>
-        ))}
-        {/* When the files sent for this result leave Apollo's server. */}
-        {inv?.response ? <ServerCopyNote caseId={inv.caseId} testID="tc-history-server-copy" /> : null}
-      </Card>
-    </View>
-  );
 }
 
 // ── Main Screen ──────────────────────────────────────────────────────────────
@@ -491,16 +315,8 @@ export default function ThreatCaseScreen() {
   const event = events.find((e) => e.event_id === id);
   const investigation = useCaseInvestigation(event);
   const report = useMemo(() => (event ? threatReport(event, investigation) : null), [event, investigation]);
-  const [activeTab, setActiveTab] = useState<InvestigationTabId>("overview");
   // The item itself, as held on this device. Nothing here comes from the server's minimised copy.
-  const [original, setOriginal] = useState<OriginalSource | null>(null);
   const investigationId = event?.investigation_case_id ?? null;
-  useEffect(() => {
-    let active = true;
-    if (!id) return;
-    void getCaseOriginal([id, investigationId]).then((o) => { if (active) setOriginal(o); }).catch(() => undefined);
-    return () => { active = false; };
-  }, [id, investigationId]);
   // Opening a case clears its "New" mark.
   const openedId = event?.event_id;
   useEffect(() => { if (openedId) void markCaseSeen(openedId); }, [openedId]);
@@ -526,18 +342,7 @@ export default function ThreatCaseScreen() {
 
   const caseId = threatCaseId(event);
   const status = threatCaseStatus(event);
-  // One result for every tab: the Findings Brief, Evidence, History and DI all read this.
-  const result = threatResult(event, investigation?.response ?? null);
   const verdict = threatVerdict(event, investigation?.response ?? null, status);
-
-  const hasInvestigation = !!(event.investigation_case_id ?? event.patrol_record?.investigationCaseId);
-  const hasSubstantiveData = !!(event.what_happened && event.what_happened.length > 30);
-  const hasBriefing = !!event.patrol_record?.higginsBriefing;
-  const isIncomplete = !hasRecordedFindings(event) && !hasInvestigation && !hasSubstantiveData && !hasBriefing;
-  // Apollo's step, through the shared Luddish contract (an incomplete check says so, never "treat with caution").
-  const shownWhatToDo = !isIncomplete && presentEvent(event).whatToDo
-    ? presentEvent(event).whatToDo
-    : event.patrol_record?.higginsBriefing?.action ?? "Review the investigation details for recommended next steps.";
 
   return (
     <View style={s.root}>
@@ -561,23 +366,20 @@ export default function ThreatCaseScreen() {
             event={event} evidence={investigation?.evidenceItems} gates={investigation?.gates} simulated={isSimulated(event)} testID="tc-source-summary" />
         </View>
 
-        {/* Tab bar — shared component, identical to Ask Higgins */}
-        <InvestigationTabBar active={activeTab} onChange={setActiveTab} testID="tc-tab-bar" />
-
-        {/* Tab content */}
+        {/* Tab content — uses the same InvestigationView as Ask Higgins, including its own tab bar */}
         <View style={{ paddingTop: spacing.sm }}>
-        {activeTab === "overview" && report ? (
-          <BriefContent event={event} status={status} verdict={verdict} shownWhatToDo={shownWhatToDo} original={original} investigation={investigation} report={report} />
-        ) : activeTab === "evidence" ? (
-          <EvidenceContent event={event} investigation={investigation} />
-        ) : activeTab === "history" ? (
-          <HistoryContent event={event} investigation={investigation} verdict={result ? verdict.label : null} />
-        ) : activeTab === "di" ? (
-          <DiReport caseId={event.investigation_case_id ?? event.patrol_record?.investigationCaseId ?? null} triage={event.triage_investigation ?? null}
-            settledReason={investigation?.response ? investigation.settledReason : null} settledEvent={investigation?.settledReason ? null : event}
-            how={report ? luddishReport(report).how : []} presented={result ? { verdict: verdict.label, risk: verdict.risk?.label ?? null } : null}
-            history={investigation?.response?.history} response={investigation?.response ?? null} sources={investigation?.sources ?? []} />
-        ) : null}
+          <InvestigationView
+            state={threatCaseState(event, investigation)}
+            tabsOnly
+            eventId={event.event_id}
+            openingQuestion={false}
+            onRetry={() => {}}
+            onCancel={() => {}}
+            initialEvidence={investigation?.evidenceItems}
+            overrideReport={report ?? undefined}
+            overrideVerdict={verdict}
+            testID="tc-tabs"
+          />
         </View>
       </ScrollView>
     </View>

@@ -169,10 +169,12 @@ function Trail({ stages }: { stages: TrailStage[] }) {
   );
 }
 
-export function CaseEvidenceTab({ event, investigation, facts, footer }: {
+export function CaseEvidenceTab({ event, investigation, facts, how, footer }: {
   event: PatrolEvent; investigation: DeviceInvestigation | null;
   /** What Higgins Triage / Apollo recorded about the item. */
   facts: string[];
+  /** How ApolloSG investigated — plain-language method lines from Luddish. */
+  how?: string[];
   /** Copy facts & sources · Share. */
   footer: React.ReactNode;
 }) {
@@ -215,6 +217,14 @@ export function CaseEvidenceTab({ event, investigation, facts, footer }: {
             </View>
           </View>
           <Trail stages={ev.trail} />
+        </View>
+      ) : null}
+
+      {/* 4. How ApolloSG investigated — method summary, same as on Ask Higgins Evidence tab. */}
+      {how?.length ? (
+        <View style={s.card} testID="tc-evidence-how">
+          <Text style={s.title}>How ApolloSG investigated</Text>
+          {how.map((line, i) => <Text key={`${i}-${line}`} style={s.sub} testID={`tc-evidence-how-${i}`}>{line}</Text>)}
         </View>
       ) : null}
 
