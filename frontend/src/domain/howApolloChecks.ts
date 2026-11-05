@@ -95,7 +95,3 @@ export const PROMISES: string[] = [
   "Every result says who settled it: TC FlyBy or Magnum DI.",
 ];
 
-/** "Full rules": the whole rule book, word for word, in Settings. */
-export const FULL_RULES_INTRO =
-  "Every rule each part of ApolloSG follows, word for word: the limits, the order of checks, what settles a result and what sends it to " +
-  "Magnum DI. It's the same rule book ApolloSG's team works from, and it's updated whenever a rule changes.";

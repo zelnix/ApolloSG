@@ -1,8 +1,7 @@
 // One line under a finished result: when the pictures and files sent for it left Apollo's server. Read from this
-// phone's saved record, or from the live case before it is saved. Tapping it opens the rule book at Your data.
-import { useRouter } from "expo-router";
+// phone's saved record, or from the live case before it is saved.
 import React, { useEffect, useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Text, View } from "react-native";
 
 import { serverCopyNote, serverLeavesBy } from "@/src/domain/serverCopyNote";
 import { getInvestigation, subscribeDeviceInvestigations, type DeviceInvestigation } from "@/src/investigation/deviceStore";
@@ -12,7 +11,6 @@ import { fonts, makeStyles, spacing } from "@/src/theme";
 const useStyles = makeStyles((c) => ({
   wrap: { minHeight: 44, justifyContent: "center", paddingVertical: spacing.xs },
   text: { fontFamily: fonts.text, fontSize: 13, lineHeight: 19, color: c.onSurfaceSecondary },
-  link: { fontFamily: fonts.textSemibold, color: c.brandPrimary },
 }));
 
 export function ServerCopyNote({ caseId, live, testID = "server-copy-note" }: {
@@ -22,7 +20,6 @@ export function ServerCopyNote({ caseId, live, testID = "server-copy-note" }: {
   testID?: string;
 }) {
   const s = useStyles();
-  const router = useRouter();
   const [saved, setSaved] = useState<DeviceInvestigation | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -43,9 +40,8 @@ export function ServerCopyNote({ caseId, live, testID = "server-copy-note" }: {
     : null;
   if (!note) return null;
   return (
-    <Pressable accessibilityRole="link" accessibilityHint="Opens the rule book at Your data" testID={testID} style={({ pressed }) => [s.wrap, { opacity: pressed ? 0.7 : 1 }]}
-      onPress={() => router.push({ pathname: "/settings/rule-book", params: { section: "your-data" } })}>
-      <Text style={s.text}>{note} <Text style={s.link}>See the rule</Text></Text>
-    </Pressable>
+    <View accessibilityRole="text" testID={testID} style={s.wrap}>
+      <Text style={s.text}>{note}</Text>
+    </View>
   );
 }

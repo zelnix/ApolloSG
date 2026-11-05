@@ -13,8 +13,8 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppMenuButton } from "@/src/components/AppMenu";
-import { Button, Card, Pill, SectionTitle } from "@/src/components/ui";
-import { CHECK_ROLES, FULL_RULES_INTRO, HOW_INTRO, OUTCOME_GUIDE, PROMISES, type CheckRoleId } from "@/src/domain/howApolloChecks";
+import { Card, Pill, SectionTitle } from "@/src/components/ui";
+import { CHECK_ROLES, HOW_INTRO, OUTCOME_GUIDE, PROMISES, type CheckRoleId } from "@/src/domain/howApolloChecks";
 import { outcomeLabel, outcomeTone } from "@/src/domain/messageVoice";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { goBackOrHome } from "@/src/utils/navigation";
@@ -135,13 +135,7 @@ export default function HowApolloChecks() {
           ))}
         </View>
 
-        <View testID="how-checks-full-rules">
-          <SectionTitle>Full rules</SectionTitle>
-          <Card style={{ gap: spacing.md }}>
-            <Text style={s.ruleText}>{FULL_RULES_INTRO}</Text>
-            <Button testID="how-checks-full-rules-open" variant="secondary" label="Read the full rule book" onPress={() => router.push("/settings/rule-book")} />
-          </Card>
-        </View>
+
         </View>
       </ScrollView>
     </View>

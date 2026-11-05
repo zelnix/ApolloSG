@@ -20,9 +20,29 @@
               "text": "ApolloSG doesn't ask for your name, email address or a password. It registers this phone with an anonymous device ID."
             }
           ],
-          "links": [{ "route": "/(tabs)/home", "label": "Go to Home" }],
-          "questions": ["what is apollosg", "what does apollosg do", "what does this app do", "who does what in apollosg", "what is the difference between apollo and higgins"],
-          "keywords": ["about", "overview", "introduction", "apollo", "higgins", "roles", "watchdog", "investigator"]
+          "links": [
+            {
+              "route": "/(tabs)/home",
+              "label": "Go to Home"
+            }
+          ],
+          "questions": [
+            "what is apollosg",
+            "what does apollosg do",
+            "what does this app do",
+            "who does what in apollosg",
+            "what is the difference between apollo and higgins"
+          ],
+          "keywords": [
+            "about",
+            "overview",
+            "introduction",
+            "apollo",
+            "higgins",
+            "roles",
+            "watchdog",
+            "investigator"
+          ]
         },
         {
           "id": "setup",
@@ -41,10 +61,33 @@
               "text": "You can turn it on at any time later. See “Turning a protection on or fixing one”."
             }
           ],
-          "notes": ["Website protection and message screening are offered on Android only."],
-          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
-          "questions": ["how do i set up apollosg", "how do i get started", "first time setup", "how do i start using apollosg", "what happens when i first open apollosg", "how do i set up the app"],
-          "keywords": ["setup", "set up", "first time", "onboarding", "install", "welcome", "begin", "getting started"]
+          "notes": [
+            "Website protection and message screening are offered on Android only."
+          ],
+          "links": [
+            {
+              "route": "/(tabs)/protection",
+              "label": "Open Protections"
+            }
+          ],
+          "questions": [
+            "how do i set up apollosg",
+            "how do i get started",
+            "first time setup",
+            "how do i start using apollosg",
+            "what happens when i first open apollosg",
+            "how do i set up the app"
+          ],
+          "keywords": [
+            "setup",
+            "set up",
+            "first time",
+            "onboarding",
+            "install",
+            "welcome",
+            "begin",
+            "getting started"
+          ]
         },
         {
           "id": "getting-around",
@@ -64,9 +107,32 @@
               "text": "• The bell opens your alerts: device settings that need attention, threats Apollo detected and alerts ApolloSG sent you.\n• ⓘ explains the screen you're on.\n• A number on the Threats tab shows how many cases need you. A number on the Alerts tab shows new serious scam alerts."
             }
           ],
-          "links": [{ "route": "/(tabs)/home", "label": "Go to Home" }],
-          "questions": ["how do i find my way around", "how do i navigate the app", "where is everything", "what are the tabs", "where is the menu", "how do i use apollosg", "how does the app work"],
-          "keywords": ["navigate", "navigation", "tabs", "menu", "hamburger", "bottom bar", "layout", "find", "where"]
+          "links": [
+            {
+              "route": "/(tabs)/home",
+              "label": "Go to Home"
+            }
+          ],
+          "questions": [
+            "how do i find my way around",
+            "how do i navigate the app",
+            "where is everything",
+            "what are the tabs",
+            "where is the menu",
+            "how do i use apollosg",
+            "how does the app work"
+          ],
+          "keywords": [
+            "navigate",
+            "navigation",
+            "tabs",
+            "menu",
+            "hamburger",
+            "bottom bar",
+            "layout",
+            "find",
+            "where"
+          ]
         }
       ]
     },
@@ -101,9 +167,28 @@
               "text": "Pull down on Home to fetch your newest cases."
             }
           ],
-          "links": [{ "route": "/(tabs)/home", "label": "Go to Home" }],
-          "questions": ["what does the home screen show", "what is on the home page", "what does the main screen do", "what is the card at the top of home", "what is important for you"],
-          "keywords": ["home", "main screen", "dashboard", "home page", "important for you", "recent activity", "clipboard"]
+          "links": [
+            {
+              "route": "/(tabs)/home",
+              "label": "Go to Home"
+            }
+          ],
+          "questions": [
+            "what does the home screen show",
+            "what is on the home page",
+            "what does the main screen do",
+            "what is the card at the top of home",
+            "what is important for you"
+          ],
+          "keywords": [
+            "home",
+            "main screen",
+            "dashboard",
+            "home page",
+            "important for you",
+            "recent activity",
+            "clipboard"
+          ]
         },
         {
           "id": "apollo-states",
@@ -115,9 +200,31 @@
               "text": "• Patrolling — no concern was found in the checks that completed.\n• Sniffing — checks are still running; nothing is final yet.\n• Sniffing something — Apollo noticed something and is looking more closely.\n• Growling — a possible concern that needs caution or more investigation.\n• Barking — a significant concern that needs your attention.\n• Biting — an actual block, confirmed by the device's own evidence."
             }
           ],
-          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
-          "questions": ["what does barking mean", "what does growling mean", "what does patrolling mean", "what does biting mean", "what does sniffing mean", "what do apollo's states mean", "what do the dog states mean"],
-          "keywords": ["patrolling", "sniffing", "growling", "barking", "biting", "ears up", "states", "dog"]
+          "links": [
+            {
+              "route": "/(tabs)/patrol",
+              "label": "Open Threats"
+            }
+          ],
+          "questions": [
+            "what does barking mean",
+            "what does growling mean",
+            "what does patrolling mean",
+            "what does biting mean",
+            "what does sniffing mean",
+            "what do apollo's states mean",
+            "what do the dog states mean"
+          ],
+          "keywords": [
+            "patrolling",
+            "sniffing",
+            "growling",
+            "barking",
+            "biting",
+            "ears up",
+            "states",
+            "dog"
+          ]
         },
         {
           "id": "protection-status",
@@ -147,9 +254,31 @@
               "text": "Ask Higgins “Is my device protected?” for a summary from this phone's latest reading."
             }
           ],
-          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
-          "questions": ["where do i see my protections", "how do i check my protection status", "where is the protections screen", "what does protection reduced mean", "what does mostly protected mean", "what does well protected mean", "what does protection at risk mean"],
-          "keywords": ["protections", "protection status", "well protected", "mostly protected", "protection reduced", "at risk", "protections screen", "coverage"]
+          "links": [
+            {
+              "route": "/(tabs)/protection",
+              "label": "Open Protections"
+            }
+          ],
+          "questions": [
+            "where do i see my protections",
+            "how do i check my protection status",
+            "where is the protections screen",
+            "what does protection reduced mean",
+            "what does mostly protected mean",
+            "what does well protected mean",
+            "what does protection at risk mean"
+          ],
+          "keywords": [
+            "protections",
+            "protection status",
+            "well protected",
+            "mostly protected",
+            "protection reduced",
+            "at risk",
+            "protections screen",
+            "coverage"
+          ]
         },
         {
           "id": "turn-on-protection",
@@ -171,13 +300,39 @@
               "text": "☰ → Settings → Protection → “View all protections” lists every protection with its status and setup."
             }
           ],
-          "notes": ["Website protection and message screening are Android only."],
-          "links": [
-            { "route": "/(tabs)/protection", "label": "Open Protections" },
-            { "route": "/gates", "label": "View all protections" }
+          "notes": [
+            "Website protection and message screening are Android only."
           ],
-          "questions": ["how do i turn on a protection", "how do i turn on message screening", "how do i turn on website protection", "how do i fix a protection", "how do i enable a protection", "how do i switch on protection", "how do i turn on email monitoring"],
-          "keywords": ["turn on", "enable", "switch on", "fix", "permission", "vpn", "notification access", "message screening", "website protection"]
+          "links": [
+            {
+              "route": "/(tabs)/protection",
+              "label": "Open Protections"
+            },
+            {
+              "route": "/gates",
+              "label": "View all protections"
+            }
+          ],
+          "questions": [
+            "how do i turn on a protection",
+            "how do i turn on message screening",
+            "how do i turn on website protection",
+            "how do i fix a protection",
+            "how do i enable a protection",
+            "how do i switch on protection",
+            "how do i turn on email monitoring"
+          ],
+          "keywords": [
+            "turn on",
+            "enable",
+            "switch on",
+            "fix",
+            "permission",
+            "vpn",
+            "notification access",
+            "message screening",
+            "website protection"
+          ]
         },
         {
           "id": "call-screening",
@@ -194,9 +349,29 @@
               "text": "You can check any number at any time — see “Checking a phone number or caller”."
             }
           ],
-          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
-          "questions": ["can apollosg screen my calls", "does apollosg screen calls", "how do i turn on call screening", "how do i set up call screening", "how does call screening work", "can apollosg block calls", "can apollosg screen calls on iphone"],
-          "keywords": ["call screening", "caller id", "spam app", "call blocking", "block calls", "incoming calls"]
+          "links": [
+            {
+              "route": "/(tabs)/protection",
+              "label": "Open Protections"
+            }
+          ],
+          "questions": [
+            "can apollosg screen my calls",
+            "does apollosg screen calls",
+            "how do i turn on call screening",
+            "how do i set up call screening",
+            "how does call screening work",
+            "can apollosg block calls",
+            "can apollosg screen calls on iphone"
+          ],
+          "keywords": [
+            "call screening",
+            "caller id",
+            "spam app",
+            "call blocking",
+            "block calls",
+            "incoming calls"
+          ]
         },
         {
           "id": "device-protections",
@@ -213,9 +388,28 @@
               "text": "ApolloSG can read some of your phone's settings directly. Others it can't see, so it asks you to check them yourself and says so. These protections come from your phone's maker or operating system, not from ApolloSG."
             }
           ],
-          "links": [{ "route": "/device-protection", "label": "Open Device Protections" }],
-          "questions": ["what are device protections", "how do i check my phone's security settings", "where do i see my device settings", "what does my phone protect by itself", "where are device protections"],
-          "keywords": ["device protections", "phone settings", "screen lock", "updates", "built-in", "device security", "operating system"]
+          "links": [
+            {
+              "route": "/device-protection",
+              "label": "Open Device Protections"
+            }
+          ],
+          "questions": [
+            "what are device protections",
+            "how do i check my phone's security settings",
+            "where do i see my device settings",
+            "what does my phone protect by itself",
+            "where are device protections"
+          ],
+          "keywords": [
+            "device protections",
+            "phone settings",
+            "screen lock",
+            "updates",
+            "built-in",
+            "device security",
+            "operating system"
+          ]
         }
       ]
     },
@@ -245,9 +439,30 @@
               "text": "ApolloSG doesn't send anything until you tap “Ask Higgins to investigate”. Passwords, codes and the secret parts of links are removed first."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["how do i check something", "what can i check", "where do i go to check something", "how do i submit something to be checked", "how do i ask apollo to check something", "how do i start a check", "where do i check things"],
-          "keywords": ["check", "checks", "submit", "investigate", "plus button", "new check", "check it"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "how do i check something",
+            "what can i check",
+            "where do i go to check something",
+            "how do i submit something to be checked",
+            "how do i ask apollo to check something",
+            "how do i start a check",
+            "where do i check things"
+          ],
+          "keywords": [
+            "check",
+            "checks",
+            "submit",
+            "investigate",
+            "plus button",
+            "new check",
+            "check it"
+          ]
         },
         {
           "id": "check-message",
@@ -270,9 +485,30 @@
               "text": "The wording, any links and phone numbers in it, and known scam patterns."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["how do i check a message", "how do i check a text", "where do i paste a message", "how do i check an sms", "how do i check a whatsapp message", "where do i check a message", "how do i check a text message"],
-          "keywords": ["message", "text", "sms", "chat", "whatsapp", "messenger", "paste message"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "how do i check a message",
+            "how do i check a text",
+            "where do i paste a message",
+            "how do i check an sms",
+            "how do i check a whatsapp message",
+            "where do i check a message",
+            "how do i check a text message"
+          ],
+          "keywords": [
+            "message",
+            "text",
+            "sms",
+            "chat",
+            "whatsapp",
+            "messenger",
+            "paste message"
+          ]
         },
         {
           "id": "check-number",
@@ -294,9 +530,29 @@
               "text": "A number's reputation can show risk, but it can't prove who is really calling — caller ID can be faked. If someone says they're from your bank, hang up and call the number on your card."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["how do i check a phone number", "how do i check a number", "how do i check a caller", "how do i look up a number", "where do i check a phone number", "how do i check who called me"],
-          "keywords": ["phone number", "number", "caller", "call", "missed call", "spam call", "caller id"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "how do i check a phone number",
+            "how do i check a number",
+            "how do i check a caller",
+            "how do i look up a number",
+            "where do i check a phone number",
+            "how do i check who called me"
+          ],
+          "keywords": [
+            "phone number",
+            "number",
+            "caller",
+            "call",
+            "missed call",
+            "spam call",
+            "caller id"
+          ]
         },
         {
           "id": "check-link",
@@ -318,9 +574,29 @@
               "text": "• After you copy a link, Home may offer to check it.\n• From a browser, tap Share and choose ApolloSG."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["how do i check a link", "how do i check a url", "how do i check a website", "where do i check a website", "where do i paste a link", "how do i check a web address"],
-          "keywords": ["link", "url", "website", "web address", "site", "domain", "shortened link"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "how do i check a link",
+            "how do i check a url",
+            "how do i check a website",
+            "where do i check a website",
+            "where do i paste a link",
+            "how do i check a web address"
+          ],
+          "keywords": [
+            "link",
+            "url",
+            "website",
+            "web address",
+            "site",
+            "domain",
+            "shortened link"
+          ]
         },
         {
           "id": "check-email",
@@ -347,11 +623,33 @@
             }
           ],
           "links": [
-            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
-            { "route": "/settings/email-accounts", "label": "Email accounts" }
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            },
+            {
+              "route": "/settings/email-accounts",
+              "label": "Email accounts"
+            }
           ],
-          "questions": ["how do i check an email", "how do i check a suspicious email", "how do i check an account alert", "how do i check a login alert", "where do i paste an email", "how do i check a password reset email"],
-          "keywords": ["email", "mail", "inbox", "account alert", "login alert", "password reset", "sign in code", "eml"]
+          "questions": [
+            "how do i check an email",
+            "how do i check a suspicious email",
+            "how do i check an account alert",
+            "how do i check a login alert",
+            "where do i paste an email",
+            "how do i check a password reset email"
+          ],
+          "keywords": [
+            "email",
+            "mail",
+            "inbox",
+            "account alert",
+            "login alert",
+            "password reset",
+            "sign in code",
+            "eml"
+          ]
         },
         {
           "id": "check-screenshot",
@@ -378,9 +676,30 @@
               "text": "You can still pick an image from your photos, or tap “Open Settings” to allow ApolloSG to use the camera."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["how do i check a screenshot", "can i check a photo", "how do i check an image", "how do i check a qr code", "how do i scan a qr code", "how do i check a picture"],
-          "keywords": ["screenshot", "photo", "picture", "image", "camera", "qr code", "letter", "scan"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "how do i check a screenshot",
+            "can i check a photo",
+            "how do i check an image",
+            "how do i check a qr code",
+            "how do i scan a qr code",
+            "how do i check a picture"
+          ],
+          "keywords": [
+            "screenshot",
+            "photo",
+            "picture",
+            "image",
+            "camera",
+            "qr code",
+            "letter",
+            "scan"
+          ]
         },
         {
           "id": "check-app-file",
@@ -402,10 +721,34 @@
               "text": "Double extensions like Invoice.pdf.exe, and apps (APK files) from outside the official app store."
             }
           ],
-          "notes": ["“Installed apps” is available on Android only."],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["how do i check an app", "how do i check a file", "how do i check an attachment", "how do i check a download", "how do i check an apk", "how do i check a document"],
-          "keywords": ["app", "application", "apk", "file", "attachment", "download", "pdf", "document", "installed apps"]
+          "notes": [
+            "“Installed apps” is available on Android only."
+          ],
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "how do i check an app",
+            "how do i check a file",
+            "how do i check an attachment",
+            "how do i check a download",
+            "how do i check an apk",
+            "how do i check a document"
+          ],
+          "keywords": [
+            "app",
+            "application",
+            "apk",
+            "file",
+            "attachment",
+            "download",
+            "pdf",
+            "document",
+            "installed apps"
+          ]
         },
         {
           "id": "check-device",
@@ -424,16 +767,39 @@
             }
           ],
           "links": [
-            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
-            { "route": "/device-protection", "label": "Open Device Protections" }
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            },
+            {
+              "route": "/device-protection",
+              "label": "Open Device Protections"
+            }
           ],
-          "questions": ["how do i check my device", "how do i check my phone", "how do i check my internet", "how do i check my wifi", "how do i run a device check", "how do i check my network"],
-          "keywords": ["device", "phone", "internet", "wifi", "wi-fi", "network", "connection", "router", "device check"]
+          "questions": [
+            "how do i check my device",
+            "how do i check my phone",
+            "how do i check my internet",
+            "how do i check my wifi",
+            "how do i run a device check",
+            "how do i check my network"
+          ],
+          "keywords": [
+            "device",
+            "phone",
+            "internet",
+            "wifi",
+            "wi-fi",
+            "network",
+            "connection",
+            "router",
+            "device check"
+          ]
         },
         {
           "id": "after-submit",
           "title": "What happens after you submit something",
-          "answer": "Apollo's rules check it first. If they settle it, you get the answer straight away; if not, TC FlyBy investigates, and Magnum DI looks deeper only when that could change the answer.",
+          "answer": "Apollo's checks run it first. If they settle it, you get the answer straight away; if not, TC FlyBy investigates, and Magnum DI looks deeper only when that could change the answer.",
           "details": [
             {
               "heading": "While it's being checked",
@@ -441,7 +807,7 @@
             },
             {
               "heading": "The result",
-              "text": "You'll see the findings, how sure Apollo is and what to do next. If Apollo's rules find a threat, a Threat Case opens in Threats."
+              "text": "You'll see the findings, how sure Apollo is and what to do next. If Apollo's checks find a threat, a Threat Case opens in Threats."
             },
             {
               "heading": "Follow-up questions",
@@ -453,11 +819,33 @@
             }
           ],
           "links": [
-            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
-            { "route": "/how-apollo-checks", "label": "How Apollo checks" }
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            },
+            {
+              "route": "/how-apollo-checks",
+              "label": "How Apollo checks"
+            }
           ],
-          "questions": ["what happens after i submit something", "what happens when i check something", "how do investigations work", "what happens after triage", "how long are results kept", "can i ask about a result"],
-          "keywords": ["investigation", "triage", "tc flyby", "magnum di", "result", "findings", "follow-up", "progress"]
+          "questions": [
+            "what happens after i submit something",
+            "what happens when i check something",
+            "how do investigations work",
+            "what happens after triage",
+            "how long are results kept",
+            "can i ask about a result"
+          ],
+          "keywords": [
+            "investigation",
+            "triage",
+            "tc flyby",
+            "magnum di",
+            "result",
+            "findings",
+            "follow-up",
+            "progress"
+          ]
         }
       ]
     },
@@ -487,9 +875,31 @@
               "text": "Text and chat messages, links, emails (including .eml email files), pictures and files — several files at once, too."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["how do i share something into apollosg", "how do i share to apollosg", "how can i send something to apollosg", "how do i share a message to apollosg", "can i share something from another app", "how do i get something into apollosg for checking", "how do i share a link to apollosg", "how do i send a screenshot to apollosg"],
-          "keywords": ["share", "sharing", "share sheet", "share menu", "send to apollosg", "another app", "forward"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "how do i share something into apollosg",
+            "how do i share to apollosg",
+            "how can i send something to apollosg",
+            "how do i share a message to apollosg",
+            "can i share something from another app",
+            "how do i get something into apollosg for checking",
+            "how do i share a link to apollosg",
+            "how do i send a screenshot to apollosg"
+          ],
+          "keywords": [
+            "share",
+            "sharing",
+            "share sheet",
+            "share menu",
+            "send to apollosg",
+            "another app",
+            "forward"
+          ]
         },
         {
           "id": "share-missing",
@@ -505,9 +915,28 @@
               "text": "Copy the text or link, then in Ask Higgins tap ⊕ and paste it. Or take a screenshot and choose “Screenshot or photo”."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["apollosg isn't in my share menu", "apollosg is not showing in share", "i can't find apollosg in share", "the share menu doesn't show apollosg", "why can't i share to apollosg", "apollosg missing from share sheet"],
-          "keywords": ["share menu", "missing", "not showing", "not listed", "can't share", "share sheet"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "apollosg isn't in my share menu",
+            "apollosg is not showing in share",
+            "i can't find apollosg in share",
+            "the share menu doesn't show apollosg",
+            "why can't i share to apollosg",
+            "apollosg missing from share sheet"
+          ],
+          "keywords": [
+            "share menu",
+            "missing",
+            "not showing",
+            "not listed",
+            "can't share",
+            "share sheet"
+          ]
         }
       ]
     },
@@ -534,9 +963,31 @@
               "text": "The line under the title shows when Apollo last checked. “Patrol history” is the full record of what Apollo has done; “Family alerts” shows alerts from family members you watch. The number on the Threats tab is how many cases need you."
             }
           ],
-          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
-          "questions": ["where are my threats", "where do i see my past threats", "where do i see my cases", "how do i view my threat cases", "where are my previous checks", "where are my results"],
-          "keywords": ["threats", "cases", "threat list", "results", "past checks", "previous checks", "needs you", "filter", "sort"]
+          "links": [
+            {
+              "route": "/(tabs)/patrol",
+              "label": "Open Threats"
+            }
+          ],
+          "questions": [
+            "where are my threats",
+            "where do i see my past threats",
+            "where do i see my cases",
+            "how do i view my threat cases",
+            "where are my previous checks",
+            "where are my results"
+          ],
+          "keywords": [
+            "threats",
+            "cases",
+            "threat list",
+            "results",
+            "past checks",
+            "previous checks",
+            "needs you",
+            "filter",
+            "sort"
+          ]
         },
         {
           "id": "threat-case",
@@ -556,9 +1007,35 @@
               "text": "Cases from sample checks are labelled “Sample Check”."
             }
           ],
-          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
-          "questions": ["how do i read a threat case", "what is the findings brief", "where is the evidence", "how do i close a case", "how do i mark a case as contained", "how do i reopen a case", "how do i share a case", "how do i block a website"],
-          "keywords": ["threat case", "case", "findings brief", "evidence", "history", "di report", "close case", "contained", "reopen", "block", "share case"]
+          "links": [
+            {
+              "route": "/(tabs)/patrol",
+              "label": "Open Threats"
+            }
+          ],
+          "questions": [
+            "how do i read a threat case",
+            "what is the findings brief",
+            "where is the evidence",
+            "how do i close a case",
+            "how do i mark a case as contained",
+            "how do i reopen a case",
+            "how do i share a case",
+            "how do i block a website"
+          ],
+          "keywords": [
+            "threat case",
+            "case",
+            "findings brief",
+            "evidence",
+            "history",
+            "di report",
+            "close case",
+            "contained",
+            "reopen",
+            "block",
+            "share case"
+          ]
         },
         {
           "id": "search-cases",
@@ -570,9 +1047,27 @@
               "text": "Search looks through your open cases on this device. Phone numbers match with or without the country code, and words can be in any order."
             }
           ],
-          "links": [{ "route": "/patrol/search", "label": "Search cases" }],
-          "questions": ["how do i search my cases", "how do i find a case", "how do i search threats", "how do i find a message in my cases", "how do i search for a sender"],
-          "keywords": ["search", "find", "look up", "sender", "website", "words"]
+          "links": [
+            {
+              "route": "/patrol/search",
+              "label": "Search cases"
+            }
+          ],
+          "questions": [
+            "how do i search my cases",
+            "how do i find a case",
+            "how do i search threats",
+            "how do i find a message in my cases",
+            "how do i search for a sender"
+          ],
+          "keywords": [
+            "search",
+            "find",
+            "look up",
+            "sender",
+            "website",
+            "words"
+          ]
         },
         {
           "id": "delete-cases",
@@ -593,10 +1088,31 @@
               "text": "You can delete individual records from Patrol history the same way: tap “Select”, choose them, then delete."
             }
           ],
-          "notes": ["Deleting needs a connection. If ApolloSG can't reach its service, nothing is deleted."],
-          "links": [{ "route": "/(tabs)/patrol", "label": "Open Threats" }],
-          "questions": ["how do i delete a case", "how do i delete threats", "how do i remove a case", "how do i clear my threats", "how do i delete a check", "how do i delete old cases"],
-          "keywords": ["delete", "remove", "clear", "select", "select all", "erase"]
+          "notes": [
+            "Deleting needs a connection. If ApolloSG can't reach its service, nothing is deleted."
+          ],
+          "links": [
+            {
+              "route": "/(tabs)/patrol",
+              "label": "Open Threats"
+            }
+          ],
+          "questions": [
+            "how do i delete a case",
+            "how do i delete threats",
+            "how do i remove a case",
+            "how do i clear my threats",
+            "how do i delete a check",
+            "how do i delete old cases"
+          ],
+          "keywords": [
+            "delete",
+            "remove",
+            "clear",
+            "select",
+            "select all",
+            "erase"
+          ]
         },
         {
           "id": "patrol-history",
@@ -616,9 +1132,29 @@
               "text": "Activity is kept on this device for 90 days."
             }
           ],
-          "links": [{ "route": "/patrol/history", "label": "Open Patrol history" }],
-          "questions": ["where is my history", "where is patrol history", "how do i see my check history", "how do i export my history", "where is the activity log", "what has apollo done"],
-          "keywords": ["history", "patrol history", "activity log", "record", "export", "pdf", "past activity"]
+          "links": [
+            {
+              "route": "/patrol/history",
+              "label": "Open Patrol history"
+            }
+          ],
+          "questions": [
+            "where is my history",
+            "where is patrol history",
+            "how do i see my check history",
+            "how do i export my history",
+            "where is the activity log",
+            "what has apollo done"
+          ],
+          "keywords": [
+            "history",
+            "patrol history",
+            "activity log",
+            "record",
+            "export",
+            "pdf",
+            "past activity"
+          ]
         },
         {
           "id": "trusted-links",
@@ -630,9 +1166,27 @@
               "text": "☰ → Settings → Accounts & family → “Trusted links” lists them. Tap “Remove” to stop trusting one."
             }
           ],
-          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
-          "questions": ["how do i trust a link", "how do i whitelist a website", "how do i remove a trusted link", "where are my trusted links", "how do i allow a website"],
-          "keywords": ["trust", "trusted links", "whitelist", "allow", "safe list", "false positive"]
+          "links": [
+            {
+              "route": "/(tabs)/settings",
+              "label": "Open Settings"
+            }
+          ],
+          "questions": [
+            "how do i trust a link",
+            "how do i whitelist a website",
+            "how do i remove a trusted link",
+            "where are my trusted links",
+            "how do i allow a website"
+          ],
+          "keywords": [
+            "trust",
+            "trusted links",
+            "whitelist",
+            "allow",
+            "safe list",
+            "false positive"
+          ]
         }
       ]
     },
@@ -659,9 +1213,29 @@
               "text": "Suggestion chips give you a quick start. Links under an answer take you straight to the screen. ⓘ explains what Higgins does, and the bin icon clears your chat history."
             }
           ],
-          "links": [{ "route": "/(tabs)/ask", "label": "Open Ask Higgins" }],
-          "questions": ["what can i ask higgins", "how do i talk to higgins", "how do i ask higgins a question", "how do i chat with higgins", "how do i clear my chat", "how do i delete my higgins chat"],
-          "keywords": ["higgins", "ask", "question", "chat", "assistant", "conversation", "clear chat"]
+          "links": [
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
+          ],
+          "questions": [
+            "what can i ask higgins",
+            "how do i talk to higgins",
+            "how do i ask higgins a question",
+            "how do i chat with higgins",
+            "how do i clear my chat",
+            "how do i delete my higgins chat"
+          ],
+          "keywords": [
+            "higgins",
+            "ask",
+            "question",
+            "chat",
+            "assistant",
+            "conversation",
+            "clear chat"
+          ]
         }
       ]
     },
@@ -692,9 +1266,28 @@
               "text": "Counts new High and Extreme alerts you haven't seen yet."
             }
           ],
-          "links": [{ "route": "/(tabs)/scams", "label": "Open Scam Alerts" }],
-          "questions": ["what are scam alerts", "where do i see scam alerts", "where are government scam warnings", "how do i filter scam alerts", "what does the number on alerts mean"],
-          "keywords": ["scam alerts", "alerts tab", "government warnings", "advisories", "campaigns", "region", "emerging patterns"]
+          "links": [
+            {
+              "route": "/(tabs)/scams",
+              "label": "Open Scam Alerts"
+            }
+          ],
+          "questions": [
+            "what are scam alerts",
+            "where do i see scam alerts",
+            "where are government scam warnings",
+            "how do i filter scam alerts",
+            "what does the number on alerts mean"
+          ],
+          "keywords": [
+            "scam alerts",
+            "alerts tab",
+            "government warnings",
+            "advisories",
+            "campaigns",
+            "region",
+            "emerging patterns"
+          ]
         },
         {
           "id": "learn",
@@ -706,9 +1299,28 @@
               "text": "At the end of an article, tap “Ask Higgins about this” to ask questions about it."
             }
           ],
-          "links": [{ "route": "/(tabs)/learn", "label": "Open Learn" }],
-          "questions": ["where are the articles", "how do i learn about scams", "where is learn with higgins", "how do i search articles", "where are the guides"],
-          "keywords": ["learn", "articles", "guides", "education", "tips", "library", "reading"]
+          "links": [
+            {
+              "route": "/(tabs)/learn",
+              "label": "Open Learn"
+            }
+          ],
+          "questions": [
+            "where are the articles",
+            "how do i learn about scams",
+            "where is learn with higgins",
+            "how do i search articles",
+            "where are the guides"
+          ],
+          "keywords": [
+            "learn",
+            "articles",
+            "guides",
+            "education",
+            "tips",
+            "library",
+            "reading"
+          ]
         },
         {
           "id": "alerts-bell",
@@ -720,9 +1332,26 @@
               "text": "If security alerts can't reach this phone, the bell shows a warning dot. See “Security alerts on your phone”."
             }
           ],
-          "links": [{ "route": "/alerts", "label": "Open alerts" }],
-          "questions": ["what is the bell", "where are my notifications", "where do i see my alerts", "what does the bell icon do", "where are past alerts"],
-          "keywords": ["bell", "notifications", "alerts list", "alert history", "warning dot"]
+          "links": [
+            {
+              "route": "/alerts",
+              "label": "Open alerts"
+            }
+          ],
+          "questions": [
+            "what is the bell",
+            "where are my notifications",
+            "where do i see my alerts",
+            "what does the bell icon do",
+            "where are past alerts"
+          ],
+          "keywords": [
+            "bell",
+            "notifications",
+            "alerts list",
+            "alert history",
+            "warning dot"
+          ]
         }
       ]
     },
@@ -741,9 +1370,26 @@
               "text": "• Protection — View all protections.\n• Alerts — security alert permission, Notification check, Preview an alert, Quiet hours and the kinds of alerts you get.\n• Accounts & family — Email accounts, Family sharing and Trusted links.\n• Your data — My personal data, What ApolloSG stores and Clear Patrol history.\n• App — Battery saver, Show why each result was settled, Minimise ApolloSG and Retrofit new enhancements.\n• Diagnostics — Feed health and Debug logs.\n• Help & about — Get help with ApolloSG, How to share into ApolloSG, About ApolloSG and Rule book.\n• Policies & assurance — Privacy policy, Privacy statement, Third-party services and Compliance matrix."
             }
           ],
-          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
-          "questions": ["where are settings", "how do i open settings", "where do i change settings", "where is the settings menu", "how do i change my preferences"],
-          "keywords": ["settings", "preferences", "options", "configure", "menu"]
+          "links": [
+            {
+              "route": "/(tabs)/settings",
+              "label": "Open Settings"
+            }
+          ],
+          "questions": [
+            "where are settings",
+            "how do i open settings",
+            "where do i change settings",
+            "where is the settings menu",
+            "how do i change my preferences"
+          ],
+          "keywords": [
+            "settings",
+            "preferences",
+            "options",
+            "configure",
+            "menu"
+          ]
         },
         {
           "id": "notifications",
@@ -770,25 +1416,65 @@
             }
           ],
           "links": [
-            { "route": "/(tabs)/settings", "label": "Open Settings" },
-            { "route": "/notification-check", "label": "Notification check" }
+            {
+              "route": "/(tabs)/settings",
+              "label": "Open Settings"
+            },
+            {
+              "route": "/notification-check",
+              "label": "Notification check"
+            }
           ],
-          "questions": ["how do i turn on notifications", "i'm not getting alerts", "how do i set quiet hours", "how do i turn off scam alert notifications", "how do i test notifications", "why am i not getting notifications", "how do i turn on alerts"],
-          "keywords": ["notifications", "alerts", "push", "quiet hours", "notification check", "preview", "sound"]
+          "questions": [
+            "how do i turn on notifications",
+            "i'm not getting alerts",
+            "how do i set quiet hours",
+            "how do i turn off scam alert notifications",
+            "how do i test notifications",
+            "why am i not getting notifications",
+            "how do i turn on alerts"
+          ],
+          "keywords": [
+            "notifications",
+            "alerts",
+            "push",
+            "quiet hours",
+            "notification check",
+            "preview",
+            "sound"
+          ]
         },
         {
           "id": "app-options",
           "title": "Battery saver and other app options",
-          "answer": "☰ → Settings → App has “Battery saver”, which reduces animation and checks status less often without changing your protection status, and “Show why each result was settled”, which adds one line naming the rule that settled each result.",
+          "answer": "☰ → Settings → App has “Battery saver”, which reduces animation and checks status less often without changing your protection status, and “Show why each result was settled”, which adds one line naming what settled each result.",
           "details": [
             {
               "heading": "Also here",
               "text": "“Minimise ApolloSG” moves the app to the background. “Retrofit new enhancements” brings past investigations up to the latest report format."
             }
           ],
-          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
-          "questions": ["how do i turn on battery saver", "how do i save battery", "what is retrofit new enhancements", "how do i see why a result was settled", "how do i minimise apollosg"],
-          "keywords": ["battery", "battery saver", "low power", "minimise", "retrofit", "result reasons"]
+          "links": [
+            {
+              "route": "/(tabs)/settings",
+              "label": "Open Settings"
+            }
+          ],
+          "questions": [
+            "how do i turn on battery saver",
+            "how do i save battery",
+            "what is retrofit new enhancements",
+            "how do i see why a result was settled",
+            "how do i minimise apollosg"
+          ],
+          "keywords": [
+            "battery",
+            "battery saver",
+            "low power",
+            "minimise",
+            "retrofit",
+            "result reasons"
+          ]
         }
       ]
     },
@@ -811,9 +1497,28 @@
               "text": "Each account shows Active, Checking now, Monitoring off, Needs attention or Not connected."
             }
           ],
-          "links": [{ "route": "/settings/email-accounts", "label": "Email accounts" }],
-          "questions": ["how do i connect gmail", "how do i connect my email", "how do i disconnect gmail", "how do i add an email account", "how do i turn on email monitoring"],
-          "keywords": ["gmail", "email account", "connect", "disconnect", "mailbox", "email monitoring", "google"]
+          "links": [
+            {
+              "route": "/settings/email-accounts",
+              "label": "Email accounts"
+            }
+          ],
+          "questions": [
+            "how do i connect gmail",
+            "how do i connect my email",
+            "how do i disconnect gmail",
+            "how do i add an email account",
+            "how do i turn on email monitoring"
+          ],
+          "keywords": [
+            "gmail",
+            "email account",
+            "connect",
+            "disconnect",
+            "mailbox",
+            "email monitoring",
+            "google"
+          ]
         },
         {
           "id": "family",
@@ -833,9 +1538,30 @@
               "text": "Alerts from people you watch appear in Threats → “Family alerts”."
             }
           ],
-          "links": [{ "route": "/family", "label": "Family sharing" }],
-          "questions": ["how do i set up family sharing", "how do i add a family member", "how do i share alerts with family", "how do i pair with a family member", "how do i stop family sharing", "where are family alerts"],
-          "keywords": ["family", "family sharing", "pair", "code", "guardian", "parent", "trusted person", "weekly check-in"]
+          "links": [
+            {
+              "route": "/family",
+              "label": "Family sharing"
+            }
+          ],
+          "questions": [
+            "how do i set up family sharing",
+            "how do i add a family member",
+            "how do i share alerts with family",
+            "how do i pair with a family member",
+            "how do i stop family sharing",
+            "where are family alerts"
+          ],
+          "keywords": [
+            "family",
+            "family sharing",
+            "pair",
+            "code",
+            "guardian",
+            "parent",
+            "trusted person",
+            "weekly check-in"
+          ]
         }
       ]
     },
@@ -859,11 +1585,35 @@
             }
           ],
           "links": [
-            { "route": "/privacy-data", "label": "What ApolloSG stores" },
-            { "route": "/privacy-disclosure", "label": "Privacy statement" }
+            {
+              "route": "/privacy-data",
+              "label": "What ApolloSG stores"
+            },
+            {
+              "route": "/privacy-disclosure",
+              "label": "Privacy statement"
+            }
           ],
-          "questions": ["what does apollosg store", "is my data private", "what information does apollosg share", "does anything leave my device", "who can see my data", "what does apollosg keep about me", "what personal data does apollosg collect", "where is the privacy policy"],
-          "keywords": ["privacy", "data", "store", "collect", "share", "anonymous", "tracking", "leave my device"]
+          "questions": [
+            "what does apollosg store",
+            "is my data private",
+            "what information does apollosg share",
+            "does anything leave my device",
+            "who can see my data",
+            "what does apollosg keep about me",
+            "what personal data does apollosg collect",
+            "where is the privacy policy"
+          ],
+          "keywords": [
+            "privacy",
+            "data",
+            "store",
+            "collect",
+            "share",
+            "anonymous",
+            "tracking",
+            "leave my device"
+          ]
         },
         {
           "id": "delete-data",
@@ -875,33 +1625,85 @@
               "text": "Everything is erased on ApolloSG's service and on this device, and ApolloSG returns to its welcome screen. You can set it up fresh at any time."
             }
           ],
-          "notes": ["This can't be undone."],
-          "links": [{ "route": "/privacy-data", "label": "What ApolloSG stores" }],
-          "questions": ["how do i delete my data", "how do i delete everything", "how do i erase my account", "how do i reset apollosg", "how do i remove all my data", "how do i start over"],
-          "keywords": ["delete data", "erase", "reset", "remove everything", "wipe", "delete account", "start over"]
+          "notes": [
+            "This can't be undone."
+          ],
+          "links": [
+            {
+              "route": "/privacy-data",
+              "label": "What ApolloSG stores"
+            }
+          ],
+          "questions": [
+            "how do i delete my data",
+            "how do i delete everything",
+            "how do i erase my account",
+            "how do i reset apollosg",
+            "how do i remove all my data",
+            "how do i start over"
+          ],
+          "keywords": [
+            "delete data",
+            "erase",
+            "reset",
+            "remove everything",
+            "wipe",
+            "delete account",
+            "start over"
+          ]
         },
         {
           "id": "personal-data",
           "title": "Adding your personal details",
           "answer": "In ☰ → Settings → Your data → “My personal data”, add your names, phone numbers, email addresses and home addresses so Apollo can protect them.",
-          "links": [{ "route": "/settings/personal-data", "label": "My personal data" }],
-          "questions": ["how do i add my personal data", "where do i add my phone number", "what is my personal data for", "how do i add my email address to apollosg"],
-          "keywords": ["personal data", "my details", "names", "numbers", "addresses", "identity"]
+          "links": [
+            {
+              "route": "/settings/personal-data",
+              "label": "My personal data"
+            }
+          ],
+          "questions": [
+            "how do i add my personal data",
+            "where do i add my phone number",
+            "what is my personal data for",
+            "how do i add my email address to apollosg"
+          ],
+          "keywords": [
+            "personal data",
+            "my details",
+            "names",
+            "numbers",
+            "addresses",
+            "identity"
+          ]
         },
         {
           "id": "clear-history",
           "title": "Clearing Patrol history",
           "answer": "In ☰ → Settings → Your data, tap “Clear Patrol history”, then “Clear history”. This hides Patrol items on this device and asks ApolloSG's service to hide synced summaries. Trusted links are kept.",
-          "links": [{ "route": "/(tabs)/settings", "label": "Open Settings" }],
-          "questions": ["how do i clear patrol history", "how do i clear my history", "how do i hide my history"],
-          "keywords": ["clear history", "hide history", "patrol history"]
+          "links": [
+            {
+              "route": "/(tabs)/settings",
+              "label": "Open Settings"
+            }
+          ],
+          "questions": [
+            "how do i clear patrol history",
+            "how do i clear my history",
+            "how do i hide my history"
+          ],
+          "keywords": [
+            "clear history",
+            "hide history",
+            "patrol history"
+          ]
         }
       ]
     },
     {
       "id": "more",
-      "title": "Sample checks and the rules",
-      "summary": "Trying ApolloSG with samples, and the rules Apollo follows.",
+      "title": "Sample checks and how Apollo works",
+      "summary": "Trying ApolloSG with samples, and how Apollo checks.",
       "topics": [
         {
           "id": "sample-checks",
@@ -910,23 +1712,52 @@
           "details": [
             {
               "heading": "Good to know",
-              "text": "A Threat Case opens only if Apollo's rules find a threat, and it's labelled “Sample Check”. Sample checks are kept out of the intelligence Apollo builds from real checks."
+              "text": "A Threat Case opens only if Apollo's checks find a threat, and it's labelled “Sample Check”. Sample checks are kept out of the intelligence Apollo builds from real checks."
             }
           ],
-          "links": [{ "route": "/sample-checks", "label": "Open Sample checks" }],
-          "questions": ["what are sample checks", "how do i try a sample", "how do i test apollosg", "how do i run a sample check", "can i see an example check"],
-          "keywords": ["sample", "samples", "test", "try", "demo", "example", "practice"]
+          "links": [
+            {
+              "route": "/sample-checks",
+              "label": "Open Sample checks"
+            }
+          ],
+          "questions": [
+            "what are sample checks",
+            "how do i try a sample",
+            "how do i test apollosg",
+            "how do i run a sample check",
+            "can i see an example check"
+          ],
+          "keywords": [
+            "sample",
+            "samples",
+            "test",
+            "try",
+            "demo",
+            "example",
+            "practice"
+          ]
         },
         {
           "id": "how-apollo-checks",
-          "title": "How Apollo checks (the rules)",
-          "answer": "☰ → “How Apollo checks” explains the rules Apollo, TC FlyBy, Magnum DI and Higgins follow and what each result means. Settings → “Rule book” has every rule in full.",
+          "title": "How Apollo checks",
+          "answer": "☰ → “How Apollo checks” explains how Apollo, TC FlyBy, Magnum DI and Higgins work and what each result means.",
           "links": [
-            { "route": "/how-apollo-checks", "label": "How Apollo checks" },
-            { "route": "/settings/rule-book", "label": "Rule book" }
+            {
+              "route": "/how-apollo-checks",
+              "label": "How Apollo checks"
+            }
           ],
-          "questions": ["what rules does apollo follow", "where is the rule book", "how does apollo decide", "how does apollo check things", "what does each result mean"],
-          "keywords": ["rules", "rule book", "how apollo checks", "decisions", "results"]
+          "questions": [
+            "how does apollo decide",
+            "how does apollo check things",
+            "what does each result mean"
+          ],
+          "keywords": [
+            "how apollo checks",
+            "decisions",
+            "results"
+          ]
         }
       ]
     },
@@ -953,9 +1784,29 @@
               "text": "Checks in Ask Higgins, sharing into ApolloSG, Threats, Scam Alerts, Learn, Family sharing and connecting Gmail."
             }
           ],
-          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
-          "questions": ["does apollosg work on iphone", "what's different on iphone", "why can't i turn on website protection on iphone", "which features are android only", "what works on android"],
-          "keywords": ["android", "iphone", "ios", "apple", "samsung", "platform", "difference", "not available"]
+          "links": [
+            {
+              "route": "/(tabs)/protection",
+              "label": "Open Protections"
+            }
+          ],
+          "questions": [
+            "does apollosg work on iphone",
+            "what's different on iphone",
+            "why can't i turn on website protection on iphone",
+            "which features are android only",
+            "what works on android"
+          ],
+          "keywords": [
+            "android",
+            "iphone",
+            "ios",
+            "apple",
+            "samsung",
+            "platform",
+            "difference",
+            "not available"
+          ]
         }
       ]
     },
@@ -975,11 +1826,33 @@
             }
           ],
           "links": [
-            { "route": "/support", "label": "Open Support" },
-            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" }
+            {
+              "route": "/support",
+              "label": "Open Support"
+            },
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            }
           ],
-          "questions": ["how do i get help", "how do i contact support", "how do i email support", "something isn't working", "apollosg isn't working", "where is support"],
-          "keywords": ["help", "support", "contact", "email support", "problem", "diagnostic", "bug", "not working"]
+          "questions": [
+            "how do i get help",
+            "how do i contact support",
+            "how do i email support",
+            "something isn't working",
+            "apollosg isn't working",
+            "where is support"
+          ],
+          "keywords": [
+            "help",
+            "support",
+            "contact",
+            "email support",
+            "problem",
+            "diagnostic",
+            "bug",
+            "not working"
+          ]
         },
         {
           "id": "check-stuck",
@@ -992,11 +1865,31 @@
             }
           ],
           "links": [
-            { "route": "/(tabs)/ask", "label": "Open Ask Higgins" },
-            { "route": "/support", "label": "Open Support" }
+            {
+              "route": "/(tabs)/ask",
+              "label": "Open Ask Higgins"
+            },
+            {
+              "route": "/support",
+              "label": "Open Support"
+            }
           ],
-          "questions": ["my check is stuck", "the check is taking too long", "the investigation won't finish", "why is my check taking so long", "the investigation failed"],
-          "keywords": ["stuck", "slow", "taking long", "failed", "retry", "loading", "waiting"]
+          "questions": [
+            "my check is stuck",
+            "the check is taking too long",
+            "the investigation won't finish",
+            "why is my check taking so long",
+            "the investigation failed"
+          ],
+          "keywords": [
+            "stuck",
+            "slow",
+            "taking long",
+            "failed",
+            "retry",
+            "loading",
+            "waiting"
+          ]
         },
         {
           "id": "protection-problem",
@@ -1012,9 +1905,28 @@
               "text": "On a protection that needs help, tap “Ask Higgins for more help”."
             }
           ],
-          "links": [{ "route": "/(tabs)/protection", "label": "Open Protections" }],
-          "questions": ["a protection needs attention", "why does my protection say permission required", "my protection is off", "website protection isn't working", "call screening isn't working", "how do i fix permission required"],
-          "keywords": ["needs attention", "permission required", "not working", "off", "problem", "fix protection"]
+          "links": [
+            {
+              "route": "/(tabs)/protection",
+              "label": "Open Protections"
+            }
+          ],
+          "questions": [
+            "a protection needs attention",
+            "why does my protection say permission required",
+            "my protection is off",
+            "website protection isn't working",
+            "call screening isn't working",
+            "how do i fix permission required"
+          ],
+          "keywords": [
+            "needs attention",
+            "permission required",
+            "not working",
+            "off",
+            "problem",
+            "fix protection"
+          ]
         }
       ]
     }

@@ -191,7 +191,7 @@ export default function SettingsScreen() {
       {/* 5 ── This app on this device */}
       <Group icon={Smartphone} title="App" tone="app" testID="settings-preferences">
         <SwitchRow first label="Battery saver" hint="Reduces animation and checks status less often. It does not change the protection status." value={lowPower} onValueChange={(value) => void setLowPower(value)} testID="settings-lowpower-switch" />
-        <SwitchRow label="Show why each result was settled" hint="One line naming the rule that settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
+        <SwitchRow label="Show why each result was settled" hint="One line naming what settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
         <NavRow label="Minimise ApolloSG" hint="Move ApolloSG to the background" onPress={() => void minimiseApp(showToast)} testID="settings-minimise" />
         <NavRow label="Retrofit new enhancements" hint="Apply the latest reporting format to all past investigations" onPress={() => setShowRetrofit(true)} testID="settings-retrofit" />
       </Group>
@@ -210,7 +210,6 @@ export default function SettingsScreen() {
         </Pressable>
         {showShare ? <Body testID="settings-share-help" style={{ paddingBottom: spacing.sm }}>Many messaging, mail and browser apps offer Share — tap it, then choose ApolloSG. Not every app does; if yours doesn&apos;t, copy and paste the text or use a screenshot. ApolloSG always waits for you to confirm before it checks anything you share.</Body> : null}
         <NavRow label="About ApolloSG" hint="Meet Apollo and Higgins, your protections, privacy and more" onPress={() => setShowAbout(true)} testID="settings-about-apollo" />
-        <NavRow label="Rule book" hint="Every rule Apollo, TC FlyBy, Magnum DI and Higgins follow, word for word" onPress={() => router.push("/settings/rule-book")} testID="settings-rule-book" />
       </Group>
 
       {/* 8 ── The documents, last: read occasionally, never urgent */}

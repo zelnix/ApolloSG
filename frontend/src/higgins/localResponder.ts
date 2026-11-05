@@ -56,7 +56,7 @@ const KNOWLEDGE_RESPONSES: Record<LocalKnowledgeIntent, string> = {
     "• **TC FlyBy** investigates quickly — checking official sources, ApolloSG's knowledge base and one targeted search.\n" +
     "• **Magnum DI** investigates deeply — only when TC FlyBy can't settle something that could change the answer.\n" +
     "• **Higgins** (me) knows ApolloSG and scams. I explain what was found, guide you, and take you to the right screen.\n\n" +
-    "Every check runs on your device first and produces exactly one threat case. If the rules settle it cleanly, that's your answer. If something looks possible, or can't be determined, TC FlyBy investigates it — and Magnum DI looks deeper only if that could change the answer. How Apollo checks has the full rules.",
+    "Every check runs on your device first and produces exactly one threat case. If the checks settle it cleanly, that's your answer. If something looks possible, or can't be determined, TC FlyBy investigates it — and Magnum DI looks deeper only if that could change the answer. \"How Apollo checks\" explains the whole process.",
 
   what_is_higgins:
     "I'm Higgins — Apollo's trusted adviser, interpreter and guide, and the savant of this app.\n\n" +
