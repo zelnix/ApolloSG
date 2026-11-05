@@ -75,7 +75,7 @@ export function caseResult(response: HigginsResponse): CaseResult {
     verdictCode: code,
     tone: outcomeTone(code),
     severity: notFullyChecked ? "resting" : actionLevel ? "barking" : attention === "review" ? "growling" : "resting",
-    noConcern: code ? code === "no_scam_indicators" : response.assessment === "no_concern_found_within_scope",
+    noConcern: code ? (code === "not_scam" || code === "no_scam_indicators") : response.assessment === "no_concern_found_within_scope",
     notFullyChecked,
     from: b ? "briefing" : "response",
   };
@@ -88,7 +88,7 @@ export function threatResult(event: Pick<PatrolEvent, "case_briefing">, response
   const b = event.case_briefing;
   if (!b || !b.severity) return null;
   const code = b.verdictCode ?? null;
-  return { verdict: b.verdict ?? null, verdictCode: code, tone: outcomeTone(code), severity: b.severity, noConcern: code === "no_scam_indicators",
+  return { verdict: b.verdict ?? null, verdictCode: code, tone: outcomeTone(code), severity: b.severity, noConcern: code === "not_scam" || code === "no_scam_indicators",
     notFullyChecked: !!b.notFullyChecked, from: b.from };
 }
 

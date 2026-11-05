@@ -80,13 +80,12 @@ export const CHECK_ROLES: CheckRole[] = [
   },
 ];
 
-/** Every check ends with one of these five results, whichever investigator answered. */
-export const OUTCOME_GUIDE: { outcome: "no_scam_indicators" | "concerning" | "likely_scam" | "confirmed_threat" | "unable_to_determine"; meaning: string }[] = [
-  { outcome: "confirmed_threat", meaning: "An official or trusted source names this exact link, number, address or company as a scam or threat." },
-  { outcome: "likely_scam", meaning: "It matches a known scam, step for step, without proof about this particular sender." },
-  { outcome: "concerning", meaning: "There are real warning signs, but not enough to call it a scam. Check it yourself before acting." },
-  { outcome: "unable_to_determine", meaning: "Apollo couldn't find enough to say either way." },
-  { outcome: "no_scam_indicators", meaning: "The checks Apollo ran found nothing — which isn't the same as proof it's safe." },
+/** Every check ends with one of these four Findings, whichever investigator answered. */
+export const OUTCOME_GUIDE: { outcome: string; meaning: string }[] = [
+  { outcome: "scam", meaning: "The investigation established this is a scam — through a known scam listing, a fake identity, established deception, or a complete corroborated scam pattern." },
+  { outcome: "likely_scam", meaning: "Strong signs of a scam — impersonation indicators, a strong pattern match, or multiple independent scam indicators — but an important part of the evidence remains unverified." },
+  { outcome: "unable_to_determine", meaning: "Apollo couldn't establish enough to say either way — too little information, important checks unavailable, or conflicting results." },
+  { outcome: "not_scam", meaning: "The investigation verified the identity, destinations, purpose and resolved all scam warnings. That's not a guarantee it's safe — only that these checks found nothing." },
 ];
 
 export const PROMISES: string[] = [

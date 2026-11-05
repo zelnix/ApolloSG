@@ -3,8 +3,9 @@ export type Gate = "site" | "link" | "text" | "call" | "network" | "account" | "
 export type CaseStatus = "queued" | "investigating" | "waiting_device" | "waiting_user" | "retry_wait" | "partial" | "complete" | "failed" | "cancelled" | "expired";
 export type CoverageStatus = "not_started" | "partial" | "examined" | "unavailable" | "out_of_scope";
 export type Assessment = "concern_found" | "no_concern_found_within_scope" | "uncertain";
-/** Apollo's case outcome — the same five whichever investigation layer (TC FlyBy or Magnum DI) answered. */
-export type Outcome = "no_scam_indicators" | "concerning" | "likely_scam" | "confirmed_threat" | "unable_to_determine";
+/** Apollo's case Finding — the four Findings, plus legacy codes for backward compatibility. */
+export type Outcome = "scam" | "not_scam" | "likely_scam" | "unable_to_determine"
+  | "no_scam_indicators" | "concerning" | "confirmed_threat";
 export type Attention = "none" | "review" | "action_needed" | "urgent";
 export type Completion = "complete" | "partial" | "waiting_user";
 

@@ -62,7 +62,7 @@ def build(f: Facts, draft: Draft, response: HigginsResponse, gates: list[str] | 
                                 source_ids=sf["sourceIds"], materiality=sf["materiality"], confidence=sf["confidence"], basis=sf["basis"],
                                 stance=sf["stance"]) for sf in f.findings]
     unresolved = [item.text for item in draft.uncertain]
-    label = f"{outcomes.LABELS[f.outcome]}." if f.outcome else ""
+    label = f"{outcomes.label(f.outcome)}." if f.outcome else ""
     verdict = draft.result.text[len(label):].strip() if label and draft.result.text.startswith(label) else draft.result.text
     status_reason = draft.matters[0].text if draft.matters else verdict
     # "Needs you" only with a concrete reason Apollo recorded: an action-level attention with its reason, or the
@@ -80,7 +80,7 @@ def build(f: Facts, draft: Draft, response: HigginsResponse, gates: list[str] | 
         subject=BriefingSubject(**f.subject) if f.subject else None, headline=headline(f, gates),
         summary=_summary(f, draft, unresolved, short=True), findings=findings,
         supporting=[b.id for b in findings if b.stance == "supporting"], contrary=[b.id for b in findings if b.stance == "contrary"],
-        unresolved=unresolved, status=outcomes.LABELS.get(f.outcome or "", ""), status_code=f.outcome, attention=f.attention,
+        unresolved=unresolved, status=outcomes.label(f.outcome) or "", status_code=f.outcome, attention=f.attention,
         status_reason=status_reason, user_action_required=action_reason is not None, action_reason=action_reason,
         recommended_action=recommended, fidelity=FidelityResult(status="PASS"))
     result = fidelity.check_briefing(f, draft, briefing)

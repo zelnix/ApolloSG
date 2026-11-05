@@ -1517,17 +1517,23 @@ def _answered_by_badge(key: str) -> str:
             f'{html_mod.escape(ANSWERED_BY_LABELS.get(key, key))}</span> <span style="font-size:0.78em;color:var(--muted);">{who}</span>')
 
 
-_OUTCOME_COLOURS = {"confirmed_threat": "var(--red)", "likely_scam": "var(--red)", "concerning": "var(--yellow)",
-                    "unable_to_determine": "var(--muted)", "no_scam_indicators": "var(--green)"}
+_OUTCOME_COLOURS = {
+    # Current four Findings
+    "scam": "var(--red)", "likely_scam": "var(--red)",
+    "unable_to_determine": "var(--muted)", "not_scam": "var(--green)",
+    # Legacy codes (backward compat for historical records)
+    "confirmed_threat": "var(--red)", "concerning": "var(--yellow)", "no_scam_indicators": "var(--green)",
+}
 
 
 def _outcome_badge(key: str | None) -> str:
-    """Apollo's case outcome — the same five outcomes whichever layer answered."""
+    """Apollo's case Finding — the same four Findings whichever layer answered."""
     from services.higgins import outcomes
     if not key:
         return '<span style="color:var(--muted);">&mdash;</span>'
+    display_label = outcomes.label(key) or key
     return (f'<span class="badge" data-testid="outcome-{html_mod.escape(key)}" style="background:rgba(127,127,127,0.12);'
-            f'color:{_OUTCOME_COLOURS.get(key, "var(--muted)")};">{html_mod.escape(outcomes.LABELS.get(key, key))}</span>')
+            f'color:{_OUTCOME_COLOURS.get(key, "var(--muted)")};">{html_mod.escape(display_label)}</span>')
 
 
 def _routing_html(rows: list[dict], avg_cost: float) -> str:

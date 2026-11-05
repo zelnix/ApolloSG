@@ -185,7 +185,7 @@ async def test_an_official_listing_settles_the_case_without_gemini(monkeypatch):
     owner, case, response, _ = await _case([("text", "ANZ: your card is locked. Verify now at https://anz-verify.co/login")])
     assert calls == [], "a reliable official listing is not confirmed by Gemini"
     assert response["assessment"] == "concern_found" and response["attention"] == "action_needed"
-    assert response["outcome"] == "confirmed_threat" and case["routing"]["outcome"] == "confirmed_threat"
+    assert response["outcome"] == "scam" and case["routing"]["outcome"] == "scam"
     assert "Google Safe Browsing lists anz-verify.co" in response["overview"]
     assert response["findings"][0]["basis"] == "observation" and response["findings"][0]["evidenceIds"]
     assert any(a["label"] == "Don't open the link" for a in response["actions"])
@@ -201,7 +201,7 @@ async def test_an_official_government_link_is_cleared_without_gemini(monkeypatch
     _owner, case, response, _ = await _case([("url", "https://www.ato.gov.au/individuals/lodging-your-tax-return")], message="Is this link safe?")
     assert calls == []
     assert response["assessment"] == "no_concern_found_within_scope" and response["attention"] == "none"
-    assert response["outcome"] == "no_scam_indicators"
+    assert response["outcome"] == "not_scam"
     assert "Australian Taxation Office's official domain" in response["overview"]
     assert "That settles who the address belongs to" in response["overview"] and "nothing here needs action" not in response["overview"]
     assert case["routing"]["answeredBy"] == "tc_flyby_official"
@@ -251,7 +251,7 @@ async def test_a_targeted_search_finding_an_official_warning_stops(monkeypatch):
     assert len(queries) == 1 and "Zenith Quantum Markets" in queries[0]["q"], "one Brave search for the case"
     assert queries[0]["correlation_id"] == f"case-{case['case_id']}" and queries[0]["device_id"] == owner
     assert response["assessment"] == "concern_found" and "Investor Alert List" in response["overview"]
-    assert response["outcome"] == "confirmed_threat", "the planned search ran before TC FlyBy settled the outcome"
+    assert response["outcome"] == "scam", "the planned search ran before TC FlyBy settled the outcome"
     assert response["findings"][0]["sourceIds"], "the warning keeps its source"
     assert case["routing"]["answeredBy"] == "tc_flyby_search"
     flyby = case["routing"]["tc_flyby"]
@@ -328,7 +328,7 @@ async def test_a_plain_message_asking_nothing_is_settled_without_magnum(monkeypa
     calls = _gateway(monkeypatch)
     _owner, case, response, _ = await _case([("text", "Hey, are we still on for dinner on Friday? Let me know what time suits.")])
     assert calls == []
-    assert response["outcome"] == "no_scam_indicators" and response["assessment"] == "no_concern_found_within_scope"
+    assert response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
     assert "isn't proof it's genuine" in response["overview"] and "safe" not in response["overview"].lower()
     assert "Apollo found no links, numbers, addresses or names in it to look up" in response["explanationMarkdown"]
     flyby = case["routing"]["tc_flyby"]
@@ -417,11 +417,11 @@ async def test_admin_report_shows_answered_by_and_routing(monkeypatch):
     request = Request({"type": "http", "method": "GET", "path": "/api/admin/investigations-cost", "query_string": b"period=all", "headers": []})
     page = await admin_portal.investigations_cost_report(request)
     assert "Answered By" in page and 'data-testid="answered-by-tc_flyby_official"' in page and ">Official check</span>" in page
-    assert 'data-testid="outcome-confirmed_threat"' in page and "Confirmed scam or threat" in page and "<th>Outcome</th>" in page
+    assert 'data-testid="outcome-scam"' in page and "This is a scam" in page and "<th>Outcome</th>" in page
     assert 'data-testid="cost-routing-heading"' in page and "Resolved Without Magnum DI" in page and "Repeated Searches Avoided" in page
     drill = await admin_portal.investigation_drilldown(request, case["case_id"])
     assert "Cost Routing" in drill and ">Official check</span>" in drill and "Not called" in drill
-    assert 'data-testid="outcome-confirmed_threat"' in drill
+    assert 'data-testid="outcome-scam"' in drill
 
 
 # ── When a case is resolved at TC FlyBy (Apollo's outcome criteria) ─────────
@@ -430,7 +430,7 @@ async def test_impersonation_with_a_brand_new_domain_is_concerning_without_gemin
     _lookups(monkeypatch, age_days=6)
     _owner, case, response, _ = await _case([("text", "CommBank: please read the notice about your account changes at https://commbank-notice.net/info")])
     assert calls == [], "Magnum DI couldn't change the finding or what to do"
-    assert response["outcome"] == "concerning" and response["assessment"] == "concern_found"
+    assert response["outcome"] == "likely_scam" and response["assessment"] == "concern_found"
     assert "isn't CommBank's domain" in response["overview"] and "registered on 2026-06-01" in response["overview"]
     assert "commbank-notice.net isn't one of CommBank's published domains" in response["explanationMarkdown"]
     assert "no reason to send you" not in response["explanationMarkdown"]
@@ -463,7 +463,7 @@ async def test_a_message_matching_a_kb_scam_pattern_is_likely_scam_without_gemin
 async def test_the_opening_of_a_kb_pattern_is_concerning(monkeypatch):
     calls = _gateway(monkeypatch)
     _owner, _case_doc, response, _ = await _case([("text", "Hi Mum, this is my new number. Save it and delete the old one x")])
-    assert calls == [] and response["outcome"] == "concerning" and response["attention"] == "review"
+    assert calls == [] and response["outcome"] == "likely_scam" and response["attention"] == "review"
     assert "hasn't asked for anything yet" in response["overview"]
 
 
@@ -490,7 +490,7 @@ async def test_a_pattern_contradicted_by_official_links_is_settled_by_the_decidi
     _lookups(monkeypatch)
     _owner, case, response, _ = await _case([("text", "AusPost: your parcel is held. Pay the $2.50 redelivery fee at https://auspost.com.au/redeliver")])
     assert calls == [], "the request goes to AusPost's own domain: nothing Magnum DI could add changes what to do"
-    assert response["outcome"] == "no_scam_indicators"
+    assert response["outcome"] == "not_scam"
     pattern = case["routing"]["tc_flyby"]["pattern"]
     assert pattern == {"key": "delivery_toll", "stage": "partial"}, "an impersonation pattern needs a link that isn't the organisation's own"
 
@@ -516,7 +516,7 @@ async def test_a_lookalike_bare_link_follows_the_same_rule(monkeypatch):
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch)
     _owner, case, response, _ = await _case([("url", "https://commbank-secure-login.net/")], message="Is this link safe?")
-    assert calls == [] and response["outcome"] == "concerning"
+    assert calls == [] and response["outcome"] == "likely_scam"
     assert "carries CommBank's name" in response["overview"]
 
 

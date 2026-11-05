@@ -16,8 +16,11 @@ CaseStatus = Literal["queued", "investigating", "waiting_device", "waiting_user"
 Origin = Literal["user_submission", "device_observation", "external_source", "apollo_inference"]
 CoverageStatus = Literal["not_started", "partial", "examined", "unavailable", "out_of_scope"]
 Assessment = Literal["concern_found", "no_concern_found_within_scope", "uncertain"]
-# Apollo's case outcome (services/higgins/outcomes.py), shared by TC FlyBy and Magnum DI.
-Outcome = Literal["no_scam_indicators", "concerning", "likely_scam", "confirmed_threat", "unable_to_determine"]
+# Apollo's case Finding (services/higgins/outcomes.py), shared by TC FlyBy and Magnum DI.
+# New findings: scam, not_scam, likely_scam, unable_to_determine
+# Legacy codes (confirmed_threat, no_scam_indicators, concerning) accepted for backward compatibility.
+Outcome = Literal["scam", "not_scam", "likely_scam", "unable_to_determine",
+                  "no_scam_indicators", "concerning", "confirmed_threat"]
 Attention = Literal["none", "review", "action_needed", "urgent"]
 Completion = Literal["complete", "partial", "waiting_user"]
 FailureCode = Literal["invalid_input", "unauthenticated", "not_found", "conflict", "provider_configuration", "rate_limited",

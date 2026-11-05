@@ -173,7 +173,7 @@ def analyse(blocks: list[EvidenceBlock], question: str = "") -> dict:
 
     if serious:
         assessment, attention = "concern_found", "action_needed"
-        outcome = "likely_scam" if ind.mismatched and (ind.credentials or ind.payments) else "concerning"
+        outcome = "likely_scam" if ind.mismatched and (ind.credentials or ind.payments) else "likely_scam"
         # The overview is the conclusion and the one thing to do now. It does not enumerate the
         # evidence — the link, the request and the amount are already stated once, in the findings.
         overview = (
@@ -206,7 +206,7 @@ def analyse(blocks: list[EvidenceBlock], question: str = "") -> dict:
         attention_reason = "Unverified material can still turn out to be a scam, so it is worth confirming before acting on it."
         actions.append(_action("Check before acting", "Confirm this with the organisation using contact details you already have before clicking anything or replying."))
     else:
-        assessment, attention, outcome = "no_concern_found_within_scope", "none", "no_scam_indicators"
+        assessment, attention, outcome = "no_concern_found_within_scope", "none", "not_scam"
         overview = ("Nothing in this material asks for money, credentials or urgent action, and it contains no link. "
                     "This covers only what was submitted.")
         attention_reason = None

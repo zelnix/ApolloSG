@@ -1,5 +1,134 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Scam Findings Rules — S1–S4, N1–N4, L1–L3 Implementation (P0) — 2026-11-06
+
+### Objective
+Replaced the five-outcome system (no_scam_indicators, concerning, likely_scam, confirmed_threat, unable_to_determine) with four explicit, customer-facing Findings:
+- `scam` → "This is a scam"
+- `not_scam` → "This is not a scam"
+- `likely_scam` → "This is likely a scam"
+- `unable_to_determine` → "We are unable to determine if this is a scam"
+
+### What was done
+
+**New file: `backend/services/higgins/tc_flyby/finding_rules.py`**
+- IPDMC investigation checks framework (Identity, Purpose, Destination, Mechanism, Contradictions)
+- `gather_ipdmc()`: extracts check results from the Plan into the IPDMC structure
+- S1 (Known scam): decisive concern fact from authoritative source
+- S2 (Fake identity): claimed identity established as false + deceptive purpose
+- S3 (Scam activity): established deceptive action + evidence + consequential target
+- S4 (Complete scam pattern): full pattern match + separate investigation evidence corroborates deception
+- N1 (Genuine identity): verified identity connected to the communication
+- N2 (Genuine destinations): all relevant destinations verified (decisive clear required; clean listing + weak signal is NOT verified)
+- N3 (Genuine purpose): requests through verified routes from verified sender
+- N4 (Scam warnings resolved): all warnings + pattern matches accounted for; partial pattern + official routes = resolved
+- L1 (Strong impersonation): identity conflict + independent support (lookalike domains self-support)
+- L2 (Strong pattern match): full/opening pattern when S4 doesn't pass
+- L3 (Independent indicators): 2+ warnings from different check kinds, at least one concerning deception
+- `evaluate()`: decision order S→N→L→U with conflict handling
+- Gaps prevent `not_scam` (unavailable check ≠ successful check)
+- `evaluate_for_magnum()`: same rules for Magnum DI consistency
+
+**Updated: `backend/services/higgins/outcomes.py`**
+- 4 outcome codes: scam, not_scam, likely_scam, unable_to_determine
+- Legacy backward compatibility: LEGACY_MAP maps old codes (confirmed_threat→scam, no_scam_indicators→not_scam, concerning→likely_scam)
+- `normalize()` and `label()` functions handle both current and legacy codes
+- CRITERIA string updated for Magnum DI AI model guidance
+- ASSESSMENT dict covers both new and legacy codes
+
+**Updated: `backend/services/higgins/contracts.py`**
+- Outcome literal type includes both new and legacy codes for deserialization
+
+**Updated: `backend/services/higgins/tc_flyby/decide.py`**
+- `provisional()` now calls `finding_rules.evaluate()` instead of the old step-by-step checking
+- Removes old automatic assumptions (complete pattern ≠ automatic likely_scam; warning sign ≠ automatic concerning; no warnings ≠ genuine)
+- `evaluate()` checks rules engine for `not_scam` BEFORE generating Magnum issues
+- `decisive()` checks for `scam` instead of `confirmed_threat`
+- L1 with no corroboration data falls back to signals report path
+
+**Updated: `backend/services/higgins/tc_flyby/report.py`**
+- `concern()` → outcome `scam` (was `confirmed_threat`)
+- `clear()` → outcome `not_scam` (was `no_scam_indicators`)
+- `impersonation_result()` → outcome `likely_scam` (was `concerning`)
+- `signals_result()` → outcome `likely_scam` (was `concerning`)
+- `pattern_result()` → distinguishes full-pattern `action_needed` from opening-pattern `review`
+- `compose()` → handles `not_scam` alongside legacy `no_scam_indicators`
+- `magnum_brief()` uses `outcomes.label()` instead of direct LABELS dict
+
+**Updated: `backend/services/higgins/validation.py`**
+- `_RANK` dict includes both new and legacy codes
+- Partial investigation ceiling: `scam` requires complete investigation (partial → max `likely_scam`)
+- Confidence check applies to `likely_scam` and `scam`
+
+**Updated: `backend/services/higgins/explain/briefing.py`**
+- Uses `outcomes.label()` for both current and legacy outcome codes
+
+**Updated: `backend/services/investigation_projector.py`**
+- `_OUTCOME_STATE`, `_OUTCOME_ATTENTION`, `_OUTCOME_TODO` include both new and legacy codes
+- `ended_view()` uses `outcomes.label()` and `outcomes.normalize()` for backward compat
+
+**Updated: `backend/services/observed_intel.py`**
+- `CONCERN_OUTCOMES` includes both new and legacy codes
+- `not_scam` handled alongside `no_scam_indicators`
+
+**Updated: `backend/services/higgins/preview_analysis.py`**
+- Uses `likely_scam` instead of `concerning`, `not_scam` instead of `no_scam_indicators`
+
+**Updated: `backend/services/higgins/history.py`**
+- `CONCERN` tuple includes both new and legacy codes
+
+**Updated: `backend/routers/admin_portal.py`**
+- `_OUTCOME_COLOURS` includes both new and legacy codes
+- `_outcome_badge()` uses `outcomes.label()` for display
+
+**Updated frontend:**
+- `frontend/src/investigation/types.ts`: Outcome type includes new + legacy codes
+- `frontend/src/domain/messageVoice.ts`: `outcomeLabel()` returns the four Finding labels; `outcomeTone()` updated
+- `frontend/src/domain/caseBriefing.ts`: `noConcern` check includes `not_scam` and `no_scam_indicators`
+- `frontend/src/domain/howApolloChecks.ts`: `OUTCOME_GUIDE` has four entries matching the four Findings
+
+**Updated tests:**
+- `tests/test_higgins_wording.py`: 8 tests updated for new outcome codes
+- `tests/test_tc_flyby_routing.py`: 24 tests updated for new outcome codes, admin badge assertions
+- `tests/test_evidence_evaluation.py`: entity attribute safety (getattr guards)
+
+### Test results
+All 63 backend tests pass (test_tc_flyby_routing, test_higgins_wording, test_di_trace, test_evidence_evaluation).
+Frontend Luddish reporting fixtures pass (7/7).
+
+### Historical compatibility
+Old outcome codes stored in MongoDB are handled transparently:
+- `outcomes.normalize()` converts legacy → current
+- `outcomes.label()` returns correct labels for both
+- Frontend types accept both
+- Admin portal displays both correctly
+- Investigation projector maps both to correct state/attention
+
+### Rules → Code mapping
+| Rule | Function | File |
+|---|---|---|
+| S1 | `s1_known_scam()` | finding_rules.py |
+| S2 | `s2_fake_identity()` | finding_rules.py |
+| S3 | `s3_scam_activity()` | finding_rules.py |
+| S4 | `s4_complete_pattern()` | finding_rules.py |
+| N1 | `n1_genuine_identity()` | finding_rules.py |
+| N2 | `n2_genuine_destinations()` | finding_rules.py |
+| N3 | `n3_genuine_purpose()` | finding_rules.py |
+| N4 | `n4_scam_warnings_resolved()` | finding_rules.py |
+| L1 | `l1_strong_impersonation()` | finding_rules.py |
+| L2 | `l2_strong_pattern_match()` | finding_rules.py |
+| L3 | `l3_independent_indicators()` | finding_rules.py |
+
+### Key design decisions
+- Lookalike domains (topic="lookalike") self-support L1 — the domain name itself mimics the brand
+- L3 deception topics broadened: claim, company, impersonation, lookalike, shared_service, freemail
+- N2 requires decisive clear or clean-listing-without-weak-signals; clean listing + weak signal = unverified
+- N4 treats pattern matches (full/opening/partial) as scam indicators requiring resolution; partial + official routes = resolved
+- Gaps (unprocessed material, unavailable checks) block `not_scam`
+- `evaluate()` in decide.py checks rules engine for `not_scam` before generating Magnum issues
+
+
+
 ## Progressive Phone Number Investigation (P0) — 2026-11-05
 
 ### What was done:

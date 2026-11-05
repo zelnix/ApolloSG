@@ -43,7 +43,7 @@ SOURCE = "apollosg-observed"
 THRESHOLD = 3          # independent supporting devices, unanimous: a High-confidence assertion
 MEDIUM = 2             # independent supporting devices, unanimous: a Medium-confidence assertion
 WINDOW = timedelta(days=30)
-CONCERN_OUTCOMES = ("concerning", "likely_scam", "confirmed_threat")
+CONCERN_OUTCOMES = ("likely_scam", "scam", "concerning", "confirmed_threat")
 STANCES = ("supporting", "contradicting", "inconclusive", "insufficient")
 MAX_SUBJECTS = 6
 # The only words a device is ever given about ApolloSG's previous reports (never "KB", never "cases", never a count).
@@ -158,7 +158,7 @@ def _subjects_of(record: dict) -> list[tuple[str, str, str | None]]:
 def stance_of(outcome: str | None, completion: str | None) -> str | None:
     if outcome in CONCERN_OUTCOMES:
         return "supporting"
-    if outcome == "no_scam_indicators":
+    if outcome in ("not_scam", "no_scam_indicators"):
         return "contradicting" if completion == "complete" else "insufficient"
     if outcome == "unable_to_determine":
         return "inconclusive" if completion == "complete" else "insufficient"

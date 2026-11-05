@@ -148,7 +148,7 @@ def concern(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_it
                    + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Magnum DI's deeper analysis wasn't needed, because {settled}.", checks, not_taken=True))
     return {
         "overview": f"{lead['text']} Don't act on it" + (f" — if you need to, contact {brand} yourself." if brand else "."),
-        "explanationMarkdown": explanation, "assessment": "concern_found", "outcome": "confirmed_threat", "attention": "action_needed",
+        "explanationMarkdown": explanation, "assessment": "concern_found", "outcome": "scam", "attention": "action_needed",
         "attentionReason": "An official source has already identified it as dangerous, so acting on it puts your money or accounts at risk.",
         "findings": findings[:8], "uncertainties": ["Anything outside the submitted material — earlier messages or the sender's history — wasn't examined."],
         "scope": _scope(plan_, ROUTE_LABEL[route]), "sourceIds": sorted({s for f in findings for s in f["sourceIds"]}),
@@ -201,7 +201,7 @@ def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item
     explanation = (f"**What was found**\n{found}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
                    + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Nothing in it needed Magnum DI's deeper analysis.", checks, not_taken=False))
     return {
-        "overview": overview, "explanationMarkdown": explanation, "assessment": "no_concern_found_within_scope", "outcome": "no_scam_indicators",
+        "overview": overview, "explanationMarkdown": explanation, "assessment": "no_concern_found_within_scope", "outcome": "not_scam",
         "attention": "none", "attentionReason": None, "findings": findings[:8],
         "uncertainties": uncertainties,
         "scope": _scope(plan_, ROUTE_LABEL[route]), "sourceIds": sorted({s for f in findings for s in f["sourceIds"]}),
@@ -238,11 +238,16 @@ def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], f
     kb_sources = sorted({s for c in checks if c.kind == "scam_pattern" for f in c.facts for s in f.get("sourceIds", [])})
     advice = p["advice"]
     call = plan_.channel == "call"
-    if outcome == "likely_scam":
+    if outcome == "likely_scam" and p["stage"] == "full":
         overview = f"This matches the {p['name']} that {p['publisher']} warns about. {advice[0][1]} {advice[1][1]}"
         means = (f"Together, these are the defining features of the {p['name']}: {p['summary']} A match like this supports Apollo's "
                  f"assessment, but it isn't proof that this particular {'caller' if call else 'sender'} is a scammer — which is why the safe "
                  "step is to check through a channel you already trust.")
+        attention, reason = "action_needed", p["consequence"]
+    elif outcome == "scam" and p["stage"] == "full":
+        overview = f"This matches the {p['name']} that {p['publisher']} warns about. {advice[0][1]} {advice[1][1]}"
+        means = (f"Together, these are the defining features of the {p['name']}: {p['summary']} Independent investigation evidence "
+                 "corroborates the deceptive element of this scam pattern.")
         attention, reason = "action_needed", p["consequence"]
     else:
         overview = (f"This starts the way the {p['name']} does, as {p['publisher']} describes it, though it hasn't asked for anything yet. "
@@ -268,7 +273,7 @@ def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, s
     support = [f for f in facts if not f.get("place")]
     found = [_finding(f, _evidence_for(f.get("place") or place, material, flyby_item), "high" if f.get("place") else "medium") for f in facts]
     return _result(
-        plan_, checks, found=found, outcome="concerning", attention="action_needed",
+        plan_, checks, found=found, outcome="likely_scam", attention="action_needed",
         overview=(f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. {support[0]['text']} "
                   f"Don't use the link — go to {brand} directly through their official app or website."),
         means=(f"{place} isn't one of {brand}'s published domains, and a separate check on that address backs up the concern. "
@@ -308,7 +313,7 @@ def signals_result(plan_: Plan, checks: list[Check], material: dict[str, str], f
                 _action("Check independently", "If it claims to be from someone you know or deal with, contact them using details you already have — "
                                                "not anything in it.")])
     return _result(
-        plan_, checks, outcome="concerning", attention="review", actions=actions,
+        plan_, checks, outcome="likely_scam", attention="review", actions=actions,
         found=[_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in facts],
         overview=(f"{subject[0].upper()}{subject[1:]} raises a concern: {facts[0][1]['text']} Nothing here proves it's a scam, but don't act on "
                   "it until you've checked it through a channel you trust."),
@@ -378,7 +383,7 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
         result = impersonation_result(plan_, checks, material, flyby_item, corroborated_impersonation(plan_))
     elif decision.basis == "signals":
         result = signals_result(plan_, checks, material, flyby_item)
-    elif decision.outcome == "no_scam_indicators":
+    elif decision.outcome in ("not_scam", "no_scam_indicators"):
         result = clear(plan_, checks, material, flyby_item, route)
     else:
         result = undetermined(plan_, checks, material, flyby_item)
@@ -435,11 +440,11 @@ def magnum_brief(checks: list[Check], issues: list[dict], unread_sections: dict,
         how = ("resting on established threat evidence, which Magnum DI can't contradict or lower" if floor["established"] else
                "provisional: Magnum DI may confirm it, raise it, or correct it downward only with evidence that resolves it. "
                "A finding that corrects it cites that evidence and lists the provisional finding's id in supersedesFindingIds")
-        parts.append(f"TC FlyBy's outcome: {outcomes.LABELS[floor['outcome']]} — {how}:\n"
+        parts.append(f"TC FlyBy's outcome: {outcomes.label(floor['outcome'])} — {how}:\n"
                      + "\n".join(f"- {f['id']}: {f['text']}" for f in floor["findings"] if not f["text"].startswith("It asks for a secret")))
     if floor and floor.get("minimum"):
         parts.append("Established threat evidence (Magnum DI can't contradict it; the outcome can't be below "
-                     f"{outcomes.LABELS[floor['minimum']]}):\n" + "\n".join(f"- {f['id']}: {f['text']}" for f in floor["findings"] if f["text"].startswith("It asks for a secret")))
+                     f"{outcomes.label(floor['minimum'])}):\n" + "\n".join(f"- {f['id']}: {f['text']}" for f in floor["findings"] if f["text"].startswith("It asks for a secret")))
     if issues:
         parts.append("For Magnum DI to settle — only these; everything above is already established:\n"
                      + "\n".join(f"- ({i['capability']}) {i['text']}" for i in issues))

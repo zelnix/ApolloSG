@@ -36,7 +36,7 @@ log = logging.getLogger("apollo.history")
 
 KEEP = timedelta(days=90)
 MAX_NOTES = 8
-CONCERN = ("concerning", "likely_scam", "confirmed_threat")
+CONCERN = ("likely_scam", "scam", "concerning", "confirmed_threat")
 CONCERN_STATES = ("growling", "barking", "biting")
 STEP = {"low": "medium", "medium": "high", "high": "high"}
 DEVICE_SOURCE = "This device's own cases"

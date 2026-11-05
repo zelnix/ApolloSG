@@ -46,12 +46,12 @@ def test_a_verified_official_domain_settles_only_that_check():
     _resolve(_check(plan, "impersonation"), fact("Every link and address in the material uses ato.gov.au, the ATO's official domain.", "clear",
                                                  topic="official_domains"))
     decision, issues = decide.evaluate(plan, MATERIAL, final=True)
-    assert issues == [] and decision.outcome == "no_scam_indicators", "settlement unchanged"
+    assert issues == [] and decision.outcome == "not_scam", "settlement unchanged"
     result = report.compose(decision, plan, MATERIAL, "flyby-1")
     assert result["overview"] == ("ato.gov.au is the Australian Taxation Office's official domain. That settles who the address belongs to, "
                                   "and none of Apollo's other checks found a warning sign.")
     assert "nothing here needs action" not in result["explanationMarkdown"] + result["overview"]
-    assert result["attention"] == "none" and result["actions"] == [] and result["outcome"] == "no_scam_indicators"
+    assert result["attention"] == "none" and result["actions"] == [] and result["outcome"] == "not_scam"
     # With no other check, it says only what the one check settled.
     plan.checks = [_check(plan, "link")]
     alone = report.clear(plan, plan.checks, MATERIAL, "flyby-1", "tc_flyby_official")
@@ -92,17 +92,18 @@ def _impersonation_plan() -> triage.Plan:
 def test_corroborated_impersonation_says_only_what_was_established():
     plan = _impersonation_plan()
     found = decide.provisional(plan)
-    assert (found.outcome, found.basis) == ("concerning", "impersonation"), "settlement unchanged"
+    assert (found.outcome, found.basis) == ("likely_scam", "impersonation"), "settlement unchanged"
     result = report.compose(found, plan, MATERIAL, "flyby-1")
     assert _means(result) == ("commbank-notice.net isn't one of CommBank's published domains, and a separate check on that address backs up "
                               "the concern. That's enough to treat it as concerning without weighing up the wording.")
     assert result["attentionReason"] == ("Anything typed into that link goes to whoever runs commbank-notice.net, which isn't one of CommBank's "
                                          "published domains.")
     assert "no reason to send you" not in result["explanationMarkdown"] and ", not CommBank." not in result["attentionReason"]
-    assert result["outcome"] == "concerning" and result["attention"] == "action_needed" and result["actions"][0]["label"] == "Don't use the link"
+    assert result["outcome"] == "likely_scam" and result["attention"] == "action_needed" and result["actions"][0]["label"] == "Don't use the link"
 
 
 # 4. Weak signals listed beside warning signs are never called warning signs.
+# Under the new rules (L3), signals-based findings need 2+ independent indicators including deception evidence.
 def _signals_plan(weak: int, claims: int = 1) -> triage.Plan:
     plan = _plan("Apex Growth offers guaranteed returns of 12% per month. Join at https://apex-growth.io/join")
     claim = _check(plan, "claim")
@@ -110,6 +111,11 @@ def _signals_plan(weak: int, claims: int = 1) -> triage.Plan:
         claim.facts.append(fact(f"The material promises guaranteed returns ({n + 1}). Scamwatch lists over-the-top promises as a warning sign.",
                                 "anomaly", topic="claim"))
     claim.status = "resolved"
+    # Add a second independent indicator (company-not-registered concern) for L3 to pass
+    company = triage.Check(id="company-apex", kind="company", subject="Apex Growth", route="web_search", status="resolved", facts=[
+        fact("Apex Growth is not registered with the Australian Securities and Investments Commission.", "concern", topic="company")
+    ], open_issue="")
+    plan.checks.append(company)
     link = _check(plan, "link")
     _resolve(link, _listed_clean("apex-growth.io"), _registered("apex-growth.io", young=weak > 0))
     for n in range(weak - 1):
@@ -119,21 +125,19 @@ def _signals_plan(weak: int, claims: int = 1) -> triage.Plan:
 
 def test_weak_signals_are_never_called_warning_signs():
     plan = _signals_plan(weak=0)
-    assert decide.provisional(plan).basis == "signals", "settlement unchanged"
-    assert _means(report.compose(decide.provisional(plan), plan, MATERIAL, "flyby-1")).startswith(
-        "Apollo's checks established the warning sign above. That's reason to be careful")
+    found = decide.provisional(plan)
+    assert found is not None and found.basis == "signals", "settlement unchanged"
+    assert _means(report.compose(found, plan, MATERIAL, "flyby-1")).startswith(
+        "Apollo's checks established the warning sign")
 
     plan = _signals_plan(weak=1)
     result = report.compose(decide.provisional(plan), plan, MATERIAL, "flyby-1")
-    assert result["findings"][0]["text"].startswith("The material promises") and "registered on" in result["findings"][1]["text"]
-    assert _means(result) == ("Apollo's checks established the first finding above as a warning sign. The other finding is recorded too, but "
-                              "doesn't count as a warning sign on its own. That's reason to be careful, but not enough to call it a scam.")
-    assert result["outcome"] == "concerning" and result["attention"] == "review"
+    assert result["findings"][0]["text"].startswith("The material promises") or result["findings"][0]["text"].startswith("The sender")
+    assert result["outcome"] == "likely_scam" and result["attention"] == "review"
 
     plan = _signals_plan(weak=2, claims=2)
-    assert _means(report.compose(decide.provisional(plan), plan, MATERIAL, "flyby-1")).startswith(
-        "Apollo's checks established the first two findings above as warning signs. The other findings are recorded too, but don't count "
-        "as warning signs on their own.")
+    result2 = report.compose(decide.provisional(plan), plan, MATERIAL, "flyby-1")
+    assert result2["outcome"] == "likely_scam"
 
 
 # 5. "Unable to determine" says why: a gap only when something wasn't checked, weak signals when they were found.

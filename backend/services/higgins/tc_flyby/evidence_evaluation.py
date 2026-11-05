@@ -415,7 +415,7 @@ def should_downgrade_provisional(plan: Plan, provisional_outcome: str | None) ->
 
     Only concern outcomes can be downgraded.  Confirmed threats are never downgraded.
     """
-    if not provisional_outcome or provisional_outcome in ("confirmed_threat", "no_scam_indicators"):
+    if not provisional_outcome or provisional_outcome in ("scam", "not_scam", "confirmed_threat", "no_scam_indicators"):
         return False, None
     result = evaluate(plan)
     if result.should_downgrade:

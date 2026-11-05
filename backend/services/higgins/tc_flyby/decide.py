@@ -164,35 +164,66 @@ def _contradicted(plan_: Plan) -> bool:
 
 
 def provisional(plan_: Plan) -> Decision | None:
-    """The concern outcome the established evidence already supports, if any.
+    """The Finding the established evidence already supports, evaluated through
+    the S1–S4, N1–N4, L1–L3 rules.
 
-    The four-stage evidence evaluation pipeline reviews the provisional result and may
-    advise a downgrade when all supporting evidence has plausible legitimate explanations
-    and no authoritative source confirms a threat.  Verified threats are never downgraded.
+    Replaces the old automatic assumptions:
+    - A complete scam pattern is no longer automatically "likely_scam" — S4 requires
+      separate corroborating evidence; otherwise it's L2.
+    - An exact scam listing is no longer the only route to a definite scam Finding.
+    - An established warning sign no longer automatically becomes "concerning".
+    - No scam warnings does not mean the communication is genuine (requires N1–N4).
+
+    The four-stage evidence evaluation pipeline still reviews for false-positive avoidance.
     """
-    for c, f in _live(plan_):
-        if f["signal"] == "concern" and f["decisive"]:
-            return Decision("tc_flyby_search" if c.route == "web_search" else "tc_flyby_official", "confirmed_threat", "threat")
-    p = plan_.pattern
-    if p and p["stage"] == "full" and not _contradicted(plan_):
-        return Decision("tc_flyby_kb", "likely_scam", "pattern")
-    if corroborated_impersonation(plan_):
-        preliminary = Decision("tc_flyby_official", "concerning", "impersonation")
-        # Evidence evaluation: should this impersonation concern be downgraded?
-        downgrade, reason = evidence_evaluation.should_downgrade_provisional(plan_, preliminary.outcome)
+    from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
+
+    rules_result = rules_evaluate(plan_)
+    finding = rules_result.finding
+
+    if finding == "scam":
+        # Determine the route from the deciding rule
+        deciding = rules_result.deciding_rules
+        if "S1" in deciding:
+            # Known scam — check which route found it
+            for c, f in _live(plan_):
+                if f["signal"] == "concern" and f["decisive"]:
+                    route = "tc_flyby_search" if c.route == "web_search" else "tc_flyby_official"
+                    return Decision(route, "scam", "threat")
+        if "S2" in deciding:
+            return Decision("tc_flyby_official", "scam", "impersonation")
+        if "S3" in deciding:
+            return Decision(_route(plan_.checks), "scam", "signals")
+        if "S4" in deciding:
+            return Decision("tc_flyby_kb", "scam", "pattern")
+        return Decision(_route(plan_.checks), "scam", "threat")
+
+    if finding == "likely_scam":
+        deciding = rules_result.deciding_rules
+        # Evidence evaluation: should this be downgraded?
+        downgrade, reason = evidence_evaluation.should_downgrade_provisional(plan_, "likely_scam")
         if downgrade:
-            return None  # let the case proceed to Magnum DI for fuller analysis
-        return preliminary
-    if p and p["stage"] == "opening" and not _contradicted(plan_):
-        return Decision("tc_flyby_kb", "concerning", "pattern")
-    found = signals(plan_)
-    if found:
-        preliminary = Decision(_route([c for c, _ in found]), "concerning", "signals")
-        # Evidence evaluation: should this signals-based concern be downgraded?
-        downgrade, reason = evidence_evaluation.should_downgrade_provisional(plan_, preliminary.outcome)
-        if downgrade:
-            return None  # let the case proceed to Magnum DI for fuller analysis
-        return preliminary
+            return None  # let Magnum DI investigate further
+        if "L2" in deciding:
+            return Decision("tc_flyby_kb", "likely_scam", "pattern")
+        if "L1" in deciding:
+            # L1 passed — check if corroborated_impersonation has data for the impersonation report
+            corroborated = corroborated_impersonation(plan_)
+            if corroborated:
+                return Decision("tc_flyby_official", "likely_scam", "impersonation")
+            # L1 passed via lookalike nature (no separate corroboration) — use signals path
+            found = signals(plan_)
+            if found:
+                return Decision(_route([c for c, _ in found]), "likely_scam", "signals")
+            return Decision(_route(plan_.checks), "likely_scam", "signals")
+        if "L3" in deciding:
+            found = signals(plan_)
+            return Decision(_route([c for c, _ in found]) if found else _route(plan_.checks),
+                            "likely_scam", "signals")
+        return Decision(_route(plan_.checks), "likely_scam", "signals")
+
+    # "not_scam" and "unable_to_determine" are only determined at the final evaluate() step,
+    # not as provisional decisions — they need all checks to complete first.
     return None
 
 
@@ -252,7 +283,7 @@ def floor(plan_: Plan, found: Decision | None) -> dict | None:
     findings = [{"id": f"{prefix}{n}", "text": text} for n, (_, text) in enumerate(resting_on(plan_, found), start=1)] if found else []
     findings += [{"id": f"E{len(findings) + n}", "text": f"It asks for a secret: “{quote}”."} for n, quote in enumerate(asks[:2], start=1)]
     return {"outcome": found.outcome if found else None, "established": established,
-            "minimum": "concerning" if asks else None, "findings": findings}
+            "minimum": "likely_scam" if asks else None, "findings": findings}
 
 
 def magnum_issues(plan_: Plan, texts: dict[str, str], found: Decision | None = None) -> list[Issue]:
@@ -320,9 +351,11 @@ def _complete(plan_: Plan) -> bool:
 def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decision | None, list[Issue]]:
     """(TC FlyBy's decision, []) when the case is resolved; (None, issues) when Magnum DI could change it.
     Before the last stage only a decisive official result (or an answered general question) stops TC FlyBy —
-    every other outcome waits until the checks Higgins Triage planned have run."""
+    every other outcome waits until the checks Higgins Triage planned have run.
+
+    Uses the S1–S4, N1–N4, L1–L3 rules to determine the Finding."""
     found = provisional(plan_)
-    if found and found.outcome == "confirmed_threat":
+    if found and found.outcome == "scam":
         # TC FlyBy's stages end here; the deciding test still applies to what it couldn't read.
         issues = magnum_issues(plan_, texts, found)
         return (None, issues) if issues else (found, [])
@@ -337,21 +370,36 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
                                           "what they asked for, and what the person should do.", list(texts))] if final else [])
     if not final:
         return None, []
+
+    # Check the rules engine FIRST for not_scam before generating magnum issues
+    # If the rules engine says not_scam (all N rules pass), TC FlyBy settles it here.
+    from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
+    rules_result = rules_evaluate(plan_)
+
+    if not found and rules_result.finding == "not_scam":
+        route = _route(plan_.checks)
+        return Decision(route, "not_scam", "clear"), []
+
     issues = magnum_issues(plan_, texts, found)
     if issues:
         return None, issues
     if found:
         return found, []           # a concern outcome nothing unresolved could change: the protective action stands
+
+    # No provisional concern reached and no magnum issues — use the rules engine result
     route = _route(plan_.checks)
-    if _complete(plan_):
-        return Decision(route, "no_scam_indicators", "clear"), []
+
+    if rules_result.finding == "unable_to_determine":
+        return Decision(route, "unable_to_determine", "unknown"), []
+
+    # Shouldn't reach here if provisional() handled scam/likely_scam correctly
     return Decision(route, "unable_to_determine", "unknown"), []
 
 
 def decisive(plan_: Plan) -> bool:
     """A decisive concern was found: TC FlyBy's stages end (the deciding test still applies)."""
     found = provisional(plan_)
-    return bool(found and found.outcome == "confirmed_threat")
+    return bool(found and found.outcome == "scam")
 
 
 def magnum_needs_search(plan_: Plan, issues: list[Issue]) -> bool:

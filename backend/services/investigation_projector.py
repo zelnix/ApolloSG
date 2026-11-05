@@ -307,11 +307,20 @@ async def project_case_started(case: dict) -> bool:
 
 # ── An investigation that ended without its result reaching Patrol ─────────────────────────────────
 _ENDED = {"expired", "deleted", "cancelled", "failed"}
-_OUTCOME_STATE = {"no_scam_indicators": "resting", "concerning": "growling", "likely_scam": "barking",
-                  "confirmed_threat": "barking", "unable_to_determine": "resting"}
-_OUTCOME_ATTENTION = {"no_scam_indicators": "none", "concerning": "review", "likely_scam": "action_needed",
-                      "confirmed_threat": "urgent", "unable_to_determine": "review"}
+_OUTCOME_STATE = {
+    # Current four Findings
+    "not_scam": "resting", "likely_scam": "barking", "scam": "barking", "unable_to_determine": "resting",
+    # Legacy codes (backward compat)
+    "no_scam_indicators": "resting", "concerning": "growling", "confirmed_threat": "barking",
+}
+_OUTCOME_ATTENTION = {
+    # Current four Findings
+    "not_scam": "none", "likely_scam": "action_needed", "scam": "urgent", "unable_to_determine": "review",
+    # Legacy codes
+    "no_scam_indicators": "none", "concerning": "review", "confirmed_threat": "urgent",
+}
 _OUTCOME_TODO = {
+    "not_scam": "Nothing more to do. If anything about it feels off, contact the person or organisation using details you already have.",
     "no_scam_indicators": "Nothing more to do. If anything about it feels off, contact the person or organisation using details you already have.",
     "unable_to_determine": NOT_FULLY_CHECKED_TODO,
 }
@@ -325,12 +334,16 @@ def ended_view(case: dict | None) -> dict:
     result isn't kept; else that it ended without a result."""
     routing = (case or {}).get("routing") or {}
     outcome = (routing.get("tc_flyby") or {}).get("outcome")
-    if outcome in outcomes.LABELS:
+    headline = outcomes.label(outcome)
+    if headline:
+        # Normalize legacy codes to current codes for state/attention mapping
+        display_outcome = outcomes.normalize(outcome) or outcome
         reason = rulebook.settled_reason(routing)
-        return {"outcome": outcome, "headline": outcomes.LABELS[outcome],
-                "what_happened": reason["sentence"] if reason else f"{outcomes.LABELS[outcome]}.", "why": [],
-                "what_to_do": _OUTCOME_TODO.get(outcome, _CONCERN_TODO), "state": _OUTCOME_STATE[outcome],
-                "status": "resolved" if _OUTCOME_STATE[outcome] == "resting" else "active"}
+        return {"outcome": outcome, "headline": headline,
+                "what_happened": reason["sentence"] if reason else f"{headline}.", "why": [],
+                "what_to_do": _OUTCOME_TODO.get(outcome, _OUTCOME_TODO.get(display_outcome, _CONCERN_TODO)),
+                "state": _OUTCOME_STATE.get(outcome, _OUTCOME_STATE.get(display_outcome, "resting")),
+                "status": "resolved" if _OUTCOME_STATE.get(outcome, _OUTCOME_STATE.get(display_outcome, "resting")) == "resting" else "active"}
     if not case:
         said = "This investigation is no longer on Apollo's servers, and its result isn't part of this record."
         return {"outcome": None, "headline": "Investigation no longer available", "what_happened": said, "why": [], "what_to_do": _AGAIN}

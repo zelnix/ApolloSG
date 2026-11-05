@@ -209,20 +209,24 @@ export function attentionLabel(attention: string): string {
   }
 }
 
-/** Apollo's case outcome, as the person sees it. Null/unknown (a general question) shows no label. */
+/** Apollo's case Finding, as the person sees it. Null/unknown (a general question) shows no label. */
 export function outcomeLabel(outcome: string | null | undefined): string | null {
   switch (outcome) {
-    case "no_scam_indicators": return "This appears safe and legitimate";
-    case "concerning": return "This is suspicious — exercise caution";
-    case "likely_scam": return "This is a scam — do not engage";
-    case "confirmed_threat": return "This is a confirmed scam or threat";
-    case "unable_to_determine": return "Apollo couldn't fully determine the risk";
+    // The four Findings
+    case "scam": return "This is a scam";
+    case "not_scam": return "This is not a scam";
+    case "likely_scam": return "This is likely a scam";
+    case "unable_to_determine": return "We are unable to determine if this is a scam";
+    // Legacy codes (backward compat for historical records)
+    case "confirmed_threat": return "This is a scam";
+    case "no_scam_indicators": return "This is not a scam";
+    case "concerning": return "This is likely a scam";
     default: return null;
   }
 }
 
 export function outcomeTone(outcome: string | null | undefined): "barking" | "ears_up" | "sniffing" | "resting" {
-  if (outcome === "confirmed_threat" || outcome === "likely_scam") return "barking";
+  if (outcome === "scam" || outcome === "confirmed_threat" || outcome === "likely_scam") return "barking";
   if (outcome === "concerning") return "ears_up";
   if (outcome === "unable_to_determine") return "sniffing";
   return "resting";
