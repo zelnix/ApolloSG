@@ -1,5 +1,26 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Findings Screen Redesign — Shield Heading + Flowing Prose (P0) — 2026-11-05
+
+### What was done
+
+**Rewritten: `frontend/src/components/report/FindingsBrief.tsx`**
+- Removed: red/coloured status pills, risk badges, section headings ("Why this is fake", "What isn't certain", "Recommended actions"), bullet-point formatting, per-finding feedback flag buttons (SectionBlock, Bullets, FindingBullets, splitFindingLabel, findingsTitle, actionsTitle).
+- Added: Prominent shield icon + verdict heading at the top, coloured by tone (ShieldAlert for barking/ears_up, ShieldCheck for resting, Shield for sniffing). 22px bold Outfit with tight letter spacing.
+- Added: `briefNarrative()` function that assembles the report into continuous prose paragraphs — answer + context → evidence sentences → additional sections → uncertainties — with no section titles or bullets.
+- Org-specific actions rendered as inline prose; investigation steps kept as tappable links (preserving navigation).
+- Copy button and clipboard text preserved.
+- `briefSections()` kept as an exported function for backward compatibility.
+- Props interface unchanged (report, verdict, steps, ids, caseId) — no caller changes needed.
+
+### Verification
+- ESLint: clean (0 issues)
+- Luddish reporting fixtures: 7/7 passing
+- Backend tests: 76/77 (1 unrelated guide-bundling test)
+- App loads without errors
+
+
+
 ## Scam Findings Rules — S1–S4, N1–N4, L1–L3 Implementation (P0) — 2026-11-06
 
 ### Objective
