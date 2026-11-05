@@ -654,7 +654,6 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   const showResubmit = phase === "failed" && canResubmit(failure);
   const resubmit = resubmitLabels(waitSeconds, retrying);
   const resubmitDisabled = retrying || waitSeconds > 0;
-  const inventory = caseData?.inventory;
   const showTabs = !!(response || (failure && caseData && !working));
   // Higgins' report, built the same way as a threat's Findings Brief: each fact once.
   // Higgins' plain English when it passed its Fidelity Check; otherwise Apollo's own wording.
@@ -880,28 +879,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
             <SourceList sources={report.sources} ids="inv" />
           </Card> : null}
 
-          {/* Derived / extracted content — kept separate and clearly labelled */}
-          {derivedEvidence.length ? <>
-            <Card style={[s.card, { gap: spacing.sm }]}>
-              <Text style={s.sectionTitle}>EXTRACTED & ANALYSIS CONTENT</Text>
-              <Text style={s.muted}>Content produced during the investigation — not original submissions.</Text>
-              {derivedEvidence.map((ev) => (
-                <Pressable key={ev.id} style={s.evidenceCard} onPress={() => { setFocusEvidenceId(ev.id); setEvidencePopupVisible(true); }} testID={`inv-evidence-derived-${ev.id}`}>
-                  <Text style={s.evidenceLabel}>{ev.origin || "Derived"} · {ev.kind}</Text>
-                  <Text style={s.text}>{ev.displayId || ev.id.slice(0, 8)}</Text>
-                  {ev.label ? <Text style={s.muted}>{ev.label}</Text> : null}
-                </Pressable>
-              ))}
-            </Card>
-          </> : null}
-
           {!originalEvidence.length && !derivedEvidence.length && !hasLocalOriginal && !failure ? <Card style={s.card}><Text style={s.muted}>No evidence items are available for this investigation.</Text></Card> : null}
-
-          {/* Evidence inventory summary */}
-          {inventory ? <Card style={[s.card, { gap: spacing.xs }]}>
-            <Text style={s.sectionTitle}>EVIDENCE INVENTORY</Text>
-            <Text style={s.muted}>Evidence: {inventory.examined} of {inventory.total} items examined{inventory.partial ? `, ${inventory.partial} partially` : ""}{inventory.unavailable ? `, ${inventory.unavailable} unavailable` : ""}.</Text>
-          </Card> : null}
 
           {/* Investigation incomplete alert */}
           {failure ? (
@@ -918,17 +896,6 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
             </Card>
           ) : null}
 
-          {/* View full evidence chain */}
-          {caseData && evidenceItems.length > 0 ? (
-            <Pressable style={s.actionCard} onPress={() => { setFocusEvidenceId(null); setEvidencePopupVisible(true); }} testID="inv-evidence-viewer">
-              <View style={[s.actionIconWrap, { backgroundColor: "#DBEAFE" }]}><FileText size={20} color="#1E3A5F" /></View>
-              <View style={s.actionContent}>
-                <Text style={[s.actionTitle, { color: colors.onSurface }]}>Full evidence chain</Text>
-                <Text style={s.actionDescription}>View all items with detailed provenance and metadata.</Text>
-              </View>
-              <ChevronRight size={18} color={colors.muted} />
-            </Pressable>
-          ) : null}
         </View>
       ) : null}
 
