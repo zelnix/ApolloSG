@@ -881,6 +881,17 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
 
           {!originalEvidence.length && !derivedEvidence.length && !hasLocalOriginal && !failure ? <Card style={s.card}><Text style={s.muted}>No evidence items are available for this investigation.</Text></Card> : null}
 
+          {/* How ApolloSG investigated — moved here from DI for conversational clarity */}
+          {report ? (() => {
+            const howLines = luddishReport(report).how;
+            return howLines.length ? (
+              <Card style={[s.card, { gap: spacing.xs }]} testID="inv-evidence-how">
+                <Text style={s.sectionTitle}>HOW APOLLOSG INVESTIGATED</Text>
+                {howLines.map((line, i) => <Text key={`${i}-${line}`} style={s.muted} testID={`inv-evidence-how-${i}`}>{line}</Text>)}
+              </Card>
+            ) : null;
+          })() : null}
+
           {/* Investigation incomplete alert */}
           {failure ? (
             <Card style={[s.card, { gap: spacing.sm }]}>

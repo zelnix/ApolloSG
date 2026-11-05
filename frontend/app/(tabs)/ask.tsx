@@ -640,7 +640,7 @@ export default function Ask() {
 
       <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         <Pressable testID="ask-check-button" accessibilityRole="button" accessibilityLabel="Submit something for Higgins to check" onPress={() => setCheckSheetOpen(true)} disabled={busy} style={[s.attachBtn, { opacity: busy ? 0.5 : 1 }]}><CirclePlus size={24} color={colors.brandPrimary} /></Pressable>
-        <TextInput ref={inputRef} testID="ask-input" style={s.input} value={text} onChangeText={setText} placeholder={investigationMode ? state.phase === "waiting_user" ? "Answer Higgins' question…" : "Ask about this investigation…" : "Message Higgins…"} placeholderTextColor={colors.muted} multiline returnKeyType="send" blurOnSubmit onSubmitEditing={() => submit(text)} onFocus={() => { if (!topTarget.current) scrollToEnd(true); }} />
+        <TextInput ref={inputRef} testID="ask-input" style={s.input} value={text} onChangeText={setText} placeholder={investigationMode ? state.phase === "waiting_user" ? "Answer Higgins' question…" : "Chat with Higgins…" : "Message Higgins…"} placeholderTextColor={colors.muted} multiline returnKeyType="send" blurOnSubmit onSubmitEditing={() => submit(text)} onFocus={() => { if (!topTarget.current) scrollToEnd(true); }} />
         <Pressable testID="ask-send-button" accessibilityRole="button" accessibilityLabel="Send message to Higgins" onPress={() => submit(text)} disabled={busy || !text.trim()} style={[s.send, { opacity: busy || !text.trim() ? 0.5 : 1 }]}>{busy ? <ActivityIndicator color={colors.onBrandPrimary} /> : <SendHorizontal size={20} color={colors.onBrandPrimary} />}</Pressable>
       </View>
     </KeyboardAvoidingView>

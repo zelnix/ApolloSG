@@ -292,12 +292,6 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
 
       <Research rows={outsideResearch(sources ?? [], response ?? null)} />
 
-      {how?.length ? (
-        <CollapsibleSection title="How ApolloSG checked" testID="tc-di-how" defaultOpen={false}>
-          {how.map((line, i) => <Text key={`${i}-${line}`} style={s.sourceSub} testID={`tc-di-how-${i}`}>{line}</Text>)}
-        </CollapsibleSection>
-      ) : null}
-
       {history?.length ? (
         <CollapsibleSection title="Related history" testID="tc-di-history" subtitle="Context TC FlyBy and Magnum DI had, never evidence for this case. It can't change the verdict." defaultOpen={false}>
           {history.map((n, i) => (
