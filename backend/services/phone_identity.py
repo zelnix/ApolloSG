@@ -49,6 +49,17 @@ class IdentityEvidence(BaseModel):
     retrieved_at: str                      # ISO date
     last_verified_at: Optional[str] = None
 
+class PrefixIntelligenceTier(BaseModel):
+    """One tier of the progressive phone-number intelligence model."""
+    tier: str                              # "geographic" | "number_block" | "caller"
+    description: str                       # Plain-English finding for this tier
+    entity: Optional[str] = None           # Associated entity name (null when unknown)
+    qualifier: str                         # "regional association" | "possible association" | "verified identity" | "strong association" | "unknown"
+    confidence: str                        # "high" | "medium" | "low"
+    prefix: str                            # The prefix or number that was matched
+    detail: Optional[str] = None           # Additional geographic or context info
+
+
 class PhoneIdentityResult(BaseModel):
     canonical: str
     original: str
@@ -64,6 +75,9 @@ class PhoneIdentityResult(BaseModel):
     evidence: list[IdentityEvidence] = Field(default_factory=list)
     scam_intel: Optional[str] = None
     known_impersonation: bool = False
+
+    # Progressive prefix intelligence (3 tiers: geographic → number_block → caller)
+    prefix_intelligence: list[PrefixIntelligenceTier] = Field(default_factory=list)
 
     # Freshness
     checked_at: Optional[str] = None
@@ -166,6 +180,194 @@ def _cache_key(e164: str) -> str:
 
 
 # ── Stage 1: Numbering plan (local, free) ──────────────────────────────────────
+
+# ── Australian prefix knowledge base ──────────────────────────────────────────
+# Richer geographic and number-block intelligence for progressive investigation.
+
+AU_AREA_CODES: dict[str, dict] = {
+    "02": {"region": "New South Wales, Australian Capital Territory", "cities": ["Sydney", "Canberra", "Newcastle", "Wollongong"]},
+    "03": {"region": "Victoria, Tasmania", "cities": ["Melbourne", "Hobart", "Geelong", "Ballarat"]},
+    "07": {"region": "Queensland", "cities": ["Brisbane", "Gold Coast", "Cairns", "Townsville"]},
+    "08": {"region": "Western Australia, South Australia, Northern Territory", "cities": ["Perth", "Adelaide", "Darwin"]},
+}
+
+# Sub-area prefixes: narrower geographic intelligence within area codes.
+AU_SUB_AREA_PREFIXES: dict[str, dict] = {
+    # WA / SA / NT breakdown within 08
+    "086": {"area": "Perth metropolitan area", "state": "Western Australia"},
+    "0861": {"area": "Perth inner metropolitan", "state": "Western Australia"},
+    "0862": {"area": "Perth metropolitan", "state": "Western Australia"},
+    "0863": {"area": "Perth metropolitan", "state": "Western Australia"},
+    "0864": {"area": "Perth metropolitan", "state": "Western Australia"},
+    "0865": {"area": "Perth metropolitan", "state": "Western Australia"},
+    "089": {"area": "Northern Territory", "state": "Northern Territory"},
+    "0889": {"area": "Darwin and surrounds", "state": "Northern Territory"},
+    "088": {"area": "South Australia", "state": "South Australia"},
+    "0882": {"area": "Adelaide metropolitan", "state": "South Australia"},
+    "0883": {"area": "Adelaide metropolitan", "state": "South Australia"},
+    # NSW breakdown within 02
+    "029": {"area": "Sydney metropolitan", "state": "New South Wales"},
+    "028": {"area": "Sydney metropolitan", "state": "New South Wales"},
+    "024": {"area": "Central Coast, Hunter, Blue Mountains", "state": "New South Wales"},
+    "026": {"area": "Canberra, Southern NSW", "state": "Australian Capital Territory"},
+    # VIC breakdown within 03
+    "039": {"area": "Melbourne metropolitan", "state": "Victoria"},
+    "038": {"area": "Melbourne metropolitan", "state": "Victoria"},
+    "035": {"area": "Regional Victoria", "state": "Victoria"},
+    "036": {"area": "Tasmania", "state": "Tasmania"},
+    # QLD breakdown within 07
+    "073": {"area": "Brisbane metropolitan", "state": "Queensland"},
+    "074": {"area": "Sunshine Coast, regional Queensland", "state": "Queensland"},
+    "075": {"area": "Gold Coast", "state": "Queensland"},
+    "077": {"area": "North Queensland, Townsville", "state": "Queensland"},
+}
+
+# Known number-block associations: prefix → likely entity.
+# These are NEVER "verified" — they represent "possible association" or "lead" intelligence only.
+AU_NUMBER_BLOCK_ASSOCIATIONS: dict[str, dict] = {
+    "08611664": {"entity": "RAC WA", "context": "RAC contacts members about roadside assistance, insurance, membership and travel services.", "confidence": "low"},
+    "08611663": {"entity": "RAC WA", "context": "RAC contacts members about roadside assistance, insurance, membership and travel services.", "confidence": "low"},
+    "0861166": {"entity": "RAC WA", "context": "RAC uses Perth-area numbers in the 08 6116 range for customer contact.", "confidence": "low"},
+    "131111": {"entity": "RAC WA Roadside Assistance", "context": "RAC WA's nationally recognised roadside assistance hotline.", "confidence": "high"},
+    "131132": {"entity": "NRMA", "context": "NRMA roadside assistance hotline.", "confidence": "high"},
+    "132211": {"entity": "Telstra", "context": "Telstra's main customer service line.", "confidence": "high"},
+    "131444": {"entity": "Police Assistance Line", "context": "Non-emergency police reporting across Australia.", "confidence": "high"},
+    "131450": {"entity": "Translating and Interpreting Service", "context": "Australian Government translating service.", "confidence": "high"},
+    "000": {"entity": "Emergency Services", "context": "Triple Zero — police, fire, ambulance.", "confidence": "high"},
+    "131114": {"entity": "Lifeline", "context": "24-hour crisis support and suicide prevention.", "confidence": "high"},
+    "1300363400": {"entity": "NBN Co", "context": "National Broadband Network customer service.", "confidence": "medium"},
+    "1300555135": {"entity": "ATO", "context": "Australian Taxation Office general enquiries.", "confidence": "medium"},
+    "1300360380": {"entity": "Centrelink", "context": "Centrelink (Services Australia) general line.", "confidence": "medium"},
+}
+
+
+def _prefix_intelligence(e164: str, details: dict) -> list[PrefixIntelligenceTier]:
+    """Build progressive prefix intelligence for an Australian phone number.
+
+    Returns up to 2 tiers (geographic + number_block). The caller tier is added
+    later in the pipeline from the exact-number lookup results.
+
+    Number-block matches are NEVER promoted to verified — they always carry
+    'possible association' qualification.
+    """
+    tiers: list[PrefixIntelligenceTier] = []
+    country_code = details.get("country_code")
+
+    if country_code != "AU":
+        return tiers
+
+    # Derive the national-format number (without leading 0)
+    national = e164[3:] if e164.startswith("+61") and len(e164) > 3 else None
+    if not national:
+        return tiers
+
+    # Reconstruct the local dialling form: 0 + national digits
+    local = "0" + national
+
+    # ── Tier 1: Geographic (area code) ──
+    area_code = local[:2]  # e.g. "08"
+    area_info = AU_AREA_CODES.get(area_code)
+    if area_info:
+        # Check for sub-area precision
+        sub_area = None
+        for prefix_len in (5, 4, 3):
+            sub_key = local[:prefix_len]
+            if sub_key in AU_SUB_AREA_PREFIXES:
+                sub_area = AU_SUB_AREA_PREFIXES[sub_key]
+                break
+
+        if sub_area:
+            desc = f"Australian geographic number in the {sub_area['area']} ({area_code} prefix), {sub_area['state']}."
+            detail = f"Part of the {area_info['region']} numbering region."
+        else:
+            desc = f"Australian geographic number in the {area_info['region']} region ({area_code} prefix)."
+            detail = f"Major cities in this region: {', '.join(area_info['cities'][:3])}."
+
+        tiers.append(PrefixIntelligenceTier(
+            tier="geographic",
+            description=desc,
+            entity=None,
+            qualifier="regional association",
+            confidence="high",
+            prefix=area_code,
+            detail=detail,
+        ))
+
+    # Also check mobile prefixes
+    if local.startswith("04"):
+        tiers.append(PrefixIntelligenceTier(
+            tier="geographic",
+            description="Australian mobile number (04 prefix).",
+            entity=None,
+            qualifier="regional association",
+            confidence="high",
+            prefix="04",
+            detail="Mobile numbers are not geographically fixed — the owner could be anywhere in Australia.",
+        ))
+
+    # ── Tier 2: Number-block (narrower prefix association) ──
+    # Check from most specific prefix to least specific
+    for prefix_len in range(len(local), 2, -1):
+        prefix = local[:prefix_len]
+        block = AU_NUMBER_BLOCK_ASSOCIATIONS.get(prefix)
+        if block:
+            entity = block["entity"]
+            context = block["context"]
+            conf = block["confidence"]
+
+            # Number-block intelligence is NEVER "verified identity"
+            qualifier = "possible association"
+            if conf == "high":
+                # Well-known service numbers (like 131111) get "strong association" but still not "verified"
+                qualifier = "strong association"
+
+            tiers.append(PrefixIntelligenceTier(
+                tier="number_block",
+                description=f"The number range appears to be associated with {entity}.",
+                entity=entity,
+                qualifier=qualifier,
+                confidence=conf,
+                prefix=prefix,
+                detail=context,
+            ))
+            break  # Only the most specific match
+
+    # Also try the e164 form for service numbers
+    if not any(t.tier == "number_block" for t in tiers):
+        digits = re.sub(r"\D", "", e164)
+        for prefix_len in range(len(digits), 2, -1):
+            prefix = digits[:prefix_len]
+            block = AU_NUMBER_BLOCK_ASSOCIATIONS.get(prefix)
+            if block:
+                tiers.append(PrefixIntelligenceTier(
+                    tier="number_block",
+                    description=f"The number range appears to be associated with {block['entity']}.",
+                    entity=block["entity"],
+                    qualifier="strong association" if block["confidence"] == "high" else "possible association",
+                    confidence=block["confidence"],
+                    prefix=prefix,
+                    detail=block["context"],
+                ))
+                break
+
+    # Also check national form directly (for service numbers like 13xxxx, 1300xxxxxx)
+    if not any(t.tier == "number_block" for t in tiers):
+        for prefix_len in range(len(national), 2, -1):
+            prefix = national[:prefix_len]
+            block = AU_NUMBER_BLOCK_ASSOCIATIONS.get(prefix)
+            if block:
+                tiers.append(PrefixIntelligenceTier(
+                    tier="number_block",
+                    description=f"This is a known service number associated with {block['entity']}.",
+                    entity=block["entity"],
+                    qualifier="strong association" if block["confidence"] == "high" else "possible association",
+                    confidence=block["confidence"],
+                    prefix=prefix,
+                    detail=block["context"],
+                ))
+                break
+
+    return tiers
 
 def _number_details(e164: str, country: Optional[str]) -> dict:
     """Type, country, carrier from the built-in numbering plan. No network call."""
@@ -440,6 +642,9 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
     details = _number_details(e164, country)
     lookup_status: dict[str, str] = {}
 
+    # Step 3b: Progressive prefix intelligence (geographic + number-block tiers)
+    prefix_tiers = _prefix_intelligence(e164, details)
+
     # Step 4: Official Organisation Directory (Tier 1)
     evidence = _check_org_directory(e164)
     lookup_status["org_directory"] = "match" if evidence else "no_match"
@@ -479,6 +684,36 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
                     "8": "Western Australia, South Australia, Northern Territory"}
         geographic = area_map.get(nat)
 
+    # Step 10: Build caller tier from exact-number lookup results
+    caller_tier = PrefixIntelligenceTier(
+        tier="caller",
+        description=(
+            f"Exact-number lookup identified {entity} ({confidence} confidence)."
+            if entity else "No exact-number identity was established."
+        ),
+        entity=entity,
+        qualifier={
+            "verified": "verified identity",
+            "strong": "strong association",
+            "possible": "possible association",
+            "conflicting": "conflicting information",
+        }.get(confidence, "unknown"),
+        confidence={
+            "verified": "high",
+            "strong": "medium",
+            "possible": "low",
+        }.get(confidence, "low"),
+        prefix=e164,
+        detail=(
+            f"Based on {len(evidence)} source(s): "
+            + ", ".join(sorted({e.publisher for e in evidence}))
+            if evidence else "Apollo checked its Official Organisation Directory, knowledge base, and public sources."
+        ),
+    )
+
+    # Assemble all tiers: geographic → number_block → caller
+    all_tiers = prefix_tiers + [caller_tier]
+
     result = PhoneIdentityResult(
         canonical=e164,
         original=raw_number.strip(),
@@ -492,6 +727,7 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
         evidence=evidence,
         scam_intel=scam_intel,
         known_impersonation=known_impersonation,
+        prefix_intelligence=all_tiers,
         checked_at=now.isoformat(),
         freshness="fresh",
         lookup_status=lookup_status,

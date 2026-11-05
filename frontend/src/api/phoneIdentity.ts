@@ -16,6 +16,18 @@ export interface IdentityEvidence {
   last_verified_at?: string | null;
 }
 
+/** One tier of the progressive phone-number intelligence model. */
+export interface PrefixIntelligenceTier {
+  tier: "geographic" | "number_block" | "caller";
+  description: string;
+  entity: string | null;
+  /** Qualification: "regional association" | "possible association" | "strong association" | "verified identity" | "unknown" */
+  qualifier: string;
+  confidence: "high" | "medium" | "low";
+  prefix: string;
+  detail: string | null;
+}
+
 export interface PhoneIdentityResult {
   canonical: string;
   original: string;
@@ -30,6 +42,9 @@ export interface PhoneIdentityResult {
   evidence: IdentityEvidence[];
   scam_intel: string | null;
   known_impersonation: boolean;
+
+  /** Progressive prefix intelligence: geographic → number_block → caller */
+  prefix_intelligence: PrefixIntelligenceTier[];
 
   checked_at: string | null;
   freshness: "fresh" | "cached" | "stale" | null;

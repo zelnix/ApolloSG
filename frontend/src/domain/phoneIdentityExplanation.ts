@@ -19,9 +19,23 @@
  *               doesn't match the organisation's published numbers.
  */
 
-import type { PhoneIdentityResult, IdentityEvidence } from "@/src/api/phoneIdentity";
+import type { PhoneIdentityResult, IdentityEvidence, PrefixIntelligenceTier } from "@/src/api/phoneIdentity";
 
 // ── Public types ─────────────────────────────────────────────────────────────
+
+/** Explanation for a single prefix-intelligence tier. */
+export interface TierExplanation {
+  /** "geographic" | "number_block" | "caller" */
+  tier: string;
+  /** One-line finding for this tier. */
+  headline: string;
+  /** Supporting context. */
+  detail: string | null;
+  /** Qualification wording: "regional association" / "appears to be associated with" / "verified" */
+  qualifier: string;
+  /** Visual confidence signal. */
+  confidence: "high" | "medium" | "low";
+}
 
 export interface IdentityExplanation {
   /** One-line finding. */
@@ -36,6 +50,8 @@ export interface IdentityExplanation {
   scamWarning: string | null;
   /** Impersonation warning (null when not flagged). */
   impersonationWarning: string | null;
+  /** Progressive intelligence tiers (geographic → block → caller). */
+  tiers: TierExplanation[];
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
@@ -52,15 +68,17 @@ export function explainIdentity(result: PhoneIdentityResult): IdentityExplanatio
     country,
     canonical,
     network,
+    prefix_intelligence,
   } = result;
 
   return {
     headline: buildHeadline(entity, confidence, canonical),
-    body: buildBody(entity, confidence, evidence, number_type, geographic, country, network),
+    body: buildBody(entity, confidence, evidence, number_type, geographic, country, network, prefix_intelligence),
     whatToDo: buildWhatToDo(entity, confidence, known_impersonation, scam_intel),
     spoofing: buildSpoofing(entity, confidence),
     scamWarning: scam_intel ?? null,
     impersonationWarning: buildImpersonation(entity, known_impersonation),
+    tiers: buildTierExplanations(prefix_intelligence ?? []),
   };
 }
 
@@ -99,6 +117,7 @@ function buildBody(
   geographic: string | null,
   country: string | null,
   network: string | null,
+  prefixIntelligence?: PrefixIntelligenceTier[],
 ): string {
   const parts: string[] = [];
 
@@ -106,6 +125,21 @@ function buildBody(
   const typeDesc = describeNumberType(numberType, geographic, country, network);
   if (typeDesc) {
     parts.push(typeDesc);
+  }
+
+  // Progressive intelligence context: if we have a number-block association
+  // that provides context even when the caller tier is unknown, surface it.
+  const blockTier = prefixIntelligence?.find((t) => t.tier === "number_block" && t.entity);
+  if (blockTier && blockTier.entity && (!entity || entity.toLowerCase() === blockTier.entity.toLowerCase())) {
+    if (!entity) {
+      // No exact-number match, but block intelligence has a lead
+      parts.push(
+        `The number range appears to be associated with ${blockTier.entity}, although exact ownership wasn't confirmed.`,
+      );
+      if (blockTier.detail) {
+        parts.push(blockTier.detail);
+      }
+    }
   }
 
   // What Apollo found
@@ -312,3 +346,42 @@ function formatDate(iso: string): string {
     return iso;
   }
 }
+
+
+// ── Tier explanations ────────────────────────────────────────────────────────
+
+const TIER_LABELS: Record<string, string> = {
+  geographic: "Area code",
+  number_block: "Number range",
+  caller: "Exact number",
+};
+
+function buildTierExplanations(tiers: PrefixIntelligenceTier[]): TierExplanation[] {
+  return tiers.map((t) => ({
+    tier: t.tier,
+    headline: t.description,
+    detail: t.detail,
+    qualifier: humanQualifier(t.qualifier),
+    confidence: t.confidence,
+  }));
+}
+
+/** Turn the backend qualifier into Higgins-appropriate wording. */
+function humanQualifier(qualifier: string): string {
+  switch (qualifier) {
+    case "regional association":
+      return "Regional association";
+    case "possible association":
+      return "Appears to be associated";
+    case "strong association":
+      return "Strongly associated";
+    case "verified identity":
+      return "Verified";
+    case "conflicting information":
+      return "Conflicting information";
+    default:
+      return "Unknown";
+  }
+}
+
+export { TIER_LABELS };

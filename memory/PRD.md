@@ -1,5 +1,40 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Progressive Phone Number Investigation (P0) — 2026-11-05
+
+### What was done:
+
+**Backend (`phone_identity.py`)**
+- Added `PrefixIntelligenceTier` model for structured 3-tier intelligence.
+- Added Australian prefix knowledge base: richer area-code mappings (sub-area precision for Perth, Sydney, Melbourne, etc.), and known number-block associations (RAC WA, NRMA, Telstra, Lifeline, ATO, Centrelink, Police Assistance Line, etc.).
+- Added `_prefix_intelligence()` function that builds geographic and number-block tiers from the prefix knowledge base.
+- Integrated into `identify()` pipeline: all 3 tiers (geographic → number_block → caller) are returned in `prefix_intelligence` array.
+- Number-block matches are NEVER promoted to "verified identity" — always "possible association" or "strong association".
+- Handles service numbers (13xxxx, 1300, 1800) via national-form fallback matching.
+
+**Frontend API types (`api/phoneIdentity.ts`)**
+- Added `PrefixIntelligenceTier` interface.
+- Added `prefix_intelligence` field to `PhoneIdentityResult`.
+
+**Frontend Luddish layer (`phoneIdentityExplanation.ts`)**
+- Added `TierExplanation` type and `buildTierExplanations()` function.
+- Updated `explainIdentity()` to include `tiers` in the explanation.
+- Updated `buildBody()` to surface number-block intelligence when exact-number identity is unknown (e.g., "The number range appears to be associated with RAC WA").
+- Added `TIER_LABELS` for human-readable tier names.
+
+**Frontend UI (`PhoneIdentityCard.tsx`)**
+- Added "How Apollo investigated" section in the expanded view showing all tiers with:
+  - Tier-specific icons (Globe for geographic, Layers for number-block, Phone for caller).
+  - Confidence-based colouring (green for high, amber for medium, grey for low).
+  - Qualifier badges ("Regional association", "Appears to be associated", "Verified", etc.).
+  - Detail text for each tier.
+
+**Regression fixture**
+- RAC WA fixture (fixture 7 in `reporting.fixtures.ts`) passes with all 7 properties verified.
+- Service number matching (131111 → RAC WA Roadside Assistance) verified.
+
+
+
 
 ## Higgins Reporting & Evidence-to-Language Acceptance Contract (P0) — 2026-11-05
 

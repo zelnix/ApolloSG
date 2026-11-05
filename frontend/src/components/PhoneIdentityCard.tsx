@@ -11,6 +11,9 @@ import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronUp from "lucide-react-native/icons/chevron-up";
 import CircleCheck from "lucide-react-native/icons/circle-check";
 import CircleQuestionMark from "lucide-react-native/icons/circle-question-mark";
+import Globe from "lucide-react-native/icons/globe";
+import Layers from "lucide-react-native/icons/layers";
+import Phone from "lucide-react-native/icons/phone";
 import ShieldAlert from "lucide-react-native/icons/shield-alert";
 import TriangleAlert from "lucide-react-native/icons/triangle-alert";
 import React, { useEffect, useState } from "react";
@@ -23,7 +26,7 @@ import {
 } from "react-native";
 
 import { identifyNumber, type PhoneIdentityResult } from "@/src/api/phoneIdentity";
-import { explainIdentity, type IdentityExplanation } from "@/src/domain/phoneIdentityExplanation";
+import { explainIdentity, TIER_LABELS, type IdentityExplanation, type TierExplanation } from "@/src/domain/phoneIdentityExplanation";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
 /* ── Confidence display mapping ───────────────────────────────────────────── */
@@ -269,6 +272,69 @@ const useStyles = makeStyles((c) => ({
     color: c.muted,
     alignSelf: "flex-end",
   },
+  /* ── Progressive Intelligence Tiers ────────────────────────────────────── */
+  tiersSection: {
+    gap: spacing.sm,
+  },
+  tiersLabel: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    textTransform: "uppercase" as const,
+    color: c.muted,
+  },
+  tierRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: c.surfaceTertiary,
+    borderRadius: radius.sm,
+  },
+  tierIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  tierContent: {
+    flex: 1,
+    gap: 2,
+  },
+  tierLabel: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    textTransform: "uppercase" as const,
+  },
+  tierHeadline: {
+    fontFamily: fonts.text,
+    fontSize: 13,
+    lineHeight: 18,
+    color: c.onSurface,
+  },
+  tierDetail: {
+    fontFamily: fonts.text,
+    fontSize: 12,
+    lineHeight: 17,
+    color: c.onSurfaceSecondary,
+  },
+  tierQualifier: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingVertical: 2,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.sm,
+    alignSelf: "flex-start",
+  },
+  tierQualifierText: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 10,
+  },
 }));
 
 /* ── Tier dot colour ──────────────────────────────────────────────────────── */
@@ -440,6 +506,16 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
             </View>
           ) : null}
 
+          {/* Progressive Intelligence Tiers */}
+          {explanation.tiers.length > 0 ? (
+            <View style={s.tiersSection} testID={testID ? `${testID}-tiers` : undefined}>
+              <Text style={s.tiersLabel}>How Apollo investigated</Text>
+              {explanation.tiers.map((tier, i) => (
+                <TierRow key={`${tier.tier}-${i}`} tier={tier} colors={colors} s={s} testID={testID ? `${testID}-tier-${tier.tier}` : undefined} />
+              ))}
+            </View>
+          ) : null}
+
           {/* Detail chips */}
           <View style={s.details}>
             {number_type ? <View style={s.detailChip}><Text style={s.detailText}>{number_type}</Text></View> : null}
@@ -483,4 +559,51 @@ function confidenceIcon(confidence: Confidence) {
     case "unknown": return CircleQuestionMark;
     case "conflicting": return TriangleAlert;
   }
+}
+
+/* ── Tier row component ───────────────────────────────────────────────────── */
+
+const TIER_ICONS: Record<string, typeof Globe> = {
+  geographic: Globe,
+  number_block: Layers,
+  caller: Phone,
+};
+
+function tierConfidenceColors(confidence: string, colors: ReturnType<typeof useTheme>["colors"]) {
+  switch (confidence) {
+    case "high":
+      return { tint: colors.restingTint, fg: colors.restingText };
+    case "medium":
+      return { tint: "rgba(79,175,131,0.12)", fg: colors.restingText };
+    case "low":
+    default:
+      return { tint: colors.unknownTint, fg: colors.unknownText };
+  }
+}
+
+function TierRow({ tier, colors, s, testID }: {
+  tier: TierExplanation;
+  colors: ReturnType<typeof useTheme>["colors"];
+  s: ReturnType<typeof useStyles>;
+  testID?: string;
+}) {
+  const Icon = TIER_ICONS[tier.tier] ?? Globe;
+  const badgeColors = tierConfidenceColors(tier.confidence, colors);
+  const label = TIER_LABELS[tier.tier] ?? tier.tier;
+
+  return (
+    <View style={s.tierRow} testID={testID}>
+      <View style={[s.tierIcon, { backgroundColor: badgeColors.tint }]}>
+        <Icon size={13} color={badgeColors.fg} />
+      </View>
+      <View style={s.tierContent}>
+        <Text style={[s.tierLabel, { color: badgeColors.fg }]}>{label}</Text>
+        <Text style={s.tierHeadline}>{tier.headline}</Text>
+        {tier.detail ? <Text style={s.tierDetail}>{tier.detail}</Text> : null}
+        <View style={[s.tierQualifier, { backgroundColor: badgeColors.tint }]}>
+          <Text style={[s.tierQualifierText, { color: badgeColors.fg }]}>{tier.qualifier}</Text>
+        </View>
+      </View>
+    </View>
+  );
 }

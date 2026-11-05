@@ -4962,3 +4962,104 @@ agent_communication:
   - agent: "testing"
     message: "PHONE IDENTITY API WITH LOOKUP_STATUS FIELD TESTING COMPLETE - ALL TESTS PASSED ✅. Tested the phone identity API endpoint with focus on the lookup_status field. BACKEND: All 4 test scenarios passed: (1) Valid phone number 0412345678 - lookup_status field present with all required keys (org_directory, apollo_kb, web_search), all values valid (no_match/match), response includes complete phone details (canonical, country, number_type, network, evidence, scam_intel). (2) Invalid number '123' - correctly returns 422 validation error (appropriate fail-fast behavior). (3) Health check - returns 200 with status='ok'. (4) Missing auth - correctly returns 401 unauthorized. The lookup_status field is working correctly and tracks which sources were checked (org_directory, apollo_kb, web_search) and their results (match, no_match, empty_response, unavailable, timeout, not_checked). Test file: /app/test_phone_identity_lookup_status.py. Total: 4/4 tests passed, 0 failed. Feature is working correctly. READY FOR MAIN AGENT TO SUMMARIZE AND FINISH."
 
+
+## 2026-11-05 Progressive 3-Tier Prefix Intelligence Testing
+
+user_problem_statement: "Test the POST /api/number/identify endpoint with the following phone numbers to verify the progressive 3-tier prefix intelligence is working: (1) RAC WA number 08 6116 6418 - verify response contains prefix_intelligence array with 3 tiers (geographic, number_block, caller), geographic tier mentions Perth/WA, number_block tier mentions RAC WA as 'possible association', number_block qualifier should NEVER be 'verified identity'. (2) Sydney landline 02 9374 5000 - should have geographic tier mentioning NSW/Sydney, may or may not have number_block tier. (3) Mobile number 0412 345 678 - should have geographic tier for mobile (04 prefix), should NOT have number_block tier. (4) Service number 131111 - should have number_block tier mentioning RAC WA Roadside Assistance. For ALL tests verify: response status 200, prefix_intelligence present as array, each tier has required fields (tier, description, entity, qualifier, confidence, prefix, detail), association_confidence and associated_entity fields still work."
+
+backend:
+  - task: "POST /api/number/identify - RAC WA number (08 6116 6418) with 3-tier prefix intelligence"
+    implemented: true
+    working: true
+    file: "backend/services/phone_identity.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: POST /api/number/identify with RAC WA number '08 6116 6418' returns 200 with correct 3-tier prefix intelligence. Response contains: (1) prefix_intelligence array with 3 tiers in correct order: geographic → number_block → caller. (2) Geographic tier (tier 1): description mentions 'Perth inner metropolitan (08 prefix), Western Australia', qualifier='regional association', confidence='high', prefix='08'. (3) Number block tier (tier 2): description='The number range appears to be associated with RAC WA', entity='RAC WA', qualifier='possible association' (CRITICAL: NOT 'verified identity'), confidence='low', prefix='08611664', detail mentions roadside assistance/insurance/membership. (4) Caller tier (tier 3): description='No exact-number identity was established', entity=None, qualifier='unknown', confidence='low', prefix='+61861166418'. All tiers have required fields (tier, description, entity, qualifier, confidence, prefix, detail). Legacy fields present: associated_entity=None, association_confidence='unknown'. Test passed."
+
+  - task: "POST /api/number/identify - Sydney landline (02 9374 5000) with geographic tier"
+    implemented: true
+    working: true
+    file: "backend/services/phone_identity.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: POST /api/number/identify with Sydney landline '02 9374 5000' returns 200 with correct structure. Response contains: (1) prefix_intelligence array with 2 tiers (geographic + caller, no number_block as expected for unknown landlines). (2) Geographic tier: description='Australian geographic number in the Sydney metropolitan (02 prefix), New South Wales', qualifier='regional association', confidence='high', prefix='02', detail mentions NSW/ACT numbering region. (3) Caller tier: standard structure with no exact identity. All required fields present. Test passed."
+
+  - task: "POST /api/number/identify - Mobile number (0412 987 654) with NO number_block tier"
+    implemented: true
+    working: true
+    file: "backend/services/phone_identity.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: POST /api/number/identify with mobile number '0412 987 654' returns 200 with correct structure. Response contains: (1) prefix_intelligence array with 2 tiers (geographic + caller). (2) Geographic tier: description='Australian mobile number (04 prefix)', qualifier='regional association', confidence='high', prefix='04', detail='Mobile numbers are not geographically fixed — the owner could be anywhere in Australia'. (3) NO number_block tier present (correct - no known mobile block associations in AU_NUMBER_BLOCK_ASSOCIATIONS). (4) Caller tier: standard structure. This correctly demonstrates that mobile numbers do NOT get number_block associations. Test passed."
+
+  - task: "POST /api/number/identify - Service number (131111) number_block tier matching"
+    implemented: true
+    working: false
+    file: "backend/services/phone_identity.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: false
+        comment: "BUG FOUND: POST /api/number/identify with service number '131111' returns 200 but MISSING number_block tier. Expected: number_block tier mentioning 'RAC WA Roadside Assistance' (defined in AU_NUMBER_BLOCK_ASSOCIATIONS line 231). Actual: Only 1 tier (caller) returned, no number_block tier. ROOT CAUSE: The _prefix_intelligence function (lines 244-353) checks two forms: (1) local form with leading 0: '0131111' and its prefixes ('0131111', '013111', '01311', '0131', '013', '01', '0'), (2) e164 digits: '61131111' and its prefixes ('61131111', '6113111', '611311', '61131', '6113', '611', '61'). However, AU_NUMBER_BLOCK_ASSOCIATIONS has key '131111' (national form WITHOUT leading 0 or country code). The code NEVER checks the national form '131111' directly. FIX NEEDED: Add a third loop in _prefix_intelligence to check national form prefixes (e164[3:] for AU numbers) for service numbers like 13xxxx, 1800, 1300. This affects ALL service numbers in AU_NUMBER_BLOCK_ASSOCIATIONS: 131111, 131132, 132211, 131444, 131450, 131114, 1300363400, 1300555135, 1300360380. Test file: /app/test_prefix_intelligence.py."
+
+  - task: "POST /api/number/identify - CRITICAL: number_block tier qualifier NEVER 'verified identity'"
+    implemented: true
+    working: true
+    file: "backend/services/phone_identity.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED CRITICAL REQUIREMENT: Number block tier qualifier is NEVER 'verified identity'. Tested RAC WA number (08 6116 6418) which has number_block tier - qualifier='possible association' (correct). Code review confirms lines 318-322 in _prefix_intelligence: number-block intelligence is hardcoded to 'possible association' or 'strong association' (for high confidence service numbers), NEVER 'verified identity'. Comment on line 318 explicitly states: 'Number-block intelligence is NEVER \"verified identity\"'. This is correct behavior - prefix-based associations are leads/intelligence, not verified identities. Only exact-number lookups from tier_1_official sources can produce 'verified identity' (in the caller tier). Test passed."
+
+  - task: "POST /api/number/identify - Legacy fields (association_confidence, associated_entity) still work"
+    implemented: true
+    working: true
+    file: "backend/services/phone_identity.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - agent: "testing"
+        working: true
+        comment: "VERIFIED: Legacy fields association_confidence and associated_entity are still present in all responses. All 4 test numbers returned these fields correctly: (1) RAC WA number: associated_entity=None, association_confidence='unknown'. (2) Sydney landline: associated_entity=None, association_confidence='unknown'. (3) Mobile number: associated_entity=None, association_confidence='unknown'. (4) Service number: associated_entity=None, association_confidence='unknown'. These fields work alongside the new prefix_intelligence array. PhoneIdentityResult model (lines 63-89) includes both old fields (associated_entity, association_confidence) and new field (prefix_intelligence). Backward compatibility maintained. Test passed."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 3
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "POST /api/number/identify - RAC WA number with 3-tier prefix intelligence"
+    - "POST /api/number/identify - Sydney landline with geographic tier"
+    - "POST /api/number/identify - Mobile number with NO number_block tier"
+    - "POST /api/number/identify - Service number 131111 number_block matching (BUG)"
+    - "POST /api/number/identify - CRITICAL: number_block qualifier never 'verified identity'"
+    - "POST /api/number/identify - Legacy fields still work"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "PROGRESSIVE 3-TIER PREFIX INTELLIGENCE TESTING COMPLETE - 3/4 TESTS PASSED, 1 BUG FOUND ⚠️. BACKEND: Tested POST /api/number/identify with 4 phone numbers to verify the progressive 3-tier prefix intelligence model. PASSED TESTS: (1) ✅ RAC WA number (08 6116 6418) - Returns correct 3-tier structure (geographic → number_block → caller). Geographic tier mentions Perth/Western Australia. Number block tier mentions RAC WA with qualifier='possible association' (CRITICAL: NOT 'verified identity'). All tiers have required fields. (2) ✅ Sydney landline (02 9374 5000) - Returns 2 tiers (geographic + caller). Geographic tier mentions Sydney/NSW. No number_block tier (expected for unknown landlines). (3) ✅ Mobile number (0412 987 654) - Returns 2 tiers (geographic + caller). Geographic tier mentions mobile (04 prefix). NO number_block tier (correct - no known mobile block associations). (4) ⚠️ Service number (131111) - BUG FOUND: Missing number_block tier. Expected: number_block tier mentioning 'RAC WA Roadside Assistance'. Actual: Only caller tier returned. ROOT CAUSE: _prefix_intelligence function checks local form '0131111' and e164 digits '61131111' but AU_NUMBER_BLOCK_ASSOCIATIONS has key '131111' (national form without leading 0 or country code). Code never checks national form directly. FIX NEEDED: Add third loop to check national form prefixes (e164[3:]) for service numbers. This affects ALL service numbers: 131111, 131132, 132211, 131444, 131450, 131114, 1300363400, 1300555135, 1300360380. CRITICAL VERIFICATIONS PASSED: ✅ Number block tier NEVER uses 'verified identity' qualifier (hardcoded to 'possible association' or 'strong association'). ✅ All tiers have required fields (tier, description, entity, qualifier, confidence, prefix, detail). ✅ Tier order correct: geographic → number_block → caller. ✅ Legacy fields (association_confidence, associated_entity) still work in all responses. Test file: /app/test_prefix_intelligence.py. Total: 3/4 scenarios passed, 1 bug found (service number matching). Main agent needs to fix service number prefix matching logic."
+
+
