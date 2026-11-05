@@ -178,7 +178,7 @@ function ResearchSource({ r, i }: { r: ResearchRow; i: number }) {
   );
 }
 
-function Research({ rows }: { rows: ResearchRow[] }) {
+export function Research({ rows }: { rows: ResearchRow[] }) {
   const s = useStyles();
   const { colors } = useTheme();
   const [showAll, setShowAll] = useState(false);
@@ -206,7 +206,7 @@ function Research({ rows }: { rows: ResearchRow[] }) {
 
 // ── Collapsible section wrapper ──────────────────────────────────────────────
 
-function CollapsibleSection({ title, subtitle, children, testID, defaultOpen = false }: {
+export function CollapsibleSection({ title, subtitle, children, testID, defaultOpen = false }: {
   title: string; subtitle?: string; children: React.ReactNode; testID: string; defaultOpen?: boolean;
 }) {
   const s = useStyles();
@@ -289,18 +289,6 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
       ) : null)}
 
       <DecisionTrace steps={steps} settled={settled} />
-
-      <Research rows={outsideResearch(sources ?? [], response ?? null)} />
-
-      {history?.length ? (
-        <CollapsibleSection title="Related history" testID="tc-di-history" subtitle="Context TC FlyBy and Magnum DI had, never evidence for this case. It can't change the verdict." defaultOpen={false}>
-          {history.map((n, i) => (
-            <Text key={`${i}-${n.text}`} style={s.sourceSub} testID={`tc-di-history-${i}`}>
-              {`${n.source}: ${n.text}${n.findingIds.length ? ` Raised the confidence of ${n.findingIds.length === 1 ? "one finding" : `${n.findingIds.length} findings`}.` : ""}`}
-            </Text>
-          ))}
-        </CollapsibleSection>
-      ) : null}
     </View>
   );
 }

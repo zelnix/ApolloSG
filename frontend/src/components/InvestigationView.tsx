@@ -28,7 +28,8 @@ import { API_BASE } from "@/src/api/client";
 import { getDeviceToken } from "@/src/auth/deviceIdentity";
 import { EvidencePopup } from "@/src/components/EvidencePopup";
 import { EvidenceArtefactCard } from "@/src/components/evidence/EvidenceArtefactCard";
-import { DiReport } from "@/src/components/DiReport";
+import { DiReport, Research, CollapsibleSection } from "@/src/components/DiReport";
+import { outsideResearch } from "@/src/domain/diTrace";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
 import { RelatedCases } from "@/src/components/report/RelatedCases";
 import { investigationVerdict } from "@/src/domain/briefVerdict";
@@ -898,6 +899,20 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
               <TechnicalErrorDetails failure={failure as unknown as Record<string, unknown>} caseId={caseData?.id} s={s} />
               <RawProviderResponse failure={failure as unknown as Record<string, unknown>} s={s} />
             </Card>
+          ) : null}
+
+          {/* Outside research — sources consulted during investigation */}
+          <Research rows={outsideResearch(sources ?? [], response ?? null)} />
+
+          {/* Related history — context, never evidence */}
+          {response?.history?.length ? (
+            <CollapsibleSection title="Related history" testID="tc-di-history" subtitle="Context TC FlyBy and Magnum DI had, never evidence for this case. It can't change the verdict." defaultOpen={false}>
+              {response.history.map((n, i) => (
+                <Text key={`${i}-${n.text}`} style={s.muted} testID={`tc-di-history-${i}`}>
+                  {`${n.source}: ${n.text}${n.findingIds.length ? ` Raised the confidence of ${n.findingIds.length === 1 ? "one finding" : `${n.findingIds.length} findings`}.` : ""}`}
+                </Text>
+              ))}
+            </CollapsibleSection>
           ) : null}
 
         </View>
