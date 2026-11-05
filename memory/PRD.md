@@ -96,6 +96,16 @@ Replaced the five-outcome system (no_scam_indicators, concerning, likely_scam, c
 All 63 backend tests pass (test_tc_flyby_routing, test_higgins_wording, test_di_trace, test_evidence_evaluation).
 Frontend Luddish reporting fixtures pass (7/7).
 
+### Rulebook updated
+`backend/content/rulebook.md` fully updated:
+- Replaced 7-step "How TC FlyBy's outcome is chosen" with the full S1–S4, N1–N4, L1–L3 decision description
+- Updated all outcome table entries: "Confirmed scam or threat" → "This is a scam (S1)", "Concerning" → "This is likely a scam", "No scam indicators found" → "This is not a scam"
+- Updated Magnum DI triggers: "concern outcome" → "scam Finding", "outcome" → "Finding"
+- Updated Evidence Lock documentation to reference rule IDs
+- Updated weak signal documentation: "never make a case Concerning" → "never establish a scam"
+- Updated credential floor: "below Concerning" → "below 'This is likely a scam'"
+- Zero remaining references to old outcome terminology (Concerning, Confirmed threat, No scam indicators)
+
 ### Historical compatibility
 Old outcome codes stored in MongoDB are handled transparently:
 - `outcomes.normalize()` converts legacy → current

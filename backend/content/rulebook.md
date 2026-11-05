@@ -532,10 +532,10 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 
 **Job:** a fast, low-cost investigation that takes the cheapest reliable route. TC FlyBy makes no AI call. It runs once per case; a recovered job reuses its record and repeats no lookups.
 
-**What Higgins Triage flagged is never dismissed.** Before its own stages, TC FlyBy runs Higgins Triage's message rules (the same catalogue the phone runs) over the material, except for a call. Each threat-producing rule met is a **warning sign** about this case, recorded in the message's own words (for example, an organisation name written with a look-alike character: MSG-23). TC FlyBy's own checks can add to it, never dismiss it on their own: the only exception is a sign that rests on who the material says it is and where it sends the person, which stops counting once official sources verify every link, number and address in it as the organisation's own (Higgins Triage step 7). A case Triage flagged can't end as "No scam indicators found" while any warning sign still counts. When TC FlyBy finds nothing more, it settles the case as **Concerning** ("be careful and check it first"); Magnum DI isn't called, because it couldn't change what to do.
+**What Higgins Triage flagged is never dismissed.** Before its own stages, TC FlyBy runs Higgins Triage's message rules (the same catalogue the phone runs) over the material, except for a call. Each threat-producing rule met is a **warning sign** about this case, recorded in the message's own words (for example, an organisation name written with a look-alike character: MSG-23). TC FlyBy's own checks can add to it, never dismiss it on their own: the only exception is a sign that rests on who the material says it is and where it sends the person, which stops counting once official sources verify every link, number and address in it as the organisation's own (Higgins Triage step 7). A case Triage flagged can't end as "This is not a scam" while any warning sign still counts. When TC FlyBy finds nothing more, it settles the case as **This is likely a scam** ("be careful and check it first"); Magnum DI isn't called, because it couldn't change what to do.
 
 **Weak signals, warning signs and verified checks**
-- **Weak signals:** a redirect to another site, a newly registered domain, a direct download, a third-party reputation warning (an IPQualityScore flag on a link or a number, or a warning the search finds from a source that isn't official), the material's text found copied elsewhere online. Alone or together they never make a case Concerning. They are recorded as signals, and they count only as the independent corroboration that an impersonation or another warning sign needs. Related history (this device's own earlier cases, ApolloSG's previous reports) is never a signal of any kind (see Related history).
+- **Weak signals:** a redirect to another site, a newly registered domain, a direct download, a third-party reputation warning (an IPQualityScore flag on a link or a number, or a warning the search finds from a source that isn't official), the material's text found copied elsewhere online. Alone or together they never establish a scam. They are recorded as signals, and they count only as the independent corroboration that an impersonation or another warning sign needs. Related history (this device's own earlier cases, ApolloSG's previous reports) is never a signal of any kind (see Related history).
 - **Warning signs:** a real lookalike sign, the organisation's name in front of a shared link service, a register entry that doesn't match the name in the material, an ABN or ACN that fails its check-digit test, a risky claim cited to Scamwatch, and a number presented as a listed organisation's that isn't one of its published numbers (needs corroboration). Those marked as needing corroboration count only once something corroborates them.
 - **Verified checks:** a positive verification (an official domain, the organisation's own domains, an official contact, a register entry that matches) settles the one check it answers, never the whole case. The rest of the material is still checked: what it asks for, where a payment, reply or call goes, and anything else it links to. A verified link never cancels a concern found elsewhere in the material.
 - **Negative reputation results** are worded "no known threat listing found". That is never "clear" and never proof that something is safe.
@@ -560,7 +560,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 - **Email:** named on ASIC's investor alert list → **decisive concern** (an official source naming this exact address). A listed organisation's published address on the Official Organisation Directory → **verified as an official contact**, which settles that check only. An official domain → **verified as official**, which settles the email address check only. A free personal account (Gmail and similar) while an organisation is named → warning sign, but it needs corroboration.
 - **ABN/ACN:** checked with the official check-digit test. A fail is a warning sign and settles the check. A pass shows only that the number is well formed, never who holds it.
 
-**TC FlyBy's stages end here only for a decisive concern → Confirmed scam or threat.** The deciding test still applies.
+**TC FlyBy's stages end here only for a decisive concern → This is a scam.** The deciding test still applies.
 
 #### Stage 2: ApolloSG Knowledge Base (no AI)
 - **Scam patterns.** There are 12 patterns from Scamwatch: family "new number" ("Hi Mum"), organisation phishing, delivery/toll, government threat, unexpected money or prize, job/paid task, investment returns, and remote access/tech support; and four for phone calls only: a bank or card provider asking for a code, PIN, password or card details; government or police impersonation asking you to pay, move money or hand over details; tech support or an internet provider asking you to install an app, share your screen or give remote access; and a delivery or parcel company asking for a fee or card details.
@@ -573,7 +573,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 - **General question.** An answer found in the KB settles it.
 - **Limits.** Only sourced, current KB entries are used. Saved AI answers and historical pages are never used. KB content is general knowledge, never evidence about the sender.
 
-**The stages still end early only for a confirmed threat, or an answered general question.** The deciding test still applies.
+**The stages still end early only for a definite scam finding, or an answered general question.** The deciding test still applies.
 
 #### Stage 3: one targeted web search
 - Only open checks no direct source or the KB already answered get here. **No AI is called.**
@@ -583,8 +583,8 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 - The results are read by fixed rules, never by a model: a result counts only when its own words name the exact value; the publisher's authority comes from ApolloSG's trusted-source list; the fact quotes the page's own words with its publisher. A page on the subject's own domain is never a warning about it. "No record found" is recorded as missing, never as verified and never as proof of safety.
 - Not set up, the spending limit reached, or the preview server: the search is recorded as unavailable and nothing is sent.
 - How answers are treated:
-  - A warning from an **official** source that names the exact link, number, email or company → **decisive → Confirmed**.
-  - Any other warning → a third-party warning: a weak signal, never decisive and never Concerning on its own.
+  - A warning from an **official** source that names the exact link, number, email or company → **decisive → This is a scam**.
+  - Any other warning → a third-party warning: a weak signal, never decisive and never a scam finding on its own.
   - "Official contact" → **verified as an official contact**, which settles that check only.
   - "Copied elsewhere" → supporting evidence only (a weak signal). It never establishes a concern on its own.
 - **Register entry for an ABN, ACN or licence:**
@@ -597,20 +597,42 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 #### The deciding test
 *"Could unresolved evidence materially change Apollo's outcome or the protective action Higgins recommends?"* If not, TC FlyBy settles the case. If it could, the case goes to Magnum DI, even when TC FlyBy has already reached a concern outcome. "Unable to determine" is a valid finished result.
 
-**How TC FlyBy's outcome is chosen (first that applies):**
-1. **Confirmed scam or threat:** a decisive concern was found.
-2. **Likely scam:** a full pattern match that nothing contradicts. A contradiction is an impersonation pattern where every link and address is the organisation's own.
-3. **Concerning:** corroborated impersonation. An organisation is named, a link isn't one of its own domains, and an independent fact about that same link backs it up (a weak signal: a new domain, a third-party flag, a redirect to another site, or a download).
-4. **Concerning:** the opening of the family pattern, with no ask yet.
-5. **Concerning:** an established warning sign, including any rule Higgins Triage met. Weak signals never count here, alone or together. A name mentioned beside another organisation's address counts only once something corroborates it.
-6. **No scam indicators found:** only when everything was checked. There are no gaps and no failed lookups, and every link is either verified as official, or has no known threat listing *and* an established registration.
-7. Otherwise: **Unable to determine**, with any weak signals listed.
+**How TC FlyBy's Finding is chosen**
 
-**Then the Magnum DI triggers below are checked, whatever the outcome.** A trigger sends the case to Magnum DI only when what it leaves unresolved could materially change the outcome or the protective action. Otherwise TC FlyBy settles the case with its outcome.
-- **The outcome changes materially** when the unresolved evidence could decide whether there is a concern at all: a case with no concern outcome could reach one, an Unable to determine could be resolved, or a provisional concern could prove to be a false positive. Established threat evidence is never overridden (see Magnum DI).
+TC FlyBy uses four customer-facing Findings. The backend evaluates five investigation checks (IPDMC: Identity, Purpose, Destination, Mechanism, Contradictions) and applies eleven rules in the following decision order:
+
+**Scam rules (S1–S4) — any one passing → "This is a scam":**
+1. **S1 — Known scam:** a reliable existing scam report, intelligence record or previously verified investigation identifies the same website, sender, phone number, payment destination or scam operation, with a specific match. A similar-looking domain, a generic reputation warning, or an unverified user allegation does not qualify.
+2. **S2 — Fake identity:** the communication claims to come from an identifiable person or organisation; the investigation establishes the claimed identity is false; and the false identity is being used to obtain a response, action, payment, information or access. An unfamiliar sender alone, or a third-party email service legitimately used by a business, does not qualify.
+3. **S3 — Scam activity identified:** the investigation identifies a specific deceptive action or request; evidence establishes what is false, misleading or unauthorised; and the deception is being used to obtain money, information, access or a consequential response. Urgent wording alone, a payment request alone, or a suspicious-looking offer without enough evidence does not qualify.
+4. **S4 — Complete scam pattern:** the material matches a recognised scam pattern in the Knowledge Base with all defining elements present, the scam technique is identifiable, the request matches the pattern, and separate investigation evidence supports the deceptive element. A partial match, matching keywords alone, or a genuine activity that resembles a scam pattern does not qualify.
+
+If any S rule passes and no unresolved reliable information undermines it → **"This is a scam"**.
+
+**Not-scam rules (N1–N4) — all applicable must pass → "This is not a scam":**
+1. **N1 — Genuine identity:** the claimed sender or organisation is identified and verified using reliable information, with evidence connecting that identity to the actual communication. The business merely existing, or a logo, does not qualify.
+2. **N2 — Genuine destinations:** all relevant links, contact details and payment destinations have been checked, and each important one is verified as genuinely used or permitted. A genuine website unrelated to the actual request, or a real phone number not connected to the claimed organisation, does not qualify.
+3. **N3 — Genuine purpose:** the activity is consistent with the genuine sender's operations, evidence connects the specific request to legitimate activity, and no important part remains unexplained. A plausible-looking message or a familiar scenario that has not been checked does not qualify.
+4. **N4 — Scam warnings resolved:** every important scam indicator, including pattern matches, has been explained, disproved or resolved through supporting information. Ignoring a warning, treating a failed lookup as clean, or dismissing an issue merely because other details appear genuine does not qualify.
+
+All applicable N rules must pass. Unknown cannot be treated as passed. Gaps (unprocessed material) prevent "This is not a scam".
+
+**Likely-scam rules (L1–L3) — any one passing → "This is likely a scam":**
+1. **L1 — Strong signs of impersonation:** the communication claims an identity, at least one detail (including a lookalike domain) conflicts with it, and another independent finding supports the possibility that the identity is being misused. A third-party sending service alone, or an unfamiliar domain alone, does not qualify.
+2. **L2 — Strong scam-pattern match:** the material matches a recognised pattern, the central scam behaviour is present, and the request matches — but an important part of the suspected deception remains unverified. If every element and supporting evidence is established, S4 applies instead.
+3. **L3 — Several independent scam indicators:** at least two separate findings from genuinely different checks support the same scam technique, at least one directly concerns possible deception, and the combined findings provide a stronger scam explanation than the legitimate explanations investigated. Two weak technical warnings, or multiple observations of the same underlying issue, does not qualify.
+
+If any L rule passes and no reliable genuine explanation resolves the suspected scam → **"This is likely a scam"**.
+
+**Otherwise → "We are unable to determine if this is a scam":** too little information, important checks unavailable, weak indicators only, conflicting investigation results, or no scam indicators found but legitimacy cannot be established.
+
+Missing evidence and conflicting findings must be handled before the final Finding is selected. A numerical score or keyword count never overrides the rules.
+
+**Then the Magnum DI triggers below are checked, whatever the Finding.** A trigger sends the case to Magnum DI only when what it leaves unresolved could materially change the Finding or the protective action. Otherwise TC FlyBy settles the case with its Finding.
+- **The Finding changes materially** when the unresolved evidence could decide whether there is a concern at all: a case with no scam finding could reach one, an "unable to determine" could be resolved, or a provisional concern could prove to be a false positive. Established threat evidence is never overridden (see Magnum DI).
 - **The protective action changes materially** when the unresolved evidence could call for a different or additional step, for example contacting the bank because a payment may be involved, removing an app because remote access may be involved, or changing a password because credentials may be involved.
-- Concerning, Likely scam and Confirmed lead to the same protective action, so Magnum DI is never called only to move a case between them.
-- **Once a concern outcome is reached,** the request is already known, so reasoning about it can't change what to do. What can still count is content TC FlyBy couldn't read (Reading), and, for a provisional concern, a contradiction about the very facts the concern rests on (Relating). A concern resting on established threat evidence goes to Magnum DI only for Reading.
+- "This is a scam" and "This is likely a scam" lead to the same protective action, so Magnum DI is never called only to move a case between them.
+- **Once a scam Finding is reached,** the request is already known, so reasoning about it can't change what to do. What can still count is content TC FlyBy couldn't read (Reading), and, for a provisional concern, a contradiction about the very facts the concern rests on (Relating). A concern resting on established threat evidence goes to Magnum DI only for Reading.
 
 #### Triggers for Magnum DI (whether or not a concern outcome was reached)
 | Capability | Trigger |
@@ -621,7 +643,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 | General question | Neither the KB nor the search could answer it. |
 | Safety net | TC FlyBy's own result fails Apollo's validation, so Magnum DI takes the whole case with search on. |
 
-A trigger counts only under the deciding test above. The type of input, its category or uncertainty alone never sends a case to Magnum DI. Example: a text already Concerning because of a lookalike link, with a picture TC FlyBy couldn't read that may hold a bank-transfer request, goes to Magnum DI (Reading). The same text without the picture is settled by TC FlyBy as Concerning, because nothing unresolved could change what the person should do.
+A trigger counts only under the deciding test above. The type of input, its category or uncertainty alone never sends a case to Magnum DI. Example: a text already "likely a scam" because of a lookalike link, with a picture TC FlyBy couldn't read that may hold a bank-transfer request, goes to Magnum DI (Reading). The same text without the picture is settled by TC FlyBy as "likely a scam", because nothing unresolved could change what the person should do.
 
 **What Magnum DI receives:**
 - the person's question, once
@@ -637,10 +659,10 @@ What TC FlyBy already settled, and the raw lookups behind it, are not sent again
 
 ### Magnum DI {#magnum-di}
 
-**Job:** a deep investigation, only when unresolved evidence could materially change the outcome or the protective action (see the deciding test).
+**Job:** a deep investigation, only when unresolved evidence could materially change the Finding or the protective action (see the deciding test).
 
 **Process**
-1. It runs only when TC FlyBy hands it issues under the deciding test, whether or not TC FlyBy reached a concern outcome. It never runs for a follow-up: follow-up questions, answers to its own question, retries, Resubmit taps, new jobs and restarts are answered from the case's locked findings (HIG-01).
+1. It runs only when TC FlyBy hands it issues under the deciding test, whether or not TC FlyBy reached a scam Finding. It never runs for a follow-up: follow-up questions, answers to its own question, retries, Resubmit taps, new jobs and restarts are answered from the case's locked findings (HIG-01).
 2. **Size limit.** If the written evidence is over 10,000 words, nothing is sent, and the person is told the word count.
 3. **At most 1 Magnum DI call per correlated case, and no retry.** The call goes to the AI provider and model selected in ApolloSG Settings → AI Provider & Model (ApolloSG's default until an admin changes it). The model is fixed when the investigation starts, so a change applies from the next investigation. If that model can't be used, or its call fails, the investigation says so: ApolloSG never switches to another model or provider.
    - The call is claimed for the case before anything is sent, apart from the case and job records, so a follow-up, retry, Resubmit tap, new job, recovered job or app restart never resets it. A case TC FlyBy settles uses none: the limit is at most one, never a requirement to make one.
@@ -663,12 +685,12 @@ What TC FlyBy already settled, and the raw lookups behind it, are not sent again
 - Findings may cite only registered evidence and sources. "Observed" needs evidence.
 - "Concern found" needs at least one finding.
 - "No concern" can't come with "action needed" or "urgent".
-- The outcome must match the assessment.
+- The Finding must match the assessment.
 - Phone actions need a capability the device advertises. "Open verified source" needs a registered source.
 - Every action needs a label and an instruction. "Action needed" or "urgent" needs at least one action and a reason. If there are actions, a recommended one must be set.
 - "Waiting for the person" needs a question, and a question needs that status.
 - "Complete" only when all material evidence was examined; otherwise "partial".
-- A result can never contradict established threat evidence. A material that asks for a password, PIN, one-time code or card details can't end below Concerning. A result below TC FlyBy's provisional concern must name the provisional finding it corrects (its label, such as P1, among the finding's superseded findings) and cite the evidence that resolves it.
+- A result can never contradict established threat evidence. A material that asks for a password, PIN, one-time code or card details can't end below "This is likely a scam". A result below TC FlyBy's provisional concern must name the provisional finding it corrects (its label, such as P1, among the finding's superseded findings) and cite the evidence that resolves it.
 - The AI tool must have finished normally.
 
 If the answer fails, the check fails honestly. The raw reply is kept only in the technical details.
@@ -678,10 +700,10 @@ If the answer fails, the check fails honestly. The raw reply is kept only in the
 - **A fresh device reading, a setting to open or a permission to grant**, only when the phone advertises that capability.
 
 **Established threat evidence and provisional concern**
-- **Established threat evidence** is never overridden. It is authoritative evidence (a Safe Browsing, blocklist or free threat list listing, an official scam advisory, or an official source naming this exact item: a decisive concern) and deterministic evidence Apollo observed directly that is threat evidence in itself (the material asks for a password, PIN, one-time code or card details; a program disguised as a document; credentials written into a link; a displayed link that differs from where it really goes). Magnum DI can't contradict it, and a case whose concern rests on it is never lowered.
+- **Established threat evidence** is never overridden. It is authoritative evidence (a Safe Browsing, blocklist or free threat list listing, an official scam advisory, or an official source naming this exact item: a decisive concern) and deterministic evidence Apollo observed directly that is threat evidence in itself (the material asks for a password, PIN, one-time code or card details; a program disguised as a document; credentials written into a link; a displayed link that differs from where it really goes). Magnum DI can't contradict it, and a case whose Finding rests on it is never lowered.
 - **A provisional concern** is one TC FlyBy inferred: a scam-pattern match, a corroborated impersonation, an established warning sign, or a concern resting on what Apollo's register or a third party doesn't list. Magnum DI may confirm it, raise it, or correct it downward when deeper investigation shows it was a false positive, for example when the link proves to be the organisation's own or the contact proves official.
 - Magnum DI lowers a provisional concern only with evidence that resolves it, and its result names the provisional finding it corrected and cites that evidence. Finding nothing more never lowers a concern.
-- It is never called only to move a case between concern outcomes.
+- It is never called only to move a case between concern Findings.
 
 ### Higgins (explanation) {#higgins-explanation}
 
@@ -720,7 +742,7 @@ Every finished TC FlyBy or Magnum DI result is explained in plain English by the
 #### Higgins Luddish L1 (on the phone)
 Luddish L1 is the one language layer everywhere Higgins speaks on the phone: check results, reports (Ask Higgins and a threat's Overview) and Ask Higgins answers. It is fixed rules only: no AI and no network. **It changes the language, never the evidence.**
 - **Order:** Evidence Lock → Luddish Dictionary and Knowledge → Luddish Rules → Composer → Grammar and Punctuation → Readability Check → Evidence Fidelity Check → Higgins.
-- **Evidence Lock:** the state, every finding (with who established it and how firmly), what isn't certain, what to do and who blocked it are frozen first. A lock that changed is never explained in plain words.
+- **Evidence Lock:** the state, every finding (with who established it and how firmly, plus the rule that passed: S1–S4, N1–N4, L1–L3), what isn't certain, what to do and who blocked it are frozen first. A lock that changed is never explained in plain words.
 - **Dictionary:** one approved name and meaning for each term. A term is swapped for plain words only where they mean exactly the same ("URL" → "web address", "malicious" → "harmful"); every other term is kept and explained.
 - **Knowledge:** general background, each entry with its source. Knowledge can explain evidence; it never becomes case evidence, and is never shown as a finding.
 - **Rules:** one approved set of words for each state, never stronger or weaker than the state Apollo recorded. A state is never guessed: anything unrecognised is "unable to determine".
@@ -968,7 +990,7 @@ Every finished result can show one plain sentence naming the rule that settled i
 
 | Rule ID | Rule | Settled by | When it applies |
 |---|---|---|---|
-| FLYBY-THREAT | Confirmed threat | TC FlyBy | A direct safety check, an official scam advisory, or an official source found by the search names this exact link, number, address or company as a scam or threat. |
+| FLYBY-THREAT | This is a scam (S1) | TC FlyBy | A direct safety check, an official scam advisory, or an official source found by the search names this exact link, number, address or company as a scam or threat. |
 | FLYBY-PATTERN | Known scam, every step | TC FlyBy | A full match with a known scam pattern in ApolloSG's knowledge base, and nothing contradicts it. |
 | FLYBY-IMPERSONATION | Corroborated impersonation | TC FlyBy | An organisation is named, a link isn't its website, and a separate check on that link backs this up. |
 | FLYBY-OPENING | Known scam opening | TC FlyBy | The message opens like the family "new number" scam but hasn't asked for anything yet. |
@@ -988,11 +1010,11 @@ When Magnum DI was needed for more than one reason, the sentence names them toge
 
 | Outcome | Meaning |
 |---|---|
-| **Confirmed scam or threat** | An authoritative source names this exact link, number, address or company as a scam or threat. |
+| **This is a scam** | An authoritative source names this exact link, number, address or company as a scam or threat; or the investigation has established a fake identity, a deceptive activity, or a complete corroborated scam pattern. |
 | **Likely scam** | The evidence and an established scam pattern point to a scam, without proof about this particular sender. |
-| **Concerning** | An established warning sign or a corroborated impersonation, but not enough to call it a scam. Weak signals alone never make a case Concerning. |
+| **This is likely a scam** | Strong signs of impersonation, a strong scam-pattern match, or several independent scam indicators — but an important part of the evidence remains unverified. |
 | **Unable to determine** | The available evidence can't establish more. With nothing concrete left to act on, the case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. |
-| **No scam indicators found** | The checks performed found nothing. This is **not** proof it's safe, and it is never described as safe. |
+| **This is not a scam** | The investigation verified the identity, destinations, purpose and resolved all scam warnings. This is **not** proof it's safe, and it is never described as safe. |
 
 Every result shows **"Settled by TC FlyBy"** or **"Settled by Magnum DI"**, in the app and in the admin portal.
 
@@ -1042,7 +1064,7 @@ Exploited vulnerabilities and attack techniques are technical knowledge: they ar
 
 #### ApolloSG previous reports {#observed-patterns}
 **Job:** ApolloSG's cross-device intelligence: what independent ApolloSG findings on other devices say about a website, phone number, email address, message or file, kept on ApolloSG's servers as one-way codes and per-device marks, never content. It lives in ApolloSG's own indicator store, and it is the only way anything learned on one device reaches another.
-- **What is recorded:** each finished, non-simulated case sets one mark per device on each of its websites (their registrable domain), phone numbers and email addresses, and on the message and file themselves (as one-way codes of their content): **supporting** (Concerning, Likely scam or Confirmed scam or threat), **contradicting** (a complete check that found no scam indicators), **inconclusive** (Unable to determine) or **insufficient evidence** (part of the evidence couldn't be checked). A device's latest finding replaces its earlier mark. Which websites, numbers and addresses appeared together in supporting material is recorded too (a possible campaign). Never an organisation's own or official address, a shared platform, a free mail provider's domain, or a number on the Official Organisation Directory.
+- **What is recorded:** each finished, non-simulated case sets one mark per device on each of its websites (their registrable domain), phone numbers and email addresses, and on the message and file themselves (as one-way codes of their content): **supporting** ("This is a scam" or "This is likely a scam"), **contradicting** (a complete check that found no scam: "This is not a scam"), **inconclusive** ("Unable to determine") or **insufficient evidence** (part of the evidence couldn't be checked). A device's latest finding replaces its earlier mark. Which websites, numbers and addresses appeared together in supporting material is recorded too (a possible campaign). Never an organisation's own or official address, a shared platform, a free mail provider's domain, or a number on the Official Organisation Directory.
 - **Consensus (on ApolloSG's servers only):** unanimous means no contradicting mark exists; one contradicting mark removes unanimity at once. Inconclusive and insufficient marks never break unanimity and never count as support.
 - **No artificial consensus:** when ApolloSG's previous reports asserted something about a subject to a case (in Magnum DI's brief or beside the result), that case's finding on the subject is recorded as dependent and never counts as independent confirmation of the same assertion; a device's dependent finding never replaces its own earlier independent one. A device's own marks are never part of what it is told: its own cases are its related cases.
 - **What a device is told (these words only; never which device, how many, when, or anyone's case or verdict):** 3 or more independent supporting findings from other devices, unanimous: "has been previously reported as malicious — High confidence". 2, unanimous: "has been previously reported as concerning — Medium confidence". Supporting and contradicting findings, at least 3 together: "has mixed previous reports" (it adds no weight). Fewer asserts nothing. Seen together on 3 or more independent devices with a website a free threat list lists now: "has been previously reported together with …, which … lists — High confidence". What a person reads never says "knowledge base" or "cases": these are previous reports.
@@ -1055,7 +1077,7 @@ Exploited vulnerabilities and attack techniques are technical knowledge: they ar
 - **Devices are mutually exclusive:** ApolloSG runs only on this device and has no relationship to any other, even one the same person owns. A related case is always one of this device's own cases; another device's case is never shown, named or counted on this one. Anything learned on other devices comes only through ApolloSG's previous reports, in their approved words.
 - **What makes an earlier case related:** the same website or link, the same phone number or email address, the same message or file, the same organisation named, or already linked to this case as connected events. This device's case history keeps one-way codes of each case's subjects, its result and when, for 90 days, never content; it is deleted with the device's data.
 - **What it can't do:** it is never a finding, a warning sign or a corroboration, and it never changes the outcome, attention, actions or what isn't certain.
-- **What it can do:** add weight. When the case's own outcome is Concerning, Likely scam or Confirmed scam or threat and the history agrees (an earlier concern on this device, or a previous report of malicious or concerning; mixed previous reports never agree), each finding about the same subject that supports the outcome moves one confidence step up (Low → Medium → High), once, however many notes agree. A shared message, file or connected event is about the whole case. Each note lists the findings it raised, so where the extra weight came from stays visible. Magnum DI receives the same notes in its brief, labelled as context it must not cite as evidence.
+- **What it can do:** add weight. When the case's own Finding is "This is a scam" or "This is likely a scam" and the history agrees (an earlier concern on this device, or a previous report of malicious or concerning; mixed previous reports never agree), each finding about the same subject that supports the Finding moves one confidence step up (Low → Medium → High), once, however many notes agree. A shared message, file or connected event is about the whole case. Each note lists the findings it raised, so where the extra weight came from stays visible. Magnum DI receives the same notes in its brief, labelled as context it must not cite as evidence.
 
 #### Cross-source record {#cross-source}
 **Job:** for each website, phone number and email address in a case, what every ApolloSG source says about it, side by side: the free threat lists, Google Safe Browsing, the official-domain register, the Official Organisation Directory, the official scam advisories and ApolloSG's previous reports (in their approved words only). Each row keeps the source's own reference, when it last confirmed it and when it stops counting, plus how many of the sources that answered list it.
