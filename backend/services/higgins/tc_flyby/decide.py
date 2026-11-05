@@ -299,10 +299,14 @@ def _all_issues(plan_: Plan, texts: dict[str, str]) -> list[Issue]:
 def _complete(plan_: Plan) -> bool:
     """Every planned check that bears on the outcome actually ran over everything submitted: nothing left
     unextracted, no lookup unavailable, and each link either an official domain or both listed-clean and of
-    established registration."""
+    established registration.
+
+    Email-delivery infrastructure signals (topic 'email_delivery', 'email_delivery_redirect') are excluded from
+    the weak-signal blocking check because they show only who delivered the email, never a concern about its content."""
     if plan_.gaps or any(c.status == "unavailable" for c in plan_.checks):
         return False
-    if any(f["signal"] == "weak" for _, f in _live(plan_)):
+    _DELIVERY_TOPICS = frozenset({"email_delivery", "email_delivery_redirect"})
+    if any(f["signal"] == "weak" and f.get("topic") not in _DELIVERY_TOPICS for _, f in _live(plan_)):
         return False   # a weak signal is something found: "No scam indicators found" needs nothing found
     for c in plan_.checks:
         if c.kind != "link" or any(f["decisive"] and f["signal"] == "clear" for f in c.facts):

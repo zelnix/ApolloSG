@@ -342,3 +342,117 @@ class TestDecideIntegration:
         plan = _plan([])
         should, reason = should_downgrade_provisional(plan, "no_scam_indicators")
         assert should is False
+
+
+
+# ── Marketing Email Regression Tests ─────────────────────────────────────────
+
+class TestMarketingEmailRegression:
+    """Regression tests for the Adidas-type marketing email case (TC-2026-04AD5).
+
+    Marketing emails routinely contain:
+    - Tracking URLs through ESP platforms (SendGrid, Salesforce MC, Mailchimp)
+    - Redirects from brand subdomains (click.brand.com) through tracking services
+    - Promotional language and personalised links
+
+    These are NOT impersonation signals. The evidence evaluation pipeline must:
+    1. Recognise email tracking redirects as legitimate marketing infrastructure.
+    2. Use email authentication (SPF/DKIM/DMARC pass) as evidence against impersonation.
+    3. NOT flag tracking redirects as "weak" signals that block investigation completion.
+    4. NOT treat a recognised brand + third-party ESP domain as impersonation.
+    """
+
+    def test_email_delivery_redirect_is_legitimate(self):
+        """A redirect through an email tracking service is legitimate marketing infrastructure."""
+        checks = [
+            _check("link", "links.e.adidas.com/click/123", facts=[
+                fact("The link links.e.adidas.com/click/123 redirects to adidas.com/products, through an email tracking service.",
+                     "neutral", topic="email_delivery_redirect",
+                     source=source_ref("Apollo redirect expansion", authority="independent")),
+            ]),
+        ]
+        plan = _plan(checks)
+        result = evaluate(plan)
+        assert result.threat_level != "high_risk", \
+            f"Email tracking redirect should not produce high_risk: {result.threat_level}"
+        # Should have legitimate hypothesis for the tracking redirect
+        recs = [r for r in result.records if r.fact.get("topic") == "email_delivery_redirect"]
+        for rec in recs:
+            assert rec.hypothesis_balance == "legitimate", \
+                f"Tracking redirect should favour 'legitimate', got '{rec.hypothesis_balance}'"
+
+    def test_email_auth_with_tracking_downgrades_impersonation(self):
+        """When email auth passes AND tracking infrastructure is present, impersonation
+        signals should favour the legitimate hypothesis."""
+        checks = [
+            _check("impersonation", "Adidas", facts=[
+                fact("The email mentions Adidas but links go to a different domain.",
+                     "weak", topic="impersonation",
+                     source=source_ref("Apollo brand domain check", authority="independent")),
+            ]),
+            # Email authentication check passes
+            _check("authentication", "sender", facts=[
+                fact("SPF, DKIM and DMARC all passed for the sending domain.",
+                     "clear", topic="authentication",
+                     source=source_ref("Email header analysis", authority="independent")),
+            ]),
+            # Link through email tracking service
+            _check("link", "sendgrid.net/click/abc", facts=[
+                fact("The link redirects through SendGrid, an email tracking service.",
+                     "neutral", topic="email_delivery",
+                     source=source_ref("Apollo redirect expansion", authority="independent")),
+            ]),
+        ]
+        plan = _plan(checks)
+        result = evaluate(plan)
+        # The impersonation record should favour legitimate because auth + tracking
+        impersonation_recs = [r for r in result.records if r.fact.get("topic") == "impersonation"]
+        for rec in impersonation_recs:
+            assert rec.hypothesis_balance == "legitimate", \
+                f"Auth + tracking should make impersonation 'legitimate', got '{rec.hypothesis_balance}'"
+
+    def test_marketing_email_not_declared_scam(self):
+        """A marketing email with tracking links, authentication, and brand mention should not
+        be assessed as high risk or concerning."""
+        checks = [
+            _check("impersonation", "Adidas", facts=[
+                fact("The email mentions Adidas.", "neutral", topic="impersonation",
+                     source=source_ref("Apollo brand check", authority="independent")),
+            ]),
+            _check("authentication", "sender", facts=[
+                fact("SPF passed.", "clear", topic="authentication",
+                     source=source_ref("Email headers", authority="independent")),
+            ]),
+            _check("link", "click.adidas.com/track/123", facts=[
+                fact("No listing found for click.adidas.com.", "clear", topic="listing",
+                     source=source_ref("Safe Browsing", authority="authoritative")),
+                fact("The domain adidas.com was registered 25 years ago.", "neutral", topic="registration",
+                     source=source_ref("WHOIS", authority="independent")),
+            ]),
+        ]
+        plan = _plan(checks)
+        result = evaluate(plan)
+        assert result.threat_level in ("no_threat", "needs_verification"), \
+            f"Marketing email should be no_threat or needs_verification, got '{result.threat_level}'"
+
+    def test_genuine_impersonation_still_detected(self):
+        """A REAL impersonation attempt (lookalike domain, no auth, bad destination)
+        must NOT be downgraded by marketing email logic."""
+        checks = [
+            _check("impersonation", "Adidas", facts=[
+                fact("The email claims to be from Adidas but uses a lookalike domain adldas-official.com.",
+                     "concern", topic="impersonation", decisive=True,
+                     source=source_ref("Apollo brand domain check", authority="independent")),
+            ]),
+            _check("link", "adldas-official.com/login", facts=[
+                fact("The destination asks for login credentials.", "concern", topic="credential_theft", decisive=True,
+                     source=source_ref("Apollo content analysis", authority="independent")),
+                fact("adldas-official.com is flagged by Safe Browsing as a phishing site.", "concern",
+                     topic="listing", decisive=True,
+                     source=source_ref("Google Safe Browsing", authority="authoritative")),
+            ]),
+        ]
+        plan = _plan(checks)
+        result = evaluate(plan)
+        assert result.threat_level == "high_risk", \
+            f"Real impersonation should remain high_risk, got '{result.threat_level}'"

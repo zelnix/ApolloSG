@@ -709,7 +709,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       <SourceSummaryCard origin={caseData?.origin ?? event?.origin} at={caseData?.createdAt} caseKeys={[eventId, caseData?.id]}
         event={event} evidence={evidenceItems} gates={caseData?.gates} simulated={caseData?.simulated} testID="inv-source-summary" />
 
-      {/* ── Caller Identity: who this number belongs to (only for call/number checks) ── */}
+      {/* ── Who Called: who this number belongs to (only for call/number checks) ── */}
       {phoneNumber ? <PhoneIdentityCard number={phoneNumber} testID="inv-phone-identity" /> : null}
 
       {/* ── Tab Navigation — shared component, identical to Threat Case ── */}

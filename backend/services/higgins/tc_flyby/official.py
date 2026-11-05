@@ -149,8 +149,15 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
         if len(targets) > 1:
             # Moving within the same site (or between one organisation's own domains) is how sites work, not a warning sign.
             same = brand_domains.same_organisation(_host_of(url), _host_of(targets[-1]))
-            check.facts.append(fact(f"The link {url} redirects to {targets[-1]}" + (", on the same site." if same else "."),
-                                    "neutral" if same else "weak", topic="redirect",
+            # An email tracking service's redirect to the actual destination is normal marketing infrastructure:
+            # it says who delivered the email, not anything about the safety of the destination.
+            from services.email_infrastructure import is_tracking
+            tracking_redirect = is_tracking(_host_of(url)) and not is_tracking(_host_of(targets[-1]))
+            redirect_signal = "neutral" if (same or tracking_redirect) else "weak"
+            redirect_note = (", on the same site." if same
+                             else (", through an email tracking service." if tracking_redirect else "."))
+            check.facts.append(fact(f"The link {url} redirects to {targets[-1]}" + redirect_note,
+                                    redirect_signal, topic="redirect" if not tracking_redirect else "email_delivery_redirect",
                                     source=source_ref("Apollo redirect expansion", authority="independent", basis="HTTP redirect chain recorded by Apollo")))
         for target in targets:
             sb = pg["safe_browsing"].get(target)

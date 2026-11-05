@@ -196,6 +196,12 @@ _LEGIT_REDIRECT = ("Redirects are commonly used for URL shortening, email tracki
 _LEGIT_UNRELATED_DOMAIN = ("An unrelated domain for a mentioned brand means the email is from "
                             "a different sender, not that it impersonates the mentioned brand.")
 _LEGIT_FREEMAIL = ("A free email address is common for individuals and small businesses.")
+_LEGIT_EMAIL_AUTH_MARKETING = ("The email passed authentication checks (SPF/DKIM/DMARC) and was sent through "
+                                "a recognised email marketing platform. This means the brand authorised this "
+                                "email's delivery infrastructure — it is standard marketing practice, not impersonation.")
+_LEGIT_TRACKING_REDIRECT = ("This redirect goes through a recognised email tracking service. Marketing emails "
+                             "routinely use tracking redirects for click analytics. The tracking service identifies "
+                             "who delivered the email, not who sent it.")
 
 
 def _evaluate_hypotheses(records: list[EvidenceRecord], plan: Plan) -> list[EvidenceRecord]:
@@ -211,7 +217,24 @@ def _evaluate_hypotheses(records: list[EvidenceRecord], plan: Plan) -> list[Evid
 
     Authenticated sender identity is evidence against spoofing, but NOT proof of overall safety.
     Verified malicious indicators are preserved regardless of legitimate context.
+
+    Email authentication (SPF/DKIM/DMARC pass) combined with known email marketing infrastructure
+    strongly supports legitimacy for impersonation and redirect signals, because it means the brand
+    authorized the sending infrastructure.  This is NOT proof the email content is safe.
     """
+    from services.email_infrastructure import is_tracking
+
+    # Detect whether the investigation subject has email authentication evidence
+    email_auth_passed = any(
+        f.get("topic") == "authentication" and f["signal"] == "clear"
+        for c in plan.checks for f in c.facts
+    )
+    # Detect whether any link fact involves a known email tracking domain
+    has_tracking_infrastructure = any(
+        f.get("topic") in ("email_delivery", "email_delivery_redirect")
+        for c in plan.checks for f in c.facts
+    )
+
     for rec in records:
         if rec.relevance == "excluded" or not rec.is_representative:
             continue
@@ -253,6 +276,13 @@ def _evaluate_hypotheses(records: list[EvidenceRecord], plan: Plan) -> list[Evid
             rec.hypothesis_balance = "legitimate"  # redirects alone are more often legitimate
             continue
 
+        # ── Email tracking redirect: known marketing infrastructure ──
+        if topic in ("email_delivery", "email_delivery_redirect"):
+            rec.legitimate_hypothesis = _LEGIT_TRACKING_REDIRECT
+            rec.malicious_hypothesis = "Tracking redirects could theoretically mask a malicious destination."
+            rec.hypothesis_balance = "legitimate"
+            continue
+
         # ── Impersonation: unrelated domain for a mentioned brand ──
         if topic == "impersonation":
             rec.legitimate_hypothesis = _LEGIT_UNRELATED_DOMAIN
@@ -262,7 +292,15 @@ def _evaluate_hypotheses(records: list[EvidenceRecord], plan: Plan) -> list[Evid
             verified_sender = {c.subject for c in plan.checks
                                if c.kind == "impersonation" and c.status == "resolved"
                                and any(f["signal"] == "clear" for f in c.facts)}
-            rec.hypothesis_balance = "legitimate" if verified_sender else "ambiguous"
+            # Email auth + known marketing infrastructure strengthens the legitimate case:
+            # the brand authorized this email's delivery through a recognised platform.
+            if verified_sender:
+                rec.hypothesis_balance = "legitimate"
+            elif email_auth_passed and has_tracking_infrastructure:
+                rec.legitimate_hypothesis = _LEGIT_EMAIL_AUTH_MARKETING
+                rec.hypothesis_balance = "legitimate"
+            else:
+                rec.hypothesis_balance = "ambiguous"
             continue
 
         if topic == "freemail":
