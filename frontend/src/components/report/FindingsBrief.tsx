@@ -3,13 +3,11 @@
 // to say, and nothing is said twice. No investigation mechanics: how Apollo checked is on the DI tab, the sources it
 // used on Evidence.
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import CircleQuestionMark from "lucide-react-native/icons/circle-question-mark";
+import Copy from "lucide-react-native/icons/copy";
 import Flag from "lucide-react-native/icons/flag";
-import Gavel from "lucide-react-native/icons/gavel";
-import Search from "lucide-react-native/icons/search";
-import ShieldCheck from "lucide-react-native/icons/shield-check";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 
 import type { BriefVerdict } from "@/src/domain/briefVerdict";
 import { luddishReport, luddishText } from "@/src/domain/luddish";
@@ -108,13 +106,14 @@ export function briefSections(report: Report, verdict: Pick<BriefVerdict, "label
 }
 
 const useStyles = makeStyles((c) => ({
-  section: { flexDirection: "row", gap: spacing.md, borderRadius: radius.lg, padding: spacing.md, borderWidth: 0.25, borderColor: c.border },
-  circle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  card: { borderRadius: radius.lg, padding: spacing.lg, borderWidth: 0.25, borderColor: c.border, backgroundColor: c.surfaceSecondary, gap: spacing.md },
+  divider: { height: 1, backgroundColor: c.divider },
   content: { flex: 1, gap: spacing.xs },
   pills: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.xs },
   risk: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill },
   riskText: { fontFamily: fonts.textSemibold, fontSize: 12, color: "#FFFFFF" },
   title: { fontFamily: fonts.displayBold, fontSize: 17, color: c.onSurface },
+  sectionTitle: { fontFamily: fonts.textSemibold, fontSize: 15, color: c.onSurface, marginTop: spacing.xs },
   body: { fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurfaceSecondary },
   bullet: { flexDirection: "row", gap: spacing.sm },
   dot: { fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurface },
@@ -127,19 +126,18 @@ const useStyles = makeStyles((c) => ({
   badgeIncorrect: { backgroundColor: c.barkingTint },
   badgeLegitimate: { backgroundColor: c.restingTint },
   feedbackBadgeText: { fontFamily: fonts.textSemibold, fontSize: 10, color: c.onSurfaceSecondary },
+  copyRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingTop: spacing.xs },
+  copyButton: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.pill, minHeight: 36 },
+  copyText: { fontFamily: fonts.textSemibold, fontSize: 12, color: c.brandPrimary },
 }));
 
-function Section({ bg, circle, icon, title, testID, children }: {
-  bg: string; circle: string; icon: React.ReactNode; title?: string; testID: string; children: React.ReactNode;
-}) {
+// Section is no longer a separate card — it's a labelled block inside the single card.
+function SectionBlock({ title, testID, children }: { title?: string; testID: string; children: React.ReactNode }) {
   const s = useStyles();
   return (
-    <View style={[s.section, { backgroundColor: bg }]} testID={testID}>
-      <View style={[s.circle, { backgroundColor: circle }]}>{icon}</View>
-      <View style={s.content}>
-        {title ? <Text style={s.title}>{title}</Text> : null}
-        {children}
-      </View>
+    <View style={s.content} testID={testID}>
+      {title ? <Text style={s.sectionTitle}>{title}</Text> : null}
+      {children}
     </View>
   );
 }
@@ -251,17 +249,44 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
   const { colors } = useTheme();
   const { summary, findings, uncertain } = useMemo(() => briefSections(report, verdict), [report, verdict]);
   const tone = {
-    barking: { bg: colors.barkingTint, solid: colors.barking, ink: colors.barkingText },
-    ears_up: { bg: colors.ears_upTint, solid: colors.ears_up, ink: colors.ears_upText },
-    resting: { bg: colors.restingTint, solid: colors.resting, ink: colors.restingText },
-    sniffing: { bg: colors.sniffingTint, solid: colors.sniffing, ink: colors.sniffingText },
+    barking: { ink: colors.barkingText },
+    ears_up: { ink: colors.ears_upText },
+    resting: { ink: colors.restingText },
+    sniffing: { ink: colors.sniffingText },
   }[verdict.tone];
 
+  // Build copyable plain text
+  const copyText = useMemo(() => {
+    const parts: string[] = [];
+    if (verdict.label) parts.push(`What was found: ${verdict.label}`);
+    if (summary.length) parts.push(summary.join("\n"));
+    if (findings.length) {
+      parts.push(`\n${findingsTitle(verdict.tone)}`);
+      findings.forEach((f) => parts.push(`\u2022 ${f.category ? `${f.category}: ` : ""}${f.text}`));
+    }
+    if (uncertain.length) {
+      parts.push("\nWhat isn't certain");
+      uncertain.forEach((u) => parts.push(`\u2022 ${u}`));
+    }
+    const actions = report.orgActions ?? steps.map((st) => st.text);
+    if (actions.length) {
+      parts.push(`\n${actionsTitle(verdict.tone)}`);
+      actions.forEach((a) => parts.push(`\u2022 ${a}`));
+    }
+    return parts.join("\n");
+  }, [verdict, summary, findings, uncertain, report, steps]);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(copyText);
+    } catch { /* ignore */ }
+  }, [copyText]);
+
   return (
-    <View style={{ gap: spacing.md }} testID={`${ids}-brief`}>
+    <View style={s.card} testID={`${ids}-brief`}>
+      {/* Verdict / What was found */}
       {verdict.label || summary.length ? (
-        <Section bg={tone.bg} circle={tone.solid} icon={<Gavel size={22} color="#FFFFFF" />} testID={`${ids}-verdict`}>
-          {/* Titled like every other card; the pills sit under the title so they never crowd it on a phone. */}
+        <View style={s.content} testID={`${ids}-verdict`}>
           <Text style={s.title}>
             {verdict.label ? <>{"What was found: "}<Text style={{ color: tone.ink }} testID={`${ids}-verdict-label`}>{verdict.label}</Text></> : "What was found"}
           </Text>
@@ -280,24 +305,29 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
             </View>
           ) : null}
           {summary.map((para, i) => <Text key={`a${i}`} style={s.body} testID={i === 0 ? `${ids}-answer` : `${ids}-answer-${i}`}>{para}</Text>)}
-        </Section>
+        </View>
       ) : null}
 
-      {findings.length ? (
-        <Section bg={colors.goldTint} circle={colors.ears_upTint} icon={<Search size={22} color={colors.ears_upText} />} title={findingsTitle(verdict.tone)} testID={`${ids}-findings`}>
+      {/* Findings */}
+      {findings.length ? (<>
+        <View style={s.divider} />
+        <SectionBlock title={findingsTitle(verdict.tone)} testID={`${ids}-findings`}>
           <FindingBullets items={findings} caseId={caseId} testID={`${ids}-finding`} />
-        </Section>
-      ) : null}
+        </SectionBlock>
+      </>) : null}
 
-      {uncertain.length ? (
-        <Section bg={colors.groupAccountsTint} circle={colors.groupAccountsTint} icon={<CircleQuestionMark size={22} color={colors.groupAccounts} />} title="What isn't certain" testID={`${ids}-uncertainties`}>
+      {/* Uncertainties */}
+      {uncertain.length ? (<>
+        <View style={s.divider} />
+        <SectionBlock title="What isn't certain" testID={`${ids}-uncertainties`}>
           <Bullets items={uncertain} testID={`${ids}-uncertain`} />
-        </Section>
-      ) : null}
+        </SectionBlock>
+      </>) : null}
 
-      {(steps.length || report.orgActions?.length) ? (
-        <Section bg={colors.restingTint} circle={colors.restingTint} icon={<ShieldCheck size={22} color={colors.restingText} />} title={actionsTitle(verdict.tone)} testID={`${ids}-todo`}>
-          {/* Organisation-specific actions first (when an impersonated org is detected) */}
+      {/* Recommended actions */}
+      {(steps.length || report.orgActions?.length) ? (<>
+        <View style={s.divider} />
+        <SectionBlock title={actionsTitle(verdict.tone)} testID={`${ids}-todo`}>
           {report.orgActions?.length ? report.orgActions.map((action, i) => {
             const split = splitFindingLabel(action);
             return (
@@ -307,7 +337,6 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
               </View>
             );
           }) : null}
-          {/* Generic steps (only show if no org-specific actions, to avoid duplication) */}
           {!report.orgActions?.length ? steps.map((step) => {
             const text = luddishText(scrubMessage(step.text), true);
             return step.onPress ? (
@@ -324,8 +353,17 @@ export function FindingsBrief({ report, verdict, steps, ids, caseId }: {
               </View>
             );
           }) : null}
-        </Section>
-      ) : null}
+        </SectionBlock>
+      </>) : null}
+
+      {/* Copy button */}
+      <View style={s.divider} />
+      <View style={s.copyRow}>
+        <Pressable style={({ pressed }) => [s.copyButton, { opacity: pressed ? 0.6 : 1 }]} onPress={handleCopy} accessibilityRole="button" accessibilityLabel="Copy report" testID={`${ids}-copy`}>
+          <Copy size={14} color={colors.brandPrimary} />
+          <Text style={s.copyText}>Copy report</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
