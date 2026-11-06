@@ -782,9 +782,6 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {!tabsOnly ? <SourceSummaryCard origin={caseData?.origin ?? event?.origin} at={caseData?.createdAt} caseKeys={[eventId, caseData?.id]}
         event={event} evidence={evidenceItems} gates={caseData?.gates} simulated={caseData?.simulated} testID="inv-source-summary" /> : null}
 
-      {/* ── Who Called: who this number belongs to (only for call/number checks) ── */}
-      {!tabsOnly && phoneNumber ? <PhoneIdentityCard number={phoneNumber} testID="inv-phone-identity" /> : null}
-
       {/* ── Tab Navigation — shared component, identical to Threat Case ── */}
       <InvestigationTabBar active={activeTab} onChange={setActiveTab} testID="inv-tab-bar" />
 
@@ -989,7 +986,9 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
 
     {/* ── DI tab: the Magnum DI processing record (evidence is untouched by this view) ── */}
     {activeTab === "di" && showTabs ? (
-      <View testID="inv-tab-di-content">
+      <View style={{ gap: spacing.md }} testID="inv-tab-di-content">
+        {/* ── Who Called: identity evidence lives in DI as investigation context ── */}
+        {phoneNumber ? <PhoneIdentityCard number={phoneNumber} testID="inv-di-phone-identity" /> : null}
         <DiReport caseId={caseData?.id ?? null} triage={event?.triage_investigation ?? null} settledReason={response ? caseData?.settledReason : null} how={report ? luddishReport(report).how : []}
           presented={verdict ? { verdict: verdict.label, risk: verdict.risk?.label ?? null } : null} history={response?.history}
           response={response ?? null} sources={sources} />
