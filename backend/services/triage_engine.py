@@ -75,65 +75,10 @@ class TriageResult:
 
     def compact_evidence_for_magnum_di(self) -> str:
         """Produce a compact, provenance-attributed summary of all specialist
-        provider findings suitable for injection into an investigation case.
-
-        Format: one line per finding, with provider name and query timestamp.
-        TC FlyBy and Magnum DI retain the ability to investigate further if evidence is
-        conflicting, incomplete or stale.
+        provider findings.  Delegates to the module-level function for a single
+        canonical implementation; the method form exists for caller convenience.
         """
-        lines = ["Pre-gathered specialist intelligence (Higgins Triage):"]
-        pe = self.provider_evidence
-
-        # RDAP domain info
-        for domain, info in pe.get("rdap", {}).get("domains", {}).items():
-            if info.get("status") == "ok":
-                reg = info.get("registration_date", "unknown")
-                registrar = info.get("registrar", "unknown")
-                newly = " — NEWLY REGISTERED (≤30 days)" if info.get("newly_registered") else ""
-                lines.append(f"  • Domain {domain}: registered {reg} via {registrar}{newly} (RDAP, {info.get('queried_at', '?')})")
-            elif info.get("status") == "unavailable":
-                lines.append(f"  • Domain {domain}: RDAP lookup unavailable ({info.get('detail', 'timeout/error')})")
-
-        # Safe Browsing
-        for url, info in pe.get("safe_browsing", {}).get("urls", {}).items():
-            if info.get("verdict") == "malicious":
-                threats = ", ".join(info.get("threat_types", []))
-                lines.append(f"  • URL {url}: LISTED as {threats} by {listed_by(info.get('sources'))} ({info.get('queried_at', '?')})")
-            elif info.get("verdict") == "clean":
-                lines.append(f"  • URL {url}: Not currently listed by {answered(info.get('sources'))} ({info.get('queried_at', '?')})")
-
-        # Redirect chains
-        for url, info in pe.get("redirects", {}).get("urls", {}).items():
-            chain = info.get("chain", [])
-            if len(chain) > 1:
-                final = info.get("final_url")
-                destination = final if final else f"NOT CONFIRMED — {info.get('detail') or 'the chain could not be followed to the end'}; last seen: {info.get('last_seen_url', chain[-1])}"
-                lines.append(f"  • URL {url}: redirects through {len(chain)} hops → final: {destination} ({info.get('queried_at', '?')})")
-
-        # IPQS phone risk
-        for phone, info in pe.get("ipqs", {}).get("phones", {}).items():
-            if info.get("status") == "ok":
-                score = info.get("fraud_score", "?")
-                abuse = "; RECENT ABUSE" if info.get("recent_abuse") else ""
-                carrier = info.get("carrier", "unknown")
-                lines.append(f"  • Phone {phone}: IPQS fraud score {score}/100, carrier: {carrier}{abuse} ({info.get('queried_at', '?')})")
-
-        # HIBP breach
-        for email, info in pe.get("hibp", {}).get("emails", {}).items():
-            if info.get("status") == "found":
-                count = len(info.get("breaches", []))
-                lines.append(f"  • Email {email}: found in {count} known breach(es) ({info.get('queried_at', '?')})")
-            elif info.get("status") == "clear":
-                lines.append(f"  • Email {email}: not found in known breaches ({info.get('queried_at', '?')})")
-
-        # Scam intel matches
-        for match in pe.get("scam_intel", {}).get("matches", []):
-            lines.append(f"  • Active scam advisory match: \"{match.get('title', '?')}\" — severity: {match.get('severity', '?')}, matched on: {match.get('matched_on', '?')}")
-
-        if len(lines) == 1:
-            lines.append("  (No specialist provider results gathered for this item.)")
-
-        return "\n".join(lines)
+        return compact_evidence_for_magnum_di(self.provider_evidence)
 
 
 def compact_evidence_for_magnum_di(provider_evidence: dict) -> str:
@@ -180,6 +125,18 @@ def compact_evidence_for_magnum_di(provider_evidence: dict) -> str:
             lines.append(f"  • URL {url[:120]}: IPQS risk score {score}/100, decision: {decision}{flag_str} ({info.get('queried_at', '?')})")
     for item in pe.get("download_links", {}).get("items", []):
         lines.append(f"  • DOWNLOAD LINK DETECTED: {item.get('url', '?')[:120]} → file: {item.get('filename', '?')} [{item.get('category', 'unknown')}] — direct file download links in unsolicited messages are a common malware delivery method")
+    # VirusTotal URL reputation
+    for url, info in pe.get("virustotal", {}).get("urls", {}).items():
+        if info.get("status") == "ok":
+            verdict = info.get("verdict", "unknown")
+            det = info.get("detection_count", 0)
+            total = info.get("total_engines", 0)
+            if verdict == "malicious":
+                lines.append(f"  • URL {url[:120]}: VirusTotal FLAGGED — {det}/{total} engines, verdict: malicious ({info.get('queried_at', '?')})")
+            elif verdict == "suspicious":
+                lines.append(f"  • URL {url[:120]}: VirusTotal suspicious — {det}/{total} engines ({info.get('queried_at', '?')})")
+            elif verdict == "clean":
+                lines.append(f"  • URL {url[:120]}: VirusTotal clean — {total} engines checked ({info.get('queried_at', '?')})")
     for email, info in pe.get("hibp", {}).get("emails", {}).items():
         if info.get("status") == "found":
             count = len(info.get("breaches", []))
@@ -537,6 +494,12 @@ async def gather_provider_evidence(evidence: dict) -> dict:
 
     link_domains = evidence.get("link_domains", [])
     link_urls = evidence.get("link_urls", [])
+    # Finding F: normalise URLs before provider lookups — strip tracking params
+    # (UTM, fbclid, gclid …), unify scheme capitalisation, strip default ports.
+    # Two URLs differing only in tracking params are now treated as one indicator.
+    if link_urls:
+        from services.url_normalise import normalise_urls
+        link_urls = normalise_urls(link_urls)
     sender_phone = evidence.get("sender_phone", "")
     source_type = evidence.get("source_type", "unknown")
 
@@ -693,6 +656,39 @@ async def gather_provider_evidence(evidence: dict) -> dict:
         except Exception as exc:
             _log.debug("download_link_detection_failed error=%s", type(exc).__name__)
 
+    # ── 3d. VirusTotal URL reputation ──────────────────────────────────────────
+    if link_urls:
+        try:
+            from services.virustotal_url import check_url as _vt_check_url, VT_API_KEY as _VT_KEY
+            if _VT_KEY:
+                vt_url_results: dict = {}
+                # Cap at 5 URLs; prefer IPQS-flagged or shortener URLs first (already sorted above).
+                for _url in list(dict.fromkeys(link_urls))[:5]:
+                    try:
+                        _vt_res = await asyncio.wait_for(_vt_check_url(_url), timeout=12.0)
+                        vt_url_results[_url] = {
+                            "verdict": _vt_res.verdict,
+                            "detection_count": _vt_res.detection_count,
+                            "total_engines": _vt_res.total_engines,
+                            "categories": _vt_res.categories,
+                            "community_score": _vt_res.community_score,
+                            "detail": _vt_res.detail,
+                            "status": "ok" if _vt_res.verdict != "error" else "unavailable",
+                            "queried_at": ts,
+                            "data_class": "shareable_threat_intel",
+                        }
+                        if _vt_res.verdict not in ("error", "not_configured"):
+                            providers_used.append("virustotal_url")
+                    except Exception as _url_exc:
+                        vt_url_results[_url] = {
+                            "status": "unavailable", "detail": type(_url_exc).__name__, "queried_at": ts
+                        }
+                        _log.debug("virustotal_url_check_failed url=%s error=%s", _url[:60], type(_url_exc).__name__)
+                if vt_url_results:
+                    pe["virustotal"] = {"urls": vt_url_results}
+        except Exception as exc:
+            _log.debug("virustotal_url_section_failed error=%s", type(exc).__name__)
+
     # ── 4. Scam intel feed cross-reference ──
     try:
         scam_matches = await _match_scam_intel(evidence)
@@ -714,7 +710,7 @@ async def gather_provider_evidence(evidence: dict) -> dict:
     # Providers that return public threat intelligence about indicators
     # (domains, URLs, phone reputation, breach lists) are shareable.
     # Results that incorporate user content are device_private.
-    _SHAREABLE_SECTIONS = {"rdap", "safe_browsing", "redirects", "ipqs", "scam_intel", "download_links"}
+    _SHAREABLE_SECTIONS = {"rdap", "safe_browsing", "redirects", "ipqs", "scam_intel", "download_links", "virustotal"}
     for section_name, section in pe.items():
         if section_name.startswith("_") or not isinstance(section, dict):
             continue

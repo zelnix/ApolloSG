@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import uuid
+from contextvars import ContextVar
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -39,10 +40,19 @@ from services.higgins.contracts import (CreateCase, CreateUpload, DeviceProfile,
                                         UUID_PATTERN, UploadMetadata, Wire)
 from services.higgins.encryption import cipher, decrypt, encrypt
 from services.higgins.repository import http
+from services.investigation_lifecycle import (
+    CHECK_CLAIM, same_evidence_case, first_job, _submit_turn,
+    _pregather_specialist_evidence, _build_source_metadata, infer_gate,
+)
 
 router = APIRouter()
 NO_STORE = {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
 ACTIVE = ("queued", "investigating", "retry_wait", "waiting_device")
+
+# ContextVar used by background_text_intake to pass pre-gathered provider evidence
+# into create_case — prevents a double provider-query for the same indicators.
+# Each asyncio Task has its own context so this never leaks across requests.
+_PRELOADED_PE: ContextVar[dict | None] = ContextVar("_preloaded_pe", default=None)
 
 
 def owner_of(request: Request) -> str:
@@ -54,36 +64,6 @@ def _key(idempotency_key: Optional[str]) -> str:
         raise http(400, "invalid_input", "An Idempotency-Key header (8–80 URL-safe characters) is required for this operation.")
     return idempotency_key
 
-
-
-import re as _re
-
-def _infer_gate_from_submissions(submissions: list, question: str = "") -> str | None:
-    """Deterministically infer the canonical Gate from evidence items when the
-    client didn't supply one. Returns None if genuinely ambiguous.
-    
-    Rules (ordered by specificity):
-    - Any URL submission → "link"
-    - Text containing an email address or @-mention → "email"
-    - Text containing a phone number → "call"
-    - Any text submission with no further signals → "text"
-    """
-    has_url = any(s.kind == "url" for s in submissions)
-    if has_url:
-        return "link"
-
-    all_text = " ".join(s.value for s in submissions if s.kind == "text") + " " + question
-    # Email pattern
-    if _re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", all_text):
-        return "email"
-    # Phone pattern (international or local)
-    if _re.search(r"(?:\+?\d{1,3}[\s-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}", all_text):
-        return "call"
-    # Default text if there's any text submission
-    if any(s.kind == "text" for s in submissions):
-        return "text"
-
-    return None
 
 
 
@@ -125,104 +105,8 @@ async def capabilities():
             "models": {"magnum_di": model, "tc_flyby": model}, "researchCoordinator": "shared_case_engine"}, headers=NO_STORE)
 
 
-# ── Source metadata builder (Original Item Summary) ──────────────────────────
-# Produces a compact dict of *actual recorded identifiers* from the user's
-# submission.  This flows through the investigation projector into the patrol
-# event, enabling the frontend Original Item card.  NEVER Gemini-inferred.
-
-def _build_source_metadata(gate: str | None, submissions: list, question: str) -> dict | None:
-    """Build source_metadata from user-submitted evidence.  Returns None when
-    the gate is unknown or there are no useful identifiers to record."""
-    if not submissions:
-        return None
-
-    kinds = [s.kind for s in submissions]
-    has_image = "image" in kinds
-    has_url = "url" in kinds
-    has_text = "text" in kinds
-
-    if has_image:
-        return {
-            "type": "screenshot",
-            "submitted_at": now_utc(),
-            "image_count": kinds.count("image"),
-            "user_question": question[:300] if question else None,
-        }
-    if has_url:
-        first_url = next((s.value for s in submissions if s.kind == "url"), None)
-        return {
-            "type": "link",
-            "url": first_url[:500] if first_url else None,
-            "submitted_at": now_utc(),
-            "user_question": question[:300] if question else None,
-        }
-    if has_text:
-        first_text = next((s.value for s in submissions if s.kind == "text"), None)
-        preview = first_text or None
-        src_type = gate if gate in ("text", "call", "app", "file", "account", "device", "network") else "text"
-        return {
-            "type": src_type,
-            "preview": preview,
-            "submitted_at": now_utc(),
-            "user_question": question[:300] if question else None,
-        }
-    return None
-
-
-
-async def _pregather_specialist_evidence(gate: str | None, submissions: list) -> dict:
-
-    """Gather free/already-paid specialist provider evidence for user-initiated
-    Checks BEFORE Magnum DI starts reasoning.  This does NOT gate or triage the
-    submission — the full investigation always proceeds.  It simply supplies
-    Magnum DI with established facts so it doesn't re-query the same providers.
-
-    Returns a dict matching the triage_engine.provider_evidence structure that
-    can be stored as ``triage_provider_evidence`` on the case document and is
-    sent to Magnum DI as evidence in its one Gemini call."""
-    from services.triage_engine import gather_provider_evidence, _extract_indicators
-
-    evidence: dict = {}
-    indicators: dict = {"urls": [], "domains": [], "phones": [], "emails": []}
-
-    # Extract indicators from each submission
-    for item in submissions:
-        if item.kind == "url":
-            url_val = item.value.strip()
-            if url_val:
-                indicators["urls"].append(url_val)
-                # Also extract domain
-                try:
-                    from urllib.parse import urlparse
-                    host = urlparse(url_val).hostname or ""
-                    if host:
-                        indicators["domains"].append(host)
-                except Exception:
-                    pass
-        elif item.kind == "text":
-            # Extract indicators from text content
-            text_indicators = _extract_indicators(item.value)
-            for k in ("urls", "domains", "phones", "emails"):
-                indicators[k].extend(text_indicators.get(k, []))
-
-    # Deduplicate
-    for k in indicators:
-        indicators[k] = list(dict.fromkeys(indicators[k]))[:10]  # cap at 10 per type
-
-    # Only gather if there are indicators to check
-    if not any(indicators.values()):
-        return {}
-
-    # Build evidence dict matching triage_engine format
-    evidence = {
-        "urls": indicators["urls"],
-        "domains": indicators["domains"],
-        "phones": indicators["phones"],
-        "emails": indicators["emails"],
-        "auth_results": {},
-    }
-
-    return await gather_provider_evidence(evidence)
+# ── Source metadata builder and specialist evidence pre-gathering are defined
+# in services/investigation_lifecycle.py and imported above.
 
 
 
@@ -337,38 +221,6 @@ async def _launch_investigation(
 
 
 # ------------------------------------------------------------------ cases
-CHECK_CLAIM = "check"
-
-
-async def same_evidence_case(owner: str, items: list[tuple[str, str]]) -> tuple[Optional[dict], Optional[str]]:
-    """Identical evidence already taken on by this device → (that case, None); otherwise (None, the claim to attach the
-    new case to). Claimed atomically (services/work_dedupe.py), so two identical checks arriving together start one
-    case. The question isn't part of it: rewording a question about the same evidence is not a new case. Another
-    device's evidence never matches. A claim whose case is gone (deleted or past its retention) is taken over."""
-    if not items:
-        return None, None
-    value = work_dedupe.digest(owner, *sorted(f"{kind}:{text}" for kind, text in items))
-    for _ in range(3):
-        earlier = await work_dedupe.claim(owner, CHECK_CLAIM, value)
-        if earlier is None:
-            return None, value
-        if not earlier.get("case_id"):
-            earlier = await work_dedupe.wait_for(owner, CHECK_CLAIM, value, "case_id")
-            if earlier is None:
-                if await db.work_claims.find_one({"owner_id": owner, "kind": CHECK_CLAIM, "digest": value}, {"_id": 1}):
-                    raise http(409, "conflict", "The same check is already starting on this device. Open it from Threats in a moment.")
-                continue   # the earlier claim let go: take it
-        case = await db.investigation_cases.find_one({"owner_id": owner, "case_id": earlier["case_id"], "deleted": False}, {"_id": 0})
-        if case and repo.utc(case["expires_at"]) > now_utc():
-            return case, None
-        await work_dedupe.release(owner, CHECK_CLAIM, value)
-    raise http(409, "conflict", "The same check is already starting on this device. Open it from Threats in a moment.")
-
-
-async def first_job(owner: str, case_id: str) -> Optional[dict]:
-    return await db.investigation_jobs.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0}, sort=[("created_at", 1)])
-
-
 @router.post("/investigations", status_code=201)
 async def create_case(body: CreateCase, request: Request, idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key")):
     owner = owner_of(request)
@@ -388,7 +240,7 @@ async def create_case(body: CreateCase, request: Request, idempotency_key: Optio
     # evidence items so the investigation is properly attributed from creation.
     gate = body.gate
     if not gate and body.submissions:
-        gate = _infer_gate_from_submissions(body.submissions, body.question)
+        gate = infer_gate(body.submissions, body.question)
 
     # The same evidence already checked on this device: that case, not a new one (no new work, no new AI call).
     earlier, claim = await same_evidence_case(owner, [(item.kind, item.value) for item in body.submissions])
@@ -438,7 +290,17 @@ async def create_case(body: CreateCase, request: Request, idempotency_key: Optio
     # Stored as `triage_provider_evidence` on the case document; Magnum DI's
     # tools read this for deduplication and the coordinator receives it as
     # structured Apollo observations — NOT injected into the person's question.
-    if question.strip():
+    # ── Pre-gather specialist evidence for Magnum DI ──────────────────────────
+    # If the caller (e.g. background_text_intake) already gathered provider
+    # evidence via triage_item, it sets _PRELOADED_PE so we skip a second,
+    # identical round of outbound provider calls.
+    _preloaded = _PRELOADED_PE.get(None)
+    if _preloaded is not None:
+        if _preloaded:
+            await db.investigation_cases.update_one(
+                {"owner_id": owner, "case_id": case["case_id"]},
+                {"$set": {"triage_provider_evidence": _preloaded}})
+    elif question.strip():
         try:
             provider_evidence = await _pregather_specialist_evidence(gate, body.submissions)
             if provider_evidence:
@@ -446,7 +308,8 @@ async def create_case(body: CreateCase, request: Request, idempotency_key: Optio
                     {"owner_id": owner, "case_id": case["case_id"]},
                     {"$set": {"triage_provider_evidence": provider_evidence}})
         except Exception as exc:
-            __import__("logging").getLogger("apollo.investigations").warning("pregather_evidence_failed case=%s error=%s", case["case_id"], type(exc).__name__)
+            __import__("logging").getLogger("apollo.investigations").warning(
+                "pregather_evidence_failed case=%s error=%s", case["case_id"], type(exc).__name__)
 
     # A non-blank opening question is the first turn; otherwise the client attaches evidence first.
     job = await _submit_turn(owner, case, SubmitTurn(expected_revision=0, turn_id=str(uuid.uuid4()), message=question), key + ":turn0") if question.strip() else None
@@ -536,14 +399,17 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
         "and identify the safest next action."
     )
     payload = CreateCase(gate="text", question=investigation_question, submissions=[submission])
-    response = await create_case(payload, request, idempotency_key=f"sms-notification-{body.submission_id}")
+    # Finding A: signal to create_case that provider evidence is already available so it
+    # skips its own _pregather_specialist_evidence call (eliminates the double query).
+    _pe_token = _PRELOADED_PE.set(triage_result.provider_evidence or {})
+    try:
+        response = await create_case(payload, request, idempotency_key=f"sms-notification-{body.submission_id}")
+    finally:
+        _PRELOADED_PE.reset(_pe_token)
     data = json.loads(response.body)
-    # Server-owned: set client_submission_id and triage provider evidence directly on the case
-    # document. These fields are never accepted from the public /investigations API — only the
-    # internal background-text path writes them.
+    # Server-owned: set client_submission_id and source metadata on the case document.
+    # triage_provider_evidence is now written by create_case via _PRELOADED_PE — no double write.
     case_update: dict = {"client_submission_id": body.submission_id, "initiator": "apollo_automatic", "origin": "apollo"}
-    if triage_result.provider_evidence:
-        case_update["triage_provider_evidence"] = triage_result.provider_evidence
     # Source metadata — actual recorded text/SMS identifiers, NOT Gemini-inferred.
     case_update["source_metadata"] = source
     await db.investigation_cases.update_one(
@@ -1053,28 +919,6 @@ async def _failure_of(owner: str, case: dict) -> Optional[str]:
     job = await db.investigation_jobs.find_one({"owner_id": owner, "case_id": case["case_id"], "failure": {"$ne": None}}, {"_id": 0, "failure": 1},
                                                sort=[("created_at", -1)])
     return ((job or {}).get("failure") or {}).get("message")
-
-
-async def _submit_turn(owner: str, case: dict, body: SubmitTurn, key: str) -> dict:
-    payload = {"message": redact_investigation_secrets(body.message), "answerToQuestionId": body.answer_to_question_id, "evidenceIds": body.evidence_ids, "turnId": body.turn_id}
-    key_digest, payload_digest = repo.digest(f"{owner}:turn:{key}"), repo.digest(json.dumps(payload, sort_keys=True))
-    existing = await db.investigation_jobs.find_one({"owner_id": owner, "case_id": case["case_id"], "idempotency_key_digest": key_digest}, {"_id": 0})
-    if existing:
-        if existing["payload_digest"] != payload_digest:
-            raise http(409, "conflict", "This Idempotency-Key was already used for a different question.")
-        return existing
-    if case.get("active_job_id"):
-        raise http(409, "conflict", "Higgins is still working on this investigation. Wait for the current turn or cancel it.")
-    for evidence_id in body.evidence_ids:
-        await repo.get_evidence(owner, case["case_id"], evidence_id)
-    job = await repo.create_job(owner, case, body.turn_id, key_digest, payload_digest, "turn", payload)
-    updated = await repo.cas(owner, case["case_id"], {"revision": case["revision"], "active_job_id": None},
-                             {"$set": {"status": "queued", "active_job_id": job["job_id"], "active_turn_id": body.turn_id}})
-    if not updated:
-        await db.investigation_jobs.delete_one({"owner_id": owner, "job_id": job["job_id"]})
-        raise http(409, "conflict", "Another turn was submitted first. Reload the investigation.")
-    jobs.launch(owner, case["case_id"], job["job_id"])
-    return job
 
 
 @router.post("/investigations/{case_id}/turns", status_code=202)

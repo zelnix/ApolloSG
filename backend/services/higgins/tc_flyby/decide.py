@@ -36,13 +36,18 @@ from dataclasses import dataclass, field
 
 from services.higgins.brand_domains import registrable
 from services.higgins.tc_flyby import evidence_evaluation
+from services.higgins.tc_flyby.checks import (
+    CORROBORATES, _live, corroborated_impersonation, official_routes, verified, unverified_requests,
+)
 from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Check, Plan, digits
 
-#: Signals that are warning signs (with "concern"). "weak" signals are never a warning sign by themselves.
+#: Signals that constitute a warning sign (concern-or-stronger).
 WARNING = ("concern", "anomaly")
-#: What may corroborate an impersonation: a warning sign or a weak signal about the same link.
-CORROBORATES = ("concern", "anomaly", "weak")
-_SECRET_ASK = re.compile(r"password|passcode|\bpin\b|one[- ]time|otp|verification\s+code|security\s+code|code\s+(?:we|you)|card\s+(?:number|details)|cvv", re.I)
+_SECRET_ASK = re.compile(
+    r"password|passcode|\bpin\b|one[- ]time|otp|verification\s+code|security\s+code"
+    r"|code\s+(?:we|you)|card\s+(?:number|details)|cvv",
+    re.I,
+)
 
 
 @dataclass
@@ -64,97 +69,11 @@ class Issue:
         return {"capability": self.capability, "text": self.text, "evidenceIds": self.evidence_ids, "checkId": self.check_id}
 
 
-def _live(plan_: Plan) -> list[tuple[Check, dict]]:
-    return [(c, f) for c in plan_.checks for f in c.facts if f["class"] == "live_evidence"]
-
-
 def _ambiguous(f: dict) -> bool:
     """An organisation's name merely mentioned beside a link or address that isn't its own: on its own it could be
     a news link or someone's personal email, so it needs corroboration before it establishes anything. (An address
     that carries the organisation's name itself — a lookalike — is a warning sign without it.)"""
     return f.get("topic") in ("impersonation", "freemail")
-
-
-def corroborated_impersonation(plan_: Plan) -> list[dict]:
-    """The material names an organisation, a link in it isn't that organisation's own (not one of its published
-    domains or country sites), and an independent fact about that same link backs it up (newly registered,
-    flagged, redirected to another site, a direct download).
-
-    An organisation merely *mentioned* in a legitimate sender's material is not impersonation. Two guards:
-
-    1. **Verified sender**: when another brand's impersonation check resolved clear (the material's links
-       genuinely belong to that brand), an 'unrelated' domain mismatch for a different brand is expected and
-       is excluded — the sender is identified, the other brand is just mentioned.
-
-    2. **Corroboration strength**: a domain that doesn't carry the brand's name at all (topic 'impersonation',
-       i.e. the classify() result was 'unrelated') needs concern-level corroboration — an official warning or
-       a decisive listing. Weak signals (newly registered, IPQS flag, redirect) don't establish impersonation
-       when the domain makes no attempt to look like the brand. Lookalike and shared-service domains, which
-       actively mimic the brand, are corroborated by any signal (the existing behaviour)."""
-    # Brands whose impersonation check resolved clear: the material's links belong to that brand.
-    verified_sender = {c.subject for c in plan_.checks
-                       if c.kind == "impersonation" and c.status == "resolved"
-                       and any(f["signal"] == "clear" for f in c.facts)}
-
-    mismatched: list[dict] = []
-    for c in plan_.checks:
-        if c.kind != "impersonation":
-            continue
-        for f in c.facts:
-            if f.get("topic") not in ("impersonation", "lookalike", "shared_service"):
-                continue
-            # Guard 1: if the sender is verified as another brand, an 'unrelated' mismatch for this brand
-            # means it is merely mentioned — not impersonation.
-            if f.get("topic") == "impersonation" and verified_sender and c.subject not in verified_sender:
-                continue
-            mismatched.append(f)
-
-    if not mismatched:
-        return []
-
-    places = {registrable(f["place"]) for f in mismatched if f.get("place")}
-
-    # Guard 2: per-place corroboration strength.
-    # Lookalike / shared-service domains: any signal corroborates (concern, anomaly, weak).
-    # Unrelated domains (topic "impersonation"): only concern-level signals corroborate.
-    strong_places = {registrable(f["place"]) for f in mismatched
-                     if f.get("place") and f.get("topic") in ("lookalike", "shared_service")}
-    unrelated_places = places - strong_places
-
-    support: list[dict] = []
-    for c in plan_.checks:
-        if c.kind != "link" or registrable(c.subject) not in places:
-            continue
-        for f in c.facts:
-            if f["class"] != "live_evidence":
-                continue
-            reg = registrable(c.subject)
-            if reg in strong_places and f["signal"] in CORROBORATES:
-                support.append(f)
-            elif reg in unrelated_places and f["signal"] == "concern":
-                support.append(f)
-
-    # ── Lookalike / shared-service self-corroboration ─────────────────────────
-    # A domain that carries the brand's name (e.g. "commbank-secure.net") establishes
-    # deceptive intent by its name alone.  A clean Safe Browsing result means the site
-    # has not yet been reported — it does NOT mean the site is safe.
-    # Unrelated-domain mismatches (the brand is merely mentioned alongside another
-    # sender's address) still require a concern-level link-check signal before
-    # impersonation is established.
-    lookalike_mismatched = [f for f in mismatched
-                            if f.get("topic") in ("lookalike", "shared_service")]
-    if lookalike_mismatched:
-        # Include any link-check corroboration that was found (may be empty — that is fine).
-        return lookalike_mismatched + support
-
-    # Unrelated-domain path: needs concern-level corroboration from the link check.
-    return mismatched + support if support else []
-
-
-def official_routes(plan_: Plan) -> bool:
-    """Every link and address in the material belongs to the organisation it names."""
-    impersonation = [c for c in plan_.checks if c.kind == "impersonation"]
-    return bool(impersonation) and all(c.status == "resolved" and not any(f["signal"] == "anomaly" for f in c.facts) for c in impersonation)
 
 
 def signals(plan_: Plan) -> list[tuple[Check, dict]]:
@@ -240,30 +159,6 @@ def provisional(plan_: Plan) -> Decision | None:
     # "not_scam" and "unable_to_determine" are only determined at the final evaluate() step,
     # not as provisional decisions — they need all checks to complete first.
     return None
-
-
-def verified(target: str, plan_: Plan) -> bool:
-    """An official source established that this route belongs to the organisation: an official domain, an
-    official email domain, or a number a search confirmed as an official contact."""
-    low = target.lower()
-    for c in plan_.checks:
-        if c.kind == "link" and c.subject in low:
-            return any(f["decisive"] and f["signal"] == "clear" for f in c.facts)
-        if c.kind == "email" and c.subject.lower() == low:
-            return any(f["signal"] == "clear" for f in c.facts)
-        if c.kind == "phone" and digits(c.subject)[-8:] and digits(c.subject)[-8:] == digits(target)[-8:]:
-            return any(f["signal"] == "clear" for f in c.facts)
-    return False   # payment details and anything unchecked can't be verified
-
-
-def unverified_requests(plan_: Plan) -> list[dict]:
-    """Consequential requests whose routes aren't all verified as official."""
-    out = []
-    for r in plan_.entities.requests:
-        consequential = r["type"] in CONSEQUENTIAL or (r["type"] == "call_back" and bool(plan_.entities.brands))
-        if consequential and not (r["targets"] and all(verified(t, plan_) for t in r["targets"])):
-            out.append(r)
-    return out
 
 
 def _ids_with(texts: dict[str, str], needles: list[str]) -> list[str]:

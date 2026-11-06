@@ -20,6 +20,10 @@ from core.redaction import redact_investigation_secrets
 from services.higgins import evidence as ev
 from services.higgins import repository as repo
 from services.higgins.contracts import Submission, SubmitTurn
+from services.investigation_lifecycle import (
+    CHECK_CLAIM, first_job, same_evidence_case, _submit_turn,
+    _pregather_specialist_evidence, _build_source_metadata, infer_gate,
+)
 
 log = logging.getLogger("apollo.higgins.pipeline")
 
@@ -92,18 +96,8 @@ def extract_submittable_items(message: str) -> list[dict]:
 
 
 # ── Pipeline submission ──────────────────────────────────────────────────────
-
-def _infer_gate(items: list[dict]) -> str | None:
-    """Infer the gate from extracted artefacts."""
-    for item in items:
-        if item["kind"] == "url":
-            return "link"
-        if item["kind"] == "email":
-            return "email"
-        if item["kind"] == "phone":
-            return "call"
-    return "text"
-
+# Gate inference and shared lifecycle helpers are imported from
+# services/investigation_lifecycle.py.
 
 async def submit_to_investigation_pipeline(
     owner: str,
@@ -119,13 +113,6 @@ async def submit_to_investigation_pipeline(
 
     Returns: {"case_id": str, "status": str, "job_id": str|None}
     """
-    from routers.investigations import (
-        _pregather_specialist_evidence,
-        _build_source_metadata,
-        CHECK_CLAIM,
-        first_job,
-        same_evidence_case,
-    )
     from services import work_dedupe
 
     # Build Submission objects
@@ -142,7 +129,7 @@ async def submit_to_investigation_pipeline(
             submissions.append(Submission(client_item_id=client_id, kind="text", value=item["value"], label="Higgins-submitted content"))
 
     question = redact_investigation_secrets(message)
-    gate = _infer_gate(items)
+    gate = infer_gate(items)
 
     # The same evidence already checked on this device: that case, not a new one (rewording the question doesn't count).
     earlier, claim = await same_evidence_case(owner, [(s.kind, s.value) for s in submissions])
@@ -192,7 +179,6 @@ async def submit_to_investigation_pipeline(
     # ── Submit first turn via canonical _submit_turn ────────────────────────
     job = None
     if question.strip():
-        from routers.investigations import _submit_turn
         turn = SubmitTurn(expected_revision=0, turn_id=str(uuid.uuid4()), message=question)
         job = await _submit_turn(owner, case, turn, f"higgins-submit-{case_id}")
 
