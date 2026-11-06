@@ -253,6 +253,97 @@ def _au_domestic_phone_report(plan_: Plan, checks: list[Check], material: dict[s
     }
 
 
+def _shortener_report(plan_: Plan, checks: list[Check], material: dict[str, str],
+                      flyby_item: str, lead_check, shortener_fact: dict, route: str) -> dict:
+    """Dedicated report for a URL shortener submission whose destination ApolloSG could not verify."""
+    host = shortener_fact.get("shortener_host") or lead_check.subject or "this link"
+    original_url = shortener_fact.get("shortener_url") or (lead_check.urls[0] if lead_check.urls else None)
+
+    # Build the bit.ly preview tip only when the host is specifically bit.ly
+    preview_block = ""
+    if host == "bit.ly" and original_url:
+        preview_url = original_url.rstrip("/+") + "+"
+        preview_block = (
+            f"\n\n**Check the destination safely**\n"
+            f"Add a **+** to the end of the URL and open it in a secure browser — Bitly will show you a "
+            f"preview page with the full destination URL and click statistics, without loading the site:\n\n"
+            f"> {preview_url}\n\n"
+            f"Alternatively, paste the full link into a reputable URL safety scanner:\n"
+            f"- **VirusTotal** (virustotal.com)\n"
+            f"- **Bitly Link Checker** (support.bitly.com/hc/en-us/p/link-checker)\n"
+            f"- **Bitdefender Link Checker** (bitdefender.com/link-checker)"
+        )
+    else:
+        preview_block = (
+            f"\n\n**Check the destination safely**\n"
+            f"Paste the full link into a reputable URL safety scanner before opening it:\n"
+            f"- **VirusTotal** (virustotal.com)\n"
+            f"- **Google Transparency Report** (transparencyreport.google.com/safe-browsing/search)\n"
+            f"- **URLScan** (urlscan.io)"
+        )
+
+    explanation = (
+        f"**What was found**\n"
+        f"- {host} is a URL shortener service. The actual destination URL is hidden behind it and cannot be "
+        f"verified from the link alone.\n\n"
+        f"**What it means**\n"
+        f"Shortened links are frequently used in phishing scams and malware distribution to conceal the real "
+        f"destination. ApolloSG cannot confirm where this link leads without following it, so it cannot be cleared.\n\n"
+        f"**Key red flags to look out for**\n"
+        f"- **Unsolicited delivery**: If you received this link unexpectedly via SMS, WhatsApp or email from "
+        f"an unfamiliar sender, do not open it.\n"
+        f"- **Urgency or pressure**: Scams often claim an account is suspended, a delivery failed, or you've "
+        f"won a prize to pressure you into acting immediately.\n"
+        f"- **Mismatched domains**: If the expanded link takes you to a login page or payment form on a "
+        f"random, unfamiliar domain, close the tab immediately."
+        f"{preview_block}\n\n"
+        f"**How ApolloSG checked**\n"
+        + _method(f"{_checked(plan_, ROUTE_LABEL.get(route, 'official source checks'))} "
+                  f"The destination URL cannot be verified without following the link.", checks, not_taken=True)
+    )
+
+    findings = [
+        _finding({"text": f"{host} is a URL shortener service — the actual destination is hidden.",
+                  "sourceIds": []}, [flyby_item], "high"),
+        _finding({"text": "Shortened links are frequently used in phishing scams to obscure the real destination.",
+                  "sourceIds": []}, [flyby_item], "high"),
+    ]
+
+    return {
+        "overview": (
+            f"Treat this link with caution. {host} is a URL shortener — the actual destination is hidden "
+            f"and cannot be verified. Shortened links are frequently used in phishing scams."
+        ),
+        "explanationMarkdown": explanation,
+        "assessment": "concern_found",
+        "outcome": "likely_scam",
+        "attention": "action_needed",
+        "attentionReason": f"The actual destination of this {host} link is hidden and cannot be verified — a common technique used in phishing.",
+        "findings": findings,
+        "uncertainties": [
+            "The actual destination URL — ApolloSG cannot verify where this link leads without following it.",
+            "Whether the message context (sender, accompanying text) adds further risk signals.",
+        ],
+        "scope": _scope(plan_, ROUTE_LABEL.get(route, "official source checks")),
+        "sourceIds": [],
+        "remainingEvidenceIds": [],
+        "actions": [
+            _action("Do not open the link",
+                    f"Do not tap or click {original_url or 'the link'} — you cannot see where it goes."),
+            _action("Check the destination first",
+                    f"If you need to verify it, paste the link into VirusTotal (virustotal.com) or use "
+                    f"the {host} preview ({original_url.rstrip('/+') + '+' if original_url and host == 'bit.ly' else 'shortener preview'}) "
+                    f"to see the destination URL without loading it." if original_url else
+                    "Paste the link into VirusTotal (virustotal.com) to see the destination URL without loading it."),
+            _action("Report it",
+                    "If this arrived unsolicited, report it to Scamwatch at scamwatch.gov.au."),
+        ],
+        "recommendedActionIndex": 0,
+        "question": None,
+        "completion": "complete",
+    }
+
+
 def concern(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, route: str) -> dict:
     decisive = [(c, f) for c, f in _live(checks) if f["decisive"] and f["signal"] == "concern"]
     lead_check, lead = decisive[0]
@@ -267,6 +358,11 @@ def concern(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_it
         if phone_intel.get("topic") == "au_domestic_spam":
             return _au_domestic_phone_report(plan_, checks, material, flyby_item, phone_intel, route)
         return _phone_intel_report(plan_, checks, material, flyby_item, phone_intel, route)
+
+    # ── URL shortener: destination-hidden report ──
+    shortener_fact = next((f for _, f in decisive if f.get("topic") == "shortener"), None)
+    if shortener_fact:
+        return _shortener_report(plan_, checks, material, flyby_item, lead_check, shortener_fact, route)
 
     brand = plan_.entities.brands[0][0] if plan_.entities.brands else None
     findings = [_finding(f, _evidence(c, material, flyby_item), "high") for c, f in decisive]

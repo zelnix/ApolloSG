@@ -406,6 +406,20 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
         check.status, check.route = "resolved", "official_source"
     elif not checked_any and not owner:
         check.facts.append(fact(f"Google Safe Browsing could not be checked for {host}.", "missing", topic="listing"))
+    # A URL shortener hides its destination: if Safe Browsing found nothing malicious, the hidden
+    # destination is itself a concern — the check cannot be cleared without seeing where it leads.
+    from services.urlrisk import SHORTENER_DOMAINS
+    if host.lower() in SHORTENER_DOMAINS and not any(f.get("decisive") and f.get("signal") == "concern" for f in check.facts):
+        first_url = (check.urls or [f"https://{host}/"])[0]
+        shortener_fact = fact(
+            f"{host} is a URL shortener. The actual destination is hidden and cannot be verified from the link alone.",
+            "concern", decisive=True, topic="shortener",
+            source=source_ref("ApolloSG URL analysis", authority="independent",
+                              basis="Known URL shortener service — destination cannot be verified"))
+        shortener_fact["shortener_url"] = first_url
+        shortener_fact["shortener_host"] = host
+        check.facts.append(shortener_fact)
+        check.status, check.route = "resolved", "official_source"
 
 
 def _mismatch(name: str, official: str, place: str, kind: str, detail: str) -> tuple[str, str]:
