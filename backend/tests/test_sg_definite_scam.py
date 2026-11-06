@@ -466,3 +466,157 @@ def test_email_sender_lookalike_is_scam_with_correct_overview():
     assert report.get("outcome") == "scam", (
         f"Report outcome must be 'scam' when S2 fires; got: {report.get('outcome')!r}"
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 11 — Nigerian phone number (+234) → SCAM + phone-intelligence report
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_nigerian_phone_produces_phone_intel_report():
+    """A bare +234 (Nigeria) number → concern() emits the 'Call Identification /
+    Standard Scam Tactics / What You Should Do Now' format."""
+    from services.higgins.tc_flyby.report import concern
+
+    # Build the fact exactly as _add_phone_intel() would produce it.
+    intel_fact: dict = {
+        "text": "This is an international mobile number from Nigeria (Country code +234).",
+        "signal": "concern",
+        "decisive": True,
+        "class": "live_evidence",
+        "source": {"publisher": "Apollo Phone Intelligence", "authority": "independent",
+                   "basis": "Country-code risk assessment — Nigeria (+234)",
+                   "retrieval": "fetched", "checkedAt": "2026-06-01T00:00:00+00:00"},
+        "topic": "high_risk_international",
+        "phone_intel": {
+            "country": "Nigeria",
+            "country_code": "+234",
+            "carrier": "Airtel Nigeria",
+            "series": "0701",
+            "tactics": (
+                "- **The \"Wangiri\" / One-Ring Scam**: They call briefly and hang up, hoping you call back "
+                "out of curiosity. Dialing back international numbers results in high per-minute charges.\n"
+                "- **Impression Scams**: Pretending to be an official entity (banks, delivery services, tech "
+                "support, or remote work opportunities) to harvest personal information or payments.\n"
+                "- **Impersonation/WhatsApp Takeovers**: Messaging you via WhatsApp using an unknown contact "
+                "photo claiming to be an acquaintance in trouble."
+            ),
+        },
+    }
+
+    phone_check = Check(id="c-phone", kind="phone", subject="+2347013123456")
+    phone_check.facts.append(intel_fact)
+    phone_check.status = "resolved"
+    phone_check.route = "official_source"
+
+    plan = _make_plan(checks=[phone_check], has_message=False)
+    plan.channel = "call"
+
+    report = concern(plan, plan.checks, {}, "test-flyby-phone", "tc_flyby_official")
+
+    assert report["overview"] == "Yes, treat this as a high-risk scam call.", (
+        f"Unexpected overview: {report['overview']!r}"
+    )
+    md = report["explanationMarkdown"]
+    assert "Call Identification" in md
+    assert "Standard Scam Tactics" in md
+    assert "What You Should Do Now" in md
+    assert "Nigeria" in md
+    assert "+234" in md
+    assert "Airtel Nigeria" in md
+    assert "0701" in md
+    assert "Wangiri" in md
+    assert "Do Not Call Back" in md
+    assert report["outcome"] == "scam"
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 12 — CommBank SMS phishing (lookalike + credential + message)
+#           → SCAM + "Why This Is a Scam" report
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_commbank_sms_phishing_produces_why_scam_report():
+    """CommBank SMS with commbank-cancel.co + credential request → 'Why This Is a Scam'
+    / 'What You Should Do Now' report format."""
+    from services.higgins.tc_flyby.report import impersonation_result
+
+    lookalike = _live(
+        "commbank-cancel.co carries CommBank's name, but it is not CommBank's domain "
+        "(commbank.com.au) — the name resembles CommBank.",
+        "anomaly", topic="lookalike", place="commbank-cancel.co"
+    )
+    imp_check = _imp_check("CommBank", "commbank.com.au", lookalike)
+    sb_clean = _live("commbank-cancel.co is not listed by Google Safe Browsing.",
+                     "clear", decisive=False, topic="listing")
+
+    cred_request = {
+        "type": "credentials",
+        "quote": "verify your NetBank login details",
+        "context": "verify your NetBank login details at http://commbank-cancel.co/stop",
+        "targets": ["commbank-cancel.co"],
+    }
+    plan = _make_plan(
+        brands=[("CommBank", "commbank.com.au")],
+        hosts=["commbank-cancel.co"],
+        requests=[cred_request],
+        checks=[imp_check, _link_check("commbank-cancel.co", sb_clean)],
+    )
+
+    facts = corroborated_impersonation(plan)
+    assert facts, "corroborated_impersonation must find the lookalike for commbank-cancel.co"
+
+    report = impersonation_result(plan, plan.checks, {}, "test-flyby", facts, outcome="scam")
+
+    assert report["overview"] == "This is a phishing scam. Do not click the link or enter any information.", (
+        f"Unexpected overview: {report['overview']!r}"
+    )
+    md = report["explanationMarkdown"]
+    assert "Why This Is a Scam" in md
+    assert "What You Should Do Now" in md
+    assert "commbank-cancel.co" in md
+    assert "commbank.com.au" in md
+    assert "CommBank" in md
+    assert report["outcome"] == "scam"
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 13 — Bare CommBank phishing URL (link_only)
+#           → "What That Link Does" report
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_bare_commbank_url_produces_what_link_does_report():
+    """Bare commbank-cancel.co URL submission (link_only) → 'What That Link Does'
+    / 'What to Do Right Now' report format."""
+    from services.higgins.tc_flyby.report import impersonation_result
+
+    lookalike = _live(
+        "commbank-cancel.co carries CommBank's name, but it is not CommBank's domain "
+        "(commbank.com.au) — the name resembles CommBank.",
+        "anomaly", topic="lookalike", place="commbank-cancel.co"
+    )
+    imp_check = _imp_check("CommBank", "commbank.com.au", lookalike)
+    sb_clean = _live("commbank-cancel.co is not listed by Google Safe Browsing.",
+                     "clear", decisive=False, topic="listing")
+
+    plan = _make_plan(
+        brands=[("CommBank", "commbank.com.au")],
+        hosts=["commbank-cancel.co"],
+        requests=[],   # No credential request — bare URL only
+        checks=[imp_check, _link_check("commbank-cancel.co", sb_clean)],
+        has_message=False,
+    )
+    plan.link_only = True   # Bare URL submission
+
+    facts = corroborated_impersonation(plan)
+    assert facts, "corroborated_impersonation must find the lookalike for commbank-cancel.co"
+
+    report = impersonation_result(plan, plan.checks, {}, "test-flyby", facts, outcome="likely_scam")
+
+    assert report["overview"] == "Do not click or open that link.", (
+        f"Unexpected overview: {report['overview']!r}"
+    )
+    md = report["explanationMarkdown"]
+    assert "What That Link Does" in md
+    assert "What to Do Right Now" in md
+    assert "commbank-cancel.co" in md
+    assert "CommBank" in md
+    assert report["outcome"] == "likely_scam"

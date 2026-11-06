@@ -120,9 +120,83 @@ def _scope(plan_: Plan, how: str) -> str:
     return f"{_checked(plan_, how)} Nothing was opened or fetched from the destination, no one was contacted and no account was accessed."
 
 
+def _phone_intel_report(plan_: Plan, checks: list[Check], material: dict[str, str],
+                        flyby_item: str, intel: dict, route: str) -> dict:
+    """Custom report for a bare call from a high-risk international number.
+
+    Outputs the structured 'Call Identification / Standard Scam Tactics / What You Should Do Now'
+    format instead of the generic threat report.
+    """
+    country = intel["country"]
+    cc = intel["country_code"]
+    carrier = intel["carrier"]
+    series_note = f" (Mobile series {intel['series']})" if intel.get("series") else ""
+    tactics = intel.get("tactics", "- These numbers are associated with known international scam operations.")
+    findings = [
+        _finding(f, [flyby_item], "high")
+        for c in checks for f in c.facts
+        if f.get("class") == "live_evidence" and f.get("decisive")
+    ]
+    explanation = (
+        f"**Call Identification**\n"
+        f"- **Origin**: {country} (Country code {cc}).\n"
+        f"- **Carrier**: Originally assigned to {carrier}{series_note}.\n"
+        f"- **Identity**: This is an unregistered mobile number from overseas. Unless you "
+        f"personally know someone in {country}, expecting an international delivery, or doing "
+        f"business with a contact there, this call has no legitimate reason to reach your phone.\n\n"
+        f"**Standard Scam Tactics**\n"
+        f"Numbers with the {cc} prefix are frequently used in automated global robocalls, "
+        f"unsolicited WhatsApp/SMS contacts, and multi-stage scams, including:\n"
+        f"{tactics}\n\n"
+        f"**What You Should Do Now**\n"
+        f"> ⚠️ WARNING: Do Not Call Back\n"
+        f"> Calling an unknown international number can result in premium rate charges billed "
+        f"directly to your phone carrier.\n\n"
+        f"- **Do Not Reply or Call Back**: Block the number immediately on your handset and on "
+        f"any messaging apps (like WhatsApp or Telegram).\n"
+        f"- **Do Not Share Information**: If you did answer, never reveal personal details, "
+        f"verification codes, or bank info.\n"
+        f"- **Report & Block**: Mark the call/message as Spam/Block in your phone's default phone app."
+    )
+    return {
+        "overview": "Yes, treat this as a high-risk scam call.",
+        "explanationMarkdown": explanation,
+        "assessment": "concern_found",
+        "outcome": "scam",
+        "attention": "action_needed",
+        "attentionReason": f"This number is from {country} ({cc}) — a high-risk international calling source.",
+        "findings": findings[:8],
+        "uncertainties": ["Whether this number was part of an active scam campaign at the time."],
+        "scope": _scope(plan_, ROUTE_LABEL.get(route, "official source checks")),
+        "sourceIds": [],
+        "remainingEvidenceIds": [],
+        "actions": [
+            _action("Block the number",
+                    "Block the number immediately on your handset and any messaging apps like WhatsApp."),
+            _action("Don't call back",
+                    "Do not call or message the number back — international callback scams charge premium rates."),
+            _action("Report it",
+                    "Mark the call as Spam in your phone's default call app and report it to the ACMA at acma.gov.au."),
+        ],
+        "recommendedActionIndex": 0,
+        "question": None,
+        "completion": "complete",
+    }
+
+
 def concern(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, route: str) -> dict:
     decisive = [(c, f) for c, f in _live(checks) if f["decisive"] and f["signal"] == "concern"]
     lead_check, lead = decisive[0]
+
+    # ── High-risk international phone: custom phone-intelligence report ──────
+    phone_intel = next(
+        (f.get("phone_intel") for _, f in decisive
+         if f.get("topic") == "high_risk_international" and f.get("phone_intel")),
+        None
+    )
+    if phone_intel:
+        return _phone_intel_report(plan_, checks, material, flyby_item, phone_intel, route)
+
     brand = plan_.entities.brands[0][0] if plan_.entities.brands else None
     findings = [_finding(f, _evidence(c, material, flyby_item), "high") for c, f in decisive]
     findings += [_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in _signs(checks) if not f["decisive"]]
@@ -265,6 +339,109 @@ def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], f
                    extra_sources=kb_sources)
 
 
+def _phishing_sms_report(plan_: Plan, checks: list[Check], material: dict[str, str],
+                         flyby_item: str, found_facts: list[dict], place: str,
+                         brand: str, brand_domain: str, cred_req: dict) -> dict:
+    """SMS/message credential-phishing report: 'Why This Is a Scam / What You Should Do Now' format."""
+    # Use first full URL from the submitted material when available, otherwise just the domain.
+    url_ref = (plan_.entities.urls[0] if getattr(plan_.entities, "urls", None) else None) or place
+    findings = [_finding(f, _evidence_for(f.get("place") or place, material, flyby_item),
+                         "high" if f.get("place") else "medium") for f in found_facts]
+    explanation = (
+        f"**Why This Is a Scam**\n"
+        f"- **Fake Domain**: The link ({url_ref}) is a fraudulent website completely unaffiliated "
+        f"with {brand}. Official {brand} links use the official {brand_domain} domain.\n"
+        f"- **Panic and Urgency**: Scammers use fabricated urgent scenarios — like a suspicious "
+        f"high-value transaction in progress — to trigger panic, forcing you to act without thinking.\n"
+        f"- **Credential Harvesting**: The goal of the page is to trick you into entering your "
+        f"{brand} login credentials. {brand} will never ask for your password via a text message link.\n\n"
+        f"**What You Should Do Now**\n"
+        f"- **Do Not Click the Link**: If you already clicked it, do not enter any passwords or personal details.\n"
+        f"- **Delete the Message**: Remove the text from your phone and block the sender.\n"
+        f"- **Check Your Account Securely**: If you are genuinely worried about your account, open "
+        f"the official {brand} app directly on your phone or type {brand_domain} into your browser — "
+        f"never use the link from this message.\n"
+        f"- **Contact the Bank if Needed**: If you accidentally entered your password or any banking "
+        f"details on that link, contact {brand} immediately using the number on your card or statement "
+        f"to secure your accounts."
+    )
+    return {
+        "overview": "This is a phishing scam. Do not click the link or enter any information.",
+        "explanationMarkdown": explanation,
+        "assessment": "concern_found",
+        "outcome": "scam",
+        "attention": "action_needed",
+        "attentionReason": f"The link ({place}) is a fraudulent website unaffiliated with {brand}.",
+        "findings": findings[:8],
+        "uncertainties": [_PAGE_UNOPENED],
+        "scope": _scope(plan_, _routes(checks)),
+        "sourceIds": sorted({s for f in findings for s in f["sourceIds"]}),
+        "remainingEvidenceIds": [],
+        "actions": [
+            _action("Don't click the link", f"Don't open {place} and don't enter anything on it."),
+            _action("Delete the message", "Remove the message from your phone and block the sender."),
+            _action(f"Contact {brand} yourself",
+                    f"If concerned, contact {brand} using their official app, a website address you "
+                    f"type yourself, or the number on your card or statement."),
+            _action("Report it",
+                    "Report it to Scamwatch at scamwatch.gov.au. "
+                    "If you've already entered details, contact the organisation now."),
+        ],
+        "recommendedActionIndex": 0,
+        "question": None,
+        "completion": "complete",
+    }
+
+
+def _phishing_url_report(plan_: Plan, checks: list[Check], material: dict[str, str],
+                         flyby_item: str, found_facts: list[dict], place: str,
+                         brand: str, brand_domain: str, outcome: str) -> dict:
+    """Bare-URL phishing report: 'What That Link Does / What to Do Right Now' format."""
+    findings = [_finding(f, _evidence_for(f.get("place") or place, material, flyby_item),
+                         "high" if f.get("place") else "medium") for f in found_facts]
+    explanation = (
+        f"This URL ({place}) is linked to a phishing campaign targeting {brand} customers.\n\n"
+        f"**What That Link Does**\n"
+        f"- **Credential Theft**: It leads to a fake replica of the {brand} login portal, designed "
+        f"specifically to trick you into entering your {brand} login credentials.\n"
+        f"- **Account Compromise**: If you visit that page and enter your details, scammers will "
+        f"capture your login credentials in real-time and immediately take control of your accounts "
+        f"to steal your funds.\n\n"
+        f"**What to Do Right Now**\n"
+        f"- **Close the Browser Tab**: If you have already opened the link, close the window "
+        f"immediately without interacting with any forms or fields on the page.\n"
+        f"- **Delete the URL**: Remove it from your browser history if possible.\n"
+        f"- **Contact {brand} Immediately**: If you already entered any details on that site, "
+        f"contact {brand} immediately using the number on your card or statement to freeze your "
+        f"accounts and secure your money."
+    )
+    return {
+        "overview": "Do not click or open that link.",
+        "explanationMarkdown": explanation,
+        "assessment": outcomes.ASSESSMENT.get(outcome, "concern_found"),
+        "outcome": outcome,
+        "attention": "action_needed",
+        "attentionReason": f"The link ({place}) is a fraudulent website unaffiliated with {brand}.",
+        "findings": findings[:8],
+        "uncertainties": [_PAGE_UNOPENED],
+        "scope": _scope(plan_, _routes(checks)),
+        "sourceIds": sorted({s for f in findings for s in f["sourceIds"]}),
+        "remainingEvidenceIds": [],
+        "actions": [
+            _action("Don't open the link", f"Don't open {place} and don't enter anything on it."),
+            _action(f"Contact {brand} yourself",
+                    f"Contact {brand} using their official app, a website address you type yourself, "
+                    f"or the number on your card or statement."),
+            _action("Report it",
+                    "Report it to Scamwatch at scamwatch.gov.au. "
+                    "If you've already entered details, contact the organisation now."),
+        ],
+        "recommendedActionIndex": 0,
+        "question": None,
+        "completion": "complete",
+    }
+
+
 def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str,
                          facts: list[dict], outcome: str = "likely_scam") -> dict:
     """The material uses an organisation's name via a lookalike domain.
@@ -333,6 +510,22 @@ def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, s
         uncertainties = [_who(plan_)]
     else:
         # ── URL/link lookalike ────────────────────────────────────────────────
+        # Bare-link submission: use the dedicated URL-phishing report format.
+        if plan_.link_only:
+            return _phishing_url_report(plan_, checks, material, flyby_item,
+                                        facts, place, brand, brand_domain, outcome)
+
+        # Credential-phishing SMS/message (definitive scam + credential request):
+        # use the 'Why This Is a Scam / What You Should Do Now' format.
+        if outcome == "scam":
+            cred_req = next(
+                (r for r in (plan_.entities.requests or []) if r["type"] == "credentials"),
+                None
+            )
+            if cred_req:
+                return _phishing_sms_report(plan_, checks, material, flyby_item,
+                                            facts, place, brand, brand_domain, cred_req)
+
         if support:
             overview = (
                 f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "

@@ -87,6 +87,67 @@ def pregathered(pe: dict | None) -> dict:
 
 KNOWN_SECTIONS = {"safe_browsing", "rdap", "redirects", "ipqs", "download_links", "scam_intel", "_summary", "hibp", "email_authentication"}
 
+# ── High-risk international calling country codes ────────────────────────────
+# A bare call from one of these triggers a phone-intelligence report.
+_HIGH_RISK_COUNTRIES: dict[str, dict] = {
+    "NG": {   # Nigeria
+        "name": "Nigeria",
+        "country_code": "+234",
+        "tactics": (
+            "- **The \"Wangiri\" / One-Ring Scam**: They call briefly and hang up, hoping you call back "
+            "out of curiosity. Dialing back international numbers results in high per-minute charges.\n"
+            "- **Impression Scams**: Pretending to be an official entity (banks, delivery services, tech "
+            "support, or remote work opportunities) to harvest personal information or payments.\n"
+            "- **Impersonation/WhatsApp Takeovers**: Messaging you via WhatsApp using an unknown contact "
+            "photo claiming to be an acquaintance in trouble."
+        ),
+    },
+}
+
+
+def _add_phone_intel(check: Check) -> None:
+    """Add a phone-intelligence finding for bare calls from high-risk international country codes.
+    Only called when no stronger verdict (ASIC listing, official org number) was established first."""
+    try:
+        import phonenumbers
+        from phonenumbers import carrier as _pn_carrier
+        parsed = phonenumbers.parse(check.subject, None)
+        if not phonenumbers.is_valid_number(parsed):
+            return
+        region = phonenumbers.region_code_for_number(parsed)
+        country_info = _HIGH_RISK_COUNTRIES.get(region)
+        if not country_info:
+            return
+        carrier_name = _pn_carrier.name_for_number(parsed, "en") or "Unknown carrier"
+        country_name = country_info["name"]
+        # Append country name to carrier string when it isn't already present.
+        carrier_full = (carrier_name if country_name.lower() in carrier_name.lower()
+                        else f"{carrier_name} {country_name}")
+        national_str = str(parsed.national_number)
+        series = "0" + national_str[:3] if len(national_str) >= 3 else ""
+        intel_fact = fact(
+            f"This is an international mobile number from {country_name} "
+            f"(Country code {country_info['country_code']}).",
+            "concern", decisive=True, topic="high_risk_international",
+            source=source_ref(
+                "Apollo Phone Intelligence",
+                authority="independent",
+                basis=f"Country-code risk assessment — {country_name} ({country_info['country_code']})"
+            )
+        )
+        intel_fact["phone_intel"] = {
+            "country": country_name,
+            "country_code": country_info["country_code"],
+            "carrier": carrier_full,
+            "series": series,
+            "tactics": country_info["tactics"],
+        }
+        check.facts.append(intel_fact)
+        check.status = "resolved"
+        check.route = "official_source"
+    except Exception:  # noqa: BLE001
+        pass
+
 
 def unread_sections(pe: dict | None) -> dict:
     """Pre-gathered results TC FlyBy has no reader for. They are passed on verbatim so nothing is lost."""
@@ -325,6 +386,11 @@ async def _phone(check: Check, pg: dict, plan_: Plan | None = None) -> None:
                                 + ("; recent abuse is reported" if info.get("recent_abuse") else "") + f" (carrier: {info.get('carrier', 'unknown')}).",
                                 "weak" if risky else "neutral",
                                 source=source_ref("IPQualityScore", authority="independent", basis="Commercial phone reputation lookup")))
+
+    # If no decisive verdict was established by any of the above checks, apply high-risk
+    # international phone intelligence (country-code based classification).
+    if check.status == "open":
+        _add_phone_intel(check)
 
 
 async def _email(check: Check, plan_: Plan, pg: dict | None = None) -> None:

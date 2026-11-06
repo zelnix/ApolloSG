@@ -517,7 +517,7 @@ async def test_a_lookalike_bare_link_follows_the_same_rule(monkeypatch):
     _lookups(monkeypatch)
     _owner, case, response, _ = await _case([("url", "https://commbank-secure-login.net/")], message="Is this link safe?")
     assert calls == [] and response["outcome"] == "likely_scam"
-    assert "carries CommBank's name" in response["overview"]
+    assert response["overview"] == "Do not click or open that link."
 
 
 async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini(monkeypatch):
