@@ -176,6 +176,14 @@ _HIGH_RISK_COUNTRIES: dict[str, dict] = {
 }
 
 
+_AU_AREA_REGIONS: dict[str, str] = {
+    "2": "New South Wales / ACT",
+    "3": "Victoria / Tasmania",
+    "7": "Queensland",
+    "8": "South Australia / Western Australia / Northern Territory",
+}
+
+
 def _add_phone_intel(check: Check) -> None:
     """Add a phone-intelligence finding for bare calls from high-risk international country codes.
     Only called when no stronger verdict (ASIC listing, official org number) was established first."""
@@ -212,6 +220,52 @@ def _add_phone_intel(check: Check) -> None:
             "carrier": carrier_full,
             "series": series,
             "tactics": country_info["tactics"],
+        }
+        check.facts.append(intel_fact)
+        check.status = "resolved"
+        check.route = "official_source"
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _add_au_domestic_phone_intel(check: Check) -> None:
+    """Add a 'High spam probability' finding for unrecognised Australian domestic numbers.
+    Only called when no stronger verdict (ASIC listing, official org number, international
+    high-risk) was established first.  Parses with an AU country hint so domestic formats
+    (03..., 04..., etc.) are handled even without a leading '+'.
+    """
+    try:
+        import phonenumbers
+        from phonenumbers import PhoneNumberType
+        # Use "AU" as the default-country hint so trunk-prefixed numbers parse correctly.
+        parsed = phonenumbers.parse(check.subject, "AU")
+        if not phonenumbers.is_valid_number(parsed):
+            return
+        region = phonenumbers.region_code_for_number(parsed)
+        if region != "AU":
+            return
+        num_type = phonenumbers.number_type(parsed)
+        national_str = str(parsed.national_number)
+        area_key = national_str[0] if national_str else ""
+        is_mobile = num_type in (PhoneNumberType.MOBILE, PhoneNumberType.FIXED_LINE_OR_MOBILE)
+        type_label = "mobile" if is_mobile else "landline"
+        region_label = _AU_AREA_REGIONS.get(area_key, "Australia")
+        intel_fact = fact(
+            f"This is an Australian domestic {type_label} number.",
+            "concern", decisive=True, topic="au_domestic_spam",
+            source=source_ref(
+                "Apollo Phone Intelligence",
+                authority="independent",
+                basis=f"Australian domestic phone number assessment — {region_label}"
+            )
+        )
+        intel_fact["phone_intel"] = {
+            "country": "Australia",
+            "country_code": "+61",
+            "type": type_label,
+            "region": region_label,
+            "area_key": area_key,
+            "topic": "au_domestic_spam",
         }
         check.facts.append(intel_fact)
         check.status = "resolved"
@@ -462,6 +516,12 @@ async def _phone(check: Check, pg: dict, plan_: Plan | None = None) -> None:
     # international phone intelligence (country-code based classification).
     if check.status == "open":
         _add_phone_intel(check)
+    # If still unresolved AND the case is a bare call submission, apply the Australian
+    # domestic spam probability assessment.  The guard on `channel == "call"` is essential:
+    # a phone number appearing in a text/SMS (e.g. a PayID target) must NOT be pre-emptively
+    # settled here — those cases need Magnum DI's deeper analysis.
+    if check.status == "open" and plan_ is not None and getattr(plan_, "channel", None) == "call":
+        _add_au_domestic_phone_intel(check)
 
 
 async def _email(check: Check, plan_: Plan, pg: dict | None = None) -> None:

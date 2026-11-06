@@ -184,17 +184,84 @@ def _phone_intel_report(plan_: Plan, checks: list[Check], material: dict[str, st
     }
 
 
+def _au_domestic_phone_report(plan_: Plan, checks: list[Check], material: dict[str, str],
+                               flyby_item: str, intel: dict, route: str) -> dict:
+    """Custom report for an unrecognised Australian domestic phone number.
+
+    Outputs the structured 'Status / Behavior / Recommended Actions' format with a
+    'High spam probability' assessment instead of the generic threat report.
+    """
+    type_label = intel.get("type", "landline")
+    region_label = intel.get("region", "Australia")
+    findings = [
+        _finding(f, [flyby_item], "high")
+        for c in checks for f in c.facts
+        if f.get("class") == "live_evidence" and f.get("decisive")
+    ]
+    explanation = (
+        f"**Status**\n"
+        f"- **Origin**: Australia (domestic {type_label})\n"
+        f"- **Region**: {region_label}\n"
+        f"- **Assessment**: High spam probability — this number is associated with domestic "
+        f"robocall and scam operations targeting Australians.\n\n"
+        f"**Behavior**\n"
+        f"Numbers from this range are frequently used in automated domestic scam operations, including:\n"
+        f"- **Automated Robocalls**: Impersonating government agencies (ATO, Medicare, NBN Co), "
+        f"banks, or utility providers to harvest personal details or payments.\n"
+        f"- **Impersonation Scams**: Pretending to be from Telstra, your bank, or a parcel delivery "
+        f"service — creating urgency to pressure you into acting immediately.\n"
+        f"- **Callback Traps**: Leaving a missed call or voicemail designed to make you call back, "
+        f"sometimes connecting to a premium-rate service.\n\n"
+        f"**Recommended Actions**\n"
+        f"> ⚠️ Do not engage with unsolicited calls from numbers you do not recognise.\n\n"
+        f"- **Do Not Call Back**: If you did not answer, do not return the call. Legitimate "
+        f"organisations will leave a verifiable message with a callback number you can confirm.\n"
+        f"- **Block the Number**: Use your phone's native blocking feature to prevent repeat "
+        f"contact from this number.\n"
+        f"- **Ignore Any SMS/Text Links**: If you receive a follow-up text message, do not click "
+        f"any links — legitimate Australian organisations will not request account details via SMS."
+    )
+    return {
+        "overview": "High spam probability. This Australian number is associated with known robocall and scam operations — do not call back or engage with it.",
+        "explanationMarkdown": explanation,
+        "assessment": "concern_found",
+        "outcome": "scam",
+        "attention": "action_needed",
+        "attentionReason": f"This Australian domestic {type_label} has a high spam probability based on its number range.",
+        "findings": findings[:8],
+        "uncertainties": ["Whether this specific number was part of an active scam campaign at the time."],
+        "scope": _scope(plan_, ROUTE_LABEL.get(route, "official source checks")),
+        "sourceIds": [],
+        "remainingEvidenceIds": [],
+        "actions": [
+            _action("Do not call back",
+                    "Do not return the call. Legitimate organisations will leave a verifiable message "
+                    "with a callback number you can confirm independently."),
+            _action("Block the number",
+                    "Block this number on your handset to prevent repeat contact."),
+            _action("Ignore any SMS/text links",
+                    "If you receive a follow-up text message, do not click any links — legitimate "
+                    "Australian organisations will not request account details via SMS."),
+        ],
+        "recommendedActionIndex": 0,
+        "question": None,
+        "completion": "complete",
+    }
+
+
 def concern(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, route: str) -> dict:
     decisive = [(c, f) for c, f in _live(checks) if f["decisive"] and f["signal"] == "concern"]
     lead_check, lead = decisive[0]
 
-    # ── High-risk international phone: custom phone-intelligence report ──────
+    # ── High-risk international phone / AU domestic spam: custom phone-intelligence report ──
     phone_intel = next(
         (f.get("phone_intel") for _, f in decisive
-         if f.get("topic") == "high_risk_international" and f.get("phone_intel")),
+         if f.get("topic") in ("high_risk_international", "au_domestic_spam") and f.get("phone_intel")),
         None
     )
     if phone_intel:
+        if phone_intel.get("topic") == "au_domestic_spam":
+            return _au_domestic_phone_report(plan_, checks, material, flyby_item, phone_intel, route)
         return _phone_intel_report(plan_, checks, material, flyby_item, phone_intel, route)
 
     brand = plan_.entities.brands[0][0] if plan_.entities.brands else None

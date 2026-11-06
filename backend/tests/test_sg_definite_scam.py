@@ -671,3 +671,85 @@ def test_abc_news_newsletter_classifies_as_not_scam_with_why_safe_report():
     assert "ABC News" in md
     # Must NOT fall through to the generic "isn't proof it's genuine" path
     assert "isn't proof it's genuine" not in report["overview"]
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 15 — Australian domestic landline (03 9996 8074)
+#           → concern() emits 'Status / Behavior / Recommended Actions'
+#             with 'High spam probability'
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_au_domestic_landline_produces_high_spam_report():
+    """Australian domestic landline (03 9996 8074 → 0399968074) → concern() emits the
+    'Status / Behavior / Recommended Actions' format with 'High spam probability' overview."""
+    from services.higgins.tc_flyby.report import concern
+
+    # Build the fact exactly as _add_au_domestic_phone_intel() would produce it.
+    intel_fact: dict = {
+        "text": "This is an Australian domestic landline number.",
+        "signal": "concern",
+        "decisive": True,
+        "class": "live_evidence",
+        "source": {
+            "publisher": "Apollo Phone Intelligence",
+            "authority": "independent",
+            "basis": "Australian domestic phone number assessment — Victoria / Tasmania",
+            "retrieval": "fetched",
+            "checkedAt": "2026-06-01T00:00:00+00:00",
+        },
+        "topic": "au_domestic_spam",
+        "phone_intel": {
+            "country": "Australia",
+            "country_code": "+61",
+            "type": "landline",
+            "region": "Victoria / Tasmania",
+            "area_key": "3",
+            "topic": "au_domestic_spam",
+        },
+    }
+
+    phone_check = Check(id="c-phone", kind="phone", subject="0399968074")
+    phone_check.facts.append(intel_fact)
+    phone_check.status = "resolved"
+    phone_check.route = "official_source"
+
+    plan = _make_plan(checks=[phone_check], has_message=False)
+    plan.channel = "call"
+
+    report = concern(plan, plan.checks, {}, "test-flyby-phone", "tc_flyby_official")
+
+    # --- Overview must contain the key phrase ---
+    assert "High spam probability" in report["overview"], (
+        f"Overview must contain 'High spam probability'; got: {report['overview']!r}"
+    )
+
+    # --- Explanation must have all three sections ---
+    md = report["explanationMarkdown"]
+    assert "**Status**" in md, f"Missing '**Status**' section.\nmd={md!r}"
+    assert "**Behavior**" in md, f"Missing '**Behavior**' section.\nmd={md!r}"
+    assert "**Recommended Actions**" in md, f"Missing '**Recommended Actions**' section.\nmd={md!r}"
+
+    # --- Recommended action copy ---
+    md_lower = md.lower()
+    assert "do not call back" in md_lower, f"Missing 'Do Not Call Back' copy.\nmd={md!r}"
+    assert "block" in md_lower, f"Missing 'Block' copy.\nmd={md!r}"
+    assert ("sms" in md_lower or "text" in md_lower), f"Missing SMS/text copy.\nmd={md!r}"
+
+    # --- Australian context ---
+    assert "Australia" in md, f"Missing 'Australia' in explanation.\nmd={md!r}"
+    assert "Victoria" in md, f"Missing region label in explanation.\nmd={md!r}"
+
+    # --- Outcome ---
+    assert report["outcome"] == "scam", f"Unexpected outcome: {report['outcome']!r}"
+
+    # --- Actions list must have the three expected items ---
+    action_labels = [a["label"].lower() for a in report["actions"]]
+    assert any("call back" in lbl for lbl in action_labels), (
+        f"Missing 'Do not call back' action.\nactions={action_labels}"
+    )
+    assert any("block" in lbl for lbl in action_labels), (
+        f"Missing 'Block' action.\nactions={action_labels}"
+    )
+    assert any("sms" in lbl or "text" in lbl for lbl in action_labels), (
+        f"Missing SMS/text action.\nactions={action_labels}"
+    )
