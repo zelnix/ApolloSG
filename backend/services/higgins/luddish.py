@@ -47,6 +47,8 @@ def hold(text: str) -> tuple[str, list[str]]:
 
 
 def restore(text: str, held: list[str]) -> str:
+    # Up to 4 passes: a held item can itself contain a marker (e.g. a URL inside a quoted phrase).
+    # Each pass resolves one nesting level; real inputs never exceed two.
     for _ in range(4):
         if not _MARK.search(text):
             break
@@ -65,8 +67,26 @@ def words(text: str) -> list[str]:
 
 # ── grammar.ts ──
 _SWAPPED = "\x01"
-_SWAPS = [(re.compile(rf"(?<![\w'-]){re.escape(formal)}(?![\w'-])", re.I | re.A), plain, bool(re.search(r"n't\b", plain)))
-          for formal, plain in sorted(_DATA["plainSwaps"], key=lambda s: -len(s[0]))]
+
+
+class _Swap:
+    """One plain-language swap rule: the compiled pattern, the plain replacement, and whether
+    the plain form itself contains a contraction (e.g. "can't") — used to decide when to
+    expand it back to its full negative form for strong/headline contexts."""
+    __slots__ = ("pattern", "plain", "shortens")
+
+    def __init__(self, pattern: re.Pattern[str], plain: str, shortens: bool) -> None:
+        self.pattern, self.plain, self.shortens = pattern, plain, shortens
+
+
+_SWAPS: list[_Swap] = [
+    _Swap(
+        pattern=re.compile(rf"(?<![\w'-]){re.escape(formal)}(?![\w'-])", re.I | re.A),
+        plain=plain,
+        shortens=bool(re.search(r"n't\b", plain)),
+    )
+    for formal, plain in sorted(_DATA["plainSwaps"], key=lambda s: -len(s[0]))
+]
 _TERMS = [(re.compile(rf"(?<![\w-])(?:{t['match']})(?![\w-])", re.A | (0 if t["exactCase"] else re.I)), t["one"], t["many"])
           for t in _DATA["plainTerms"]]
 _INSTRUCTION_BEFORE = re.compile(r"(?:^|[.!?:;,(—–]\s*|\b(?:and|or|then|please|but|so|just|also)\s+)\Z", re.I | re.A)
@@ -75,7 +95,11 @@ _ARTICLE = re.compile(rf"\b(an?|An?) {_SWAPPED}([A-Za-z])", re.A)
 
 
 def _full_not(plain: str) -> str:
-    return re.sub(r"n't\b", " not", re.sub(r"\bwon't\b", "will not", re.sub(r"\bcan't\b", "cannot", plain, count=1), count=1), count=1)
+    """Expand contractions to their full negative form: can't → cannot, won't → will not, didn't → did not."""
+    out = re.sub(r"\bcan't\b", "cannot",   plain, count=1)
+    out = re.sub(r"\bwon't\b", "will not", out,   count=1)
+    out = re.sub(r"n't\b",     " not",     out,   count=1)
+    return out
 
 
 def _keeps_full_not(match: str, before: str, strong: bool) -> bool:
@@ -88,13 +112,13 @@ def _cased(original: str, plain: str) -> str:
 
 def _swap_held(text: str, strong: bool = False) -> str:
     out = text
-    for rx, plain, shortens in _SWAPS:
-        def swap_one(m: re.Match, plain: str = plain, shortens: bool = shortens) -> str:
+    for sw in _SWAPS:
+        def swap_one(m: re.Match, plain: str = sw.plain, shortens: bool = sw.shortens) -> str:
             word = m.group(0)
             if not shortens or not _keeps_full_not(word, m.string[: m.start()], strong):
                 return _SWAPPED + _cased(word, plain)
             return word if re.search("not", word, re.I) else _SWAPPED + _cased(word, _full_not(plain))
-        out = rx.sub(swap_one, out)
+        out = sw.pattern.sub(swap_one, out)
     for rx, one, many in _TERMS:
         out = rx.sub(lambda m, one=one, many=many: _SWAPPED + _cased(m.group(0), many if many and m.group(0)[-1:].lower() == "s" else one), out)
 
@@ -114,14 +138,18 @@ _CODE_WORD = re.compile(r"\b[a-z]+(?:_[a-z]+)+\b", re.A)
 
 
 def _tidy(line: str) -> str:
+    # snake_case tokens → spaced words
     out = _CODE_WORD.sub(lambda m: m.group(0).replace("_", " "), line)
+    # Whitespace normalisation
     out = re.sub(r"[ \t]{2,}", " ", out)
     out = re.sub(r"\s+([,.;:!?])(?=\s|\Z|[A-Z])", r"\1", out)
     out = re.sub(r"([a-z])([.!?])(?=[A-Z][a-z])", r"\1\2 ", out)
+    # Punctuation deduplication
     out = re.sub(r",{2,}", ",", out)
     out = re.sub(r"(?<!\.)\.\.(?!\.)", ".", out)
     out = re.sub(r"([!?]){2,}", r"\1", out)
     out = _SMALL_DOUBLES.sub(r"\1", out)
+    # Capitalisation fixes
     out = re.sub(r"(^|[.!?]\s+)However,\s+", r"\1But ", out)
     out = re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), out)
     return out.strip()
@@ -166,7 +194,8 @@ def rewrite_line(line: str, strong: bool = False) -> str:
         return line
     prefix = _PREFIX.match(line).group(0)
     held, kept = hold(line[len(prefix):])
-    parts = [s.strip() for s in re.split(r"(?<=[.!?])\s+", _tidy(_swap_held(held, strong))) if s.strip()]
+    tidied = _tidy(_swap_held(held, strong))
+    parts  = [s.strip() for s in re.split(r"(?<=[.!?])\s+", tidied) if s.strip()]
     out = [piece for part in parts for piece in _split(part)]
     if len(out) > len(parts) and re.search(r"[A-Za-z0-9_\x00]\Z", out[-1]):
         out[-1] += "."
@@ -179,6 +208,13 @@ _STOP = set(("a an the this that these those it its is are was were be been bein
 _NEGATIONS = {"not", "no", "never", "nothing", "none", "nobody", "nowhere", "neither", "nor", "without"}
 _CAUSAL = re.compile(r"\b(because|so|therefore|as a result|which means|that's why|that is why|hence|thus|since)\b", re.I | re.A)
 _QUOTE = re.compile(r"“[^”\n]{1,500}”|\"[^\"\n]{1,500}\"")
+
+
+# Semantic-similarity thresholds used in differences().
+# Meaning is considered changed if fewer than 85 % of the original's key words survive in the
+# plain version, or if more than 25 % of the plain version's key words are brand-new additions.
+_MEANING_RETENTION_FLOOR  = 0.85
+_MEANING_ADDITION_CEILING = 0.25
 
 
 def _stem(word: str) -> str:
@@ -220,7 +256,8 @@ def differences(original: str, rendered: str) -> list[str]:
     out += ["QUOTE_ALTERED" for q in _QUOTE.findall(original) if q not in rendered]
     a, b = _canon(original), _canon(rendered)
     sa, sb = set(a), set(b)
-    if sa and (len(sa & sb) / len(sa) < 0.85 or (sb and len(sb - sa) / len(sb) > 0.25)):
+    if sa and (len(sa & sb) / len(sa) < _MEANING_RETENTION_FLOOR
+               or (sb and len(sb - sa) / len(sb) > _MEANING_ADDITION_CEILING)):
         out.append("MEANING_CHANGED")
     if sum(w in _NEGATIONS for w in a) != sum(w in _NEGATIONS for w in b):
         out.append("NEGATION_CHANGED")
