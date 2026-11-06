@@ -113,7 +113,9 @@ async def test_a_real_lookalike_is_still_a_warning_sign():
     plan = await _run_stage_one("eBay: confirm your account at https://signin-ebay.com.au/verify")
     found = [f for _, f in signals(plan)]
     assert any(f.get("topic") == "lookalike" and "the name has other words added to it" in f["text"] for f in found)
-    assert provisional(plan).outcome == "concerning"
+    # "concerning" was the legacy outcome string; the current system uses "likely_scam"
+    # (outcomes.py: "concerning → likely_scam (historical records only)").
+    assert provisional(plan).outcome == "likely_scam"
 
 
 def test_preview_analysis_and_triage_engine_use_the_same_rule():
