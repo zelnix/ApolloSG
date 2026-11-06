@@ -520,6 +520,20 @@ def n1_genuine_identity(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
                           evidence=ipdmc.identity_evidence,
                           reason="Identity claim not verified — investigation found concerns.")
 
+    # No positive verification, but also no identity conflicts found.
+    # If the impersonation check ran and found no anomaly, lookalike or freemail signal, there is
+    # no identity conflict for N1 to flag — treat as not_applicable rather than "unknown".
+    any_concern_flag = any(
+        f["signal"] in ("concern", "anomaly")
+        and f.get("topic") in ("impersonation", "lookalike", "shared_service", "freemail")
+        for c in impersonation_checks
+        for f in c.facts
+        if f.get("class") == "live_evidence"
+    )
+    if not any_concern_flag:
+        return RuleResult("N1", True, "not_applicable",
+                          reason="Impersonation checks found no identity conflicts — no anomaly, lookalike or freemail detected.")
+
     return RuleResult("N1", False, "unknown",
                       reason="Identity relevant but could not be verified.")
 

@@ -620,3 +620,54 @@ def test_bare_commbank_url_produces_what_link_does_report():
     assert "commbank-cancel.co" in md
     assert "CommBank" in md
     assert report["outcome"] == "likely_scam"
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 14 — ABC News legitimate newsletter → NOT SCAM + "Why This Looks Safe"
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_abc_news_newsletter_classifies_as_not_scam_with_why_safe_report():
+    """A clean, all-clear submission with official domain and no credential requests should
+    classify as 'not_scam' via the N1 no-conflict path and generate 'Why This Looks Safe'."""
+    from services.higgins.tc_flyby.report import clear
+    from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
+
+    # Simulate: Safe Browsing clear + established registration for abc.net.au
+    sb_clear = _live("abc.net.au is not listed by Google Safe Browsing.",
+                     "clear", decisive=False, topic="listing")
+    rdap_neutral = _live("abc.net.au is registered to Australian Broadcasting Corporation Ltd "
+                         "(registered: 1996, expires: 2027).",
+                         "neutral", decisive=False, topic="registration")
+
+    imp_check = _imp_check("ABC News", "abc.net.au")  # No anomaly, no clear — unknown identity
+    link_check = _link_check("abc.net.au", sb_clear, rdap_neutral, resolved=True)
+
+    plan = _make_plan(
+        brands=[("ABC News", "abc.net.au")],
+        hosts=["abc.net.au"],
+        requests=[],
+        checks=[imp_check, link_check],
+    )
+
+    # --- Classification ---
+    result = rules_evaluate(plan)
+    assert result.finding == "not_scam", (
+        f"ABC News newsletter with clean abc.net.au should be 'not_scam'; got {result.finding!r}.\n"
+        f"N rule details: {[(r.rule, r.passed, r.status, r.reason) for r in result.n_rules]}"
+    )
+
+    # --- Report content ---
+    from services.higgins.tc_flyby.decide import Decision
+    report = clear(plan, plan.checks, {}, "test-flyby", "tc_flyby_official")
+
+    assert report["outcome"] == "not_scam"
+    assert report["overview"] == "This is not a scam.", (
+        f"Unexpected overview: {report['overview']!r}"
+    )
+    md = report["explanationMarkdown"]
+    assert "Why This Looks Safe" in md
+    assert "Safety Tip" in md
+    assert "abc.net.au" in md
+    assert "ABC News" in md
+    # Must NOT fall through to the generic "isn't proof it's genuine" path
+    assert "isn't proof it's genuine" not in report["overview"]

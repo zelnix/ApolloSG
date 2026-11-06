@@ -265,15 +265,68 @@ def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item
         means = ("These checks look at who runs the address and whether any safety list or warning names it. They don't show what the page asks "
                  "you to do, so still never enter passwords or codes on a page you reached from a message.")
         uncertainties = [_PAGE_UNOPENED]
+        found_lines = "\n".join(f"- {f['text']}" for _, f in facts) or "- No warning signs in anything Apollo checked."
+        explanation = (f"**What was found**\n{found_lines}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
+                       + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Nothing in it needed Magnum DI's deeper analysis.", checks, not_taken=False))
     else:
-        overview = ("Apollo's checks found no scam indicators in what you sent. That isn't proof it's genuine — only that these checks found "
-                    "nothing, and it doesn't ask you to send money, codes or details anywhere that hasn't been verified.")
-        means = (f"{_what_was_checked(checks)} Checks like these can't confirm who sent it, so if anything about it feels off, contact the person "
-                 "or organisation using details you already have.")
-        uncertainties = [_who(plan_)]
-    found = "\n".join(f"- {f['text']}" for _, f in facts) or "- No warning signs in anything Apollo checked."
-    explanation = (f"**What was found**\n{found}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
-                   + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Nothing in it needed Magnum DI's deeper analysis.", checks, not_taken=False))
+        brand = plan_.entities.brands[0][0] if plan_.entities.brands else None
+        domains = plan_.entities.hosts[:3]
+
+        if domains or brand:
+            # ── "Why This Looks Safe" format — triggered when there are actual entities ──
+            why_bullets: list[str] = []
+
+            # 1. Domain legitimacy
+            if domains:
+                domain_text = " and ".join(domains[:2])
+                if brand:
+                    why_bullets.append(
+                        f"**Legitimate Domain**: The link goes to {domain_text}, the official {brand} "
+                        f"domain, and it isn't listed on any threat or safety alert list Apollo checked."
+                    )
+                else:
+                    why_bullets.append(
+                        f"**Clean Domain**: The link goes to {domain_text}, which isn't listed on "
+                        f"any threat or safety alert list Apollo checked."
+                    )
+
+            # 2. No credential/payment requests
+            if not any(r["type"] == "credentials" for r in (plan_.entities.requests or [])):
+                why_bullets.append(
+                    "**No Suspicious Requests**: The message doesn't ask you to enter passwords, "
+                    "codes, card details, or make a payment."
+                )
+
+            # 3. Clean safety checks (always shown)
+            why_bullets.append(
+                "**Clean Safety Checks**: None of Apollo's threat lists, blocklists, or government "
+                "alert lists returned a result for this submission."
+            )
+
+            why_md = "\n".join(f"- {b}" for b in why_bullets)
+            domain_tip = f" to {' or '.join(domains[:2])}" if domains else ""
+            safety_tip = (
+                f"Even when receiving legitimate-looking messages, make sure any link you click "
+                f"actually directs{domain_tip} in your browser's address bar before you interact with it."
+            )
+            body_intro = (
+                "This appears to be a legitimate message. No immediate signs of a scam were found "
+                "in what you sent."
+            )
+            explanation = f"{body_intro}\n\n**Why This Looks Safe**\n{why_md}\n\n**Safety Tip**\n{safety_tip}"
+            overview = "This is not a scam."
+            uncertainties = [_who(plan_)]
+        else:
+            # ── Generic "nothing to look up" format — no links or brands in message ──
+            overview = ("Apollo's checks found no scam indicators in what you sent. That isn't proof it's genuine — only that these checks found "
+                        "nothing, and it doesn't ask you to send money, codes or details anywhere that hasn't been verified.")
+            means = (f"{_what_was_checked(checks)} Checks like these can't confirm who sent it, so if anything about it feels off, contact the person "
+                     "or organisation using details you already have.")
+            uncertainties = [_who(plan_)]
+            found_lines = "\n".join(f"- {f['text']}" for _, f in facts) or "- No warning signs in anything Apollo checked."
+            explanation = (f"**What was found**\n{found_lines}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
+                           + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Nothing in it needed Magnum DI's deeper analysis.", checks, not_taken=False))
+
     return {
         "overview": overview, "explanationMarkdown": explanation, "assessment": "no_concern_found_within_scope", "outcome": "not_scam",
         "attention": "none", "attentionReason": None, "findings": findings[:8],
