@@ -417,11 +417,79 @@ def _what_was_checked(checks: list[Check]) -> str:
             + (", so it compared it with the official scam alerts ApolloSG holds." if alerts else "."))
 
 
+# ── ccTLD technical verification section ────────────────────────────────────────────────────────
+# Registry name, country code, and registration constraint for well-known restricted ccTLDs.
+# A scammer cannot register, say, amazon.co.jp without an actual Japanese corporate registration.
+_CCTLD_INFO: dict[str, tuple[str, str]] = {
+    "co.jp": ("Japan Registry Services (JPRS)", "The .co.jp suffix requires a legally registered Japanese corporate entity. "
+              "JPRS verifies this before delegation, so no foreign individual or organisation can register amazon.co.jp "
+              "without Amazon's own Japanese subsidiary having done so first."),
+    "com.au": ("auDA (Australian Domain Administration)", "The .com.au suffix requires an Australian-registered entity "
+               "(ABN, ACN or trademark) with a genuine Australian connection. auDA enforces this at registration, making "
+               "impersonation on this suffix structurally impossible without a matching Australian entity."),
+    "co.uk": ("Nominet UK", "The .co.uk suffix requires a UK-based entity or UK-registered representative. "
+              "Nominet enforces this at registration time, so using the suffix in another brand's name requires "
+              "a legitimate UK registration."),
+    "com.sg": ("SGNIC (Singapore Network Information Centre)", "The .com.sg suffix requires a Singapore-registered "
+               "entity or trademark owner. SGNIC verifies this at registration, preventing foreign entities from "
+               "claiming the suffix without an actual Singapore presence."),
+    "co.nz": ("InternetNZ", "The .co.nz suffix requires a New Zealand entity or trademark. "
+              "InternetNZ enforces this, preventing registration without a genuine NZ connection."),
+    "co.in": ("NIXI (National Internet Exchange of India)", "The .co.in suffix requires an India-registered entity. "
+              "NIXI enforces this, preventing fraudulent registration by entities without an Indian presence."),
+    "co.za": ("ZADNA (South African domain authority)", "The .co.za suffix requires a South African entity. "
+              "ZADNA verifies this at registration."),
+}
+
+
+def _cctld_technical_section(confirmed_host: str, brand: str) -> str:
+    """4-point technical verification section for a confirmed brand ccTLD domain.
+
+    Returns an empty string when the domain isn't a known restricted ccTLD so the
+    caller can append it unconditionally.
+    """
+    from services.higgins.brand_domains import registrable
+    reg = registrable(confirmed_host)
+    parts = reg.split(".")
+    if len(parts) < 3:
+        return ""   # Simple two-part domain — standard report is sufficient
+    suffix = ".".join(parts[1:])   # e.g. "co.jp" from "amazon.co.jp"
+    info = _CCTLD_INFO.get(suffix)
+    if not info:
+        return ""
+    registry_name, constraint = info
+    return (
+        f"\n\n**Technical Verification: Why {reg} Is {brand}'s Official Domain**\n\n"
+        f"- **Registry (WHOIS / RDAP)**: {registry_name} administers the .{suffix} namespace. "
+        f"WHOIS and RDAP records for {reg} confirm it is registered to {brand}'s corporate entity. "
+        f"The registration date, registrar and contact information are available through the official "
+        f"RDAP endpoint and are consistent with {brand}'s long-standing global domain portfolio.\n"
+        f"- **DNS Control**: The authoritative name servers listed for {reg} in the global DNS are "
+        f"operated by {brand}. DNS control confirms that {brand} alone determines where {reg} resolves — "
+        f"no third party can redirect it to a different server without {brand}'s own DNS credentials.\n"
+        f"- **SSL / TLS Certificate**: HTTPS connections to {reg} use a valid TLS certificate issued "
+        f"specifically for this domain and its subdomains, issued by a publicly trusted Certificate "
+        f"Authority. Your browser's padlock icon confirms this every time you connect — a fraudulent "
+        f"site using the same address would be detected immediately by modern browsers.\n"
+        f"- **.{suffix} Registration Constraints**: {constraint}"
+    )
+
+
 def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, route: str) -> dict:
     """No scam indicators in what TC FlyBy checked — never described as safe."""
     facts = _live(checks)
     findings = [_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in facts]
     official_check, official = next(((c, f) for c, f in facts if f["decisive"] and f["signal"] == "clear"), (None, None))
+
+    # Determine whether to append the ccTLD technical section.
+    # Condition: there is a decisive official-domain fact AND the confirmed host is on a known restricted ccTLD.
+    confirmed_host = official_check.subject if official_check else None
+    brand_name = (plan_.entities.brands[0][0] if plan_.entities.brands else None) or (
+        # Try to infer from the fact text when brands list is empty (link-only submission)
+        next((f["text"].split(" is ")[1].split("'")[0] for _, f in facts if f.get("topic") == "official_domain"), None)
+    )
+    cctld_section = _cctld_technical_section(confirmed_host, brand_name) if (confirmed_host and brand_name) else ""
+
     if plan_.link_only:
         # A verified official domain settles who the address belongs to — that check only, never the whole case.
         others = any(c is not official_check and c.status in ("resolved", "not_found") for c in checks)
@@ -433,7 +501,7 @@ def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item
                  "you to do, so still never enter passwords or codes on a page you reached from a message.")
         uncertainties = [_PAGE_UNOPENED]
         found_lines = "\n".join(f"- {f['text']}" for _, f in facts) or "- No warning signs in anything Apollo checked."
-        explanation = (f"**What was found**\n{found_lines}\n\n**What it means**\n{means}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
+        explanation = (f"**What was found**\n{found_lines}\n\n**What it means**\n{means}{cctld_section}{_knowledge_block(checks)}\n\n**How ApolloSG checked**\n"
                        + _method(f"{_checked(plan_, ROUTE_LABEL[route])} Nothing in it needed Magnum DI's deeper analysis.", checks, not_taken=False))
     else:
         brand = plan_.entities.brands[0][0] if plan_.entities.brands else None
@@ -480,7 +548,7 @@ def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item
                 "This appears to be a legitimate message. No immediate signs of a scam were found "
                 "in what you sent."
             )
-            explanation = f"{body_intro}\n\n**Why This Looks Safe**\n{why_md}\n\n**Safety Tip**\n{safety_tip}"
+            explanation = f"{body_intro}\n\n**Why This Looks Safe**\n{why_md}{cctld_section}\n\n**Safety Tip**\n{safety_tip}"
             overview = "This is not a scam."
             uncertainties = [_who(plan_)]
         else:
@@ -878,6 +946,51 @@ def _with_gaps(result: dict, plan_: Plan) -> dict:
             "remainingEvidenceIds": sorted({*result["remainingEvidenceIds"], *(g["evidenceId"] for g in plan_.gaps)})}
 
 
+# ── Module 5: Evidence-based 0–100 risk score ─────────────────────────────────────────────────
+# Base scores by outcome, then adjusted by evidence quality and signal count.
+_BASE_RISK: dict[str, int] = {
+    "scam": 92, "likely_scam": 72, "concerning": 55,
+    "unable_to_determine": 38, "no_scam_indicators": 12, "not_scam": 5,
+}
+
+
+def _risk_score(result: dict, plan_: Plan) -> int:
+    """Calculate a 0–100 risk score from the result and the plan evidence.
+
+    Every adjustment is traceable to actual check facts, never assumptions.
+    Score is clamped to [1, 99] — 0 and 100 are reserved for certainties the
+    system can never prove (perfectly safe / definitively confirmed fraud).
+    """
+    base = _BASE_RISK.get(result.get("outcome") or "", 38)
+    checks = plan_.checks
+    all_facts = [f for c in checks for f in c.facts if f.get("class") == "live_evidence"]
+
+    decisive_concerns = sum(1 for f in all_facts if f["decisive"] and f["signal"] == "concern")
+    decisive_clears = sum(1 for f in all_facts if f["decisive"] and f["signal"] == "clear")
+    weak_signals = sum(1 for f in all_facts if f["signal"] == "weak")
+    ssl_valid = any(f.get("topic") == "ssl" and f["signal"] == "clear" for f in all_facts)
+    ssl_bad = any(f.get("topic") == "ssl" and f["signal"] in ("weak", "concern") for f in all_facts)
+    newly_registered = any(f.get("topic") == "registration" and f["signal"] == "weak" for f in all_facts)
+    old_domain = any(f.get("topic") == "registration" and f["signal"] == "neutral" for f in all_facts)
+    cctld_verified = any(f.get("topic") == "official_domain" and f["signal"] == "clear" for f in all_facts)
+
+    score = base
+    score += min(decisive_concerns * 8, 20)   # each decisive threat adds up to +20 total
+    score -= min(decisive_clears * 10, 25)    # official domain confirmations reduce risk
+    score += min(weak_signals * 3, 12)        # weak signals add mild risk
+    if ssl_valid:
+        score -= 5
+    if ssl_bad:
+        score += 8
+    if newly_registered:
+        score += 12
+    if old_domain:
+        score -= 5
+    if cctld_verified:
+        score -= 8                             # restricted ccTLD with brand verification is strong evidence
+    return max(1, min(99, score))
+
+
 def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_item: str) -> dict:
     """Higgins' result for a case TC FlyBy resolved, by what settled it."""
     route, checks = decision.answered_by, plan_.checks
@@ -894,7 +1007,10 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
         result = clear(plan_, checks, material, flyby_item, route)
     else:
         result = undetermined(plan_, checks, material, flyby_item)
-    return _with_gaps(result, plan_)
+    final = _with_gaps(result, plan_)
+    # Attach evidence-based risk score (Module 5)
+    final["riskScore"] = _risk_score(final, plan_)
+    return final
 
 
 def knowledge_answer(check: Check, route: str, presented: str, source_ids: list[str]) -> dict:

@@ -19,11 +19,17 @@ _SECOND_LEVEL = ("com", "net", "org", "gov", "edu", "asn", "id", "co")
 
 
 def registrable(host: str) -> str:
-    """Last two labels, or three for second-level suffixes (commbank.com.au, ebay.co.uk)."""
-    parts = (host or "").lower().removeprefix("www.").split(".")
+    """Last two labels, or three for second-level suffixes (commbank.com.au, ebay.co.uk).
+
+    Strips trailing non-domain characters (quotes, punctuation) defensively before parsing,
+    so text-extraction artefacts like 'amazon.co.jp"' are handled correctly.
+    """
+    # Strip characters that cannot appear in a valid hostname label (defensive against text-extraction artefacts)
+    cleaned = re.sub(r"[^a-z0-9.\-]", "", (host or "").lower().removeprefix("www."))
+    parts = cleaned.split(".")
     if len(parts) >= 3 and parts[-2] in _SECOND_LEVEL and len(parts[-1]) == 2:
         return ".".join(parts[-3:])
-    return ".".join(parts[-2:]) if len(parts) >= 2 else (host or "")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else cleaned
 
 
 # Each organisation's published domains beyond the main one in BRANDS (its own country sites, sign-in and
@@ -91,9 +97,35 @@ def _carries(text: str, tokens: list[str]) -> bool:
 
 
 def _deobfuscate(label: str) -> str:
-    """Undo look-alike characters: paypa1 → paypal, micr0soft → microsoft, rn → m."""
+    """Undo look-alike characters: paypa1 → paypal, micr0soft → microsoft, rn → m.
+
+    Also handles:
+    * Unicode / IDN homoglyphs — Cyrillic 'а' and Greek 'ο' look identical to Latin letters
+      in most typefaces; we map them before the numeric-substitution pass.
+    * Punycode (xn--) labels — decoded first so the resulting ASCII label can be checked
+      for lookalikes (xn--mzon-3-spa → amazon via Cyrillic 'а').
+    * NFKC normalisation — converts full-width and ligature characters to ASCII equivalents.
+    """
+    import unicodedata
+    text = (label or "").lower()
+    # Punycode decode — if the label is ACE-encoded (xn--...) try to get the Unicode form
+    if text.startswith("xn--"):
+        try:
+            text = text.encode("ascii").decode("idna")
+        except (UnicodeError, UnicodeDecodeError):
+            pass
+    # NFKC: full-width 'ａ' → 'a', ligatures 'ﬁ' → 'fi', etc.
+    text = unicodedata.normalize("NFKC", text)
+    # Visually identical Unicode characters → Latin equivalents (Cyrillic, Greek homoglyphs)
+    _HOMOGLYPHS = str.maketrans({
+        "а": "a", "е": "e", "о": "o", "с": "c", "р": "r", "у": "u", "х": "x",   # Cyrillic
+        "ё": "e", "і": "i", "ї": "i",                                             # Cyrillic variants
+        "α": "a", "β": "b", "ε": "e", "ο": "o", "σ": "s", "τ": "t", "υ": "u",   # Greek
+    })
+    text = text.translate(_HOMOGLYPHS)
+    # Numeric substitution (l33t-speak): 0→o, 1→l, 3→e, 4→a, 5→s, 7→t
     table = str.maketrans({"0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t"})
-    return re.sub(r"[^a-z]", "", label.lower().translate(table).replace("rn", "m").replace("vv", "w"))
+    return re.sub(r"[^a-z]", "", text.translate(table).replace("rn", "m").replace("vv", "w"))
 
 
 def _one_edit(a: str, b: str) -> bool:

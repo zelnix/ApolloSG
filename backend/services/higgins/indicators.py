@@ -77,14 +77,26 @@ URGENCY_TERMS = ("immediately", "right now", "within 24 hours", "within 48 hours
                  "avoid a fine", "avoid legal", "expires", "cancel it now", "act now")
 
 URL_RE = re.compile(r"\bhttps?://[^\s<>\"')\]]+", re.I)
-BARE_DOMAIN_RE = re.compile(r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|au|co|io|info|xyz|top|shop|site|live|online)(?:\.[a-z]{2})?\b", re.I)
+# Covers common generic TLDs + gov/edu (Australian govt/edu sites) + widely-used country TLDs.
+# 'co' + optional '.[a-z]{2}' handles amazon.co.jp, commbank.com.au, ebay.co.uk etc.
+BARE_DOMAIN_RE = re.compile(
+    r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|gov|edu|au|co|io|info|xyz|top|shop|site|live|online)(?:\.[a-z]{2})?\b",
+    re.I
+)
 AMOUNT_RE = re.compile(r"(?:AUD\s?)?\$\s?\d[\d,]*(?:\.\d{2})?", re.I)
-AU_PHONE_RE = re.compile(r"(?:\+61\s?4\d[\d\s]{6,10}|\b04\d{2}[\s-]?\d{3}[\s-]?\d{3}\b)")
+# General international phone pattern: matches numbers with 7–15 digits,
+# accepts leading + for international prefix, tolerates common separators.
+# Replaces the previous AU-only AU_PHONE_RE — 'triage.py' uses a matching pattern for the full plan.
+PHONE_RE = re.compile(r"(?<![\w@.+/])(\+?\d[\d\s().\-]{5,18}\d)(?![\w@])")
+AU_PHONE_RE = PHONE_RE   # backward-compat alias for any callers still referencing AU_PHONE_RE
 EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 
 
 def _host(url: str) -> str:
-    host = re.sub(r"^https?://", "", url, flags=re.I).split("/")[0].split("?")[0].lower()
+    # Split off protocol, path, query, fragment, and port in that order
+    host = re.sub(r"^https?://", "", url, flags=re.I).split("/")[0].split("?")[0].split(":")[0].lower()
+    # Strip any non-hostname characters left over from text extraction (quotes, brackets, commas …)
+    host = re.sub(r"[^a-z0-9.\-]", "", host)
     return host[4:] if host.startswith("www.") else host
 
 
@@ -140,6 +152,12 @@ def read_indicators(text: str) -> Indicators:
     ind.payments = _dedupe([term for term in PAYMENT_TERMS if term in low])
     ind.amounts = _dedupe(AMOUNT_RE.findall(text))
     ind.urgency = _dedupe([term for term in URGENCY_TERMS if term in low])
-    ind.phones = _dedupe(AU_PHONE_RE.findall(text))
+    # Extract all plausible phone numbers — international (e.g. +61, +1, +44) and domestic alike.
+    # Keep only matches whose digit-only form is 7–15 chars (ITU E.164 practical range).
+    ind.phones = _dedupe([
+        m.group(1).strip()
+        for m in PHONE_RE.finditer(text)
+        if 7 <= len(re.sub(r"\D", "", m.group(1))) <= 15
+    ])
     ind.emails = _dedupe(EMAIL_RE.findall(text))
     return ind

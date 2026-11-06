@@ -388,6 +388,39 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
                                 "weak" if young else "neutral", topic="registration",
                                 source=source_ref("Domain registry (RDAP)", url=f"https://rdap.org/domain/{domain}", authority="official",
                                                basis="The registry's RDAP registration record")))
+    # ── Module 3: SSL / TLS certificate check ────────────────────────────────────────────
+    # Only run if no decisive concern already (saves a network round-trip for known-bad domains).
+    if not any(f.get("decisive") and f.get("signal") == "concern" for f in check.facts):
+        try:
+            from services import ssl_check as _ssl
+            ssl_result = await _ssl.check_hostname(host)
+            if ssl_result.get("valid"):
+                issuer_name = ssl_result.get("issuer_org") or ssl_result.get("issuer_cn") or "a trusted CA"
+                cn = ssl_result.get("cn") or host
+                days_left = ssl_result.get("days_remaining")
+                if days_left is not None and days_left < 14:
+                    check.facts.append(fact(
+                        f"The TLS certificate for {host} expires in {days_left} days — renewal may be overdue.",
+                        "weak", topic="ssl",
+                        source=source_ref("TLS certificate inspection", authority="independent",
+                                          basis="Direct TLS handshake with the host")))
+                elif ssl_result.get("covers_hostname", True):
+                    check.facts.append(fact(
+                        f"The TLS certificate for {host} is issued for {cn} by {issuer_name} and is valid.",
+                        "clear", topic="ssl",
+                        source=source_ref("TLS certificate inspection", authority="independent",
+                                          basis="Direct TLS handshake with the host")))
+            elif ssl_result.get("error") and "timeout" not in ssl_result["error"].lower():
+                # Certificate or hostname mismatch errors are meaningful signals
+                err = ssl_result["error"]
+                if "certificate" in err.lower() or "hostname" in err.lower():
+                    check.facts.append(fact(
+                        f"The TLS certificate for {host} could not be validated: {err}",
+                        "weak", topic="ssl",
+                        source=source_ref("TLS certificate inspection", authority="independent",
+                                          basis="Direct TLS handshake with the host")))
+        except Exception:  # noqa: BLE001
+            pass   # SSL check is best-effort; never block the investigation on network failure
     for url, info in pg["ipqs_urls"].items():
         if host in url.lower() and info.get("status") == "ok":
             flags = [name for name in ("phishing", "malware", "suspicious") if info.get(name)]
