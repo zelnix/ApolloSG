@@ -984,11 +984,17 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {question.answerType === "yes_no" ? <View style={s.row}><Button testID="inv-answer-yes" label="Yes" onPress={() => onAnswer?.("Yes")} /><Button testID="inv-answer-no" variant="ghost" label="No" onPress={() => onAnswer?.("No")} /></View> : null}
       {question.answerType === "choice" ? <View style={s.row}>{question.choices.map((c) => <Button key={c} testID={`inv-answer-${c}`} variant="ghost" label={c} onPress={() => onAnswer?.(c)} />)}</View> : null}</View> : null}
 
+    {/* ── Who Called: mounted as soon as a phone number is known so the lookup runs during
+        the investigation, not after findings are displayed. Hidden until the DI tab opens. ── */}
+    {phoneNumber ? (
+      <View style={activeTab === "di" && showTabs ? undefined : { display: "none" }}>
+        <PhoneIdentityCard number={phoneNumber} testID="inv-di-phone-identity" />
+      </View>
+    ) : null}
+
     {/* ── DI tab: the Magnum DI processing record (evidence is untouched by this view) ── */}
     {activeTab === "di" && showTabs ? (
       <View style={{ gap: spacing.md }} testID="inv-tab-di-content">
-        {/* ── Who Called: identity evidence lives in DI as investigation context ── */}
-        {phoneNumber ? <PhoneIdentityCard number={phoneNumber} testID="inv-di-phone-identity" /> : null}
         <DiReport caseId={caseData?.id ?? null} triage={event?.triage_investigation ?? null} settledReason={response ? caseData?.settledReason : null} how={report ? luddishReport(report).how : []}
           presented={verdict ? { verdict: verdict.label, risk: verdict.risk?.label ?? null } : null} history={response?.history}
           response={response ?? null} sources={sources} />
