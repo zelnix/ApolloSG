@@ -43,7 +43,10 @@ _INTENT_PATTERNS = [
 # Artefact extractors
 _URL_RE = re.compile(r"https?://[^\s<>\"')\]]+", re.I)
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
-_PHONE_RE = re.compile(r"(?:\+?\d{1,3}[\s\-]?)?\(?\d{2,4}\)?[\s.\-]?\d{3,4}[\s.\-]?\d{3,4}")
+# General international phone pattern — mirrors indicators.py PHONE_RE so both code paths
+# (direct investigation submission and Higgins chat submission) extract the same numbers.
+# Lookbehind/lookahead prevent matching partial digit runs inside email addresses or amounts.
+_PHONE_RE = re.compile(r"(?<![\w@.+/])(\+?\d[\d\s().\-]{5,18}\d)(?![\w@])")
 
 
 def detect_investigation_intent(message: str) -> bool:
@@ -75,7 +78,8 @@ def extract_submittable_items(message: str) -> list[dict]:
 
     for phone in _PHONE_RE.findall(message):
         clean = phone.strip()
-        if len(clean) >= 8 and clean not in seen:
+        digits = re.sub(r"\D", "", clean)
+        if 7 <= len(digits) <= 15 and clean not in seen:
             items.append({"kind": "phone", "value": clean})
             seen.add(clean)
 
