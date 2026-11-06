@@ -251,7 +251,8 @@ def _add_au_domestic_phone_intel(check: Check) -> None:
         type_label = "mobile" if is_mobile else "landline"
         region_label = _AU_AREA_REGIONS.get(area_key, "Australia")
         intel_fact = fact(
-            f"This is an Australian domestic {type_label} number.",
+            f"This is an Australian domestic {type_label} number in the {region_label} range, "
+            f"not registered to any verified organisation in Apollo's database.",
             "concern", decisive=True, topic="au_domestic_spam",
             source=source_ref(
                 "Apollo Phone Intelligence",

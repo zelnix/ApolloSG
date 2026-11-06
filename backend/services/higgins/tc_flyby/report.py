@@ -193,10 +193,14 @@ def _au_domestic_phone_report(plan_: Plan, checks: list[Check], material: dict[s
     """
     type_label = intel.get("type", "landline")
     region_label = intel.get("region", "Australia")
+    # Three structured findings instead of one bare fact sentence.
     findings = [
-        _finding(f, [flyby_item], "high")
-        for c in checks for f in c.facts
-        if f.get("class") == "live_evidence" and f.get("decisive")
+        _finding({"text": f"This is an Australian domestic {type_label} number in the {region_label} range.",
+                  "sourceIds": []}, [flyby_item], "high"),
+        _finding({"text": "No verified organisation has this number registered in Apollo's official source database.",
+                  "sourceIds": []}, [flyby_item], "high"),
+        _finding({"text": "This number's range carries a high spam probability based on known domestic robocall operations.",
+                  "sourceIds": []}, [flyby_item], "medium"),
     ]
     explanation = (
         f"**Status**\n"

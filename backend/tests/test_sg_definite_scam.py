@@ -684,9 +684,9 @@ def test_au_domestic_landline_produces_high_spam_report():
     'Status / Behavior / Recommended Actions' format with 'High spam probability' overview."""
     from services.higgins.tc_flyby.report import concern
 
-    # Build the fact exactly as _add_au_domestic_phone_intel() would produce it.
+    # Build the fact exactly as _add_au_domestic_phone_intel() would produce it (updated text).
     intel_fact: dict = {
-        "text": "This is an Australian domestic landline number.",
+        "text": "This is an Australian domestic landline number in the Victoria / Tasmania range, not registered to any verified organisation in Apollo's database.",
         "signal": "concern",
         "decisive": True,
         "class": "live_evidence",
@@ -753,3 +753,16 @@ def test_au_domestic_landline_produces_high_spam_report():
     assert any("sms" in lbl or "text" in lbl for lbl in action_labels), (
         f"Missing SMS/text action.\nactions={action_labels}"
     )
+
+    # --- Three structured findings (not a single bare fact) ---
+    assert len(report["findings"]) == 3, (
+        f"Expected 3 structured findings; got {len(report['findings'])}.\nfindings={[f['text'] for f in report['findings']]}"
+    )
+    finding_texts = [f["text"] for f in report["findings"]]
+    assert any("range" in t for t in finding_texts), "First finding should name the region/range"
+    assert any("verified organisation" in t for t in finding_texts), "Second finding should note no verified org"
+    assert any("spam probability" in t or "robocall" in t for t in finding_texts), "Third finding should state spam probability"
+
+    # --- No NAB advice anywhere in the report ---
+    full_text = report["overview"] + report["explanationMarkdown"] + " ".join(a["label"] + a["instruction"] for a in report["actions"])
+    assert "NAB" not in full_text, f"NAB advice must not appear in the AU domestic spam report.\nfull_text={full_text!r}"
