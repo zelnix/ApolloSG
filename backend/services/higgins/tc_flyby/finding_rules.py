@@ -449,7 +449,10 @@ def s4_complete_pattern(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
 
     # Warning signals about the same subjects count
     for c, f in _warning_signals(plan):
-        if f["signal"] == "concern" and c.kind in ("link", "email", "phone"):
+        # Accept both concern AND anomaly from link/email/phone checks.
+        # A freemail anomaly (gmail is a personal address, not a business domain) combined
+        # with a full scam pattern is independent corroborating evidence for S4.
+        if f["signal"] in ("concern", "anomaly") and c.kind in ("link", "email", "phone"):
             supporting_evidence.append(f["text"])
 
     if not supporting_evidence:

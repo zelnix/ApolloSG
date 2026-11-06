@@ -1,18 +1,16 @@
 """
 TC FlyBy — Definite Scam Classification Regression Tests
 =========================================================
-Root-cause fix: ApolloSG case TC-2026-A77E4 (CommBank phishing classified as
-"likely_scam" instead of "scam" because corroborated_impersonation() required
-a link-check signal even for lookalike domains).
+Covers the ApolloSG classification fixes applied to decide.py, finding_rules.py,
+official.py, and report.py.
 
-8 scenarios that MUST hold after the fix.
+10 test scenarios that MUST hold.
 
 Run:
     cd /app/backend && python -m pytest tests/test_sg_definite_scam.py -v
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -27,7 +25,6 @@ from services.higgins.tc_flyby.evidence_evaluation import should_downgrade_provi
 
 def _live(text: str, signal: str, *, decisive: bool = False, topic: str | None = None,
           place: str | None = None) -> dict:
-    """Build a live-evidence fact dict the way official.py does."""
     f: dict = {
         "text": text,
         "signal": signal,
@@ -43,7 +40,6 @@ def _live(text: str, signal: str, *, decisive: bool = False, topic: str | None =
 
 
 def _imp_check(brand: str, official_domain: str, *facts) -> Check:
-    """Impersonation check with given facts; status inferred from facts."""
     c = Check(id="c-imp", kind="impersonation", subject=brand, urls=[official_domain])
     for f in facts:
         c.facts.append(f)
@@ -151,10 +147,7 @@ OPEN_LINK_REQUEST = {
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TEST 1 — Lookalike + credential + clean Safe Browsing  →  SCAM
-#
-# This is the exact scenario from case TC-2026-A77E4.
-# Before the fix: "likely_scam" (impersonation not corroborated without SB hit).
-# After the fix:  "scam" (lookalike self-corroborates; S2 fires).
+# TC-2026-A77E4 regression
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_commbank_lookalike_credential_clean_sb_is_definite_scam():
@@ -172,19 +165,13 @@ def test_commbank_lookalike_credential_clean_sb_is_definite_scam():
     assert result.finding == "scam", (
         f"Expected 'scam' but got '{result.finding}'. "
         f"Deciding: {result.deciding_rules}. "
-        f"identity_is_false={result.ipdmc.identity_is_false}, "
-        f"consequential_requests={[r['type'] for r in result.ipdmc.consequential_requests]}"
+        f"identity_is_false={result.ipdmc.identity_is_false}"
     )
-    assert any(r in result.deciding_rules for r in ("S2", "S3")), (
-        f"Expected S2 or S3 to decide; got: {result.deciding_rules}"
-    )
+    assert any(r in result.deciding_rules for r in ("S2", "S3"))
 
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TEST 2 — Lookalike + credential + malicious Safe Browsing  →  SCAM
-#
-# When Safe Browsing DOES list the site, S1 (Known Scam) fires first.
-# The fix must not break this more obvious path.
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_commbank_lookalike_credential_malicious_sb_is_definite_scam():
@@ -202,17 +189,11 @@ def test_commbank_lookalike_credential_malicious_sb_is_definite_scam():
     assert result.finding == "scam", (
         f"Expected 'scam' but got '{result.finding}'. Deciding: {result.deciding_rules}"
     )
-    # Either S1 (decisive SB concern) or S2 (fake identity) must fire
-    assert any(r in result.deciding_rules for r in ("S1", "S2", "S3")), (
-        f"Expected an S-rule; got: {result.deciding_rules}"
-    )
+    assert any(r in result.deciding_rules for r in ("S1", "S2", "S3"))
 
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TEST 3 — Official advisory listing  →  SCAM (S1)
-#
-# A domain named in a government/official scam advisory is a definite scam
-# regardless of Safe Browsing status or impersonation path.
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_official_advisory_listing_is_definite_scam():
@@ -229,19 +210,12 @@ def test_official_advisory_listing_is_definite_scam():
         ],
     )
     result = evaluate(plan)
-    assert result.finding == "scam", (
-        f"Expected 'scam' but got '{result.finding}'. Deciding: {result.deciding_rules}"
-    )
-    assert "S1" in result.deciding_rules, (
-        f"S1 (advisory match) should decide; got: {result.deciding_rules}"
-    )
+    assert result.finding == "scam"
+    assert "S1" in result.deciding_rules
 
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TEST 4 — Legitimate bank notification (official domain, no credential)  →  NOT_SCAM
-#
-# A message from CommBank's own domain with no credential request and no
-# scam warnings must resolve as not_scam.  This prevents false positives.
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_official_domain_no_credential_is_not_scam():
@@ -258,24 +232,21 @@ def test_official_domain_no_credential_is_not_scam():
     )
     result = evaluate(plan)
     assert result.finding == "not_scam", (
-        f"Expected 'not_scam' but got '{result.finding}'. "
-        f"Deciding: {result.deciding_rules}"
+        f"Expected 'not_scam' but got '{result.finding}'. Deciding: {result.deciding_rules}"
     )
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# TEST 5 — Lookalike WITHOUT credential request  →  LIKELY_SCAM (not "scam")
-#
-# The fix must NOT over-fire: a lookalike that only asks to "read a notice"
-# (open_link, not a consequential request) is suspicious but not a definite scam.
+# TEST 5 — Lookalike WITHOUT credential  →  LIKELY_SCAM (not "scam")
+# Verifies no over-fire from the lookalike self-corroboration fix.
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_commbank_lookalike_no_credential_clean_sb_is_likely_scam():
-    """Lookalike + clean SB + NO credential request → likely_scam, not scam."""
+    """Lookalike + clean SB + no credential → likely_scam (not scam; no over-fire)."""
     plan = _make_plan(
         brands=[("CommBank", "commbank.com.au")],
         hosts=["commbank-secure.net"],
-        requests=[OPEN_LINK_REQUEST],           # open_link is NOT CONSEQUENTIAL
+        requests=[OPEN_LINK_REQUEST],
         checks=[
             _imp_check("CommBank", "commbank.com.au", LOOKALIKE_FACT),
             _link_check("commbank-secure.net", SB_CLEAN_FACT),
@@ -284,41 +255,28 @@ def test_commbank_lookalike_no_credential_clean_sb_is_likely_scam():
     result = evaluate(plan)
     assert result.finding == "likely_scam", (
         f"Expected 'likely_scam' (no credential → not definite) but got '{result.finding}'. "
-        f"Deciding: {result.deciding_rules}. "
-        f"consequential_requests={[r['type'] for r in result.ipdmc.consequential_requests]}"
+        f"Deciding: {result.deciding_rules}"
     )
-    assert not any(r in result.deciding_rules for r in ("S1", "S2", "S3", "S4")), (
-        f"No S-rule should fire without a consequential request; got: {result.deciding_rules}"
-    )
+    assert not any(r in result.deciding_rules for r in ("S1", "S2", "S3", "S4"))
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# TEST 6 — Freemail sender claiming to be a bank  →  LIKELY_SCAM
-#
-# An email from gmail.com claiming to be CommBank can't be confirmed as a
-# definite scam by TC FlyBy alone — the sender could be anyone.  It's suspicious
-# (the gmail domain is not an official CommBank domain) but needs corroboration.
+# TEST 6 — Freemail sender (unrelated domain) + credential  →  LIKELY_SCAM or SCAM
+# An unrelated domain (gmail.com) must NOT self-corroborate impersonation.
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_freemail_sender_claiming_to_be_bank_is_likely_scam():
-    """Email from gmail.com claiming to be CommBank → likely_scam (not scam)."""
-    # For a freemail sender (gmail.com is "unrelated" to CommBank — doesn't carry
-    # the brand's name), the impersonation is NOT self-corroborating.  TC FlyBy
-    # can flag it as suspicious via L1/L3 but cannot confirm it as a definite scam
-    # without additional evidence.
-    unrelated_imp_fact = _live(
-        "noreply@gmail.com is a free personal email account (gmail.com), "
-        "not an address of CommBank.",
+    """Email from gmail.com claiming to be CommBank + credential → suspicious but NOT definite via identity."""
+    freemail_fact = _live(
+        "noreply@gmail.com is a free personal email account (gmail.com), not an address of CommBank.",
         "anomaly", topic="freemail"
     )
-    email_check = _email_check("noreply@gmail.com", unrelated_imp_fact)
-
-    # The impersonation check for CommBank sees gmail.com (unrelated — doesn't carry brand name)
-    unrelated_domain_fact = _live(
+    unrelated_imp_fact = _live(
         "gmail.com does not carry CommBank's name and is not CommBank's domain.",
         "anomaly", topic="impersonation", place="gmail.com"
     )
-    imp_check = _imp_check("CommBank", "commbank.com.au", unrelated_domain_fact)
+    email_check = _email_check("noreply@gmail.com", freemail_fact)
+    imp_check = _imp_check("CommBank", "commbank.com.au", unrelated_imp_fact)
 
     plan = _make_plan(
         brands=[("CommBank", "commbank.com.au")],
@@ -327,34 +285,21 @@ def test_freemail_sender_claiming_to_be_bank_is_likely_scam():
         checks=[imp_check, email_check],
     )
     result = evaluate(plan)
-    # We accept likely_scam OR scam — the credential request + impersonation concern
-    # via email makes this suspicious.  The key assertion is NOT "not_scam".
+    # May be likely_scam or scam depending on other evidence, but must not be not_scam.
     assert result.finding in ("likely_scam", "scam"), (
         f"Expected 'likely_scam' or 'scam' for freemail impersonation; "
         f"got '{result.finding}'. Deciding: {result.deciding_rules}"
     )
-    # Specifically: a plain freemail/unrelated anomaly (no lookalike) must NOT
-    # set identity_is_false — that would over-fire S2 for every spam email.
-    assert not result.ipdmc.identity_is_false or any(
-        f.get("topic") in ("lookalike", "shared_service") for f in unrelated_imp_fact.values()
-        if isinstance(f, str)  # dict value check guard
-    ) or True  # guard: freemail alone (unrelated) must not set identity_is_false
-    # The authoritative assertion: an UNRELATED domain (gmail.com) must NOT
-    # self-corroborate the impersonation; only lookalike topics trigger that path.
+    # An UNRELATED domain (gmail.com) must NOT self-corroborate → identity_is_false stays False.
     corroborated = corroborated_impersonation(plan)
-    # corroborated should be empty — gmail.com is "unrelated", not "lookalike"
     lookalike_topics = {f.get("topic") for f in corroborated}
-    assert "lookalike" not in lookalike_topics or not corroborated, (
-        f"Unrelated/freemail domain must NOT self-corroborate; got corroborated={corroborated}"
+    assert "lookalike" not in lookalike_topics, (
+        f"Unrelated domain must NOT self-corroborate; corroborated topics: {lookalike_topics}"
     )
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# TEST 7 — All official links + scam-matching message text  →  NOT_SCAM
-#
-# A genuine CommBank message whose ALL links go to commbank.com.au must not be
-# flagged as a scam even if its text superficially matches a bank-request pattern.
-# (This tests that _contradicted / official_routes prevent false positives.)
+# TEST 7 — All official links + no credential  →  NOT_SCAM
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_official_links_despite_scam_pattern_text_is_not_scam():
@@ -362,7 +307,7 @@ def test_official_links_despite_scam_pattern_text_is_not_scam():
     plan = _make_plan(
         brands=[("CommBank", "commbank.com.au")],
         hosts=["commbank.com.au"],
-        requests=[],               # no consequential requests on the legitimate site
+        requests=[],
         checks=[
             _imp_check("CommBank", "commbank.com.au", OFFICIAL_DOMAIN_FACT),
             _link_check("commbank.com.au", OFFICIAL_DOMAIN_DECISIVE_FACT, resolved=True),
@@ -378,15 +323,10 @@ def test_official_links_despite_scam_pattern_text_is_not_scam():
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TEST 8 — Evidence evaluation NEVER downgrades a definite scam verdict
-#
-# When TC FlyBy establishes "scam" (e.g., S2 fires), Magnum DI authority and
-# Evidence Lock must prevent that verdict from being downgraded.
-# should_downgrade_provisional("scam") must always return (False, None).
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_evidence_evaluation_never_downgrades_scam_verdict():
     """should_downgrade_provisional('scam') must always be (False, None)."""
-    # Build a plan where S2 fires (lookalike + credential)
     plan = _make_plan(
         brands=[("CommBank", "commbank.com.au")],
         hosts=["commbank-secure.net"],
@@ -397,17 +337,132 @@ def test_evidence_evaluation_never_downgrades_scam_verdict():
         ],
     )
     rules_result = evaluate(plan)
-    # Confirm the plan itself resolves to "scam" (pre-condition for the evidence check)
     assert rules_result.finding == "scam", (
-        f"Pre-condition failed: expected 'scam' but got '{rules_result.finding}' "
-        f"(fix Test 1 first)"
+        f"Pre-condition failed: expected 'scam' but got '{rules_result.finding}' (fix Test 1 first)"
     )
-    # Now confirm evidence evaluation never downgrades a definite scam
     should_downgrade, reason = should_downgrade_provisional(plan, "scam")
-    assert should_downgrade is False, (
-        f"Evidence evaluation must NEVER downgrade a 'scam' verdict. "
-        f"Reason given: {reason}"
+    assert should_downgrade is False
+    assert reason is None
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 9 — CEO gift-card scam (freemail + full KB pattern + gift-card request)  →  SCAM
+# TC-2026-501BD regression: S4 must accept anomaly signals from email checks.
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_ceo_gift_card_scam_full_pattern_freemail_is_scam():
+    """CEO gift-card fraud: freemail sender + full gift-card KB pattern → scam via S4."""
+    freemail_fact = _live(
+        "d.whitfield.ceo@gmail.com is a free personal email account (gmail.com), "
+        "not an address of Apple.",
+        "anomaly", topic="freemail"
     )
-    assert reason is None, (
-        f"No downgrade reason expected for 'scam'; got: {reason}"
+    unrelated_imp_fact = _live(
+        "gmail.com does not carry Apple's name and is not Apple's domain (apple.com).",
+        "anomaly", topic="impersonation", place="gmail.com"
+    )
+    email_check = _email_check("d.whitfield.ceo@gmail.com", freemail_fact)
+    imp_check = _imp_check("Apple", "apple.com", unrelated_imp_fact)
+
+    full_gift_card_pattern = {
+        "stage": "full",
+        "name": "gift card and cryptocurrency payment scam",
+        "publisher": "Scamwatch (ACCC)",
+        "summary": "An urgent request to buy gift cards or crypto and share the codes.",
+        "impersonatesOrganisation": False,
+        "found": [("claims urgency", "I need this done right away"), ("gift card demand", "buy Apple gift cards")],
+        "ask": None,
+    }
+    gift_card_request = {
+        "type": "gift_cards_crypto",
+        "quote": "buy $500 Apple gift cards and send me the codes",
+        "context": "Quick favour — can you buy $500 Apple gift cards and send me the codes?",
+        "targets": [],
+    }
+
+    plan = _make_plan(
+        brands=[("Apple", "apple.com")],
+        emails=["d.whitfield.ceo@gmail.com"],
+        requests=[gift_card_request],
+        checks=[imp_check, email_check],
+        pattern=full_gift_card_pattern,
+    )
+    result = evaluate(plan)
+    assert result.finding == "scam", (
+        f"Expected 'scam' for CEO gift-card scam; got '{result.finding}'. "
+        f"Deciding: {result.deciding_rules}. "
+        f"identity_is_false={result.ipdmc.identity_is_false}, "
+        f"consequential_requests={[r['type'] for r in result.ipdmc.consequential_requests]}"
+    )
+    assert "S4" in result.deciding_rules, (
+        f"S4 (complete pattern + corroborating evidence) should decide; got: {result.deciding_rules}"
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 10 — Email-sender lookalike → SCAM + correct "sent from" overview
+# TC-2026-35E69 regression: impersonation_result() must NOT say "its link goes to"
+# for an email-domain lookalike, and must use outcome="scam" in the report.
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_email_sender_lookalike_is_scam_with_correct_overview():
+    """ATO fake email (mygov-refunds.net lookalike): S2 fires → 'scam'; overview says 'sent from'."""
+    lookalike_fact = _live(
+        "mygov-refunds.net carries myGov's name, but it is not myGov's domain "
+        "(my.gov.au) — the name resembles myGov.",
+        "anomaly", topic="lookalike", place="mygov-refunds.net"
+    )
+    imp_check = _imp_check("myGov", "my.gov.au", lookalike_fact)
+
+    full_govt_pattern = {
+        "stage": "full",
+        "name": "government or authority threat scam",
+        "publisher": "Scamwatch (ACCC)",
+        "summary": "Fake government demands using threats of arrest or legal action to force immediate payment.",
+        "impersonatesOrganisation": True,
+        "found": [("government claim", "Australian Taxation Office"), ("legal threat", "warrant for your arrest")],
+        "ask": None,
+    }
+    payment_request = {
+        "type": "payment",
+        "quote": "pay the outstanding amount immediately to avoid legal action",
+        "context": "pay the outstanding amount immediately to avoid legal action",
+        "targets": ["mygov-refunds.net"],
+    }
+
+    plan = _make_plan(
+        brands=[("myGov", "my.gov.au")],
+        emails=["no-reply@mygov-refunds.net"],
+        hosts=[],
+        requests=[payment_request],
+        checks=[imp_check],
+        pattern=full_govt_pattern,
+    )
+    result = evaluate(plan)
+
+    # 1. Verdict must be "scam"
+    assert result.finding == "scam", (
+        f"Expected 'scam' for email-sender lookalike; got '{result.finding}'. "
+        f"Deciding: {result.deciding_rules}. "
+        f"identity_is_false={result.ipdmc.identity_is_false}, "
+        f"purpose_is_deceptive={result.ipdmc.purpose_is_deceptive}"
+    )
+    assert any(r in result.deciding_rules for r in ("S2", "S3"))
+
+    # 2. Report overview must say "sent from", not "its link goes to"
+    from services.higgins.tc_flyby.report import impersonation_result
+    facts = corroborated_impersonation(plan)
+    assert facts, "corroborated_impersonation must return facts for a lookalike"
+
+    report = impersonation_result(plan, plan.checks, {}, "test-flyby", facts, outcome="scam")
+    overview = report.get("overview", "")
+
+    assert "sent from" in overview.lower() or "no-reply@mygov-refunds.net" in overview, (
+        f"Overview for email-sender lookalike must reference the sender address. Got: {overview!r}"
+    )
+    assert "its link goes to" not in overview.lower(), (
+        f"Overview must NOT say 'its link goes to' for an email-sender lookalike. Got: {overview!r}"
+    )
+    assert report.get("outcome") == "scam", (
+        f"Report outcome must be 'scam' when S2 fires; got: {report.get('outcome')!r}"
     )

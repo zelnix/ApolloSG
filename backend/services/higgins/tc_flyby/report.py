@@ -265,38 +265,118 @@ def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], f
                    extra_sources=kb_sources)
 
 
-def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, facts: list[dict]) -> dict:
-    """The material borrows an organisation's name and its link goes to a lookalike domain.
-    When a separate link-check fact corroborates the concern, it is included in the narrative.
-    When the lookalike name alone establishes the deception (clean Safe Browsing, no RDAP hit)
-    the overview notes the domain name mismatch without requiring a separate corroborating sentence."""
+def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str,
+                         facts: list[dict], outcome: str = "likely_scam") -> dict:
+    """The material uses an organisation's name via a lookalike domain.
+
+    Two distinct vectors are handled:
+    - **Email-sender lookalike** (FROM domain carries the brand's name):
+      overview says "sent from", not "links to".
+    - **URL/link lookalike** (a link in the message points to a lookalike domain):
+      overview says "its link goes to".
+
+    When called for a definitive scam (S2 → outcome="scam") the language is direct.
+    When called for a provisional finding (L1 → outcome="likely_scam") the language is cautious.
+    """
     brand = plan_.entities.brands[0][0]
+    brand_domain = plan_.entities.brands[0][1] if plan_.entities.brands and len(plan_.entities.brands[0]) > 1 else "its official domain"
     place = next(f["place"] for f in facts if f.get("place"))
     support = [f for f in facts if not f.get("place")]
-    found = [_finding(f, _evidence_for(f.get("place") or place, material, flyby_item), "high" if f.get("place") else "medium") for f in facts]
-    # Build the overview: include the corroborating link-check sentence only when one exists.
-    if support:
-        overview = (f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "
-                    f"{support[0]['text']} Don't use the link — go to {brand} directly through their official app or website.")
-        means = (f"{place} isn't one of {brand}'s published domains, and a separate check on that address backs up the concern. "
-                 "That's enough to treat it as concerning without weighing up the wording.")
+    found = [_finding(f, _evidence_for(f.get("place") or place, material, flyby_item),
+                      "high" if f.get("place") else "medium") for f in facts]
+
+    # Determine whether this is an email-sender lookalike or a link lookalike.
+    email_domains = {e.split("@")[-1].lower() for e in (plan_.entities.emails or [])}
+    host_domains = {h.lower() for h in (plan_.entities.hosts or [])}
+    is_email_sender = place.lower() in email_domains and place.lower() not in host_domains
+    sender_email = next(
+        (e for e in (plan_.entities.emails or []) if e.split("@")[-1].lower() == place.lower()),
+        f"sender@{place}"
+    )
+
+    if is_email_sender:
+        # ── Email-sender lookalike ────────────────────────────────────────────
+        if outcome == "scam":
+            overview = (
+                f"This email was sent from {sender_email}. "
+                f"The domain {place} carries {brand}'s name but is not {brand}'s registered domain "
+                f"({brand_domain}) — a confirmed sign of impersonation. "
+                f"Don't reply, pay, or follow any instructions in this email."
+            )
+            means = (
+                f"{place} is not one of {brand}'s published domains. "
+                f"Registering a domain that uses an organisation's name to send emails in their name "
+                f"is a recognised impersonation technique. The sender has no connection to {brand}."
+            )
+        else:
+            overview = (
+                f"This email claims to be from {brand}, but it was sent from {sender_email}. "
+                f"The domain {place} carries {brand}'s name but is not {brand}'s registered domain "
+                f"({brand_domain}). "
+                f"Don't reply or follow any instructions — contact {brand} directly to verify."
+            )
+            means = (
+                f"{place} isn't one of {brand}'s published domains. "
+                f"Scammers register domains similar to legitimate organisations to make emails look official. "
+                f"The domain name alone is enough to treat this as suspicious."
+            )
+        actions = [
+            _action("Don't reply or act",
+                    f"Don't reply to this email and don't follow any instructions it contains."),
+            _action(f"Contact {brand} yourself",
+                    f"Contact {brand} using their official website, app, or the number on their official documentation."),
+            _action("Report it",
+                    "Report it to Scamwatch at scamwatch.gov.au. "
+                    "If you've already paid or given details, contact the organisation immediately."),
+        ]
+        reason = f"This email's sender domain ({place}) is not one of {brand}'s registered domains."
+        uncertainties = [_who(plan_)]
     else:
-        # Lookalike self-corroboration: the domain name alone establishes deception.
-        overview = (f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "
-                    f"The domain name carries {brand}'s name but was not registered by {brand} — that alone is enough to treat it as concerning. "
-                    f"Don't use the link — go to {brand} directly through their official app or website.")
-        means = (f"{place} isn't one of {brand}'s published domains. A domain that uses an organisation's name without being that "
-                 "organisation's domain is a recognised sign of impersonation, regardless of Safe Browsing status.")
+        # ── URL/link lookalike ────────────────────────────────────────────────
+        if support:
+            overview = (
+                f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "
+                f"{support[0]['text']} "
+                f"Don't use the link — go to {brand} directly through their official app or website."
+            )
+            means = (
+                f"{place} isn't one of {brand}'s published domains, "
+                f"and a separate check on that address backs up the concern. "
+                f"That's enough to treat it as concerning without weighing up the wording."
+            )
+        else:
+            overview = (
+                f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "
+                f"The domain name carries {brand}'s name but was not registered by {brand} — "
+                f"that alone is enough to treat it as concerning. "
+                f"Don't use the link — go to {brand} directly through their official app or website."
+            )
+            means = (
+                f"{place} isn't one of {brand}'s published domains. "
+                f"A domain that uses an organisation's name without being that organisation's domain "
+                f"is a recognised sign of impersonation, regardless of Safe Browsing status."
+            )
+        actions = [
+            _action("Don't use the link", f"Don't open {place} and don't enter anything on it."),
+            _action(f"Contact {brand} yourself",
+                    f"Contact {brand} using their official app, a website address you type yourself, "
+                    f"or the number on your card or statement."),
+            _action("Report it",
+                    "Report it to Scamwatch at scamwatch.gov.au. "
+                    "If you've already entered details, contact the organisation now."),
+        ]
+        reason = (
+            f"Anything typed into that link goes to whoever runs {place}, "
+            f"which isn't one of {brand}'s published domains."
+        )
+        uncertainties = [_PAGE_UNOPENED]
+
     return _result(
-        plan_, checks, found=found, outcome="likely_scam", attention="action_needed",
-        overview=overview,
-        means=means,
+        plan_, checks, found=found, outcome=outcome, attention="action_needed",
+        overview=overview, means=means,
         how=_method(f"{_checked(plan_, _routes(checks))} {_NOT_NEEDED}", checks, not_taken=True),
-        reason=f"Anything typed into that link goes to whoever runs {place}, which isn't one of {brand}'s published domains.",
-        actions=[_action("Don't use the link", f"Don't open {place} and don't enter anything on it."),
-                 _action(f"Contact {brand} yourself", f"Contact {brand} using their official app, a website address you type yourself, or the number on your card or statement."),
-                 _action("Report it", "Report it to Scamwatch at scamwatch.gov.au. If you've already entered details, contact the organisation now.")],
-        uncertainties=[_PAGE_UNOPENED])
+        reason=reason, actions=actions, uncertainties=uncertainties,
+    )
 
 
 _COUNT = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
@@ -393,7 +473,8 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
     elif decision.basis == "pattern":
         result = pattern_result(plan_, checks, material, flyby_item, decision.outcome)
     elif decision.basis == "impersonation":
-        result = impersonation_result(plan_, checks, material, flyby_item, corroborated_impersonation(plan_))
+        result = impersonation_result(plan_, checks, material, flyby_item,
+                                      corroborated_impersonation(plan_), decision.outcome)
     elif decision.basis == "signals":
         result = signals_result(plan_, checks, material, flyby_item)
     elif decision.outcome in ("not_scam", "no_scam_indicators"):
