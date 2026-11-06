@@ -517,12 +517,16 @@ async def _phone(check: Check, pg: dict, plan_: Plan | None = None) -> None:
     # international phone intelligence (country-code based classification).
     if check.status == "open":
         _add_phone_intel(check)
-    # If still unresolved AND the case is a bare call submission, apply the Australian
-    # domestic spam probability assessment.  The guard on `channel == "call"` is essential:
-    # a phone number appearing in a text/SMS (e.g. a PayID target) must NOT be pre-emptively
-    # settled here — those cases need Magnum DI's deeper analysis.
-    if check.status == "open" and plan_ is not None and getattr(plan_, "channel", None) == "call":
-        _add_au_domestic_phone_intel(check)
+    # If still unresolved, apply the AU domestic spam assessment when the phone is the
+    # sole focus of investigation — i.e. there are NO co-present link/email checks.
+    # A phone that appears alongside a URL (e.g. a PayID target next to a legitimate
+    # AusPost link) must NOT be pre-emptively settled; Magnum DI's cross-entity
+    # analysis is needed in those cases.  Submission channel (call vs sms) is irrelevant:
+    # a user can submit a bare number via the SMS or call flow equally.
+    if check.status == "open" and plan_ is not None:
+        _other_checks = [c for c in plan_.checks if c is not check and c.kind in ("link", "email", "sender")]
+        if not _other_checks:
+            _add_au_domestic_phone_intel(check)
 
 
 async def _email(check: Check, plan_: Plan, pg: dict | None = None) -> None:
