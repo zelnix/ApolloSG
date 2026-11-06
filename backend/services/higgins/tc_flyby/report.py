@@ -266,18 +266,31 @@ def pattern_result(plan_: Plan, checks: list[Check], material: dict[str, str], f
 
 
 def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, facts: list[dict]) -> dict:
-    """The material borrows an organisation's name, its link goes elsewhere, and an independent fact about
-    that link backs it up: Concerning, whatever the wording says."""
+    """The material borrows an organisation's name and its link goes to a lookalike domain.
+    When a separate link-check fact corroborates the concern, it is included in the narrative.
+    When the lookalike name alone establishes the deception (clean Safe Browsing, no RDAP hit)
+    the overview notes the domain name mismatch without requiring a separate corroborating sentence."""
     brand = plan_.entities.brands[0][0]
     place = next(f["place"] for f in facts if f.get("place"))
     support = [f for f in facts if not f.get("place")]
     found = [_finding(f, _evidence_for(f.get("place") or place, material, flyby_item), "high" if f.get("place") else "medium") for f in facts]
+    # Build the overview: include the corroborating link-check sentence only when one exists.
+    if support:
+        overview = (f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "
+                    f"{support[0]['text']} Don't use the link — go to {brand} directly through their official app or website.")
+        means = (f"{place} isn't one of {brand}'s published domains, and a separate check on that address backs up the concern. "
+                 "That's enough to treat it as concerning without weighing up the wording.")
+    else:
+        # Lookalike self-corroboration: the domain name alone establishes deception.
+        overview = (f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "
+                    f"The domain name carries {brand}'s name but was not registered by {brand} — that alone is enough to treat it as concerning. "
+                    f"Don't use the link — go to {brand} directly through their official app or website.")
+        means = (f"{place} isn't one of {brand}'s published domains. A domain that uses an organisation's name without being that "
+                 "organisation's domain is a recognised sign of impersonation, regardless of Safe Browsing status.")
     return _result(
         plan_, checks, found=found, outcome="likely_scam", attention="action_needed",
-        overview=(f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. {support[0]['text']} "
-                  f"Don't use the link — go to {brand} directly through their official app or website."),
-        means=(f"{place} isn't one of {brand}'s published domains, and a separate check on that address backs up the concern. "
-               "That's enough to treat it as concerning without weighing up the wording."),
+        overview=overview,
+        means=means,
         how=_method(f"{_checked(plan_, _routes(checks))} {_NOT_NEEDED}", checks, not_taken=True),
         reason=f"Anything typed into that link goes to whoever runs {place}, which isn't one of {brand}'s published domains.",
         actions=[_action("Don't use the link", f"Don't open {place} and don't enter anything on it."),

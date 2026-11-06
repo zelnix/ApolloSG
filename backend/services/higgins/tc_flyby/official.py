@@ -77,10 +77,15 @@ def pregathered(pe: dict | None) -> dict:
             "ipqs_urls": (pe.get("ipqs") or {}).get("urls") or {},
             "ipqs_phones": (pe.get("ipqs") or {}).get("phones") or {},
             "downloads": (pe.get("download_links") or {}).get("items") or [],
-            "advisories": (pe.get("scam_intel") or {}).get("matches") or []}
+            "advisories": (pe.get("scam_intel") or {}).get("matches") or [],
+            # Email authentication (SPF/DKIM/DMARC) pre-gathered results keyed by address or domain.
+            # NOTE: authentication passing establishes who SENT the email (delivery infrastructure),
+            # NOT that the sender is the named brand.  Brand identity requires the sender's domain
+            # to be on Apollo's register of official domains.
+            "authentication": (pe.get("email_authentication") or {}).get("results") or {}}
 
 
-KNOWN_SECTIONS = {"safe_browsing", "rdap", "redirects", "ipqs", "download_links", "scam_intel", "_summary", "hibp"}
+KNOWN_SECTIONS = {"safe_browsing", "rdap", "redirects", "ipqs", "download_links", "scam_intel", "_summary", "hibp", "email_authentication"}
 
 
 def unread_sections(pe: dict | None) -> dict:
@@ -322,8 +327,9 @@ async def _phone(check: Check, pg: dict, plan_: Plan | None = None) -> None:
                                 source=source_ref("IPQualityScore", authority="independent", basis="Commercial phone reputation lookup")))
 
 
-async def _email(check: Check, plan_: Plan) -> None:
+async def _email(check: Check, plan_: Plan, pg: dict | None = None) -> None:
     from services import org_directory
+    pg = pg or {}
     await _regulator_listing(check, "email", "email address")
     domain = check.subject.split("@")[-1].lower()
     owner = official_domain(domain)
@@ -333,11 +339,35 @@ async def _email(check: Check, plan_: Plan) -> None:
                                 topic="official_contact",
                                 source=_directory_source(published.get("source_url"), f"Found on {published['name']}'s own pages")))
     elif owner:
+        # The sender uses this brand's official registered domain.
+        # Note: email authentication (SPF/DKIM) on a *non-official* domain does NOT
+        # establish brand identity — only use of the brand's registered domain does.
         check.facts.append(fact(f"{check.subject} uses {domain}, {owner[0]}'s official domain.", "clear",
                                 source=source_ref("ApolloSG official-domain register", basis=owner[1])))
     elif domain in FREE_MAIL and plan_.entities.brands:
         check.facts.append(fact(f"{check.subject} is a free personal email account ({domain}), not an address of {plan_.entities.brands[0][0]}.", "anomaly",
                                 topic="freemail", source=source_ref("ApolloSG official-domain register", basis="Free email providers are not organisation domains")))
+
+    # ── Email authentication (SPF/DKIM/DMARC) ────────────────────────────────
+    # Pre-gathered authentication results, when present, are recorded as neutral context.
+    # Authentication passing confirms the sending infrastructure is authorised by the domain
+    # owner — it does NOT establish the sender is the named brand unless the domain is already
+    # on Apollo's official-domain register.  Never treat SPF/DKIM pass as brand legitimacy.
+    auth_results = pg.get("authentication") or {}
+    auth = auth_results.get(check.subject.lower()) or auth_results.get(domain)
+    if auth and not owner and not published and plan_.entities.brands:
+        spf_ok = auth.get("spf") == "pass"
+        dkim_ok = auth.get("dkim") == "pass"
+        if spf_ok or dkim_ok:
+            auth_checks = " and ".join(c for c, ok in [("SPF", spf_ok), ("DKIM", dkim_ok)] if ok)
+            check.facts.append(fact(
+                f"{check.subject} passed {auth_checks} authentication. This confirms the sending "
+                f"infrastructure is authorised by {domain}, but does not establish the sender is "
+                f"{plan_.entities.brands[0][0]}.",
+                "neutral", topic="authentication",
+                source=source_ref("Email authentication", authority="independent",
+                                  basis="SPF/DKIM authentication — delivery authorisation only, not brand identity"))
+            )
 
 
 def _registration_number(check: Check) -> None:
@@ -366,7 +396,7 @@ async def run(plan_: Plan, pre_gathered: dict | None, text: str) -> None:
         elif check.kind == "phone":
             await _phone(check, pg, plan_)
         elif check.kind == "email":
-            await _email(check, plan_)
+            await _email(check, plan_, pg)
         elif check.kind in ("abn", "acn"):
             _registration_number(check)
         elif check.kind == "scam_alerts":

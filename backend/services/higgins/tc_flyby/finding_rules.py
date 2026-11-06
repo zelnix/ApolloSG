@@ -175,6 +175,25 @@ def gather_ipdmc(plan: Plan) -> IPDMCChecks:
         else:
             checks.identity_verified = "unknown"
 
+    # ── Belt-and-suspenders: lookalike establishes false identity by name ──────
+    # A lookalike domain (e.g. commbank-secure.net) carries the brand's name in a
+    # non-official domain — that name choice IS the deception and establishes false
+    # identity without requiring a separate link-check signal.
+    # This guards against future changes to corroborated_impersonation() accidentally
+    # losing this protection.
+    if not checks.identity_is_false and impersonation_checks:
+        lookalike_facts = [
+            f for c in impersonation_checks for f in c.facts
+            if f.get("class") == "live_evidence" and f["signal"] == "anomaly"
+            and f.get("topic") in ("lookalike", "shared_service")
+        ]
+        if lookalike_facts:
+            checks.identity_is_false = True
+            existing = set(checks.identity_evidence)
+            for f in lookalike_facts:
+                if f.get("text") and f["text"] not in existing:
+                    checks.identity_evidence.append(f["text"])
+
     # Email verification
     for c in email_checks:
         for f in c.facts:
@@ -356,6 +375,18 @@ def s3_scam_activity(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
     corroborated = _corroborated_impersonation(plan)
     if corroborated:
         established_deception.extend(f["text"] for f in corroborated if f.get("text"))
+
+    # A lookalike/shared-service domain (anomaly from the impersonation check) is itself
+    # established deception: the domain name was chosen to carry the brand's name.
+    # This catches the case where corroborated_impersonation() returns evidence items
+    # that may have already been counted, as well as direct lookalike evidence.
+    for c in plan.checks:
+        if c.kind == "impersonation":
+            for f in c.facts:
+                if (f.get("class") == "live_evidence" and f["signal"] == "anomaly"
+                        and f.get("topic") in ("lookalike", "shared_service")
+                        and f.get("text") and f["text"] not in established_deception):
+                    established_deception.append(f["text"])
 
     if not established_deception:
         return RuleResult("S3", False, "failed",

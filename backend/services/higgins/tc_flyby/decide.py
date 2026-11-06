@@ -133,6 +133,21 @@ def corroborated_impersonation(plan_: Plan) -> list[dict]:
                 support.append(f)
             elif reg in unrelated_places and f["signal"] == "concern":
                 support.append(f)
+
+    # ── Lookalike / shared-service self-corroboration ─────────────────────────
+    # A domain that carries the brand's name (e.g. "commbank-secure.net") establishes
+    # deceptive intent by its name alone.  A clean Safe Browsing result means the site
+    # has not yet been reported — it does NOT mean the site is safe.
+    # Unrelated-domain mismatches (the brand is merely mentioned alongside another
+    # sender's address) still require a concern-level link-check signal before
+    # impersonation is established.
+    lookalike_mismatched = [f for f in mismatched
+                            if f.get("topic") in ("lookalike", "shared_service")]
+    if lookalike_mismatched:
+        # Include any link-check corroboration that was found (may be empty — that is fine).
+        return lookalike_mismatched + support
+
+    # Unrelated-domain path: needs concern-level corroboration from the link check.
     return mismatched + support if support else []
 
 
