@@ -394,51 +394,53 @@ const useStyles = makeStyles((c) => ({
     lineHeight: 28,
     letterSpacing: -0.3,
   },
+  // Body paragraphs — 16 pt minimum per design guidelines ("plain-language accessibility")
   prose: {
     fontFamily: fonts.text,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 26,
     color: c.onSurfaceSecondary,
   },
-  // Section header: "Here is why this raises immediate red flags"
+  // Section header "Here is why…" — semibold at body size creates clear weight hierarchy
+  // over prose without competing with the verdict heading.
   narrativeHeader: {
     fontFamily: fonts.textSemibold,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
     color: c.onSurface,
     letterSpacing: 0.1,
   },
-  // Bullet list container — tighter gap than the outer card gap
-  bulletList: { gap: 10 },
-  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  // Bullet list container — 8 pt grid spacing between items
+  bulletList: { gap: spacing.md },
+  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
   bulletMark: {
     fontFamily: fonts.text,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 26,
     color: c.onSurfaceSecondary,
     minWidth: 12,
   },
   bulletText: {
     flex: 1,
     fontFamily: fonts.text,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 26,
     color: c.onSurfaceSecondary,
   },
   // Bold label portion inside a bullet: "Fake URL: "
   bulletLabel: {
     fontFamily: fonts.textSemibold,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 26,
     color: c.onSurface,
   },
-  actionText: { fontFamily: fonts.text, fontSize: 15, lineHeight: 22, color: c.onSurface },
+  actionText: { fontFamily: fonts.text, fontSize: 16, lineHeight: 26, color: c.onSurface },
   actionLink: { flexDirection: "row", alignItems: "center", gap: spacing.xs, minHeight: 44 },
   actionLinkText: {
     flex: 1,
     fontFamily: fonts.textMedium,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 26,
     color: c.brandPrimary,
   },
   divider: { height: 1, backgroundColor: c.divider },
@@ -446,13 +448,13 @@ const useStyles = makeStyles((c) => ({
   copyButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     minHeight: 36,
   },
-  copyText: { fontFamily: fonts.textSemibold, fontSize: 12, color: c.brandPrimary },
+  copyText: { fontFamily: fonts.textSemibold, fontSize: 13, color: c.brandPrimary },
 }));
 
 // ── Component ─────────────────────────────────────────────────────────────────

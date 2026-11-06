@@ -89,6 +89,7 @@ KNOWN_SECTIONS = {"safe_browsing", "rdap", "redirects", "ipqs", "download_links"
 
 # ── High-risk international calling country codes ────────────────────────────
 # A bare call from one of these triggers a phone-intelligence report.
+# Each entry needs: name, country_code (+XXX), tactics (markdown bullet list).
 _HIGH_RISK_COUNTRIES: dict[str, dict] = {
     "NG": {   # Nigeria
         "name": "Nigeria",
@@ -100,6 +101,76 @@ _HIGH_RISK_COUNTRIES: dict[str, dict] = {
             "support, or remote work opportunities) to harvest personal information or payments.\n"
             "- **Impersonation/WhatsApp Takeovers**: Messaging you via WhatsApp using an unknown contact "
             "photo claiming to be an acquaintance in trouble."
+        ),
+    },
+    "GH": {   # Ghana
+        "name": "Ghana",
+        "country_code": "+233",
+        "tactics": (
+            "- **Advance-Fee (419) Fraud**: Promising a large inheritance, lottery win or business deal "
+            "requiring upfront \"processing\" or \"tax\" fees that keep escalating — the payout never arrives.\n"
+            "- **Romance Scams**: Building a fake online relationship over weeks before requesting money "
+            "urgently — medical emergency, flight ticket or project funding.\n"
+            "- **Lottery and Prize Scams**: Notifying you that you have won a competition you never "
+            "entered, requiring fees to release the prize."
+        ),
+    },
+    "KE": {   # Kenya
+        "name": "Kenya",
+        "country_code": "+254",
+        "tactics": (
+            "- **Advance-Fee Fraud**: Offering large rewards for helping transfer funds, requiring "
+            "escalating upfront fees — the promised payout never materialises.\n"
+            "- **Mobile Money Fraud**: Sending a fake payment notification to trick you into "
+            "confirming a \"reversal\", causing your own funds to be sent instead.\n"
+            "- **Lottery and Prize Scams**: Claiming you have won a prize or competition, requiring "
+            "upfront fees before the winnings are released."
+        ),
+    },
+    "IN": {   # India
+        "name": "India",
+        "country_code": "+91",
+        "tactics": (
+            "- **Tech Support Scams**: Claiming to be from Microsoft, Apple, Telstra, the NBN Co or "
+            "your bank — asserting your device has a virus or your account has been breached, then "
+            "requesting remote access or immediate payment.\n"
+            "- **Tax Authority Impersonation**: Claiming to represent the ATO and threatening arrest "
+            "or a large tax debt, demanding immediate payment by gift card or cryptocurrency.\n"
+            "- **Automated Robocalls**: Playing a recorded message about a fake account breach, "
+            "undelivered parcel or unclaimed refund before connecting you to a live scammer."
+        ),
+    },
+    "PK": {   # Pakistan
+        "name": "Pakistan",
+        "country_code": "+92",
+        "tactics": (
+            "- **Tech Support Scams**: Claiming to represent Telstra, Microsoft, NBN Co or your bank "
+            "and requesting remote access or payment to fix a problem that does not exist.\n"
+            "- **Automated Robocalls**: Recorded messages claiming your bank account, tax file number "
+            "or government benefit has been compromised, directing you to call back.\n"
+            "- **Advance-Fee Fraud**: Promising a share of large funds in exchange for upfront "
+            "processing or tax payments that keep escalating."
+        ),
+    },
+    "ET": {   # Ethiopia
+        "name": "Ethiopia",
+        "country_code": "+251",
+        "tactics": (
+            "- **The \"Wangiri\" / One-Ring Scam**: Calling briefly and hanging up, hoping you call "
+            "back out of curiosity. Calling back international numbers results in high per-minute "
+            "charges billed directly to your carrier.\n"
+            "- **Advance-Fee Fraud**: Claiming to be a lawyer, official or business contact needing "
+            "help moving large sums of money, requiring upfront \"tax\" or \"processing\" fees."
+        ),
+    },
+    "SL": {   # Sierra Leone
+        "name": "Sierra Leone",
+        "country_code": "+232",
+        "tactics": (
+            "- **Advance-Fee (419) Fraud**: Claiming to be a lawyer, government official or business "
+            "person needing help moving large sums of money, requesting upfront fees that keep escalating.\n"
+            "- **One-Ring Scam**: Calling briefly and disconnecting, hoping you call back out of "
+            "curiosity and incur premium international call charges."
         ),
     },
 }
