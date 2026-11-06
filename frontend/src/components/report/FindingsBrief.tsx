@@ -98,7 +98,7 @@ const NOISE_STARTS: RegExp[] = [
   /^suspicious\.?\s*$/i,
   /^safe\.?\s*$/i,
   /^what (?:it is|you sent|was found)\s*:/i,
-  /^(?:apollo'?s? (?:checks? )?)(?:found|noticed|confirmed) (?:a |something |this )/i,
+  /^(?:apollo'?s?['\s]?)(?:check|checks|scan|scans)?\s*(?:found|noticed|confirmed|established|identified|detected) (?:a |something |this |the |that |no )/i,
   /^the evidence points to a scam\.?\s*$/i,
   /^no threat was found/i,
   /^the checks that completed found no threat/i,
@@ -122,6 +122,14 @@ const NOISE_CONTAINS: RegExp[] = [
   /very likely a scam,?\s*(?:though|but)/i,
   /treat (?:it|this) as a scam/i,
   /nothing (?:in the checks|apollo completed) points/i,
+  // These conflict with a scam/likely-scam verdict banner — "nothing proves it's a scam" under
+  // a "This is likely a scam" heading creates direct contradiction (Higgins guideline 3).
+  // NOTE: short matches like /nothing here proves/ belong in NOISE_HARD (not here) so the
+  // percentage-of-sentence threshold does not block them from filtering long sentences.
+  /doesn'?t prove it(?:'s| is) a scam/i,
+  /that(?:'s| is) not proof/i,
+  /not proof that/i,
+  /isn'?t proven to be/i,
   /(?:some|all) checks couldn'?t run/i,
   /there isn'?t enough evidence to say/i,
   /couldn'?t? (?:give|provide) a full answer/i,
@@ -139,10 +147,28 @@ const NOISE_CONTAINS: RegExp[] = [
   /tells you nothing either way/i,
 ];
 
+/**
+ * Hard-stop phrases: a sentence containing any of these is ALWAYS noise,
+ * regardless of sentence length.  Used for phrases that conflict with the
+ * verdict banner (Higgins guideline 3) or reference internal system state.
+ */
+const NOISE_HARD: RegExp[] = [
+  /nothing here proves/i,                        // "Nothing here proves it's a scam…"
+  /doesn'?t prove it(?:'s| is) a scam/i,
+  /that(?:'s| is) (?:no|not) proof/i,
+  /not proof that/i,
+  /isn'?t proven to be a scam/i,
+  /(?:apollo'?s?|the) check(?:s)? established the/i,  // "Apollo's checks established the warning…"
+];
+
 function isNoise(s: string): boolean {
   const t = s.trim();
   if (!t || t.length < 5) return true;
   if (NOISE_STARTS.some((re) => re.test(t))) return true;
+  // Hard-stop phrases: always noise regardless of sentence length.
+  // These either contradict the verdict (conflicting logic rule) or describe
+  // internal system state rather than what was found.
+  if (NOISE_HARD.some((re) => re.test(t))) return true;
   const wordCount = t.split(/\s+/).length;
   for (const re of NOISE_CONTAINS) {
     if (!re.test(t)) continue;
