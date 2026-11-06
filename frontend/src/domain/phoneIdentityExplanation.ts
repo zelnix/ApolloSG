@@ -98,7 +98,7 @@ function buildHeadline(
   canonical: string,
 ): string {
   if (!entity) {
-    return "Apollo couldn't identify who this number belongs to.";
+    return "No verified organisation claims this number — treat this call as likely a scam.";
   }
 
   switch (confidence) {
@@ -111,7 +111,7 @@ function buildHeadline(
     case "conflicting":
       return "Different sources name different organisations for this number.";
     case "unknown":
-      return "Apollo couldn't identify who this number belongs to.";
+      return "No verified organisation claims this number — treat this call as likely a scam.";
   }
 }
 
@@ -192,9 +192,9 @@ function buildBody(
     }
     case "unknown": {
       parts.push(
-        "Apollo checked its Official Organisation Directory, knowledge base, and public web sources but didn't find a published association for this number.",
+        "ApolloSG checked its Official Organisation Directory, knowledge base, and public web sources but found no verified organisation claiming this number.",
       );
-      parts.push("This doesn't mean the number is unsafe — many legitimate numbers aren't published online.");
+      parts.push("An unregistered number is a common feature of scam and fraud calls — that alone is enough to treat this as concerning.");
       break;
     }
   }
@@ -230,7 +230,7 @@ function buildWhatToDo(
     case "conflicting":
       return "Treat this caller's identity as unverified. If they claim to be from an organisation, hang up and call the organisation directly on a number from their official website.";
     case "unknown":
-      return "If the caller claims to represent an organisation, verify by calling that organisation directly on a number from their official website.";
+      return "Treat this call as likely a scam. Do not share personal information or act on any instructions. If the caller claims to represent an organisation, hang up and contact that organisation directly using a number from their official website.";
   }
 }
 
@@ -329,7 +329,7 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   tier_3_regulatory: "regulatory registers",
   tier_4_web: "public web sources",
   tier_5_community: "community directories",
-  tier_6_apollo_kb: "Apollo's knowledge base",
+  tier_6_apollo_kb: "ApolloSG's knowledge base",
 };
 
 function distinctEntities(evidence: IdentityEvidence[]): string[] {
