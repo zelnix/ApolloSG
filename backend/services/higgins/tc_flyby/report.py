@@ -197,7 +197,7 @@ def _au_domestic_phone_report(plan_: Plan, checks: list[Check], material: dict[s
     findings = [
         _finding({"text": f"This is an Australian domestic {type_label} number in the {region_label} range.",
                   "sourceIds": []}, [flyby_item], "high"),
-        _finding({"text": "No verified organisation has this number registered in Apollo's official source database.",
+        _finding({"text": "No verified organisation has this number registered in ApolloSG's official sources.",
                   "sourceIds": []}, [flyby_item], "high"),
         _finding({"text": "This number's range carries a high spam probability based on known domestic robocall operations.",
                   "sourceIds": []}, [flyby_item], "medium"),
