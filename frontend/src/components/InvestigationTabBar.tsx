@@ -10,7 +10,7 @@ import { fonts, makeStaticStyles } from "@/src/theme";
 export type InvestigationTabId = "overview" | "evidence" | "history" | "di";
 
 const TAB_LABELS: { id: InvestigationTabId; label: string }[] = [
-  { id: "overview", label: "Findings Brief" },
+  { id: "overview", label: "Findings" },
   { id: "evidence", label: "Evidence" },
   { id: "history", label: "History" },
   { id: "di", label: "DI" },
