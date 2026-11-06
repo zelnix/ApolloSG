@@ -529,7 +529,9 @@ class Usage(Wire):
 
 
 class ProviderResult(Wire):
-    provider: Literal["gemini", "apollo"] = "gemini"
+    # "apollo" for TC FlyBy (runs locally without an external API).
+    # "gemini", "anthropic", or "openai" for Magnum DI, set directly from AIResult.provider.
+    provider: str = "gemini"
     model: str
     api_version: str = "v1beta"
     finish_reason: str

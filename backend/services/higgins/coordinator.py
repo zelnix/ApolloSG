@@ -317,8 +317,20 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     # registered as case sources (search results: leads, not verification) so the case shows them and
     # a follow-up turn can cite them by Apollo's id. The model's answer itself is not altered.
     grounded_ids = set((await repo.add_sources(owner, case["case_id"], grounding_sources(result.grounding))).values())
-    usage = result.usage or {}
-    provider_result = ProviderResult(model=result.model, finish_reason=result.finish_reason, provider_complete=result.finish_reason == "STOP",
-                                     usage=Usage(input_tokens=usage.get("prompt_token_count"), output_tokens=usage.get("candidates_token_count"), total_tokens=usage.get("total_token_count")),
-                                     source_ids=sorted(set(response.source_ids) | grounded_ids), simulated=result.simulated)
+    # `usage` is already set from result.usage or {} above (line 288) — no reassignment needed.
+    provider_result = ProviderResult(
+        # Bug A fix: record the actual provider ("gemini", "anthropic", "openai") from AIResult,
+        # not the hardcoded default.  ProviderResult.provider is now typed str, not Literal.
+        provider=result.provider,
+        model=result.model,
+        finish_reason=result.finish_reason,
+        provider_complete=result.finish_reason == "STOP",
+        usage=Usage(
+            input_tokens=usage.get("prompt_token_count"),
+            output_tokens=usage.get("candidates_token_count"),
+            total_tokens=usage.get("total_token_count"),
+        ),
+        source_ids=sorted(set(response.source_ids) | grounded_ids),
+        simulated=result.simulated,
+    )
     return await _commit(owner, case, job, payload, response, provider_result, evidence_ids, source_ids | grounded_ids)

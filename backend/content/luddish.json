@@ -570,6 +570,456 @@
       "text": "An SMS message asked for your login credentials.",
       "strong": false,
       "out": "A text message asked for your sign-in details."
+    },
+    {
+      "text": "Additionally, the domain was registered only three days ago.",
+      "strong": false,
+      "out": "Also, the domain was registered only three days ago."
+    },
+    {
+      "text": "Furthermore, the sender address does not match the claimed organisation.",
+      "strong": false,
+      "out": "Also, the sender address doesn't match the claimed organisation."
+    },
+    {
+      "text": "Moreover, the destination URL redirects to a different domain.",
+      "strong": false,
+      "out": "Also, the destination web address redirects to a different domain."
+    },
+    {
+      "text": "The links in this message appear to lead to a fake site.",
+      "strong": false,
+      "out": "The links in this message seem to lead to a fake site."
+    },
+    {
+      "text": "The domain appears to be a lookalike for a known bank.",
+      "strong": false,
+      "out": "The domain seems to be a lookalike for a known bank."
+    },
+    {
+      "text": "The domain was registered approximately 30 days ago.",
+      "strong": false,
+      "out": "The domain was registered about 30 days ago."
+    },
+    {
+      "text": "Scammers are able to spoof legitimate phone numbers.",
+      "strong": false,
+      "out": "Scammers can spoof legitimate phone numbers."
+    },
+    {
+      "text": "Apollo is able to check this link against known threats.",
+      "strong": false,
+      "out": "Apollo can check this link against known threats."
+    },
+    {
+      "text": "Apollo was able to verify the sender's domain.",
+      "strong": false,
+      "out": "Apollo could verify the sender's domain."
+    },
+    {
+      "text": "Apollo were able to identify the scam pattern.",
+      "strong": false,
+      "out": "Apollo could identify the scam pattern."
+    },
+    {
+      "text": "These addresses are not associated with the official site.",
+      "strong": false,
+      "out": "These addresses aren't associated with the official site."
+    },
+    {
+      "text": "The sender address is not from the claimed organisation.",
+      "strong": false,
+      "out": "The sender address isn't from the claimed organisation."
+    },
+    {
+      "text": "The sender address was not from the claimed organisation.",
+      "strong": false,
+      "out": "The sender address wasn't from the claimed organisation."
+    },
+    {
+      "text": "The links in this message were not part of the official site.",
+      "strong": false,
+      "out": "The links in this message weren't part of the official site."
+    },
+    {
+      "text": "Apollo are unable to verify the sender at this time.",
+      "strong": false,
+      "out": "Apollo can't verify the sender now."
+    },
+    {
+      "text": "Apollo is unable to confirm whether this call is legitimate.",
+      "strong": false,
+      "out": "Apollo can't confirm whether this call is legitimate."
+    },
+    {
+      "text": "Apollo were unable to verify the sender at this time.",
+      "strong": false,
+      "out": "Apollo couldn't verify the sender now."
+    },
+    {
+      "text": "Contact us and we can assist you with this message.",
+      "strong": false,
+      "out": "Contact us and we can help you with this message."
+    },
+    {
+      "text": "Apollo assists users in spotting phishing attempts.",
+      "strong": false,
+      "out": "Apollo helps users in spotting phishing attempts."
+    },
+    {
+      "text": "Higgins assisted in identifying the scam pattern.",
+      "strong": false,
+      "out": "Higgins helped in identifying the scam pattern."
+    },
+    {
+      "text": "Higgins is assisting with the investigation.",
+      "strong": false,
+      "out": "Higgins is helping with the investigation."
+    },
+    {
+      "text": "Contact Apollo for assistance with this message.",
+      "strong": false,
+      "out": "Contact Apollo for help with this message."
+    },
+    {
+      "text": "Apollo is unable to identify this caller at this time.",
+      "strong": false,
+      "out": "Apollo can't identify this caller now."
+    },
+    {
+      "text": "The message may attempt to steal your credentials.",
+      "strong": false,
+      "out": "The message may try to steal your sign-in details."
+    },
+    {
+      "text": "The domain attempts to look like a legitimate site.",
+      "strong": false,
+      "out": "The domain tries to look like a legitimate site."
+    },
+    {
+      "text": "The sender attempted to access your account.",
+      "strong": false,
+      "out": "The sender tried to access your account."
+    },
+    {
+      "text": "Someone is attempting to impersonate your bank.",
+      "strong": false,
+      "out": "Someone is trying to impersonate your bank."
+    },
+    {
+      "text": "Apollo can not confirm this number is legitimate.",
+      "strong": false,
+      "out": "Apollo can't confirm this number is legitimate."
+    },
+    {
+      "text": "The download will commence when you tap the link.",
+      "strong": false,
+      "out": "The download will start when you tap the link."
+    },
+    {
+      "text": "Payment commences when you tap the link.",
+      "strong": false,
+      "out": "Payment starts when you tap the link."
+    },
+    {
+      "text": "The transfer commenced before it was flagged.",
+      "strong": false,
+      "out": "The transfer started before it was flagged."
+    },
+    {
+      "text": "Apollo could not verify the sender's identity.",
+      "strong": false,
+      "out": "Apollo couldn't verify the sender's identity."
+    },
+    {
+      "text": "The URL demonstrates patterns associated with phishing.",
+      "strong": false,
+      "out": "The web address shows patterns associated with phishing."
+    },
+    {
+      "text": "The domain demonstrated signs of recent registration.",
+      "strong": false,
+      "out": "The domain showed signs of recent registration."
+    },
+    {
+      "text": "The sender address does not match the claimed organisation.",
+      "strong": false,
+      "out": "The sender address doesn't match the claimed organisation."
+    },
+    {
+      "text": "Apollo flagged this message due to the fact that the domain is new.",
+      "strong": false,
+      "out": "Apollo flagged this message because the domain is new."
+    },
+    {
+      "text": "This message has an elevated risk score.",
+      "strong": false,
+      "out": "This message has a higher risk score."
+    },
+    {
+      "text": "Please ensure your account details are kept private.",
+      "strong": false,
+      "out": "Please make sure your account details are kept private."
+    },
+    {
+      "text": "The check ensures the domain is registered to the right organisation.",
+      "strong": false,
+      "out": "The check makes sure the domain is registered to the right organisation."
+    },
+    {
+      "text": "Higgins ensured the link was checked before flagging.",
+      "strong": false,
+      "out": "Higgins made sure the link was checked before flagging."
+    },
+    {
+      "text": "Apollo is ensuring all links in the message are verified.",
+      "strong": false,
+      "out": "Apollo is making sure all links in the message are verified."
+    },
+    {
+      "text": "Apollo will examine the link in more detail.",
+      "strong": false,
+      "out": "Apollo will look at the link in more detail."
+    },
+    {
+      "text": "Apollo examines the destination before flagging a link.",
+      "strong": false,
+      "out": "Apollo looks at the destination before flagging a link."
+    },
+    {
+      "text": "Higgins examined the domain registration record.",
+      "strong": false,
+      "out": "Higgins looked at the domain registration record."
+    },
+    {
+      "text": "Apollo is examining the sender's email address.",
+      "strong": false,
+      "out": "Apollo is looking at the sender's email address."
+    },
+    {
+      "text": "The domain had not been registered before this month.",
+      "strong": false,
+      "out": "The domain hadn't been registered before this month."
+    },
+    {
+      "text": "The sender has not been verified by Apollo.",
+      "strong": false,
+      "out": "The sender hasn't been verified by Apollo."
+    },
+    {
+      "text": "These links have not been seen in scam reports before.",
+      "strong": false,
+      "out": "These links haven't been seen in scam reports before."
+    },
+    {
+      "text": "Apollo found a concern in relation to the sender's address.",
+      "strong": false,
+      "out": "Apollo found a concern about the sender's address."
+    },
+    {
+      "text": "Contact your bank in the event that you have already clicked the link.",
+      "strong": false,
+      "out": "Contact your bank if you have already clicked the link."
+    },
+    {
+      "text": "These patterns indicate the message is not legitimate.",
+      "strong": false,
+      "out": "These patterns show the message isn't legitimate."
+    },
+    {
+      "text": "The risk score indicates a high likelihood of fraud.",
+      "strong": false,
+      "out": "The risk score shows a high likelihood of fraud."
+    },
+    {
+      "text": "The registration record indicated a new domain.",
+      "strong": false,
+      "out": "The registration record showed a new domain."
+    },
+    {
+      "text": "The sender address is indicating signs of spoofing.",
+      "strong": false,
+      "out": "The sender address is showing signs of spoofing."
+    },
+    {
+      "text": "There is insufficient evidence to confirm this is a scam.",
+      "strong": false,
+      "out": "There is not enough evidence to confirm this is a scam."
+    },
+    {
+      "text": "Do not modify your account details via this link.",
+      "strong": false,
+      "out": "Do not change your account details through this link."
+    },
+    {
+      "text": "The site modifies the link to bypass security filters.",
+      "strong": false,
+      "out": "The site changes the link to bypass security filters."
+    },
+    {
+      "text": "The domain was recently modified to redirect to a new page.",
+      "strong": false,
+      "out": "The domain was recently changed to redirect to a new page."
+    },
+    {
+      "text": "Nevertheless, treat this message with caution.",
+      "strong": false,
+      "out": "Still, treat this message with caution."
+    },
+    {
+      "text": "Nonetheless, Apollo advises you not to click the link.",
+      "strong": false,
+      "out": "Still, Apollo advises you not to click the link."
+    },
+    {
+      "text": "Numerous scam reports mention this phone number.",
+      "strong": false,
+      "out": "Many scam reports mention this phone number."
+    },
+    {
+      "text": "The scammer obtained your details from a data breach.",
+      "strong": false,
+      "out": "The scammer got your details from a data breach."
+    },
+    {
+      "text": "Scams like this frequently occur via SMS messages.",
+      "strong": false,
+      "out": "Scams like this frequently happen through text messages."
+    },
+    {
+      "text": "This pattern often occurs in phishing campaigns.",
+      "strong": false,
+      "out": "This pattern often happens in phishing campaigns."
+    },
+    {
+      "text": "The registration occurred only two days ago.",
+      "strong": false,
+      "out": "The registration happened only two days ago."
+    },
+    {
+      "text": "Suspicious activity is occurring on this domain.",
+      "strong": false,
+      "out": "Suspicious activity is happening on this domain."
+    },
+    {
+      "text": "Apollo found information regarding the registration of this domain.",
+      "strong": false,
+      "out": "Apollo found information about the registration of this domain."
+    },
+    {
+      "text": "You should not tap the link or reply to the message.",
+      "strong": false,
+      "out": "You shouldn't tap the link or reply to the message."
+    },
+    {
+      "text": "The link subsequently redirected to a fake login page.",
+      "strong": false,
+      "out": "The link later redirected to a fake login page."
+    },
+    {
+      "text": "There is sufficient evidence to flag this as a scam.",
+      "strong": false,
+      "out": "There is enough evidence to flag this as a scam."
+    },
+    {
+      "text": "Scammers utilise official-looking email addresses.",
+      "strong": false,
+      "out": "Scammers use official-looking email addresses."
+    },
+    {
+      "text": "The number was utilised in a previous scam campaign.",
+      "strong": false,
+      "out": "The number was used in a previous scam campaign."
+    },
+    {
+      "text": "The site is utilising a fake security certificate.",
+      "strong": false,
+      "out": "The site is using a fake security certificate."
+    },
+    {
+      "text": "Scammers utilize official-looking email addresses.",
+      "strong": false,
+      "out": "Scammers use official-looking email addresses."
+    },
+    {
+      "text": "The URL utilizes a known redirection service.",
+      "strong": false,
+      "out": "The web address uses a known redirection service."
+    },
+    {
+      "text": "The domain was utilized in a phishing campaign.",
+      "strong": false,
+      "out": "The domain was used in a phishing campaign."
+    },
+    {
+      "text": "The site is utilizing a fake security certificate.",
+      "strong": false,
+      "out": "The site is using a fake security certificate."
+    },
+    {
+      "text": "The payment request was sent via an unofficial app.",
+      "strong": false,
+      "out": "The payment request was sent through an unofficial app."
+    },
+    {
+      "text": "Apollo checked whether or not the domain is registered.",
+      "strong": false,
+      "out": "Apollo checked whether the domain is registered."
+    },
+    {
+      "text": "Apollo will not be able to confirm this caller.",
+      "strong": false,
+      "out": "Apollo won't be able to confirm this caller."
+    },
+    {
+      "text": "There is a concern with regard to the destination domain.",
+      "strong": false,
+      "out": "There is a concern about the destination domain."
+    },
+    {
+      "text": "This link would not appear in an official communication.",
+      "strong": false,
+      "out": "This link wouldn't appear in an official communication."
+    },
+    {
+      "text": "Apollo is unable to confirm whether this call is legitimate.",
+      "strong": true,
+      "out": "Apollo cannot confirm whether this call is legitimate."
+    },
+    {
+      "text": "Apollo are unable to verify the sender at this time.",
+      "strong": true,
+      "out": "Apollo cannot verify the sender now."
+    },
+    {
+      "text": "Apollo were unable to verify the sender at this time.",
+      "strong": true,
+      "out": "Apollo could not verify the sender now."
+    },
+    {
+      "text": "You should not tap the link or reply to the message.",
+      "strong": true,
+      "out": "You should not tap the link or reply to the message."
+    },
+    {
+      "text": "Apollo will not be able to confirm this caller.",
+      "strong": true,
+      "out": "Apollo will not be able to confirm this caller."
+    },
+    {
+      "text": "This link would not appear in an official communication.",
+      "strong": true,
+      "out": "This link would not appear in an official communication."
+    },
+    {
+      "text": "These addresses are not associated with the official site.",
+      "strong": true,
+      "out": "These addresses are not associated with the official site."
+    },
+    {
+      "text": "The sender address is not from the claimed organisation.",
+      "strong": true,
+      "out": "The sender address is not from the claimed organisation."
     }
   ]
 }
