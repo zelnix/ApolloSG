@@ -309,6 +309,12 @@ async def _launch_investigation(
                 {"owner_id": owner, "case_id": case_id},
                 {"$set": {"triage_provider_evidence": _triage}})
 
+        # The case is findable from the moment it starts: write its patrol record now so that
+        # call-investigate and Ask-Higgins-initiated cases appear in Threats while running,
+        # not only after they answer. Same deterministic event id the committed projection
+        # updates later — one record per case, identical path as POST /investigations.
+        await project_case_started({**case, "source_metadata": source_metadata, "owner_id": owner})
+
         # Submit the first investigation turn
         if question.strip():
             idem_key = f"compat-{gate or 'general'}-{case_id}"
