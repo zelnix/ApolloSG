@@ -292,8 +292,17 @@ function evidenceSourceInfo(ev: EvidenceItem): {
       return { title: "Screenshot", Icon: Search, iconBg: "rgba(212,120,10,0.15)", iconColor: "#D4780A", metaLines: [label || "User screenshot", ev.collectedAt ? `Captured: ${new Date(ev.collectedAt).toLocaleString()}` : "", ev.mediaType ?? ""].filter(Boolean) };
     case "document": case "file": case "attachment":
       return { title: prov?.originalFilename ?? "File", Icon: FileText, iconBg: "#E4F0E8", iconColor: "#2E7D32", metaLines: [prov?.originalFilename ?? label, ev.mediaType ?? "", ev.byteLength ? formatEvBytes(ev.byteLength) : "", ev.collectedAt ? `Uploaded: ${new Date(ev.collectedAt).toLocaleString()}` : ""].filter(Boolean) };
+    case "email": case "email_original": {
+      const subjectMatch = label.match(/subject:\s*(.+)/i);
+      const senderMatch = label.match(/from:\s*(.+?)(?:\s*[|·]|$)/i);
+      const metaEmail: string[] = [];
+      if (senderMatch) metaEmail.push(`From: ${senderMatch[1].trim()}`);
+      if (subjectMatch) metaEmail.push(`Subject: ${subjectMatch[1].trim()}`);
+      if (!metaEmail.length && label) metaEmail.push(label);
+      return { title: "Email", Icon: Mail, iconBg: "#DBEAFE", iconColor: "#1E3A5F", metaLines: [...metaEmail, ev.collectedAt ? `Received: ${new Date(ev.collectedAt).toLocaleString()}` : ""].filter(Boolean) };
+    }
     default:
-      return { title: ev.kind.charAt(0).toUpperCase() + ev.kind.slice(1), Icon: FileText, iconBg: "#DBEAFE", iconColor: "#1E3A5F", metaLines: [label, ev.collectedAt ? new Date(ev.collectedAt).toLocaleString() : ""].filter(Boolean) };
+      return { title: (ev.kind ?? "Evidence").charAt(0).toUpperCase() + (ev.kind ?? "Evidence").slice(1), Icon: FileText, iconBg: "#DBEAFE", iconColor: "#1E3A5F", metaLines: [label, ev.collectedAt ? new Date(ev.collectedAt).toLocaleString() : ""].filter(Boolean) };
   }
 }
 
@@ -700,7 +709,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       onAction?.(action, outcome);
     });
   };
-  const steps: BriefStep[] = response?.actions.map((action, i) => ({
+  const steps: BriefStep[] = response?.actions?.map((action, i) => ({
     id: action.id, text: stepText(response, i) || action.label, onPress: isExecutable(action) ? () => pressAction(action) : undefined,
   })) ?? [];
 
@@ -864,8 +873,8 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
         <View style={{ gap: spacing.md }} testID="inv-tab-evidence-content">
           {caseData ? <EvidenceArtefactCard caseKeys={[eventId, caseData.id]} onAvailable={setHasLocalOriginal} packTitle={`Apollo investigation ${caseData.id.slice(0, 8)}`} packDate={caseData.createdAt} packSummary={caseData.response ? {
             overview: caseData.response.overview || null,
-            findings: caseData.response.findings.map((f) => f.text),
-            steps: caseData.response.actions.map((a) => a.instruction ? `${a.label}: ${a.instruction}` : a.label),
+            findings: (caseData.response.findings ?? []).map((f) => f.text),
+            steps: (caseData.response.actions ?? []).map((a) => a.instruction ? `${a.label}: ${a.instruction}` : a.label),
             uncertainties: caseData.response.uncertainties,
           } : null} /> : null}
 
