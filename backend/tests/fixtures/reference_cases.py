@@ -23,6 +23,13 @@ Each case carries:
                    scenario itself already describes, e.g. a "confirmed fake portal" case gets the
                    lookalike-domain fact a real RDAP+brand check would have found for a domain like
                    that). Applied to the matching Check objects before decide.evaluate() runs.
+
+Correction (direct instruction, overriding the PRD §5.2 table's illustrative 28-point "benign
+baseline" figure for the six "benign"/ordinary-unverified cases — 009, 014, 030, 061, 069, 074):
+an ordinary message with no scam indicators and nothing to check (the golf-invitation example) is
+"Not a Scam" at its real, evidence-based score of 0 — never an artificial ~28/"Unlikely a Scam"
+floor. Their target_score/target_finding below reflect this correction, not the PRD table's
+original illustrative figures.
 """
 from __future__ import annotations
 
@@ -115,7 +122,7 @@ CASES: list[ReferenceCase] = [
                       gt("link", "startrack-redirect.info", text="startrack-redirect.info was registered 3 days ago.", signal="weak", topic="registration")],
     ),
     ReferenceCase(
-        id="009", scenario="Ordinary unverified parcel arrival notice", category="benign", target_score=28, target_finding="unlikely_scam",
+        id="009", scenario="Ordinary unverified parcel arrival notice", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Your parcel from Kmart has arrived at the Auspost locker at Westfield Hornsby. It will be held for 48 hours.",
     ),
@@ -151,7 +158,7 @@ CASES: list[ReferenceCase] = [
                   "to stop the transfer before it processes."),
     ),
     ReferenceCase(
-        id="014", scenario="Ordinary unverified banking reminder", category="benign", target_score=29, target_finding="unlikely_scam",
+        id="014", scenario="Ordinary unverified banking reminder", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Reminder: your ANZ credit card payment of $120.00 is due in 3 days. Log in to the ANZ app to view your statement.",
     ),
@@ -189,14 +196,14 @@ CASES: list[ReferenceCase] = [
                   "once it's sorted, please don't tell anyone else about this."),
     ),
     ReferenceCase(
-        id="030", scenario="Unverified ordinary family message", category="benign", target_score=28, target_finding="unlikely_scam",
+        id="030", scenario="Unverified ordinary family message", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Hey, running 10 minutes late to dinner, see you soon! Can you grab some bread on the way?",
     ),
 
     # ── 061-070 — Social Engineering (romance) & Financial/Crypto Fraud ─────
     ReferenceCase(
-        id="061", scenario="Ordinary golf invitation", category="benign", target_score=28, target_finding="unlikely_scam",
+        id="061", scenario="Ordinary golf invitation", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Keen for golf Saturday morning? Tee off at 7am, I'll book us in at the usual course.",
     ),
@@ -252,7 +259,7 @@ CASES: list[ReferenceCase] = [
                   "wallet will be drained within the hour."),
     ),
     ReferenceCase(
-        id="069", scenario="Ordinary unverified investment seminar invitation", category="benign", target_score=30, target_finding="unlikely_scam",
+        id="069", scenario="Ordinary unverified investment seminar invitation", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="You're invited to a free investment seminar at the local library next Thursday 6pm, covering super and shares basics. All welcome.",
     ),
@@ -286,7 +293,7 @@ CASES: list[ReferenceCase] = [
                   "withdrawals after your first task set, deposit a refundable $150 activation fee in cryptocurrency to get started."),
     ),
     ReferenceCase(
-        id="074", scenario="Ordinary unverified job interview invitation", category="benign", target_score=28, target_finding="unlikely_scam",
+        id="074", scenario="Ordinary unverified job interview invitation", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Hi, thanks for applying — we'd like to invite you for an interview Tuesday at 10am at our office. Please confirm if that time works.",
     ),

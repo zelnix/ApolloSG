@@ -1,11 +1,13 @@
 """Findings Rating — classify_finding() boundary tests (Apollo PRD v2.2 §2.1 / §2.5.10).
 
-The four Findings are decided by the rating's exact score boundary: 85-100 scam, 60-84 likely_scam,
-25-59 unlikely_scam, 0-24 not_scam — but the 0-24 band also requires verification_established=True
-to read "not_scam" (Developer Instructions: "Clarification of Scoring and Findings Requirements");
-otherwise it reads "unlikely_scam", the same real score under an honest Finding. Every boundary value
-the PRD calls out by name (24, 25, 59, 60, 84, 85) is tested explicitly here, plus the out-of-range
-guard and a scoring-engine smoke test per dimension.
+The four Findings are decided from the rating's exact score boundary alone: 85-100 scam, 60-84
+likely_scam, 25-59 unlikely_scam, 0-24 not_scam. Verification completeness (`verification_established`
+/ `verification_note` on `ScoreBreakdown`) is a separate, purely informational axis shown on the DI
+tab alongside the score — it never gates or changes the Finding (Developer Instructions:
+"Clarification of Scoring and Findings Requirements", then reverted on direct instruction: a 0-24
+score, including PRD's golf-invitation example, is always "Not a Scam"). Every boundary value the
+PRD calls out by name (24, 25, 59, 60, 84, 85) is tested explicitly here, plus the out-of-range guard
+and a scoring-engine smoke test per dimension.
 """
 import pytest
 
@@ -46,22 +48,6 @@ class TestClassifyFindingBoundaries:
         with pytest.raises(ValueError):
             classify_finding(bad)
 
-    def test_24_is_unlikely_scam_when_verification_was_not_established(self):
-        """Developer Instructions correction: a 0-24 score only reads "Not a Scam" when verification
-        was actually established — otherwise it reads "Unlikely a Scam", the same real number under
-        an honest Finding."""
-        assert classify_finding(24, verification_established=False) == "unlikely_scam"
-
-    def test_0_is_unlikely_scam_when_verification_was_not_established(self):
-        assert classify_finding(0, verification_established=False) == "unlikely_scam"
-
-    def test_25_and_above_are_unaffected_by_verification_status(self):
-        """Every boundary at 25 and above is identical whether or not verification was established —
-        missing verification never raises the score, so it can't change anything already above the
-        not_scam/unlikely_scam line."""
-        for score in (25, 59, 60, 84, 85, 100):
-            assert classify_finding(score, verification_established=True) == classify_finding(score, verification_established=False)
-
 
 def _plan(**over) -> Plan:
     base = dict(checks=[], has_message=True, link_only=False, general=False, gaps=[], advisories=[],
@@ -74,17 +60,18 @@ class TestScorePlanMechanics:
     """score_plan() over directly-constructed evidence — the engine's own contract, independent of
     what any particular free-text message happens to extract (that's Higgins Triage's job)."""
 
-    def test_nothing_found_nothing_verified_is_unlikely_scam_at_a_real_zero_score(self):
-        """PRD's own golf-invitation example (Developer Instructions correction): no scam
-        indicators, nothing to check — the score is the real, unmodified dimension sum (0), never
-        an invented floor. Verification completeness alone gates the Finding."""
+    def test_nothing_found_nothing_verified_is_not_scam_at_a_real_zero_score(self):
+        """PRD's own golf-invitation example: no scam indicators, nothing to check — the score is
+        the real, unmodified dimension sum (0), never an invented floor, and it reads "Not a Scam"
+        like every other 0-24 score (verification completeness is informational-only context, it
+        never gates the Finding)."""
         plan = _plan()
         breakdown = score_plan(plan, IPDMCChecks())
-        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.finding == "not_scam"
         assert breakdown.rating == 0
         assert breakdown.baseline == 0
         assert breakdown.verification_established is False
-        assert breakdown.verification_note, "verification context must always be populated, even when it doesn't change the score"
+        assert breakdown.verification_note, "verification context must always be populated, even when it doesn't change the finding"
 
     def test_decisive_otp_ask_floors_at_85_regardless_of_other_evidence(self):
         plan = _plan()
@@ -128,14 +115,16 @@ class TestScorePlanMechanics:
         assert breakdown.rating <= 24
         assert breakdown.legitimacy_credit > 0
 
-    def test_unverified_consequential_request_alone_is_unlikely_scam_not_clean(self):
+    def test_unverified_consequential_request_alone_scores_on_its_real_evidence(self):
         """A consequential ask through an unverified route is concerning (20/100 just from that
-        dimension, real and evidence-based) — not enough alone to cross into "likely a scam", but
-        it must never read as "not a scam" either, because verification was never established."""
+        dimension, real and evidence-based) — not enough alone to cross into "likely a scam", and,
+        per the score-only boundary contract, a real 20/100 reads "Not a Scam" exactly like any
+        other 0-24 score; the unverified route is still recorded honestly via
+        `verification_established`/`verification_note` for the DI tab's context."""
         plan = _plan()
         ipdmc = IPDMCChecks(consequential_requests=[{"type": "financial", "quote": "please transfer $50 to my new account"}])
         breakdown = score_plan(plan, ipdmc)
-        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.finding == "not_scam"
         assert breakdown.rating == 20, "the real dimension score (requested_action alone) is retained, not pushed into a 25-59 band artificially"
         assert breakdown.verification_established is False
 
@@ -170,25 +159,26 @@ class TestScorePlanMechanics:
 
 
 class TestVerificationCompletenessIsSeparateFromScore:
-    """Developer Instructions — "Clarification of Scoring and Findings Requirements": the six-
-    dimension score reflects only real, evidence-based scam indicators and approved evidence-based
-    adjustments (legitimacy credit, impersonation/decisive floors). Verification completeness is a
-    separate axis (`verification_established` / `verification_note`) that gates whether a genuinely
-    low 0-24 score reads "Not a Scam" (verification actually established) or "Unlikely a Scam" (no
-    scam indicators found, but authenticity also not independently established) — it never adds a
-    single point to `rating` itself."""
+    """Developer Instructions — "Clarification of Scoring and Findings Requirements" (reverted on
+    direct instruction): the six-dimension score reflects only real, evidence-based scam indicators
+    and approved evidence-based adjustments (legitimacy credit, impersonation/decisive floors).
+    Verification completeness is a separate, purely informational axis (`verification_established` /
+    `verification_note`) shown on the DI tab beside the score — it never adds a single point to
+    `rating`, and it never gates or changes `finding` either: the Finding is decided from the score
+    alone, so every real 0-24 score reads "Not a Scam" (PRD's golf-invitation example included)."""
 
     def test_an_ordinary_message_with_nothing_to_check_scores_zero_not_an_invented_floor(self):
         plan = _plan()
         breakdown = score_plan(plan, IPDMCChecks())
         assert breakdown.rating == 0, "no artificial benign-baseline adjustment may be added to the score"
         assert breakdown.baseline == 0
-        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.finding == "not_scam"
         assert breakdown.verification_established is False
 
     def test_checked_and_clean_evidence_keeps_its_own_real_score(self):
         """A check actually ran and came back clean, alongside an unrelated, real urgency cue (6
-        points). The score must stay exactly 6 — never bumped, never zeroed, never re-interpreted."""
+        points). The score must stay exactly 6 — never bumped, never zeroed, never re-interpreted —
+        and a real 6/100 reads "Not a Scam" like any other 0-24 score."""
         from services.higgins.tc_flyby.triage import Entities, Check
 
         clean_fact = {"text": "example.org is registered to a long-established organisation.", "signal": "neutral",
@@ -203,7 +193,7 @@ class TestVerificationCompletenessIsSeparateFromScore:
         breakdown = score_plan(plan, IPDMCChecks())
         assert breakdown.baseline == 6, "manipulation_behaviour alone should score 6 for one urgency cue"
         assert breakdown.rating == 6, "a real, evidence-based score must never be replaced by an artificial floor"
-        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.finding == "not_scam"
 
     def test_positively_verified_identity_reads_not_scam_at_a_genuinely_low_score(self):
         plan = _plan()
@@ -226,13 +216,15 @@ class TestVerificationCompletenessIsSeparateFromScore:
 
         breakdown = score_plan(plan, IPDMCChecks())
         assert breakdown.rating == 0
-        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.finding == "not_scam"
         assert breakdown.verification_established is False
 
     def test_unresolved_consequential_request_scores_on_its_own_real_evidence(self):
         """PRD's delivery-toll shape: a consequential request through an unverified destination
         scores 20 on its own real evidence (requested_action) — no artificial floor is needed even
-        though a *different* link elsewhere in the message checked out clean."""
+        though a *different* link elsewhere in the message checked out clean. A real 20/100 still
+        reads "Not a Scam" per the score-only boundary contract; the unverified destination is
+        recorded honestly via `verification_established`/`verification_note` for DI tab context."""
         from services.higgins.tc_flyby.triage import Check
 
         clean_fact = {"text": "auspost.com.au is Australia Post's own, official domain.", "signal": "clear",
@@ -246,7 +238,7 @@ class TestVerificationCompletenessIsSeparateFromScore:
         breakdown = score_plan(plan, ipdmc)
         assert breakdown.rating == 20
         assert breakdown.verification_established is False
-        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.finding == "not_scam"
 
     def test_verification_note_is_always_populated(self):
         """The DI tab must always be able to show verification context beside the score — never a

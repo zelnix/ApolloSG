@@ -140,9 +140,11 @@ def test_weak_signals_are_never_called_warning_signs():
     assert result2["outcome"] == "likely_scam"
 
 
-# 5. "Unlikely a scam" says why: a gap only when something wasn't checked, weak signals when they were found.
-# (The legacy "unable to determine" outcome is fully merged into "unlikely_scam" — Apollo PRD v2.2 §2 —
-# so this is the same wording contract under its current Finding name.)
+# 5. A genuinely low score (weak signal only, or a check that couldn't be completed, with nothing
+# positively verified either) reads "Not a Scam" — the score-only boundary contract (Developer
+# Instructions, reverted on direct instruction). The underlying facts (the weak signal itself, or
+# that a check was unavailable) are still recorded in `findings`/`verificationNote` for honest
+# context — they just no longer produce a distinct "unable to determine" wording or gate the Finding.
 def _bare_link(*facts: dict, unavailable: bool = False) -> triage.Plan:
     plan = _plan("https://fresh-deals.shop/promo", "Is this link safe?")
     link = _check(plan, "link")
@@ -151,36 +153,28 @@ def _bare_link(*facts: dict, unavailable: bool = False) -> triage.Plan:
     return plan
 
 
-def _undetermined(plan: triage.Plan) -> dict:
+def _settled_not_scam(plan: triage.Plan) -> dict:
     decision, issues = decide.evaluate(plan, MATERIAL, final=True)
-    assert issues == [] and decision.outcome == "unlikely_scam", "settlement unchanged"
+    assert issues == [] and decision.outcome == "not_scam", "a real, low score with nothing positively verified still reads Not a Scam"
     result = report.compose(decision, plan, MATERIAL, "flyby-1")
-    assert result["attention"] == "review" and result["outcome"] == "unlikely_scam"
+    assert result["attention"] == "none" and result["outcome"] == "not_scam"
     return result
 
 
-def test_unable_to_determine_with_only_weak_signals_names_no_gap():
-    result = _undetermined(_bare_link(_listed_clean("fresh-deals.shop"), _registered("fresh-deals.shop", young=True)))
-    assert result["overview"].startswith("ApolloSG couldn't establish enough about fresh-deals.shop to say either way. It found no warning "
-                                         "signs, only a weak signal that isn't a concern on its own, but that isn't the same as it being safe")
-    assert _means(result) == "A weak signal can't settle it either way, so the available evidence can't establish more."
-    assert result["attentionReason"] == "What ApolloSG found can't show whether it's safe or not."
-    assert "couldn't be checked" not in result["explanationMarkdown"] and "Nothing it found raises a concern" not in result["overview"]
+def test_a_weak_signal_alone_is_not_a_scam_but_the_signal_is_still_recorded():
+    result = _settled_not_scam(_bare_link(_listed_clean("fresh-deals.shop"), _registered("fresh-deals.shop", young=True)))
+    assert any("registered" in f["text"] for f in result["findings"]), "the weak signal is still listed among the findings"
 
 
-def test_unable_to_determine_names_the_gap_when_something_couldnt_be_checked():
-    result = _undetermined(_bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing")))
-    assert "It found no warning signs, but that isn't the same as it being safe" in result["overview"]
-    assert _means(result) == "Some of what would settle this couldn't be checked, so the available evidence can't establish more."
-    assert result["attentionReason"] == "Something ApolloSG couldn't fully check may still be unsafe."
+def test_an_unavailable_check_alone_is_not_a_scam_but_the_gap_is_still_recorded():
+    result = _settled_not_scam(_bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing")))
+    assert result["findingsRatingBreakdown"]["verificationEstablished"] is False
+    assert result["findingsRatingBreakdown"]["verificationNote"], "the DI tab still honestly notes verification wasn't established"
 
-    both = _undetermined(_bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing"),
-                                    _registered("fresh-deals.shop", young=True),
-                                    fact("The link redirects to another site.", "weak", topic="redirect")))
-    assert "only weak signals that aren't a concern on their own" in both["overview"]
-    assert _means(both) == ("Some of what would settle this couldn't be checked and weak signals can't settle it either way, so the available "
-                            "evidence can't establish more.")
-    assert both["attentionReason"] == "Something ApolloSG couldn't fully check may still be unsafe."
+    both = _settled_not_scam(_bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing"),
+                                        _registered("fresh-deals.shop", young=True),
+                                        fact("The link redirects to another site.", "weak", topic="redirect")))
+    assert both["findingsRatingBreakdown"]["verificationEstablished"] is False
 
 
 # 6. A quiet Patrol state is never "all clear".

@@ -308,29 +308,24 @@ async def test_magnum_gets_only_the_unresolved_issue_and_tc_flybys_brief_with_se
 
 async def test_a_newly_registered_link_is_a_weak_signal_never_concerning(monkeypatch):
     """No fixed list sends a message to Magnum DI, and a newly registered domain is a weak signal: alone it never makes
-    a case Concerning. It is recorded, and the case is Unlikely a Scam (ordinary, unverified — rule book, TC Hawkeye weak signals)."""
+    a case Concerning. It is recorded, and the case is Not a Scam (ordinary, unverified, score-only boundary — rule
+    book, TC Hawkeye weak signals, reverted on direct instruction)."""
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch, age_days=6)
     _owner, case, response, _ = await _case([("text", "Hi, it's Sarah from the conference. Here are the slides you asked for: https://slides-deck.net/deck")])
     assert calls == [], "Magnum DI couldn't change the finding or what to do"
-    assert response["outcome"] == "unlikely_scam"
-    assert any("registered on 2026-06-01" in f["text"] for f in response["findings"]), "the weak signal is listed"
-    assert "only a weak signal that isn't a concern on its own" in response["overview"]
+    assert response["outcome"] == "not_scam"
+    assert any("registered on 2026-06-01" in f["text"] for f in response["findings"]), "the weak signal is still listed among the findings"
     # Offline, the link's targeted search is unavailable: the gap and the weak signal are both named, nothing broader.
     assert {c["kind"]: c["status"] for c in case["routing"]["tc_flyby"]["checks"]}["link"] == "unavailable"
-    assert ("Some of what would settle this couldn't be checked and a weak signal can't settle it either way"
-            in response["explanationMarkdown"])
-    assert response["attentionReason"] == "Something ApolloSG couldn't fully check may still be unsafe."
-    assert case["routing"]["tc_flyby"]["issues"] == [] and case["routing"]["tc_flyby"]["basis"] == "unknown"
+    assert case["routing"]["tc_flyby"]["issues"] == [] and case["routing"]["tc_flyby"]["basis"] == "clear"
 
 
 async def test_a_plain_message_asking_nothing_is_settled_without_magnum(monkeypatch):
     calls = _gateway(monkeypatch)
     _owner, case, response, _ = await _case([("text", "Hey, are we still on for dinner on Friday? Let me know what time suits.")])
     assert calls == []
-    assert response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
-    assert "isn't the same as it being safe" in response["overview"]
-    assert "Nothing beyond what's listed under what isn't certain" in response["explanationMarkdown"]
+    assert response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
     flyby = case["routing"]["tc_flyby"]
     assert flyby["resolved"] is True and flyby["issues"] == []
     assert {c["kind"]: c["status"] for c in flyby["checks"]}["message_analysis"] == "not_needed"
@@ -525,9 +520,9 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     _lookups(monkeypatch, age_days=6)
     _owner, case, response, _ = await _case([("url", "https://fresh-deals.shop/promo")], message="Is this link safe?")
     # A newly registered domain is a weak signal: recorded, never Concerning on its own. Nothing was
-    # positively verified either, so it's Unlikely a Scam (the merged unable_to_determine/unlikely_scam
-    # case), not a flat "uncertain".
-    assert calls == [] and response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
+    # positively verified either, but the score-only boundary contract (reverted on direct instruction)
+    # still reads this real, low score as "Not a Scam".
+    assert calls == [] and response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
     assert any("registered on 2026-06-01" in f["text"] for f in response["findings"])
     calls.clear()   # now nothing can be checked: every lookup and the search are unavailable
     from services.higgins.tc_flyby import search as tc_flyby_search
@@ -544,10 +539,8 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     monkeypatch.setattr(official, "lookup_domain", none)
     _owner, case, response, _ = await _case([("url", "https://quietbrook-gardens.net/")], message="Is this link safe?")
     assert calls == [], "Magnum DI can't open the page either: nothing it could add"
-    assert response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
-    assert case["routing"]["outcome"] == "unlikely_scam" and case["routing"]["tc_flyby"]["resolved"] is True
-    assert "Some of what would settle this couldn't be checked" in response["explanationMarkdown"]
-    assert response["attentionReason"] == "Something ApolloSG couldn't fully check may still be unsafe."
+    assert response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
+    assert case["routing"]["outcome"] == "not_scam" and case["routing"]["tc_flyby"]["resolved"] is True
 
 
 def test_magnums_outcome_must_agree_with_its_assessment():

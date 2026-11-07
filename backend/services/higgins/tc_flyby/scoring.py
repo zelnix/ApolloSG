@@ -21,28 +21,31 @@ critical scam evidence always outranks a legitimacy credit (PRD §2.3.D: "Decisi
 takes precedence over general sender-authentication credits"). The rating is **never** adjusted
 upward merely because verification is missing — see the Correction note below.
 
-Classification bands (exact, inclusive score boundaries — PRD §2.1):
+Classification bands (exact, inclusive score boundaries — PRD §2.1), decided from the score alone:
     85-100  scam            "This is a Scam"
     60-84   likely_scam     "This is Likely a Scam"
     25-59   unlikely_scam   "This is Unlikely a Scam"
-    0-24    not_scam        "This is Not a Scam" — but only when verification was actually
-                             established; otherwise "unlikely_scam" (see Correction below).
+    0-24    not_scam        "This is Not a Scam"
 
 Note on calibration: the dimensions below are driven entirely by what Higgins Triage and TC Hawkeye's own
 checks already established (IPDMCChecks, the Plan's pattern match, entities and live evidence) — never
 by new keyword scoring on raw text.
 
-Correction (Developer Instructions — "Clarification of Scoring and Findings Requirements"): a
-message with no substantive scam indicators scores 0-24 on real, evidence-based dimension points
-alone — nothing is ever added to the number just because verification wasn't performed, available
-or necessary (an absence of positive verification is not evidence of malicious activity). What used
-to be a score-inflating "benign baseline" is now a *separate* axis entirely: `verification_established`
-(§_positively_verified) plus a `verification_note` that explains, honestly, why this message's
-authenticity has or hasn't been independently established. `classify_finding()` reads *both* axes: a
-score of 0-24 reads "Not a Scam" only when verification was actually established; otherwise it reads
-"Unlikely a Scam" ("no scam indicators were identified, but authenticity hasn't been independently
-established") — the same real number, never an invented one, under a Finding that no longer silently
-equals "confirmed safe". All four Findings, and every score-boundary rule at 25+, are unchanged.
+Correction (Developer Instructions — "Clarification of Scoring and Findings Requirements", then
+reverted on direct instruction): a message with no substantive scam indicators scores 0-24 on real,
+evidence-based dimension points alone — nothing is ever added to the number just because
+verification wasn't performed, available or necessary (an absence of positive verification is not
+evidence of malicious activity). What used to be a score-inflating "benign baseline" is now a
+*separate*, purely informational axis: `verification_established` (§_positively_verified) plus a
+`verification_note` that explains, honestly, why this message's authenticity has or hasn't been
+independently established — shown on the DI tab beside the score, but it never gates or changes the
+Finding itself. `classify_finding()` reads the score alone, exactly as the table above states: a
+real 0-24 score is always "Not a Scam" (PRD's golf-invitation example included, and every other
+low-scoring message — a weak, uncorroborated signal or a check that couldn't be completed is still
+honestly reported via `verification_note`, it just no longer changes the Finding). All four
+Findings, and every score-boundary rule, are score-only. decide.py still escalates any case to
+Magnum DI whose reading/reasoning/relating could still change the result, regardless of this score —
+a "Not a Scam" score never short-circuits a genuinely unresolved case.
 """
 from __future__ import annotations
 
@@ -108,9 +111,11 @@ class ScoreBreakdown:
     decisive_mechanism: str | None = None
     rating: int = 0
     finding: str = "unlikely_scam"
-    # Verification completeness — a separate axis from scam risk (Developer Instructions:
-    # "Clarification of Scoring and Findings Requirements"). `verification_established` gates the
-    # not_scam/unlikely_scam boundary in `classify_finding()`; it never changes `rating`.
+    # Verification completeness — a separate, purely informational axis from scam risk (Developer
+    # Instructions: "Clarification of Scoring and Findings Requirements"). `verification_established`
+    # / `verification_note` explain, honestly, whether this message's authenticity was independently
+    # established; they're shown on the DI tab beside the score, but never gate or change `finding`
+    # or `rating` — the Finding is decided from the score alone (reverted on direct instruction).
     verification_established: bool = False
     verification_note: str = ""
     # Added for DI Scoring Transparency (never recomputed client-side — this *is* the real sequence
@@ -134,17 +139,12 @@ class ScoreBreakdown:
         }
 
 
-def classify_finding(score: int, verification_established: bool = True) -> str:
-    """The four Findings, by exact inclusive score boundary (PRD §2.1 / §2.5.10), gated by whether
-    verification was actually established (Developer Instructions correction).
+def classify_finding(score: int) -> str:
+    """The four Findings, by exact inclusive score boundary (PRD §2.1 / §2.5.10) — decided from the
+    score alone (verification completeness is informational-only; see `ScoreBreakdown`).
 
-    Boundary contract (must hold exactly) when verification_established is True (unchanged):
-    24→not_scam, 25→unlikely_scam, 59→unlikely_scam, 60→likely_scam, 84→likely_scam, 85→scam.
-
-    When verification_established is False, the 0-24 band reads "unlikely_scam" instead of
-    "not_scam" — a real, unmodified score under an honest Finding, never an invented point. Every
-    boundary at 25 and above is identical either way: missing verification never raises the score,
-    it only prevents a low, genuinely clean score from being read as "confirmed safe".
+    Boundary contract (must hold exactly): 24→not_scam, 25→unlikely_scam, 59→unlikely_scam,
+    60→likely_scam, 84→likely_scam, 85→scam.
     """
     if not 0 <= score <= 100:
         raise ValueError("Findings rating must be between 0 and 100")
@@ -154,10 +154,8 @@ def classify_finding(score: int, verification_established: bool = True) -> str:
         return "likely_scam"
     elif score >= 25:
         return "unlikely_scam"
-    elif verification_established:
-        return "not_scam"
     else:
-        return "unlikely_scam"
+        return "not_scam"
 
 
 # ── The six dimensions ───────────────────────────────────────────────────────
@@ -452,8 +450,9 @@ def _legitimacy_credit(plan: Plan, ipdmc: IPDMCChecks) -> tuple[int, str]:
 def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
     """The Findings Rating (0-100) and its four-tier classification, per PRD §2.3.D's sequence:
     six-dimension baseline → legitimacy credit → impersonation/corroboration floor → decisive
-    mechanism floor → bound → verification-gated classification (Developer Instructions
-    correction — verification completeness never changes the number itself).
+    mechanism floor → bound → score-only classification. Verification completeness
+    (`verification_established` / `verification_note`) is computed alongside purely for the DI
+    tab's honest context — it never changes `rating` or `finding`.
     """
     dims = [fn(plan, ipdmc) for fn in _DIMENSION_FUNCS]
     baseline = sum(d.points for d in dims)
@@ -485,14 +484,14 @@ def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
 
     breakdown.rating = max(0, min(100, score))
 
-    # Verification completeness — a separate axis from the score above (Developer Instructions):
-    # missing/unavailable/unnecessary verification is never a reason to raise `rating`. It only
-    # gates whether a genuinely low, evidence-based score of 0-24 reads as "Not a Scam" (verification
-    # actually established) or "Unlikely a Scam" (no scam indicators found, but authenticity also
-    # not independently established).
+    # Verification completeness — a separate, purely informational axis from the score above
+    # (Developer Instructions, reverted on direct instruction): missing/unavailable/unnecessary
+    # verification is never a reason to raise `rating`, and it no longer gates `finding` either —
+    # the Finding is decided from the score alone, so a genuinely low 0-24 score always reads
+    # "Not a Scam" (PRD's golf-invitation example), with verification shown only as honest context.
     breakdown.verification_established = _positively_verified(plan, ipdmc)
     breakdown.verification_note = _verification_note(plan, ipdmc, breakdown.verification_established, breakdown.rating)
-    breakdown.finding = classify_finding(breakdown.rating, breakdown.verification_established)
+    breakdown.finding = classify_finding(breakdown.rating)
 
     # DI Scoring Transparency — attach the real trace behind the number above; changes nothing already decided.
     _enrich_with_real_evidence(breakdown, plan, ipdmc)

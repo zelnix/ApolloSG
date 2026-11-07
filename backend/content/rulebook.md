@@ -1017,19 +1017,23 @@ the boundaries are exact and inclusive:
 |---|---|---|
 | **This is a scam** | 85–100 | An authoritative source names this exact link, number, address or company as a scam or threat; or the investigation has established a fake identity, a deceptive activity, or a complete corroborated scam pattern. |
 | **This is likely a scam** | 60–84 | Strong signs of impersonation, a strong scam-pattern match, or several independent scam indicators — but an important part of the evidence remains unverified. |
-| **This is unlikely a scam** | 25–59, **or** 0–24 with verification not established | A benign or routine communication without enough scam indicators to call it concerning, but without enough positive verification to call it genuine either — the normal finding for ordinary, unverified communications, *at whatever real score they actually earn* (an ordinary message with nothing to check scores 0, not an inflated floor). The case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. (Replaces the earlier "Unable to determine" outcome, now fully merged into this tier.) |
-| **This is not a scam** | 0–24, **and** verification established | The investigation verified the identity, destinations, purpose and resolved all scam warnings. This is **not** proof it's safe, and it is never described as safe. |
+| **This is unlikely a scam** | 25–59 | A scam-adjacent signal was found (a consequential request through an unverified route, a weak signal, an impersonation mention) but not enough, alone, to call it concerning. |
+| **This is not a scam** | 0–24 | The six-dimension score itself found nothing substantive — *at whatever real score it actually earns* (an ordinary message with nothing to check scores 0, not an inflated floor). This is **not** proof it's safe, and it is never described as safe; it is decided from the score alone (see the verification note below). |
 
-**Verification completeness is a separate axis from the score (Developer Instructions — "Clarification of
-Scoring and Findings Requirements").** The 0–24 band only reads "This is not a scam" when TC Hawkeye actually
-established positive verification (`scoring._positively_verified`); otherwise it reads "This is unlikely a
-scam" at the *same, real* score — an absence of positive verification is never, by itself, turned into scam-
-risk points. For example, "Hi David, are we still meeting for golf tomorrow at 10 AM?" scores **0/100** (no
-dimension finds anything to score), gets no artificial adjustment, and reads **"This is unlikely a scam"**
-because nothing established who sent it either — never **"This is not a scam"**, which requires actual
-positive verification, and never a score above 0, which would require actual evidence. Every `ScoreBreakdown`
-carries this as its own `verificationEstablished`/`verificationNote` fields, shown in the DI tab next to —
-never mixed into — the risk score itself.
+**Verification completeness is a separate, purely informational axis from the score (Developer
+Instructions — "Clarification of Scoring and Findings Requirements" — then reverted on direct
+instruction so the Finding is score-only again).** `scoring._positively_verified` /
+`verification_note` record, honestly, whether TC Hawkeye actually established positive verification
+or only found nothing concerning — this is always shown in the DI tab next to the score, but it
+never gates or changes which of the four Findings applies. For example, "Hi David, are we still
+meeting for golf tomorrow at 10 AM?" scores **0/100** (no dimension finds anything to score), gets
+no artificial adjustment, and reads **"This is not a scam"** — the same real score as a message
+whose identity *was* independently verified; `verificationNote` still honestly records that nothing
+was positively verified here, it just doesn't change the Finding. `decide.py`'s own escalation
+contract is unaffected by this axis: a "Not a scam" score never short-circuits a case that still has
+an unresolved reading/reasoning/relating issue only Magnum DI could settle (unread content, an
+unclear pattern match, a contradiction that could reverse it) — those still escalate regardless of
+score.
 
 A reputation-check provider (IPQualityScore, for a link or phone number) that fails or times out, even
 after retrying, never produces a Findings Rating or any of the four outcomes above on its own: when
