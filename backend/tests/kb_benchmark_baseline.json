@@ -23,7 +23,7 @@
   "main": {
     "cases": 60,
     "mustFind": 56,
-    "top1": 0.839,
+    "top1": 0.821,
     "top3": 0.893,
     "miss": 0.107,
     "irrelevant": 0.038,
@@ -32,7 +32,7 @@
   "holdout": {
     "cases": 47,
     "mustFind": 42,
-    "top1": 0.619,
+    "top1": 0.643,
     "top3": 0.667,
     "miss": 0.333,
     "irrelevant": 0.034,

@@ -276,5 +276,6 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
                                recommended_action_id=recommended_action_id,
                                question=question, completion=model.completion,
                                findings_rating=model.findings_rating, findings_rating_breakdown=model.findings_rating_breakdown,
-                               technical_failure=model.technical_failure, taxonomy=model.taxonomy, findings_brief=model.findings_brief)
+                               technical_failure=model.technical_failure, taxonomy=model.taxonomy, findings_brief=model.findings_brief,
+                               mechanisms=model.mechanisms, playbooks=model.playbooks)
     return response, []
