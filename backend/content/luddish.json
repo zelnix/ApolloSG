@@ -1020,6 +1020,81 @@
       "text": "The sender address is not from the claimed organisation.",
       "strong": true,
       "out": "The sender address is not from the claimed organisation."
+    },
+    {
+      "text": "Furthermore, Apollo cannot determine whether this link is legitimate.",
+      "strong": false,
+      "out": "Also, Apollo can't determine whether this link is legitimate."
+    },
+    {
+      "text": "Moreover, this domain is not registered to the claimed organisation.",
+      "strong": false,
+      "out": "Also, this domain isn't registered to the claimed organisation."
+    },
+    {
+      "text": "The site subsequently did not load after the redirect.",
+      "strong": false,
+      "out": "The site later didn't load after the redirect."
+    },
+    {
+      "text": "The evidence utilised was insufficient to reach a conclusion.",
+      "strong": false,
+      "out": "The evidence used was not enough to reach a conclusion."
+    },
+    {
+      "text": "Apollo obtained information regarding the sender address.",
+      "strong": false,
+      "out": "Apollo got information about the sender address."
+    },
+    {
+      "text": "The pattern furthermore demonstrates signs of impersonation.",
+      "strong": false,
+      "out": "The pattern also shows signs of impersonation."
+    },
+    {
+      "text": "The sender attempted to contact you and cannot be verified.",
+      "strong": false,
+      "out": "The sender tried to contact you and can't be verified."
+    },
+    {
+      "text": "The redirect commenced, and furthermore the domain is newly registered.",
+      "strong": false,
+      "out": "The redirect started, and also the domain is newly registered."
+    },
+    {
+      "text": "Additionally, the number does not appear in official records.",
+      "strong": false,
+      "out": "Also, the number doesn't appear in official records."
+    },
+    {
+      "text": "The domain moreover did not resolve to any known organisation.",
+      "strong": false,
+      "out": "The domain also didn't resolve to any known organisation."
+    },
+    {
+      "text": "Apollo is unable to verify the domain, and additionally cannot confirm the sender.",
+      "strong": false,
+      "out": "Apollo can't verify the domain, and also can't confirm the sender."
+    },
+    {
+      "text": "Additionally, scammers utilise domains that are not registered to any known business.",
+      "strong": false,
+      "out": "Also, scammers use domains that aren't registered to any known business."
+    },
+    {
+      "text": "Furthermore, the site demonstrates that it does not hold a valid registration.",
+      "strong": false,
+      "out": "Also, the site shows that it doesn't hold a valid registration."
+    },
+    {
+      "text": "Furthermore, the download commenced but the destination is not verified.",
+      "strong": false,
+      "out": "Also, the download started but the destination isn't verified."
+    },
+    {
+      "text": "Apollo obtained findings regarding this link but cannot confirm the destination.",
+      "strong": false,
+      "out": "Apollo got findings about this link but can't confirm the destination."
     }
   ]
 }

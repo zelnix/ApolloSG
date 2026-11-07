@@ -258,7 +258,15 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         await tc_flyby.discard_response(owner, case)
         fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
     rows, search_on, floor = fly_by.rows, fly_by.magnum_search, fly_by.floor
+
+    # ── Post-TC-FlyBy word-limit guard ──
+    # TC FlyBy may add new evidence rows (e.g. a source snapshot). Re-check the word budget
+    # before sending anything to Magnum DI; Apollo sends NOTHING rather than silently dropping rows.
     evidence_parts, pending_marks, evidence_words = await ev.model_parts(owner, case, rows)
+    if evidence_words > ev.EVIDENCE_WORD_LIMIT:
+        return Outcome("evidence_too_large", evidence_words=evidence_words,
+                       errors=[f"written evidence is {evidence_words} words after TC FlyBy; "
+                               f"Apollo's limit for one investigation is {ev.EVIDENCE_WORD_LIMIT}"])
 
     contents = [Message("user", [Part(text=payload["message"]), *evidence_parts])]
 

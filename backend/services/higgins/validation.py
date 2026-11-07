@@ -18,6 +18,7 @@ never stated twice in one result.
 """
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from typing import Optional
@@ -26,6 +27,17 @@ from pydantic import ValidationError
 
 from services.higgins import outcomes
 from services.higgins.contracts import ActionProposal, Finding, HigginsResponse, ModelFinding, ModelResponse, Question
+
+log = logging.getLogger("apollo.validation")
+
+# An action whose instruction carries a contact identifier (email, phone) cannot belong to an
+# unable_to_determine result: Apollo hasn't established whose brand it is, so a specific address
+# or number is a hallucination and must never reach the person.
+_CONTACT_RE = re.compile(
+    r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+'    # email address  (e.g. phish@nab.com.au)
+    r'|\+?\d[\d ()-]{6,16}\d(?![\w.%])',  # phone number
+    re.I,
+)
 
 CAPABILITY_ACTIONS = {"open_settings", "request_permission", "recheck"}
 # How far each outcome goes — the four Findings plus legacy codes for backward compatibility.
@@ -221,6 +233,35 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
     actions = [ActionProposal(id=str(uuid.uuid4()), kind=a.kind, label=a.label[:120], instruction=a.instruction, capability_id=a.capability_id,
                               execution_descriptor_id=None, requires_user_gesture=a.kind != "instruction", source_ids=a.source_ids,
                               desired_field=a.desired_field, desired_value=a.desired_value) for a in model.actions]
+
+    # ── UNDETERMINED GUARD: strip brand-specific contact instructions ──
+    # An unable_to_determine result means Apollo hasn't established whose brand it is.  Any action
+    # whose instruction carries a contact identifier (email or phone number) is therefore a
+    # hallucinated address the person should never see.  Generic advice (no identifier) is kept.
+    if model.outcome == "unable_to_determine" and actions:
+        clean = [a for a in actions if not _CONTACT_RE.search(a.instruction)]
+        if len(clean) < len(actions):
+            log.warning("undetermined_action_sanitized case_actions=%d dropped=%d",
+                        len(actions), len(actions) - len(clean))
+            actions = clean
+
+    # Recalculate the recommended action after any sanitization: keep the original choice if it
+    # survived; otherwise fall back to the first remaining action (or None when all were stripped).
+    recommended_action_id: Optional[str] = None
+    if actions:
+        orig_idx = model.recommended_action_index
+        # Map original index → surviving action id (actions list may have shrunk)
+        orig_ids = [a.id for a in actions]  # these are the surviving actions in order
+        # Find the originally-recommended action by matching its label+instruction fingerprint
+        # against the surviving list; fall back to index 0 when it was stripped.
+        if orig_idx is not None and orig_idx < len(model.actions):
+            orig_label = model.actions[orig_idx].label
+            orig_instr = model.actions[orig_idx].instruction
+            match = next((a for a in actions if a.label == orig_label[:120] and a.instruction == orig_instr), None)
+            recommended_action_id = match.id if match else actions[0].id
+        else:
+            recommended_action_id = actions[0].id
+
     question = None
     if model.question:
         question = Question(id=(pending_question or {}).get("id", str(uuid.uuid4())), text=model.question.text, reason_needed=model.question.reason_needed,
@@ -231,6 +272,6 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
                                outcome=model.outcome, attention=model.attention, attention_reason=model.attention_reason,
                                findings=[Finding(id=str(uuid.uuid4()), **f.model_dump()) for f in deduplicate_findings(model.findings)], uncertainties=model.uncertainties,
                                scope=model.scope, source_ids=model.source_ids, remaining_evidence_ids=model.remaining_evidence_ids, actions=actions,
-                               recommended_action_id=actions[model.recommended_action_index].id if model.recommended_action_index is not None and actions else None,
+                               recommended_action_id=recommended_action_id,
                                question=question, completion=model.completion)
     return response, []
