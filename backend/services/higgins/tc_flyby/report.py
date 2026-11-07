@@ -1011,10 +1011,16 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
         result = undetermined(plan_, checks, material, flyby_item, outcome=decision.outcome or "unlikely_scam")
     final = _with_gaps(result, plan_)
     # Attach the Findings Rating (0-100, Apollo PRD v2.2 §2) and its explainable breakdown.
-    from services.higgins.tc_flyby import finding_rules, scoring
-    breakdown = scoring.score_plan(plan_, finding_rules.gather_ipdmc(plan_))
+    from services.higgins.tc_flyby import finding_rules, findings_brief, scoring, taxonomy
+    ipdmc = finding_rules.gather_ipdmc(plan_)
+    breakdown = scoring.score_plan(plan_, ipdmc)
     final["findingsRating"] = breakdown.rating
     final["findingsRatingBreakdown"] = breakdown.wire()
+    # Master Scam Taxonomy classification (Apollo PRD v2.2 Phase 2) — None when nothing concerning
+    # enough was established to categorise (e.g. a "not a scam" result).
+    final["taxonomy"] = taxonomy.classify(plan_, ipdmc, breakdown.decisive_mechanism)
+    # The Higgins Findings Brief (Apollo PRD v2.2 Phase 5) — the same result, under its six headers.
+    final["findingsBrief"] = findings_brief.build(final, breakdown, final["taxonomy"])
     return final
 
 

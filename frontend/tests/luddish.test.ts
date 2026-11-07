@@ -168,7 +168,7 @@ test("the whole explanation is checked against its lock: knowledge never becomes
 // ── Composer ──
 test("the Composer writes Finding → Meaning → Importance → Limitation → Action, each from its own place", () => {
   const ex = compose(CONCERN);
-  assert.equal(ex.label, "Concerning");
+  assert.equal(ex.label, "This is suspicious — exercise caution");
   assert.equal(ex.brief.text, CONCERN.headline);
   assert.equal(ex.explanation?.text, "Magnum DI couldn't confirm who sent it. But the link shows an impersonation of ANZ, so you shouldn't enter any details on it.");
   assert.deepEqual(ex.findings.map((f) => f.text), CONCERN.findings.map((f) => f.text), "findings already plain stay word for word");
@@ -268,7 +268,7 @@ test("question buttons: five questions in order, each answered only from the exp
   }
   assert.equal(by("matters")[0].items[0].text, STATE_RULES.concern.matters);
   const sure = by("sure");
-  assert.deepEqual(sure[0].items[0], { label: "Result", text: "Concerning", detail: "Recorded by TC Hawkeye" });
+  assert.deepEqual(sure[0].items[0], { label: "Result", text: "This is suspicious — exercise caution", detail: "Recorded by TC Hawkeye" });
   assert.deepEqual(sure[1].items.map((i) => i.text), ex.findings.map((f) => f.detail), "how each finding was established, in fixed words");
   assert.deepEqual(sure[2].items.map((i) => i.text), ex.limitation.map((p) => p.text));
   assert.deepEqual(by("todo")[0].items.map((i) => i.text), [STATE_RULES.concern.action], "the step already on screen isn't repeated; the state's approved step is added");

@@ -119,7 +119,7 @@ class Said {
     // Combined-meaning check: the point is spread across multiple things already said
     if (m.size >= 3 && this.meanings.length > 1) {
       const combined = new Set(this.meanings.flatMap((s) => [...s]));
-      if (overlap(m, combined) >= 0.85 && negated(m) === [...this.meanings].some(negated)) return true;
+      if (overlap(m, combined) >= 0.95 && negated(m) === [...this.meanings].some(negated)) return true;
     }
     const g = grams(words(text));
     if (g.length < 2) return false;

@@ -60,13 +60,13 @@ test("a negation is never merged into the statement it contradicts", () => {
 
 test("a finding the answer doesn't state is listed, with how it was established", () => {
   const r = buildReport({ ...linkt, findings: [...linkt.findings, { id: "f2", text: "The domain was registered 3 days ago.", basis: "observation", confidence: "high", evidenceIds: [], sourceIds: [] }] });
-  assert.deepEqual(r.found, [{ text: "The domain was registered 3 days ago.", detail: "Observed · High confidence" }]);
+  assert.deepEqual(r.found, [{ text: "The domain was registered 3 days ago.", detail: "Observed · High confidence", findingId: "f2", category: "Fake URL" }]);
 });
 
 test("a threat with no investigation uses what Apollo recorded, still once each", () => {
   const r = buildReport({ overview: "Apollo blocked a suspicious connection.", fallbackFound: ["Apollo blocked a suspicious connection.", "The address is on Apollo's blocklist."], fallbackMeans: "Nothing reached your device from it." });
   assert.deepEqual(r.answer, ["Apollo blocked a suspicious connection."]);
-  assert.deepEqual(r.found, [{ text: "The address is on Apollo's blocklist.", detail: null }]);
+  assert.deepEqual(r.found, [{ text: "The address is on Apollo's blocklist.", detail: null, category: "Known Threat" }]);
   assert.deepEqual(r.means, ["Nothing reached your device from it."]);
   assert.deepEqual(r.how, []);
 });

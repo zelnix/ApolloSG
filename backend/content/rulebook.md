@@ -1029,6 +1029,42 @@ or "not a scam" (services.higgins.tc_flyby.decide.technical_issue).
 
 Every result shows **"Settled by TC Hawkeye"** or **"Settled by Magnum DI"**, in the app and in the admin portal.
 
+### Master Scam Taxonomy {#taxonomy}
+
+Every Finding that establishes a scam mechanism (not a "not a scam" result, and never a technical
+failure) is classified into one of eight approved master domains, each with its own Operational
+Variant Code range from 001 to 1000 (Apollo PRD v2.2 Phase 2). This extends ApolloSG's existing
+knowledge-base scam patterns and the Findings Rating's decisive mechanisms — it never replaces or
+renames a KB record. A case can carry secondary domains alongside its primary one when its
+mechanism spans more than one (services.higgins.tc_flyby.taxonomy.classify).
+
+| # | Master domain | Variant codes |
+|---|---|---|
+| 1 | Account Takeover & Authentication Exploitation | 001–125 |
+| 2 | Brand & Corporate Impersonation | 126–275 |
+| 3 | Financial, Investment & Cryptocurrency Fraud | 276–425 |
+| 4 | Social Engineering & Relationship Exploitation | 426–575 |
+| 5 | Retail, E-Commerce & Employment | 576–725 |
+| 6 | Cyber Extortion & Threats | 726–825 |
+| 7 | Government, Tax & Legal Impersonation | 826–925 |
+| 8 | Real Estate, Rental & Credit Fraud | 926–1000 |
+
+Phishing, credential theft, tech-support scams and investment/crypto scams are represented as
+subcategories of these eight domains (mostly Account Takeover and Financial Fraud), never as
+master domains of their own.
+
+### The Higgins Findings Brief {#findings-brief}
+
+Every Finding is also re-presented under six fixed headers, so the evidence behind it is never
+buried in prose (Apollo PRD v2.2 Phase 5, services.higgins.tc_flyby.findings_brief.build): **Finding**
+(one of the four approved outcome labels, exactly), **Findings Rating** (the 0–100 score),
+**What ApolloSG Found** (the actual findings — names, domains, phone numbers, claims, suspicious
+behaviour), **Why This Matters** (Higgins' plain-language explanation of the scam mechanism),
+**What Was Verified** (what TC Hawkeye checked, the results and any verification limitations), and
+**Recommended Action** (one primary action, with further steps only when there's more than one).
+Nothing here is invented: every field is read from the already-validated result, never generated
+separately.
+
 ### ApolloSG's knowledge base (KB) {#knowledge-base}
 
 **Job:** sourced general knowledge that Higgins and TC Hawkeye can use with no AI. KB knowledge is general knowledge. It is never evidence about anything a person asked Apollo to check.

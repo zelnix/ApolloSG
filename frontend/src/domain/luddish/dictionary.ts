@@ -40,7 +40,7 @@ export const DICTIONARY: readonly LuddishTerm[] = [
   { id: "redirect", term: "redirect", category: "web", match: "redirect(?:s|ed|ing)?", meaning: "A redirect sends you on from the address you tapped to a different one." },
   { id: "safe_browsing", term: "Safe Browsing", category: "web", match: "(?:Google )?Safe Browsing", exactCase: true, meaning: "Google Safe Browsing is Google's list of websites known to be harmful." },
   { id: "ipqs", term: "IPQualityScore", category: "phone", match: "IPQualityScore|IPQS|fraud score",
-    meaning: "IPQualityScore rates how risky a link or phone number looks. Its score is a likelihood, not proof." },
+    meaning: "IPQualityScore rates how risky a link or phone number looks. Its score is a likelihood estimate, not proof — many legitimate new websites score high." },
   { id: "blocklist", term: "blocklist", category: "cyber", match: "blocklist(?:ed|s)?", meaning: "A blocklist is a list of addresses already known to be harmful.", avoid: ["blacklist"] },
   { id: "voip", term: "VoIP", category: "phone", match: "VoIP", exactCase: true, acronym: "VoIP", stands: "Voice over Internet Protocol",
     meaning: "A VoIP number runs over the internet, and anyone can set one up in minutes." },

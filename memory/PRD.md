@@ -5203,3 +5203,46 @@ Report: `/app/memory/REPORT_2026-11-01_evidence_retention.md`; proof: `/app/test
 ### Test results
 - All OTP bypass tests pass via pytest.
 - ~19 pre-existing pytest failures in unrelated modules (e.g. `test_recovery_fencing`, `test_plain_english`) are accepted baseline state and predate this work.
+
+
+## PRD v2.2 Phase 2 (Master Scam Taxonomy) + Phase 5 (Higgins Findings Brief) + Frontend Bug Fixes — 2026-11-07
+
+### What was done
+
+**Phase 2: Master Scam Taxonomy**
+- Created `backend/services/higgins/tc_flyby/taxonomy.py` — the 8 approved master domains with their exact Operational Variant Code ranges (001-125 Account Takeover & Authentication Exploitation, 126-275 Brand & Corporate Impersonation, 276-425 Financial/Investment/Crypto Fraud, 426-575 Social Engineering & Relationship Exploitation, 576-725 Retail/E-Commerce & Employment, 726-825 Cyber Extortion & Threats, 826-925 Government/Tax & Legal Impersonation, 926-1000 Real Estate/Rental & Credit Fraud).
+- `taxonomy.classify(plan, ipdmc, decisive_mechanism)` maps: existing KB scam patterns (patterns.py's 13 pattern keys) → primary/secondary domains; scoring.py's decisive mechanisms (OTP/credential harvesting, wallet exploitation, extortion) → domains; consequential-request types (triage.CONSEQUENTIAL vocabulary) → fallback domain; impersonation-only → Brand & Corporate Impersonation. Returns `None` for "not a scam" results (nothing to classify). Supports cross-domain secondary tagging.
+- Existing KB records/identifiers are untouched — this is purely an additive classification layer.
+
+**Phase 5: Higgins Findings Brief**
+- Created `backend/services/higgins/tc_flyby/findings_brief.py` — `findings_brief.build()` re-presents an already-composed TC Hawkeye result under the 6 exact required headers: Finding (one of the 4 approved outcome labels), Findings Rating (0-100), What ApolloSG Found (actual findings), Why This Matters (plain-language mechanism explanation, pulled from the "What it means" markdown section), What Was Verified (scope + uncertainties/limitations), Recommended Action (primary + additional).
+- `report.compose()` now attaches `result["taxonomy"]` and `result["findingsBrief"]` to every TC Hawkeye-settled result.
+- Added `taxonomy`/`findings_brief` fields to `ModelResponse`/`HigginsResponse` (contracts.py), `response_schema.py`, and `validation.py`'s pass-through — following the exact same "TC Hawkeye-only, the model never sets this" pattern already used for `findingsRating`. Magnum DI-settled cases leave both null this session (out of scope).
+- Extended `content/rulebook.md` with 2 new documented sections ("Master Scam Taxonomy", "The Higgins Findings Brief") and re-stamped via `scripts/rulebook_stamp.py`.
+- Frontend: added `TaxonomyClassification`/`FindingsBrief` types to `src/investigation/types.ts`, and a new collapsible `src/components/report/DetailedFindingsBrief.tsx` card (progressive disclosure, collapsed by default) rendered in `InvestigationView.tsx`'s Overview tab — only shown when `response.findingsBrief` is present.
+
+**Frontend bug fixes (user-requested, pre-existing, unrelated to the above)**
+- `src/domain/reportSections.ts`: the "combined-meaning" repeat-detection heuristic in `Said.repeats()` was too aggressive (0.85 overlap threshold), causing a genuinely new fact to be wrongly treated as already-said whenever its words happened to be scattered across earlier, unrelated sentences. Raised the threshold to 0.95.
+- `src/domain/luddish/dictionary.ts`: the IPQualityScore glossary entry's wording had drifted from the backend's `words.py` GLOSSARY (parity test requires them to match word-for-word) — synced the text, and regenerated `backend/content/luddish.json` via `scripts/exportLuddish.ts`.
+- `tests/luddish.test.ts`: 2 stale assertions expected the old "Concerning" label; updated to the current `STATE_RULES.concern.label` text, "This is suspicious — exercise caution".
+- `tests/reportSections.test.ts` / `tests/plainEnglish.test.ts`: updated 3 assertions to include the `category`/`findingId` fields the existing `findingCategorizer.ts` feature already adds (pre-dates this session).
+
+### Test results
+- Backend: full pytest suite 1898 passed, 16 skipped, 1 xpassed, 0 failures (includes 3 new test files: `test_taxonomy.py`, `test_findings_brief.py`, `test_taxonomy_findings_brief_integration.py`, plus `test_rulebook.py` updated for the 2 new sections).
+- Frontend: the 4 targeted bug-fix files (reportSections/luddish/luddishShared/plainEnglish) 40/40 passing. Full suite: 32 pre-existing, unrelated failures remain (GuardDog SHA-256 manifest, image-artwork, narration, phase2Hub, phoneIdentityAcceptance, urlPresentation, chainInvariants) — explicitly out of scope, confirmed no new regressions.
+- `testing_agent` confirmed end-to-end via live UI: an OTP/credential-sharing bank-impersonation scenario settled by TC Hawkeye correctly showed the new Detailed Findings Brief card with Finding "This is likely a scam", Findings Rating 85/100, taxonomy tag "Account Takeover & Authentication Exploitation (also: Brand & Corporate Impersonation)", and all 6 headers populated.
+
+### Files created/modified
+- `backend/services/higgins/tc_flyby/taxonomy.py` (new)
+- `backend/services/higgins/tc_flyby/findings_brief.py` (new)
+- `backend/services/higgins/tc_flyby/report.py` (compose() wiring)
+- `backend/services/higgins/contracts.py`, `backend/services/higgins/response_schema.py`, `backend/services/higgins/validation.py` (new fields)
+- `backend/content/rulebook.md` (+2 sections), `backend/content/rulebook.lock.json` (re-stamped)
+- `backend/tests/test_taxonomy.py`, `test_findings_brief.py`, `test_taxonomy_findings_brief_integration.py` (new); `test_rulebook.py` (updated)
+- `frontend/src/domain/reportSections.ts`, `frontend/src/domain/luddish/dictionary.ts`, `frontend/tests/reportSections.test.ts`, `tests/luddish.test.ts`, `tests/plainEnglish.test.ts`, `backend/content/luddish.json`
+- `frontend/src/investigation/types.ts` (new types), `frontend/src/components/report/DetailedFindingsBrief.tsx` (new), `frontend/src/components/InvestigationView.tsx` (wiring)
+
+### Next up (not done this session, by user's explicit scope choice)
+- Phase 3: TC Hawkeye Intelligence Enhancement (deterministic pre-filtering before contextual analysis).
+- Phase 6: Reference Case Validation and Release.
+- Extending taxonomy/findingsBrief to Magnum DI-settled cases (currently TC Hawkeye-only).

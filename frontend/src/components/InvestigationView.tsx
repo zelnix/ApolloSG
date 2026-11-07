@@ -31,6 +31,7 @@ import { EvidenceArtefactCard } from "@/src/components/evidence/EvidenceArtefact
 import { DiReport, Research, CollapsibleSection } from "@/src/components/DiReport";
 import { outsideResearch } from "@/src/domain/diTrace";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
+import { DetailedFindingsBrief } from "@/src/components/report/DetailedFindingsBrief";
 import { RelatedCases } from "@/src/components/report/RelatedCases";
 import { investigationVerdict } from "@/src/domain/briefVerdict";
 import { SourceList } from "@/src/components/report/SourceList";
@@ -798,6 +799,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {activeTab === "overview" ? (
         <View style={{ gap: spacing.md }} testID="inv-tab-overview-content">
           {report && verdict ? <View testID="inv-overview"><FindingsBrief report={report} verdict={verdict} steps={steps} ids="inv" caseId={caseData?.id} /></View> : null}
+          {response?.findingsBrief ? <DetailedFindingsBrief brief={response.findingsBrief} ids="inv" /> : null}
           {response?.history?.length ? <RelatedCases event={event} response={response} ids="inv" /> : null}
         <Card style={[s.card, { gap: spacing.md }]} testID="inv-overview-more">
           {!response && failure ? (

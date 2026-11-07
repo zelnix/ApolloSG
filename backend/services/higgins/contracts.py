@@ -329,6 +329,13 @@ class HigginsResponse(Wire):
     # else resolved what it would have covered (PRD v2.2 §2.5, services.higgins.tc_flyby.decide.technical_issue).
     # True only for that "investigation unable to progress" case — never set alongside a Findings Rating.
     technical_failure: Optional[bool] = None
+    # Master Scam Taxonomy classification (PRD v2.2 Phase 2, services.higgins.tc_flyby.taxonomy) —
+    # the established mechanism's primary/secondary domain(s) out of the eight approved master
+    # domains. None for a general question, a "not a scam" result or no Finding.
+    taxonomy: Optional[dict] = None
+    # The Higgins Findings Brief (PRD v2.2 Phase 5, services.higgins.tc_flyby.findings_brief) — the
+    # same Finding re-presented under its six required headers. None for no Finding.
+    findings_brief: Optional[dict] = None
 
 
 class Inventory(Wire):
@@ -717,6 +724,12 @@ class ModelResponse(Wire):
     # resolving what it would have covered (PRD v2.2 §2.5) — "investigation unable to progress", never a
     # Finding. The Gemini-facing schema allows but never asks for this; Magnum DI's model output leaves it null.
     technical_failure: Optional[bool] = None
+    # TC Hawkeye-only: the Master Scam Taxonomy classification (PRD v2.2 Phase 2) and the Higgins
+    # Findings Brief (PRD v2.2 Phase 5) — both attached to report.compose()'s dict before validation,
+    # same as findings_rating above. The Gemini-facing schema allows but never asks for these; Magnum
+    # DI's model output leaves them null.
+    taxonomy: Optional[dict] = None
+    findings_brief: Optional[dict] = None
 
 
 MODEL_RESPONSE_SCHEMA = ModelResponse.model_json_schema(by_alias=True)

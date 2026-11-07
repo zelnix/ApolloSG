@@ -346,7 +346,7 @@ def test_the_book_is_in_five_parts_with_every_gate_under_protection_gates():
                      "file-gate", "app-gate", "device-gate", "internet-gate", "linked-events"]
     placed = {group["id"]: [section["id"] for section in group["sections"]] for group in groups}
     assert placed["investigation-process"] == ["higgins-triage", "tc-flyby", "magnum-di", "higgins-explanation", "plain-english-renderer",
-                                               "fidelity-check", "settling-rules", "outcomes", "knowledge-base"]
+                                               "fidelity-check", "settling-rules", "outcomes", "taxonomy", "findings-brief", "knowledge-base"]
     assert placed["privacy-and-data"] == ["privacy", "your-data", "permissions"]
     assert placed["device-protections"] == ["threats-list"]
     assert placed["general"] == ["ask-higgins", "scam-alerts", "cost-guardrails"]
