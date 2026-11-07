@@ -254,6 +254,11 @@ interface ApolloContextValue {
   identityReset: string | null;
   reRegisterDevice(): Promise<void>;
   completeSetup(): Promise<void>;
+  /** Send the person back through onboarding (disclosures + permission walkthrough) on demand,
+   *  from the App Menu. Unlike requestDataDeletion, this keeps every bit of local/server data,
+   *  Patrol history, trust entries and the device's identity intact — it only re-arms the
+   *  first-run flag so the walkthrough screens show again. */
+  restartOnboarding(): Promise<void>;
   capabilities: Capability[];
   protection: ProtectionStatus | null;
   permissions: ProtectionPermission[];
@@ -774,6 +779,17 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
     setDeviceId(id.deviceId); setIdentityReset(null);
     showToast("Registered as a new device. Re-pair with family members to share alerts again.", "neutral");
   }, [showToast]);
+
+  // Re-run onboarding on demand (App Menu → "Redo onboarding"). This is deliberately NOT a data
+  // wipe: Patrol history, trust entries, protection state and the device's own identity all stay
+  // exactly as they are — only the first-run flag is cleared so app/index.tsx routes back through
+  // /onboarding → /privacy-disclosure → setup-gates, letting the person re-read the disclosures
+  // and re-visit each permission prompt. completeSetup() re-arms setupDone the same way it does
+  // on a genuine first run, once they reach the end of the walkthrough again.
+  const restartOnboarding = useCallback(async () => {
+    await storage.setItem(K.setup, false);
+    setSetupDone(false);
+  }, []);
 
   // Failure contract: while the security service is unreachable, re-probe /health periodically and whenever the
   // app returns to the foreground. Degraded state clears ONLY on a fresh successful observation (inside probe/client),
@@ -2051,7 +2067,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
   const resolution = useMemo(() => resolveApolloState({ events, visibility, lastVerifiedAt, platformCanEnforce, now: Date.now() }), [events, visibility, lastVerifiedAt, platformCanEnforce, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value: ApolloContextValue = {
-    ready, setupDone, deviceId, identityReset, reRegisterDevice, completeSetup, capabilities, protection, permissions, network, adapterLabel: securityAdapter.label,
+    ready, setupDone, deviceId, identityReset, reRegisterDevice, completeSetup, restartOnboarding, capabilities, protection, permissions, network, adapterLabel: securityAdapter.label,
     privateDnsStatus,
     refreshing, refresh, verifyNow, lastVerifiedAt, toggleProtection, requestPermission, enableSiteProtection, events, casesSyncing: remoteEvents.isFetching, refreshCases, trust, resolution, checkLink, blockEvent, trustEvent, resolveEvent, reopenEvent, revokeTrust, clearPatrol, deleteCases, requestDataDeletion, trustedSsids, trustNetwork, forgetNetwork, toast, showToast, checkMessage, checkEmail, scanGmailInbox, recordRecovery, upsertEvent, checkCall, checkNumberRisk,
     notificationStatus, enableNotifications, quietHours, quietNow, setQuietHours, lowPower, setLowPower, notificationPreferences, setNotificationPreferences, storage,

@@ -9,13 +9,15 @@ import Info from "lucide-react-native/icons/info";
 import ListChecks from "lucide-react-native/icons/list-checks";
 import Lock from "lucide-react-native/icons/lock";
 import Menu from "lucide-react-native/icons/menu";
+import RotateCcw from "lucide-react-native/icons/rotate-ccw";
 import Settings from "lucide-react-native/icons/settings";
 import X from "lucide-react-native/icons/x";
 import React, { useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Alert, Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isPopupRoute } from "@/src/navigation/modalRoutes";
+import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, spacing, useTheme } from "@/src/theme";
 
 const ITEMS = [
@@ -42,9 +44,28 @@ const useStyles = makeStyles((c) => ({
 
 export function AppMenuButton({ testID }: { testID: string }) {
   const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets(); const router = useRouter();
+  const { restartOnboarding } = useApollo();
   const segments = useSegments() as string[];
   const [open, setOpen] = useState(false);
   if (isPopupRoute(segments)) return null;
+
+  const confirmRestartOnboarding = () => {
+    setOpen(false);
+    Alert.alert(
+      "Redo onboarding?",
+      "You'll go through ApolloSG's onboarding steps again — the welcome screens, privacy disclosures and permission prompts. Your Patrol history, trust list and protection settings stay exactly as they are.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Redo onboarding",
+          onPress: () => {
+            void restartOnboarding().then(() => router.replace("/onboarding"));
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <>
       <Pressable testID={testID} accessibilityRole="button" accessibilityLabel="Menu" onPress={() => setOpen(true)} style={s.button} hitSlop={{ left: 5, right: 5 }}>
@@ -72,6 +93,17 @@ export function AppMenuButton({ testID }: { testID: string }) {
                 <ChevronRight size={16} color={colors.onSurfaceSecondary} />
               </Pressable>
             ))}
+            <Pressable
+              testID="menu-redo-onboarding"
+              accessibilityRole="button"
+              accessibilityLabel="Redo onboarding"
+              onPress={confirmRestartOnboarding}
+              style={({ pressed }) => [s.item, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <RotateCcw size={20} color={colors.onSurface} />
+              <Text style={s.label}>Redo onboarding</Text>
+              <ChevronRight size={16} color={colors.onSurfaceSecondary} />
+            </Pressable>
           </View>
         </Pressable>
       </Modal>
