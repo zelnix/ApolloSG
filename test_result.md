@@ -489,7 +489,7 @@ agent_communication:
 - Published six transparent Apollo mascot loops and six full-screen state demonstration GIFs for resting, sniffing/loading, growling/warning, barking/danger, biting/blocked and success.
 - Validation: all 28 PNGs decode; all 12 GIFs animate; transparent loops contain transparency; UI demos preserve a 1,320 ms loop; manifest has 40 unique paths; ZIP integrity passes.
 - Public HTTP checks passed for gallery, ZIP, representative PNG and representative GIF.
-- Gallery: `https://case-source-preview--3ijise2t.preview.emergentagent.com/apollo-media-kit/`
+- Gallery: `https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/apollo-media-kit/`
 
 ## 2026-09-23 Gmail production OAuth readiness
 
@@ -1567,7 +1567,7 @@ frontend:
     status_history:
       - agent: "testing"
         working: true
-        comment: "Iteration 79 verified frontend changes. TypeScript compilation passes with exit 0. Egress contract correctly defines push_register endpoint with allowed keys: platform, provider, projectId, device_token. registerRemotePush() function implemented in src/push/notifications.ts and called in ApolloContext on device identity establish (line 449) and setup completion (line 495). Frontend accessible at https://case-source-preview--3ijise2t.preview.emergentagent.com with 200 status. No EgressViolation errors in frontend logs. All three modified files verified: privacy.ts (egress endpoint added), notifications.ts (registerRemotePush function), ApolloContext.tsx (calls registerRemotePush on deviceId change and after setup)."
+        comment: "Iteration 79 verified frontend changes. TypeScript compilation passes with exit 0. Egress contract correctly defines push_register endpoint with allowed keys: platform, provider, projectId, device_token. registerRemotePush() function implemented in src/push/notifications.ts and called in ApolloContext on device identity establish (line 449) and setup completion (line 495). Frontend accessible at https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com with 200 status. No EgressViolation errors in frontend logs. All three modified files verified: privacy.ts (egress endpoint added), notifications.ts (registerRemotePush function), ApolloContext.tsx (calls registerRemotePush on deviceId change and after setup)."
 
 test_plan:
   current_focus:
@@ -1884,7 +1884,7 @@ frontend:
     status_history:
       - agent: "testing"
         working: true
-        comment: "Iteration 82 - Frontend preview loads successfully at https://case-source-preview--3ijise2t.preview.emergentagent.com/ with HTTP 200 status. Verified via curl."
+        comment: "Iteration 82 - Frontend preview loads successfully at https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/ with HTTP 200 status. Verified via curl."
   
   - task: "Settings page Call Guard section"
     implemented: true
@@ -2211,7 +2211,7 @@ frontend:
     status_history:
       - agent: "testing"
         working: true
-        comment: "Frontend loads successfully at https://case-source-preview--3ijise2t.preview.emergentagent.com/ with HTTP 200 status. No startup errors detected."
+        comment: "Frontend loads successfully at https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/ with HTTP 200 status. No startup errors detected."
 
 metadata:
   created_by: "testing_agent"
@@ -2561,7 +2561,7 @@ frontend:
         comment: "privacyInventory.ts: Added AI_PROCESSING_DISCLOSURE object with 5 sections: (1) 'Where your data goes' - explains paid Gemini API tier managed by Apollo, not user's personal Google account. (2) 'What Google receives' - only approved content through privacy gate: sanitised text, redacted images, minimal research queries. Credentials never transmitted. (3) 'Data retention' - paid API tier data not used for training, request-scoped copies closed immediately, never beyond 15 minutes. (4) 'Research queries' - outbound queries minimised, personal identifiers replaced with category labels, domain names preserved. (5) 'On-device screening' - every image passes through privacy gate, user chooses: text only, redacted image, crop, or withhold. privacy-disclosure.tsx: AI disclosure section rendered between 'What Apollo does not retain' and 'Where data goes' sections."
       - agent: "testing"
         working: true
-        comment: "VERIFIED: Frontend tests PASS. node --test tests/privacyDisclosure.test.ts → 10 passed (AI disclosure content validation: title, 5 sections, paid API tier, what Google receives, data retention, research query minimisation, on-device screening). Full frontend test suite: node --test tests/*.test.ts tests/*.test.cjs → 594 passed, 2 failed (pre-existing: architecturalRegression.test.ts, higginsBehavioural.test.ts due to missing modules - documented as expected in review request). Web preview: https://case-source-preview--3ijise2t.preview.emergentagent.com/privacy-disclosure loads successfully (200 OK). Code inspection confirms: (1) AI_PROCESSING_DISCLOSURE has 5 sections with required content. (2) privacy-disclosure.tsx renders AI disclosure section. (3) All required terms present: paid API tier, not user's Google account, not used for training, 15 minutes, research query minimisation, on-device screening. All acceptance criteria met."
+        comment: "VERIFIED: Frontend tests PASS. node --test tests/privacyDisclosure.test.ts → 10 passed (AI disclosure content validation: title, 5 sections, paid API tier, what Google receives, data retention, research query minimisation, on-device screening). Full frontend test suite: node --test tests/*.test.ts tests/*.test.cjs → 594 passed, 2 failed (pre-existing: architecturalRegression.test.ts, higginsBehavioural.test.ts due to missing modules - documented as expected in review request). Web preview: https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/privacy-disclosure loads successfully (200 OK). Code inspection confirms: (1) AI_PROCESSING_DISCLOSURE has 5 sections with required content. (2) privacy-disclosure.tsx renders AI disclosure section. (3) All required terms present: paid API tier, not user's Google account, not used for training, 15 minutes, research query minimisation, on-device screening. All acceptance criteria met."
 
 test_plan:
   current_focus:
@@ -2575,7 +2575,7 @@ agent_communication:
   - agent: "main"
     message: "P1 (Research Query Minimization) + P2 (Gemini API Terms Clarification) implemented. BACKEND P1: (1) llm_boundary.py: 2-layer PII minimization (deterministic patterns + evidence-inventory-aware). (2) extract_evidence_pii() extracts known PII from evidence. (3) tools.py _grounded() pre-sanitises research queries with evidence PII. (4) No broad name regex - deterministic only. BACKEND P2: (5) provider.py configuration() returns clear retention terms (paid API, no training, 15 min). FRONTEND P2: (6) privacyInventory.ts AI_PROCESSING_DISCLOSURE with 5 sections. (7) privacy-disclosure.tsx renders AI disclosure. TESTS: Backend 38/38 llm_boundary tests pass, 63/63 full backend tests pass (1 skipped). Frontend 10/10 privacy disclosure tests pass, 594/594 full suite pass (2 pre-existing failures). Web preview loads. Please verify: (A) Research queries are minimised with evidence-aware PII protection. (B) Privacy disclosure clearly explains AI processing and retention. (C) No regressions in existing functionality."
   - agent: "testing"
-    message: "P1 (Research Query Minimization) + P2 (Gemini API Terms Clarification) VERIFIED. BACKEND TESTS: (1) pytest tests/test_llm_boundary.py → 38 passed (includes 16 new tests for evidence PII extraction, evidence-aware minimisation, financial identifiers, inventory-aware name redaction, domain preservation). (2) Full backend suite → 63 passed, 1 skipped. (3) Code inspection confirms 2-layer PII protection: deterministic patterns (financial, phone, email) + evidence-inventory-aware replacement. (4) tools.py _grounded() extracts evidence PII and pre-sanitises queries. (5) provider.py configuration() returns retention terms with 'Paid Gemini API', 'not used for model training', '15 minutes'. FRONTEND TESTS: (6) node --test tests/privacyDisclosure.test.ts → 10 passed (AI disclosure validation). (7) Full frontend suite → 594 passed, 2 failed (pre-existing, documented). (8) Web preview https://case-source-preview--3ijise2t.preview.emergentagent.com/privacy-disclosure loads (200 OK). (9) Code inspection confirms AI_PROCESSING_DISCLOSURE has 5 sections with all required content. NO MAJOR ISSUES FOUND. All acceptance criteria met. Ready for main agent to summarise and finish."
+    message: "P1 (Research Query Minimization) + P2 (Gemini API Terms Clarification) VERIFIED. BACKEND TESTS: (1) pytest tests/test_llm_boundary.py → 38 passed (includes 16 new tests for evidence PII extraction, evidence-aware minimisation, financial identifiers, inventory-aware name redaction, domain preservation). (2) Full backend suite → 63 passed, 1 skipped. (3) Code inspection confirms 2-layer PII protection: deterministic patterns (financial, phone, email) + evidence-inventory-aware replacement. (4) tools.py _grounded() extracts evidence PII and pre-sanitises queries. (5) provider.py configuration() returns retention terms with 'Paid Gemini API', 'not used for model training', '15 minutes'. FRONTEND TESTS: (6) node --test tests/privacyDisclosure.test.ts → 10 passed (AI disclosure validation). (7) Full frontend suite → 594 passed, 2 failed (pre-existing, documented). (8) Web preview https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/privacy-disclosure loads (200 OK). (9) Code inspection confirms AI_PROCESSING_DISCLOSURE has 5 sections with all required content. NO MAJOR ISSUES FOUND. All acceptance criteria met. Ready for main agent to summarise and finish."
 
 ## 2026-02 Package 1 — Standards Adoption & Compliance Matrix + Frontend Test Fixes
 
@@ -3106,7 +3106,7 @@ backend:
     status_history:
       - agent: "testing"
         working: true
-        comment: "VERIFIED: GET https://case-source-preview--3ijise2t.preview.emergentagent.com/api/health returns 200 OK with correct schema: {schemaVersion:1, status:'ok', service:'apollo-v1', checkedAt:'2026-10-10T14:41:14.563174+00:00'}. All health check fields present and correct."
+        comment: "VERIFIED: GET https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/api/health returns 200 OK with correct schema: {schemaVersion:1, status:'ok', service:'apollo-v1', checkedAt:'2026-10-10T14:41:14.563174+00:00'}. All health check fields present and correct."
 
   - task: "Backend device registration endpoint"
     implemented: true
@@ -3117,7 +3117,7 @@ backend:
     status_history:
       - agent: "testing"
         working: true
-        comment: "VERIFIED: POST https://case-source-preview--3ijise2t.preview.emergentagent.com/api/devices/register returns 201 with device_id, device_token, token_expires_at, and registered:true. Device registration working correctly with required fields: platform, adapter_mode, app_version, tz_offset_minutes, locale."
+        comment: "VERIFIED: POST https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/api/devices/register returns 201 with device_id, device_token, token_expires_at, and registered:true. Device registration working correctly with required fields: platform, adapter_mode, app_version, tz_offset_minutes, locale."
 
 frontend:
   - task: "Frontend loads without JavaScript errors"
@@ -3129,7 +3129,7 @@ frontend:
     status_history:
       - agent: "testing"
         working: true
-        comment: "VERIFIED: Frontend loads at https://case-source-preview--3ijise2t.preview.emergentagent.com/ with 200 OK status. HTML structure correct with Expo Router entry bundle loading."
+        comment: "VERIFIED: Frontend loads at https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/ with 200 OK status. HTML structure correct with Expo Router entry bundle loading."
 
   - task: "TypeScript type safety - new DNS threat and Private DNS types"
     implemented: true

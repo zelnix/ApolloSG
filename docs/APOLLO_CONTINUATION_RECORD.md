@@ -231,7 +231,7 @@ Package 2 is now functionally complete per the mandate's own listed items (2.1â€
 - Independent non-secret source-tree digest after implementation: SHA-256
   `7e0f0ff6f77706449d3452891cfcd9b0b98be814253c8319e058e61ca7818c23` (backend/frontend/desktop source;
   excludes environment files, generated dependencies, caches, desktop target and export output).
-- Compatible backend: `https://case-source-preview--3ijise2t.preview.emergentagent.com`, `/api/health` = HTTP 200 `apollo-v1`.
+- Compatible backend: `https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com`, `/api/health` = HTTP 200 `apollo-v1`.
 - Provider boundary: static source/config audit confirms Higgins uses `GEMINI_API_KEY`; no Emergent-managed LLM key
   was introduced or used. No live Gemini probe, scenario campaign, Playwright run or testing-agent run occurred.
 

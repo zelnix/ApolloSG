@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv("/app/backend/.env")
 load_dotenv("/app/frontend/.env")
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://case-source-preview--3ijise2t.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 EXPO_PROJECT_ID = os.environ.get("EXPO_PROJECT_ID", "47cd97c4-e5a6-41fa-9fde-257a5de031af")
 

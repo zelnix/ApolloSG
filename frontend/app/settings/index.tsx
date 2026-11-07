@@ -7,11 +7,14 @@ import ChevronRight from "lucide-react-native/icons/chevron-right";
 import FileText from "lucide-react-native/icons/file-text";
 import LifeBuoy from "lucide-react-native/icons/life-buoy";
 import Lock from "lucide-react-native/icons/lock";
+import MessageSquare from "lucide-react-native/icons/message-square";
+import Phone from "lucide-react-native/icons/phone";
 import ShieldCheck from "lucide-react-native/icons/shield-check";
 import Smartphone from "lucide-react-native/icons/smartphone";
+import Trash from "lucide-react-native/icons/trash";
 import Users from "lucide-react-native/icons/users";
-import React, { useState } from "react";
-import { Pressable, ScrollView, Switch, Text, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, AppState, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AlertPreviewSheet } from "@/src/components/AlertPreviewSheet";
@@ -24,10 +27,14 @@ import { TimeStepper } from "@/src/components/TimeStepper";
 import { Body, Button, Card, Pill } from "@/src/components/ui";
 import { APP_VERSION } from "@/src/config/buildInfo";
 import { openPrivacyPolicy } from "@/src/config/privacyPolicy";
+import { apiDelete, apiGet } from "@/src/api/client";
+import { getDeviceIdentity } from "@/src/auth/deviceIdentity";
+import { CallSdk } from "@/src/security/callSdk";
+import { MessagingSdk } from "@/src/security/messagingSdk";
 import type { NotificationStatus } from "@/src/push/notifications";
 import { useApollo } from "@/src/store/ApolloContext";
 import { setShowResultReasons, useShowResultReasons } from "@/src/store/resultReasonsStore";
-import { fonts, makeStyles, spacing, useTheme } from "@/src/theme";
+import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { minimiseApp } from "@/src/utils/minimise";
 import { goBackOrHome } from "@/src/utils/navigation";
 
@@ -60,6 +67,22 @@ const useStyles = makeStyles((c) => ({
   trustRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider },
   catRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 44, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: c.divider, opacity: 0.7 },
   footer: { fontFamily: fonts.text, fontSize: 12, color: c.muted, textAlign: "center" },
+  // ── inline email account rows ──
+  emailRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: c.divider },
+  emailIconWell: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center" },
+  emailGmailM: { fontFamily: fonts.displayBold, fontSize: 16, color: "#EA4335" },
+  emailInfo: { flex: 1, gap: 1 },
+  emailAddr: { fontFamily: fonts.textMedium, fontSize: 14, color: c.onSurface },
+  emailMeta: { fontFamily: fonts.text, fontSize: 12, color: c.muted },
+  emailRemoveBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: c.surfaceTertiary },
+  // ── call/message linking rows ──
+  linkRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: c.divider },
+  linkIconWell: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  linkInfo: { flex: 1, gap: 2 },
+  linkTitle: { fontFamily: fonts.textSemibold, fontSize: 15, color: c.onSurface },
+  linkStatus: { fontFamily: fonts.text, fontSize: 12, lineHeight: 16, color: c.muted },
+  linkReason: { fontFamily: fonts.text, fontSize: 12, lineHeight: 16, color: c.growlingText, marginTop: 2 },
+  linkActionBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, minHeight: 36, alignItems: "center", justifyContent: "center" },
 }));
 
 export default function SettingsScreen() {
@@ -69,6 +92,160 @@ export default function SettingsScreen() {
   const [showTrust, setShowTrust] = useState(false); const [showShare, setShowShare] = useState(false); const [showAbout, setShowAbout] = useState(false);
   const [showRetrofit, setShowRetrofit] = useState(false);
   const showReasons = useShowResultReasons();
+
+  // ── Linked email accounts ──
+  interface LinkedEmail { email: string; connected_at?: string }
+  const [linkedEmails, setLinkedEmails] = useState<LinkedEmail[]>([]);
+  const [emailsLoading, setEmailsLoading] = useState(true);
+  const [emailBusy, setEmailBusy] = useState(false);
+
+  const loadLinkedEmails = useCallback(async () => {
+    try {
+      const id = await getDeviceIdentity();
+      if (!id?.deviceId) { setEmailsLoading(false); return; }
+      const data = await apiGet<{ accounts?: LinkedEmail[]; connected?: boolean }>(`/gmail/status?device_id=${id.deviceId}`);
+      setLinkedEmails(data.accounts ?? (data.connected ? [{ email: "Connected account" }] : []));
+    } catch { setLinkedEmails([]); }
+    finally { setEmailsLoading(false); }
+  }, []);
+
+  useEffect(() => { void loadLinkedEmails(); }, [loadLinkedEmails]);
+
+  const removeEmail = useCallback((email: string) => {
+    Alert.alert(
+      "Remove email account?",
+      `ApolloSG will lose read-only access to ${email}. You can reconnect at any time from Email accounts.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            setEmailBusy(true);
+            try {
+              const id = await getDeviceIdentity();
+              if (!id?.deviceId) return;
+              const qs = email !== "Connected account"
+                ? `?device_id=${id.deviceId}&email=${encodeURIComponent(email)}`
+                : `?device_id=${id.deviceId}`;
+              await apiDelete(`/gmail/connection${qs}`);
+              showToast("Email account removed.");
+              await loadLinkedEmails();
+            } catch {
+              showToast("Could not remove the account. Please try again.");
+            } finally {
+              setEmailBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [loadLinkedEmails, showToast]);
+
+  // ── Call & message linking ──
+  type LinkState = "linked" | "not_linked" | "unavailable" | "loading";
+  const [callState, setCallState] = useState<LinkState>("loading");
+  const [msgState, setMsgState] = useState<LinkState>("loading");
+  const [callReason, setCallReason] = useState<string | null>(null);
+  const [msgReason, setMsgReason] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+
+  const readLinkStates = useCallback(async () => {
+    // ── Call screening ──
+    if (Platform.OS === "android" || Platform.OS === "ios") {
+      try {
+        const caps = await CallSdk.getCallProtectionCapabilities();
+        if (caps.callScreening === "supported") setCallState("linked");
+        else if (caps.callScreening === "permission_required") { setCallState("not_linked"); setCallReason(null); }
+        else { setCallState("unavailable"); setCallReason(Platform.OS === "ios" ? "Call Blocking & Identification is managed in iPhone Settings > Phone." : "Call screening is not supported on this device."); }
+      } catch { setCallState("unavailable"); setCallReason("Apollo could not read call screening status."); }
+    } else {
+      setCallState("unavailable");
+      setCallReason("Call screening requires a phone. It is not available in this preview.");
+    }
+
+    // ── Message screening ──
+    if (Platform.OS === "android") {
+      try {
+        const caps = await MessagingSdk.getMessagingCapabilities();
+        if (caps.smsFiltering === "supported") setMsgState("linked");
+        else if (caps.smsFiltering === "permission_required") { setMsgState("not_linked"); setMsgReason(null); }
+        else { setMsgState("unavailable"); setMsgReason("Message screening is not supported on this device."); }
+      } catch { setMsgState("unavailable"); setMsgReason("Apollo could not read message screening status."); }
+    } else if (Platform.OS === "ios") {
+      setMsgState("unavailable");
+      setMsgReason("Apple does not let apps read message notifications. You can share or paste a message into Apollo instead.");
+    } else {
+      setMsgState("unavailable");
+      setMsgReason("Message screening requires a phone. It is not available in this preview.");
+    }
+  }, []);
+
+  useEffect(() => { void readLinkStates(); }, [readLinkStates]);
+
+  // Re-read after returning from system settings
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (st) => { if (st === "active") void readLinkStates(); });
+    return () => sub.remove();
+  }, [readLinkStates]);
+
+  const linkCalls = useCallback(async () => {
+    setLinkBusy(true);
+    try {
+      if (Platform.OS === "ios") {
+        await Linking.openSettings();
+        showToast("Open Phone > Call Blocking & Identification and enable ApolloSG.", "neutral");
+      } else {
+        const r = await CallSdk.requestCallScreeningRole();
+        if (r.held) { showToast("Call screening linked.", "resting"); }
+        else { showToast("Open the prompt and choose ApolloSG for call screening.", "neutral"); }
+      }
+      // State will re-read on foreground return
+    } catch { showToast("Could not open call screening settings.", "growling"); }
+    finally { setLinkBusy(false); }
+  }, [showToast]);
+
+  const unlinkCalls = useCallback(() => {
+    Alert.alert(
+      "Unlink call screening?",
+      Platform.OS === "ios"
+        ? "To stop ApolloSG screening calls, open iPhone Settings > Phone > Call Blocking & Identification and turn off ApolloSG."
+        : "To stop ApolloSG screening calls, choose a different caller ID & spam app in your phone's settings.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Open Settings",
+          onPress: () => {
+            if (Platform.OS === "ios") void Linking.openSettings();
+            else void CallSdk.requestCallScreeningRole();
+          },
+        },
+      ],
+    );
+  }, []);
+
+  const linkMessages = useCallback(async () => {
+    setLinkBusy(true);
+    try {
+      await MessagingSdk.openSmsListenerSettings();
+      showToast("Enable notification access for ApolloSG.", "neutral");
+    } catch { showToast("Could not open notification access settings.", "growling"); }
+    finally { setLinkBusy(false); }
+  }, [showToast]);
+
+  const unlinkMessages = useCallback(() => {
+    Alert.alert(
+      "Unlink message screening?",
+      "To stop ApolloSG reading message notifications, open Settings > Apps > Special access > Notification access and turn off ApolloSG.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Open Settings",
+          onPress: () => { void MessagingSdk.openSmsListenerSettings(); },
+        },
+      ],
+    );
+  }, []);
 
   // Each group carries its own colour so the list is scannable at a glance. These are navigational
   // category colours (see theme.ts) — never Apollo's security-state colours.
@@ -124,6 +301,56 @@ export default function SettingsScreen() {
       {/* 1 ── What is protecting you */}
       <Group icon={ShieldCheck} title="Protection" tone="protection" testID="settings-protection">
         <NavRow first label="View all protections" hint="Every Apollo protection, its status, coverage and setup" onPress={() => router.push("/gates")} testID="settings-view-gates" />
+
+        {/* ── Call screening link ── */}
+        <View style={s.linkRow} testID="settings-call-link">
+          <View style={[s.linkIconWell, { backgroundColor: callState === "linked" ? colors.restingTint : callState === "unavailable" ? colors.surfaceTertiary : colors.growlingTint }]}>
+            <Phone size={18} color={callState === "linked" ? colors.resting : callState === "unavailable" ? colors.muted : colors.growlingText} />
+          </View>
+          <View style={s.linkInfo}>
+            <Text style={s.linkTitle}>Call screening</Text>
+            <Text style={s.linkStatus}>
+              {callState === "loading" ? "Checking…" : callState === "linked" ? "Linked — ApolloSG screens incoming calls" : callState === "not_linked" ? "Not linked" : "Not available"}
+            </Text>
+            {callState === "unavailable" && callReason ? <Text style={s.linkReason}>{callReason}</Text> : null}
+          </View>
+          {callState === "loading" ? <ActivityIndicator size="small" color={colors.brand} /> : null}
+          {callState === "not_linked" ? (
+            <Pressable testID="settings-call-link-btn" accessibilityRole="button" accessibilityLabel="Link call screening" onPress={() => void linkCalls()} disabled={linkBusy} style={({ pressed }) => [s.linkActionBtn, { backgroundColor: colors.brandPrimary, opacity: pressed ? 0.7 : 1 }]}>
+              <Text style={{ fontFamily: fonts.textSemibold, fontSize: 13, color: colors.onBrandPrimary }}>Link</Text>
+            </Pressable>
+          ) : null}
+          {callState === "linked" ? (
+            <Pressable testID="settings-call-unlink-btn" accessibilityRole="button" accessibilityLabel="Unlink call screening" onPress={unlinkCalls} style={({ pressed }) => [s.linkActionBtn, { backgroundColor: colors.surfaceTertiary, opacity: pressed ? 0.7 : 1 }]}>
+              <Text style={{ fontFamily: fonts.textSemibold, fontSize: 13, color: colors.onSurface }}>Unlink</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* ── Message screening link ── */}
+        <View style={s.linkRow} testID="settings-msg-link">
+          <View style={[s.linkIconWell, { backgroundColor: msgState === "linked" ? colors.restingTint : msgState === "unavailable" ? colors.surfaceTertiary : colors.growlingTint }]}>
+            <MessageSquare size={18} color={msgState === "linked" ? colors.resting : msgState === "unavailable" ? colors.muted : colors.growlingText} />
+          </View>
+          <View style={s.linkInfo}>
+            <Text style={s.linkTitle}>Message screening</Text>
+            <Text style={s.linkStatus}>
+              {msgState === "loading" ? "Checking…" : msgState === "linked" ? "Linked — ApolloSG watches message notifications" : msgState === "not_linked" ? "Not linked" : "Not available"}
+            </Text>
+            {msgState === "unavailable" && msgReason ? <Text style={s.linkReason}>{msgReason}</Text> : null}
+          </View>
+          {msgState === "loading" ? <ActivityIndicator size="small" color={colors.brand} /> : null}
+          {msgState === "not_linked" ? (
+            <Pressable testID="settings-msg-link-btn" accessibilityRole="button" accessibilityLabel="Link message screening" onPress={() => void linkMessages()} disabled={linkBusy} style={({ pressed }) => [s.linkActionBtn, { backgroundColor: colors.brandPrimary, opacity: pressed ? 0.7 : 1 }]}>
+              <Text style={{ fontFamily: fonts.textSemibold, fontSize: 13, color: colors.onBrandPrimary }}>Link</Text>
+            </Pressable>
+          ) : null}
+          {msgState === "linked" ? (
+            <Pressable testID="settings-msg-unlink-btn" accessibilityRole="button" accessibilityLabel="Unlink message screening" onPress={unlinkMessages} style={({ pressed }) => [s.linkActionBtn, { backgroundColor: colors.surfaceTertiary, opacity: pressed ? 0.7 : 1 }]}>
+              <Text style={{ fontFamily: fonts.textSemibold, fontSize: 13, color: colors.onSurface }}>Unlink</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </Group>
 
       {/* 2 ── How Apollo reaches you */}
@@ -173,6 +400,37 @@ export default function SettingsScreen() {
       {/* 3 ── The accounts and people Apollo watches for you */}
       <Group icon={Users} title="Accounts &amp; family" tone="accounts" testID="settings-accounts">
         <NavRow first label="Email accounts" hint="Connect or disconnect Gmail accounts for email checking" onPress={() => router.push("/settings/email-accounts")} testID="settings-email-accounts" />
+        {/* Inline connected accounts with remove */}
+        {emailsLoading ? (
+          <View style={[s.emailRow, { justifyContent: "center" }]} testID="settings-emails-loading">
+            <ActivityIndicator size="small" color={colors.brand} />
+          </View>
+        ) : linkedEmails.length > 0 ? (
+          linkedEmails.map((acct, i) => (
+            <View key={acct.email} style={s.emailRow} testID={`settings-linked-email-${i}`}>
+              <View style={s.emailIconWell}>
+                <Text style={s.emailGmailM}>M</Text>
+              </View>
+              <View style={s.emailInfo}>
+                <Text style={s.emailAddr} numberOfLines={1}>{acct.email}</Text>
+                <Text style={s.emailMeta}>
+                  {"Gmail · Read-only"}
+                  {acct.connected_at ? ` · ${new Date(acct.connected_at).toLocaleDateString()}` : ""}
+                </Text>
+              </View>
+              <Pressable
+                testID={`settings-remove-email-${i}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${acct.email}`}
+                onPress={() => removeEmail(acct.email)}
+                disabled={emailBusy}
+                style={({ pressed }) => [s.emailRemoveBtn, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                {emailBusy ? <ActivityIndicator size="small" color={colors.error} /> : <Trash size={16} color={colors.error} />}
+              </Pressable>
+            </View>
+          ))
+        ) : null}
         <NavRow label="Family sharing" hint="Choose a trusted person for alerts you deliberately share" onPress={() => router.push("/family")} testID="settings-family" />
         <Pressable testID="settings-trust" accessibilityRole="button" accessibilityLabel="Trusted links" onPress={() => setShowTrust((v) => !v)} style={[s.rowItem, s.divider]}>
           <View style={{ flex: 1 }}><Text style={s.rowLabel}>Trusted links</Text><Text style={s.rowHint}>Trust applies to one exact link and never overrides a confirmed threat.</Text></View>

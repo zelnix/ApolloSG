@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv("/app/backend/.env")
 
-BASE_URL = "https://case-source-preview--3ijise2t.preview.emergentagent.com"
+BASE_URL = "https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com"
 API = f"{BASE_URL}/api"
 MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")

@@ -8,7 +8,7 @@ import json
 import time
 
 # Backend URL from environment
-BACKEND_URL = "https://case-source-preview--3ijise2t.preview.emergentagent.com/api"
+BACKEND_URL = "https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/api"
 
 def test_device_registration():
     """Test POST /api/devices/register to get a device token."""

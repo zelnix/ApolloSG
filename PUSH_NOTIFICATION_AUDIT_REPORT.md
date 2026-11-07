@@ -11,7 +11,7 @@ Comprehensive push notification robustness audit completed successfully. Push no
 - **EXPO_PUSH_ENABLED:** `true` ✅
 - **EXPO_PUSH_ACCESS_TOKEN:** Set ✅
 - **EXPO_PROJECT_ID:** `47cd97c4-e5a6-41fa-9fde-257a5de031af` ✅
-- **Backend URL:** `https://case-source-preview--3ijise2t.preview.emergentagent.com/api`
+- **Backend URL:** `https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/api`
 
 ---
 

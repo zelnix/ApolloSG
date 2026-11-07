@@ -1720,7 +1720,7 @@ the whole app without the switch and asserts no `services.higgins.preview*` / `p
 is in memory.
 
 **Frontend deployment:** `babel.config.js` now bundles the simulation only when the flag is `included`
-AND `EXPO_PUBLIC_BACKEND_URL` is an `https://case-source-preview--3ijise2t.preview.emergentagent.com` server. The deployed app talks
+AND `EXPO_PUBLIC_BACKEND_URL` is an `https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com` server. The deployed app talks
 to the production backend, so it can never carry the simulation even though it shares the one-slot
 flag. `verify-no-simulation.mjs` production mode now reproduces a deployment (flag `included`, backend
 `https://verify.emergent.host`) and finds zero simulation; `--preview` still finds 9/9 markers. EAS
@@ -5175,3 +5175,31 @@ Report: `/app/memory/REPORT_2026-11-01_evidence_retention.md`; proof: `/app/test
 - `tests/phoneIdentityAcceptance.test.ts` (new — 22 acceptance tests)
 - `src/components/PhoneIdentityCard.tsx` (updated — Higgins explanation integration)
 
+
+
+## P0: Historical DB Scrub + P3: OTP/2FA Bypass Detection — 2026-02
+
+### What was done
+
+**1. Historical DB Scrub (`scrub_undetermined_actions.py`) — P0**
+- Created a backend script to scrub hallucinated brand contacts from historical "unable to determine" investigation cases in MongoDB.
+- The script iterates over stored `investigation_cases`, decrypts each record, checks for "unable to determine" outcomes that contain brand-specific advice (e.g. contact details for brands that were never actually identified), and strips the hallucinated content.
+- Gracefully handles `InvalidToken` exceptions from key-rotated records (16 items skipped).
+- Executed against production data: 0 records ultimately needed scrubbing after filtering.
+
+**2. OTP/2FA Bypass Scam Detection Rules — P3**
+- Added OTP/2FA bypass regex pattern detection to `tc_flyby/patterns.py`.
+- New pattern detects scams where attackers trick victims into sharing one-time passwords or 2FA codes.
+- Added Apollo KB entry for 2FA bypass scams.
+- Bumped `PATTERN_VERSION` to reflect the new pattern.
+- Updated `rulebook.md` to increment the known scam pattern count from 12 to 13.
+
+### Files created/modified
+- `/app/backend/scrub_undetermined_actions.py` (new — DB migration/scrubbing script)
+- `/app/backend/services/higgins/tc_flyby/patterns.py` (updated — OTP bypass pattern + version bump)
+- `/app/backend/tests/test_otp_bypass_pattern.py` (new — OTP bypass test suite)
+- `/app/backend/content/rulebook.md` (updated — 13 known scam patterns)
+
+### Test results
+- All OTP bypass tests pass via pytest.
+- ~19 pre-existing pytest failures in unrelated modules (e.g. `test_recovery_fencing`, `test_plain_english`) are accepted baseline state and predate this work.

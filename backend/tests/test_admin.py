@@ -6,7 +6,7 @@ import pytest, requests
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
-BASE_URL = (os.environ.get("EXPO_BACKEND_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://case-source-preview--3ijise2t.preview.emergentagent.com").rstrip("/")
+BASE_URL = (os.environ.get("EXPO_BACKEND_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 KEY = os.environ.get("APOLLO_ADMIN_KEY", "")
 H = {"User-Agent": "apollo-tests", "X-Apollo-Raw": "1"}

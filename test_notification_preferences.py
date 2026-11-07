@@ -16,7 +16,7 @@ import time
 from datetime import datetime
 
 # Backend URL from frontend/.env
-BASE_URL = "https://case-source-preview--3ijise2t.preview.emergentagent.com/api"
+BASE_URL = "https://tc-flyby-2fa--0hiznn9n.preview.emergentagent.com/api"
 
 # Colors for output
 GREEN = '\033[92m'
