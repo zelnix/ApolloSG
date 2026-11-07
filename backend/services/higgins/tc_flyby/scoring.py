@@ -32,6 +32,12 @@ by new keyword scoring on raw text. A message this scorer has no verified legiti
 confirmed identity, no confirmed destination, no matched transaction) gets the ordinary "unlikely a
 scam" baseline, never a false "not a scam": that requires Triage to have actually captured positive
 verification, not just the absence of a request.
+
+Correction (Developer Instructions — "Correct the Benign Baseline Rule"): the benign floor is a floor
+for a genuine informational vacuum, not a penalty for falling short of full legitimacy proof. It fires
+only when nothing was actually checked, or something specific remains unresolved (`_checked_and_clean()`
+below gates this) — never merely because checks that *did* run came back clean. Missing proof of
+legitimacy is not, by itself, evidence of a scam.
 """
 from __future__ import annotations
 
@@ -100,6 +106,11 @@ class ScoreBreakdown:
     decisive_mechanism: str | None = None
     rating: int = 0
     finding: str = "unlikely_scam"
+    # The specific, evidence-backed reason the benign floor fired (empty when it didn't) — never the
+    # generic "nothing was positively verified" phrase alone (Developer Instructions: "Correct the
+    # Benign Baseline Rule"). States exactly what remained unresolved, not merely that full
+    # legitimacy wasn't confirmed.
+    benign_baseline_trigger: str = ""
     # Added for DI Scoring Transparency (never recomputed client-side — this *is* the real sequence
     # score_plan() just ran, PRD §2.3.D order: baseline -> benign floor -> legitimacy credit ->
     # impersonation/corroboration floor -> decisive floor -> 0-100 clamp).
@@ -114,6 +125,7 @@ class ScoreBreakdown:
                            "checks": d.checks, "evidence": d.evidence, "missing": d.missing}
                            for d in self.dimensions],
             "baseline": self.baseline, "benignBaselineApplied": self.benign_baseline_applied,
+            "benignBaselineTrigger": self.benign_baseline_trigger,
             "legitimacyCredit": self.legitimacy_credit, "legitimacyReason": self.legitimacy_reason,
             "decisiveFloorApplied": self.decisive_floor_applied, "decisiveMechanism": self.decisive_mechanism,
             "calculationTrace": self.calculation_trace, "narrative": self.narrative, "contentGaps": self.content_gaps,
@@ -291,8 +303,9 @@ def _build_calculation_trace(breakdown: ScoreBreakdown) -> list[dict]:
     running = breakdown.baseline
     if breakdown.benign_baseline_applied:
         trace.append({"step": "Benign baseline applied",
-                     "detail": f"Nothing was positively verified, so the ordinary unverified floor of {BENIGN_BASELINE} applies "
-                               f"instead of the lower {running}.",
+                     "detail": breakdown.benign_baseline_trigger or
+                               f"No positive verification was established, so the ordinary unverified floor "
+                               f"of {BENIGN_BASELINE} applies instead of the lower {running}.",
                      "value": BENIGN_BASELINE})
         running = BENIGN_BASELINE
     if breakdown.legitimacy_credit:
@@ -318,7 +331,9 @@ def _build_narrative(breakdown: ScoreBreakdown) -> str:
     else:
         parts.append("None of the six dimensions found anything concerning.")
     if breakdown.benign_baseline_applied:
-        parts.append(f"Because nothing was positively verified either way, the rating used the ordinary unverified baseline of {BENIGN_BASELINE} rather than reading as confirmed-safe.")
+        parts.append(breakdown.benign_baseline_trigger or
+                     f"Because nothing was positively verified either way, the rating used the ordinary "
+                     f"unverified baseline of {BENIGN_BASELINE} rather than reading as confirmed-safe.")
     if breakdown.legitimacy_credit:
         parts.append(f"{breakdown.legitimacy_credit} points were credited back: {breakdown.legitimacy_reason}")
     if breakdown.decisive_floor_applied:
@@ -383,6 +398,54 @@ def _decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
     return None
 
 
+def _checked_and_clean(plan: Plan, ipdmc: IPDMCChecks) -> bool:
+    """True when nothing about this message remains unresolved, and whatever TC Hawkeye actually
+    checked came back clean — a specific, evidence-backed reason the benign floor must not apply
+    (Developer Instructions: "Correct the Benign Baseline Rule" — missing proof of legitimacy is not,
+    by itself, evidence of a scam when what TC Hawkeye *did* check came back clean). Returns False
+    (the floor may still apply) when any of the following hold, each itself a genuine informational
+    vacuum or an unresolved risk-relevant condition — never merely "short of full legitimacy proof":
+      - a consequential request still points at a destination nobody has verified (PRD's delivery-
+        toll/invoice shape: a clean link elsewhere never vouches for a different, unverified
+        payment destination);
+      - nothing was actually checked at all (no links, phones, emails or brand claims — the genuine
+        informational vacuum PRD §2.4's golf-invitation example still needs the floor for);
+      - any check came back concerning, anomalous, weak, or merely "missing" (looked up, not
+        established — e.g. an unavailable external verification service) — none of these are
+        themselves clean evidence, so they must not disable the floor either.
+    """
+    if ipdmc.consequential_requests and (ipdmc.unverified_destinations or ipdmc.destinations_verified != "passed"):
+        return False
+    all_facts = [f for c in plan.checks for f in c.facts if f.get("class") == "live_evidence"]
+    if not all_facts:
+        return False
+    if any(f["signal"] in ("concern", "anomaly", "weak", "missing") for f in all_facts):
+        return False
+    return any(f["signal"] in ("clear", "neutral") for f in all_facts)
+
+
+def _benign_baseline_trigger_text(plan: Plan, ipdmc: IPDMCChecks, baseline: int) -> str:
+    """The specific, traceable reason the floor fired — states exactly what remained unresolved
+    (Developer Instructions requirement #2: specific trigger, supporting evidence, risk relevance,
+    traceability, rating justification), never the removed standalone phrase "Nothing was positively
+    verified, so the ordinary unverified floor of 28 applies instead of the lower N." alone."""
+    unresolved: list[str] = []
+    if ipdmc.consequential_requests and (ipdmc.unverified_destinations or ipdmc.destinations_verified != "passed"):
+        unresolved.append("this message makes a request through a destination nobody has verified")
+    if not plan.checks:
+        unresolved.append("no identity, destination or claim in this message had any check available to run")
+    else:
+        unavailable_kinds = sorted({c.kind for c in plan.checks if c.status == "unavailable"})
+        if unavailable_kinds:
+            unresolved.append(f"the {', '.join(unavailable_kinds)} check(s) on it could not be completed")
+    if not unresolved:
+        unresolved.append("no positive evidence of legitimacy was established for its identity or destination")
+    return (f"The calculated six-dimension score ({baseline}/100) is not itself a reason for concern, but it "
+            f"also isn't a confirmed-safe result: {'; and '.join(unresolved)}. An ordinary message with no "
+            f"positive verification either way still carries the baseline unverified risk, so the floor of "
+            f"{BENIGN_BASELINE} applies instead of {baseline}.")
+
+
 def _legitimacy_credit(plan: Plan, ipdmc: IPDMCChecks) -> tuple[int, str]:
     """PRD §2.3.B — a reduction of 20-30 points when something is positively verified, with nothing
     else outstanding that's concerning."""
@@ -406,12 +469,16 @@ def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
     breakdown = ScoreBreakdown(dimensions=dims, baseline=baseline)
 
     score = baseline
-    if not _positively_verified(plan, ipdmc) and score < BENIGN_BASELINE:
+    if not _positively_verified(plan, ipdmc) and score < BENIGN_BASELINE and not _checked_and_clean(plan, ipdmc):
         # PRD §2.3.C — ordinary, unverified communications never read as "not a scam" just because a
         # handful of ambiguous points happened to add up low: nothing concerning was found, but nothing
         # was positively verified either, so the floor is "unlikely a scam", not "not a scam".
+        # Developer Instructions correction: this only fires on a genuine informational vacuum (nothing
+        # checked, or something left unresolved) — never merely because checks that *did* run came back
+        # clean (`_checked_and_clean`). Missing proof of legitimacy alone is not evidence of a scam.
         score = BENIGN_BASELINE
         breakdown.benign_baseline_applied = True
+        breakdown.benign_baseline_trigger = _benign_baseline_trigger_text(plan, ipdmc, baseline)
 
     credit, reason = _legitimacy_credit(plan, ipdmc)
     if credit:

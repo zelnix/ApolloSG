@@ -1,8 +1,8 @@
 {
   "about": "ApolloSG PRD v2.3 Findings Calibration \u2014 synthetic reference-library run, see tests/fixtures/reference_cases.py and tests/test_calibration_reference_library.py.",
   "totalCases": 55,
-  "settled": 25,
-  "tierMatches": 8,
+  "settled": 28,
+  "tierMatches": 11,
   "results": [
     {
       "id": "001",
@@ -19,13 +19,13 @@
       "scenario": "Confirmed fake account verification portal",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "likely_scam",
       "targetFinding": "scam",
-      "actualScore": 31,
+      "actualScore": 65,
       "targetScore": 96,
-      "scoreDelta": -65,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -31,
+      "taxonomy": "Brand & Corporate Impersonation",
+      "basis": "impersonation"
     },
     {
       "id": "003",
@@ -42,13 +42,13 @@
       "scenario": "Confirmed malicious OAuth consent request",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "likely_scam",
       "targetFinding": "scam",
-      "actualScore": 28,
+      "actualScore": 65,
       "targetScore": 93,
-      "scoreDelta": -65,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -28,
+      "taxonomy": "Brand & Corporate Impersonation",
+      "basis": "impersonation"
     },
     {
       "id": "005",
@@ -68,13 +68,13 @@
       "scenario": "Confirmed courier delivery-fee phishing",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "likely_scam",
       "targetFinding": "scam",
-      "actualScore": 28,
+      "actualScore": 65,
       "targetScore": 95,
-      "scoreDelta": -67,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -30,
+      "taxonomy": "Brand & Corporate Impersonation",
+      "basis": "impersonation"
     },
     {
       "id": "007",
@@ -128,12 +128,15 @@
     {
       "id": "011",
       "scenario": "Confirmed bank security impersonation",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 personal details (\u201cVerify your identity\u201d \u2192 https://commbank-secure-verify.net/id) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 97
+      "actualScore": 69,
+      "targetScore": 97,
+      "scoreDelta": -28,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
+      "basis": "impersonation"
     },
     {
       "id": "012",
@@ -464,12 +467,15 @@
     {
       "id": "081",
       "scenario": "Confirmed tax refund credential phishing",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 personal details (\u201cverify your identity\u201d \u2192 https://ato-gov-refund.cc/claim) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 97
+      "actualScore": 78,
+      "targetScore": 97,
+      "scoreDelta": -19,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
+      "basis": "impersonation"
     },
     {
       "id": "082",
@@ -494,25 +500,28 @@
     {
       "id": "084",
       "scenario": "Confirmed toll payment phishing",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cpay immediately at https://linkt-au-payment\u201d \u2192 https://linkt-au-payment.top/pay) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 94
+      "actualScore": 69,
+      "targetScore": 94,
+      "scoreDelta": -25,
+      "taxonomy": "Financial, Investment & Cryptocurrency Fraud",
+      "basis": "impersonation"
     },
     {
       "id": "085",
       "scenario": "Confirmed government benefits impersonation",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "likely_scam",
       "targetFinding": "scam",
-      "actualScore": 28,
+      "actualScore": 65,
       "targetScore": 96,
-      "scoreDelta": -68,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -31,
+      "taxonomy": "Brand & Corporate Impersonation",
+      "basis": "impersonation"
     },
     {
       "id": "086",

@@ -46,6 +46,8 @@ export interface FindingsRatingDimension {
 export interface ScoreCalculationStep { step: string; detail: string; value: number }
 export interface FindingsRatingBreakdown {
   rating: number; finding: string; dimensions: FindingsRatingDimension[]; baseline: number; benignBaselineApplied: boolean;
+  /** The specific, evidence-backed reason the benign floor fired (empty when it didn't) — never a generic phrase alone. */
+  benignBaselineTrigger: string;
   legitimacyCredit: number; legitimacyReason: string; decisiveFloorApplied: boolean; decisiveMechanism: string | null;
   /** The ordered, human-readable trace of exactly how the 0-100 rating was calculated. */
   calculationTrace: ScoreCalculationStep[];

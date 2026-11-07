@@ -140,6 +140,77 @@ class TestScorePlanMechanics:
         plan = _plan()
         breakdown = score_plan(plan, IPDMCChecks())
         wire = breakdown.wire()
-        for key in ("rating", "finding", "dimensions", "baseline", "benignBaselineApplied",
+        for key in ("rating", "finding", "dimensions", "baseline", "benignBaselineApplied", "benignBaselineTrigger",
                    "legitimacyCredit", "legitimacyReason", "decisiveFloorApplied", "decisiveMechanism"):
             assert key in wire
+
+
+class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
+    """Developer Instructions — "Correct the Benign Baseline Rule": the 28-point floor must not fire
+    just because a message falls short of full legitimacy proof. It must still fire for a genuine
+    informational vacuum (PRD §2.4's own golf-invitation example), but never merely because checks
+    that *did* run came back clean."""
+
+    def test_checked_and_clean_evidence_does_not_get_bumped_to_the_floor(self):
+        """The "ABC newsletter" shape: a check actually ran (a link/domain lookup) and came back
+        clean (neutral/clear signals only) with a low but non-zero calculated baseline (e.g. a mild
+        urgency cue). This must stay at its calculated score, not jump to 28."""
+        from services.higgins.tc_flyby.triage import Entities, Check
+
+        clean_fact = {"text": "example.org is registered to a long-established organisation.", "signal": "neutral",
+                      "decisive": False, "class": "live_evidence", "topic": "registration", "source": None}
+        link_check = Check(id="c1", kind="link", subject="example.org", urls=["https://example.org/"])
+        link_check.facts.append(clean_fact)
+        link_check.status = "resolved"
+        ent = Entities()
+        ent.urgency = ["please reply by tomorrow"]
+        plan = _plan(checks=[link_check], entities=ent)
+
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.baseline == 6, "manipulation_behaviour alone should score 6 for one urgency cue"
+        assert breakdown.benign_baseline_applied is False, "checked-and-clean evidence must not trigger the floor"
+        assert breakdown.rating == 6, "the calculated score must be retained, not bumped to 28"
+        assert breakdown.finding == "not_scam"
+
+    def test_genuine_informational_vacuum_still_gets_the_floor(self):
+        """PRD §2.4's own example (the golf invitation): nothing at all to check. The floor must
+        still apply here — this is NOT the case the correction narrows."""
+        plan = _plan()  # checks=[] — nothing was ever checked
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.benign_baseline_applied is True
+        assert breakdown.rating == 28
+        assert breakdown.benign_baseline_trigger, "an applied floor must carry a specific, traceable reason"
+
+    def test_missing_unavailable_check_does_not_count_as_clean_evidence(self):
+        """An "unavailable external verification service" (signal="missing") must not, by itself,
+        disable the floor — it is an evidence limitation, not clean proof of legitimacy."""
+        from services.higgins.tc_flyby.triage import Check
+
+        missing_fact = {"text": "Google Safe Browsing could not be checked for example.org.", "signal": "missing",
+                        "decisive": False, "class": "live_evidence", "topic": "listing", "source": None}
+        link_check = Check(id="c1", kind="link", subject="example.org", urls=["https://example.org/"])
+        link_check.facts.append(missing_fact)
+        plan = _plan(checks=[link_check])
+
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.benign_baseline_applied is True, "an unavailable check alone must not disable the floor"
+        assert breakdown.rating == 28
+
+    def test_unresolved_consequential_request_still_gets_the_floor_even_with_a_clean_link_elsewhere(self):
+        """PRD's delivery-toll shape: a consequential request through an unverified destination must
+        still get the floor even if a *different* link elsewhere in the message checked out clean —
+        a clean link never vouches for a different, unverified payment destination."""
+        from services.higgins.tc_flyby.triage import Check
+
+        clean_fact = {"text": "auspost.com.au is Australia Post's own, official domain.", "signal": "clear",
+                      "decisive": False, "class": "live_evidence", "topic": "official_domains", "source": None}
+        link_check = Check(id="c1", kind="link", subject="auspost.com.au", urls=["https://auspost.com.au/"])
+        link_check.facts.append(clean_fact)
+        plan = _plan(checks=[link_check])
+        ipdmc = IPDMCChecks(consequential_requests=[{"type": "financial", "quote": "pay the $2.50 redelivery fee by PayID to 0412 345 678"}],
+                            unverified_destinations=["0412 345 678"])
+
+        breakdown = score_plan(plan, ipdmc)
+        assert breakdown.benign_baseline_applied is True
+        assert breakdown.rating == 28
+        assert breakdown.finding == "unlikely_scam"
