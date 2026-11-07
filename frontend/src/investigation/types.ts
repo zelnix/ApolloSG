@@ -27,9 +27,33 @@ export interface BriefingFinding { id: string; subject: string | null; subjectTy
  *  the Overview and notifications all project. "Needs you" only when userActionRequired and a concrete actionReason. */
 export interface CaseBriefing { version: 1; subject: { value: string; type: string; organisation: string | null; organisationClaimed?: boolean } | null; headline: string; summary: string; findings: BriefingFinding[]; supporting: string[]; contrary: string[]; unresolved: string[]; status: string; statusCode: string | null; attention: string; statusReason: string; userActionRequired: boolean; actionReason: string | null; recommendedAction: { label: string; instruction: string } | null; fidelity: { status: "PASS" | "FAIL"; failures: FidelityFailure[] } }
 export interface HigginsResponse { revision: number; overview: string; explanationMarkdown: string; assessment: Assessment; outcome?: Outcome | null; attention: Attention; attentionReason: string | null; findings: Finding[]; uncertainties: string[]; scope: string; sourceIds: string[]; remainingEvidenceIds: string[]; actions: ActionProposal[]; recommendedActionId: string | null; question: Question | null; completion: Completion; plainEnglish?: PlainEnglish | null; briefing?: CaseBriefing | null; history?: HistoryNote[]; /** Null/absent: recorded before the Evidence record existed (never reconstructed). */ evidence?: EvidenceFact[] | null; /** TC Hawkeye's own Findings Rating (0-100, Apollo PRD v2.2 §2) and its six-dimension breakdown. Null for a general question / no Finding. */ findingsRating?: number | null; findingsRatingBreakdown?: FindingsRatingBreakdown | null; /** TC Hawkeye-only: a reputation check failed or timed out after retrying, so no Finding was reached. */ technicalFailure?: boolean | null; /** The Master Scam Taxonomy classification (Apollo PRD v2.2 Phase 2). Null for a "not a scam" result, a general question or no Finding. */ taxonomy?: TaxonomyClassification | null; /** The Higgins Findings Brief, the same Finding under its six required headers (Apollo PRD v2.2 Phase 5). Null for no Finding. */ findingsBrief?: FindingsBrief | null }
-/** One dimension of the Findings Rating (backend services.higgins.tc_flyby.scoring.DimensionScore). */
-export interface FindingsRatingDimension { key: string; label: string; points: number; max: number; why: string }
-export interface FindingsRatingBreakdown { rating: number; finding: string; dimensions: FindingsRatingDimension[]; baseline: number; benignBaselineApplied: boolean; legitimacyCredit: number; legitimacyReason: string; decisiveFloorApplied: boolean; decisiveMechanism: string | null }
+/** One check TC Hawkeye actually ran that a dimension's points draw on (backend's own Check record — never a client-side guess). */
+export interface DimensionCheck { kind: string; subject: string; status: string }
+/** One dimension of the Findings Rating (backend services.higgins.tc_flyby.scoring.DimensionScore). checks/evidence/missing
+ *  are the real trace behind `points` — DI Scoring Transparency (Apollo PRD v2.3): missing evidence is listed as missing,
+ *  never shown as if it were confirmed clean. */
+export interface FindingsRatingDimension {
+  key: string; label: string; points: number; max: number; why: string;
+  /** The checks (link/phone/email/impersonation/etc.) this dimension's points actually drew on. */
+  checks: DimensionCheck[];
+  /** The real evidence text behind this dimension's points — never fabricated, never paraphrased. */
+  evidence: string[];
+  /** Checks this dimension could have used but that were unavailable — listed as unavailable, not as a clean result. */
+  missing: string[];
+}
+/** One step of the exact arithmetic TC Hawkeye's scorer ran, in order (backend never recomputes this on request — the UI
+ *  renders it verbatim). */
+export interface ScoreCalculationStep { step: string; detail: string; value: number }
+export interface FindingsRatingBreakdown {
+  rating: number; finding: string; dimensions: FindingsRatingDimension[]; baseline: number; benignBaselineApplied: boolean;
+  legitimacyCredit: number; legitimacyReason: string; decisiveFloorApplied: boolean; decisiveMechanism: string | null;
+  /** The ordered, human-readable trace of exactly how the 0-100 rating was calculated. */
+  calculationTrace: ScoreCalculationStep[];
+  /** Higgins' own plain-English account of the rating, composed only from the structured breakdown above. */
+  narrative: string;
+  /** Material TC Hawkeye couldn't read at all (PRD completeness) — distinct from "missing" per-dimension checks. */
+  contentGaps: string[];
+}
 /** A master domain reference, without its variant code (backend services.higgins.tc_flyby.taxonomy). */
 export interface TaxonomyDomainRef { domainCode: number; domainName: string }
 /** The specific Operational Variant Code (001-1000) that settled the classification. */

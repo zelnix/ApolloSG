@@ -14,7 +14,7 @@ import { SettledByBadge } from "@/src/components/SettledByBadge";
 import { SettledReasonLine } from "@/src/components/SettledReasonLine";
 import { Card } from "@/src/components/ui";
 import type { PatrolEvent } from "@/src/domain/types";
-import type { HigginsResponse, HistoryNote, SettledReason, SourceReference } from "@/src/investigation/types";
+import type { FindingsRatingBreakdown, FindingsRatingDimension, HigginsResponse, HistoryNote, SettledReason, SourceReference } from "@/src/investigation/types";
 import type { DiTrace, DiTransaction } from "@/src/domain/diTransaction";
 import { buildDecisionTrace, outsideResearch, TRACE_ORDER, type PresentedResult, type ResearchRow, type TraceStatus, type TraceStep } from "@/src/domain/diTrace";
 import type { TriageInvestigationRecord } from "@/src/domain/triage/contract";
@@ -50,7 +50,107 @@ const useStyles = makeStyles((c) => ({
   sectionToggle: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
   sectionToggleText: { fontFamily: fonts.textSemibold, fontSize: 16, color: c.onSurface, flex: 1 },
   detailSummary: { fontFamily: fonts.text, fontSize: 12, color: c.muted, marginTop: 2 },
+  // Scoring breakdown
+  scoreHeadline: { fontFamily: fonts.displayBold, fontSize: 20, color: c.onSurface },
+  scoreNarrative: { fontFamily: fonts.text, fontSize: 13, lineHeight: 19, color: c.onSurfaceSecondary, marginTop: spacing.xs, marginBottom: spacing.sm },
+  scoreDimRow: { borderTopWidth: 1, borderTopColor: c.divider, paddingVertical: spacing.sm },
+  scoreDimHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  scoreDimLabel: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface, flex: 1 },
+  scoreDimPoints: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface },
+  scoreDimWhy: { fontFamily: fonts.text, fontSize: 12, lineHeight: 17, color: c.onSurfaceSecondary, marginTop: 2 },
+  scoreSubLabel: { fontFamily: fonts.textSemibold, fontSize: 11, letterSpacing: 0.3, color: c.muted, textTransform: "uppercase", marginTop: spacing.sm },
+  traceBlock: { marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider, gap: 4 },
 }));
+
+// ── Scoring breakdown (DI Scoring Transparency, Apollo PRD v2.3) ────────────
+
+const FINDING_RATING_LABELS: Record<string, string> = {
+  scam: "This is a Scam", likely_scam: "This is Likely a Scam",
+  unlikely_scam: "This is Unlikely a Scam", not_scam: "This is Not a Scam",
+};
+
+function ScoreDimensionRow({ dim }: { dim: FindingsRatingDimension }) {
+  const s = useStyles();
+  const { colors } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const checks = dim.checks ?? [];
+  const evidence = dim.evidence ?? [];
+  const missing = dim.missing ?? [];
+  const hasDetails = checks.length > 0 || evidence.length > 0 || missing.length > 0;
+  return (
+    <View style={s.scoreDimRow} testID={`tc-di-score-dim-${dim.key}`}>
+      <Pressable onPress={() => hasDetails && setExpanded((v) => !v)} hitSlop={6} disabled={!hasDetails} testID={`tc-di-score-dim-${dim.key}-toggle`}>
+        <View style={s.scoreDimHead}>
+          <Text style={s.scoreDimLabel}>{dim.label}</Text>
+          <Text style={s.scoreDimPoints} testID={`tc-di-score-dim-${dim.key}-points`}>{dim.points}/{dim.max}</Text>
+        </View>
+        <Text style={s.scoreDimWhy} selectable>{dim.why}</Text>
+        {hasDetails ? (
+          <View style={[s.expandToggle, { paddingVertical: 2 }]}>
+            <Text style={s.expandLabel}>{expanded ? "Hide checks & evidence" : "Show checks & evidence"}</Text>
+            {expanded ? <ChevronUp size={14} color={colors.brandPrimary} /> : <ChevronDown size={14} color={colors.brandPrimary} />}
+          </View>
+        ) : null}
+      </Pressable>
+      {expanded ? (
+        <View style={{ gap: 4 }} testID={`tc-di-score-dim-${dim.key}-details`}>
+          {checks.length ? (
+            <View>
+              <Text style={s.scoreSubLabel}>Checks performed</Text>
+              {checks.map((c, i) => <Text key={i} style={s.stepDetail} selectable>{`• ${c.kind} check on ${c.subject}: ${c.status}`}</Text>)}
+            </View>
+          ) : null}
+          {evidence.length ? (
+            <View>
+              <Text style={s.scoreSubLabel}>Evidence</Text>
+              {evidence.map((e, i) => <Text key={i} style={s.stepDetail} selectable>{`• ${e}`}</Text>)}
+            </View>
+          ) : null}
+          {missing.length ? (
+            <View>
+              <Text style={s.scoreSubLabel}>Missing evidence (not reported as clean)</Text>
+              {missing.map((m, i) => <Text key={i} style={s.stepDetail} selectable>{`• ${m}`}</Text>)}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ScoreBreakdown({ breakdown }: { breakdown: FindingsRatingBreakdown }) {
+  const s = useStyles();
+  const dimensions = breakdown.dimensions ?? [];
+  const trace = breakdown.calculationTrace ?? [];
+  const gaps = breakdown.contentGaps ?? [];
+  return (
+    <Card testID="tc-di-score-breakdown">
+      <Text style={s.sectionTitle}>Scoring Breakdown</Text>
+      <Text style={s.scoreHeadline} testID="tc-di-score-rating">
+        {breakdown.rating} / 100 {"\u2014"} {FINDING_RATING_LABELS[breakdown.finding] ?? breakdown.finding}
+      </Text>
+      {breakdown.narrative ? <Text style={s.scoreNarrative} selectable testID="tc-di-score-narrative">{breakdown.narrative}</Text> : null}
+
+      {dimensions.map((d) => <ScoreDimensionRow key={d.key} dim={d} />)}
+
+      {trace.length ? (
+        <View style={s.traceBlock} testID="tc-di-score-trace">
+          <Text style={s.scoreSubLabel}>How this rating was calculated</Text>
+          {trace.map((t, i) => (
+            <Text key={i} style={s.stepDetail} selectable testID={`tc-di-score-trace-${i}`}>{`${i + 1}. ${t.step}: ${t.detail}`}</Text>
+          ))}
+        </View>
+      ) : null}
+
+      {gaps.length ? (
+        <View style={s.traceBlock} testID="tc-di-score-gaps">
+          <Text style={s.scoreSubLabel}>Content ApolloSG could not read</Text>
+          {gaps.map((g, i) => <Text key={i} style={s.stepDetail} selectable>{`• ${g}`}</Text>)}
+        </View>
+      ) : null}
+    </Card>
+  );
+}
 
 type DiState = { loading: boolean; error: string | null; records: DiTransaction[]; trace: DiTrace | null };
 
@@ -289,6 +389,8 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
       ) : null)}
 
       <DecisionTrace steps={steps} settled={settled} />
+
+      {response?.findingsRatingBreakdown ? <ScoreBreakdown breakdown={response.findingsRatingBreakdown} /> : null}
     </View>
   );
 }

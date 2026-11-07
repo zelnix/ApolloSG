@@ -80,6 +80,12 @@ class DimensionScore:
     points: int
     maximum: int
     why: str = ""
+    # Added for DI Scoring Transparency — real data already gathered by Higgins Triage/TC Hawkeye,
+    # never fabricated: which checks this dimension actually drew on, the real evidence text behind
+    # its points, and which of those checks were unavailable/incomplete (never reported as if clean).
+    checks: list[dict] = field(default_factory=list)
+    evidence: list[str] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -94,15 +100,23 @@ class ScoreBreakdown:
     decisive_mechanism: str | None = None
     rating: int = 0
     finding: str = "unlikely_scam"
+    # Added for DI Scoring Transparency (never recomputed client-side — this *is* the real sequence
+    # score_plan() just ran, PRD §2.3.D order: baseline -> benign floor -> legitimacy credit ->
+    # impersonation/corroboration floor -> decisive floor -> 0-100 clamp).
+    calculation_trace: list[dict] = field(default_factory=list)
+    narrative: str = ""
+    content_gaps: list[str] = field(default_factory=list)   # material TC Hawkeye couldn't read at all (PRD §8.4/§5 completeness)
 
     def wire(self) -> dict:
         return {
             "rating": self.rating, "finding": self.finding,
-            "dimensions": [{"key": d.key, "label": d.label, "points": d.points, "max": d.maximum, "why": d.why}
+            "dimensions": [{"key": d.key, "label": d.label, "points": d.points, "max": d.maximum, "why": d.why,
+                           "checks": d.checks, "evidence": d.evidence, "missing": d.missing}
                            for d in self.dimensions],
             "baseline": self.baseline, "benignBaselineApplied": self.benign_baseline_applied,
             "legitimacyCredit": self.legitimacy_credit, "legitimacyReason": self.legitimacy_reason,
             "decisiveFloorApplied": self.decisive_floor_applied, "decisiveMechanism": self.decisive_mechanism,
+            "calculationTrace": self.calculation_trace, "narrative": self.narrative, "contentGaps": self.content_gaps,
         }
 
 
@@ -222,6 +236,98 @@ def _evidence_corroboration(plan: Plan, ipdmc: IPDMCChecks) -> DimensionScore:
 _DIMENSION_FUNCS = (_scam_mechanism, _requested_action, _identity_destination, _manipulation_behaviour,
                     _knowledge_base, _evidence_corroboration)
 
+# ── DI Scoring Transparency: real-data enrichment, never fabricated ─────────
+# Which check kinds each dimension actually draws its evidence from (triage.py's Check.kind values).
+_DIMENSION_CHECK_KINDS: dict[str, tuple[str, ...]] = {
+    "scam_mechanism": ("link", "phone", "email", "impersonation", "message_analysis"),
+    "requested_action": ("link", "phone", "email"),
+    "identity_destination": ("impersonation", "link", "phone", "email"),
+    "manipulation_behaviour": (),          # text/entity analysis, not an external check
+    "knowledge_base": (),                   # an internal KB lookup, not a Check
+    "evidence_corroboration": ("link", "phone", "email", "impersonation"),
+}
+
+
+def _check_summaries(plan: Plan, kinds: tuple[str, ...]) -> list[dict]:
+    return [{"kind": c.kind, "subject": c.subject, "status": c.status} for c in plan.checks if c.kind in kinds]
+
+
+def _missing_checks(plan: Plan, kinds: tuple[str, ...]) -> list[str]:
+    return [f"{c.kind} check on {c.subject}: unavailable" for c in plan.checks
+           if c.kind in kinds and c.status == "unavailable"]
+
+
+def _enrich_with_real_evidence(breakdown: ScoreBreakdown, plan: Plan, ipdmc: IPDMCChecks) -> None:
+    """Attaches, to each already-scored dimension, exactly the checks/evidence/missing-checks data
+    Higgins Triage and TC Hawkeye already gathered for it — nothing here changes a single point or
+    a single `why` sentence; it only exposes the real trace behind them (PRD's DI Scoring
+    Transparency requirements 3 and 5: missing evidence is listed as missing, never as "confirmed
+    clean")."""
+    evidence_by_key = {
+        "scam_mechanism": list(dict.fromkeys(ipdmc.mechanism_evidence)),
+        "requested_action": list(dict.fromkeys(ipdmc.destination_evidence)),
+        "identity_destination": list(dict.fromkeys(ipdmc.identity_evidence + ipdmc.destination_evidence)),
+        "manipulation_behaviour": list(getattr(plan.entities, "urgency", None) or []),
+        "knowledge_base": ([f"Matches Apollo's \u201c{plan.pattern.get('name', '')}\u201d pattern"] if plan.pattern
+                           else [a.get("title", "") for a in (plan.advisories or [])]),
+        "evidence_corroboration": list(dict.fromkeys(
+            f["text"] for c in plan.checks for f in c.facts
+            if f.get("class") == "live_evidence" and f.get("signal") in ("concern", "anomaly") and f.get("text")
+        )),
+    }
+    for d in breakdown.dimensions:
+        kinds = _DIMENSION_CHECK_KINDS.get(d.key, ())
+        d.checks = _check_summaries(plan, kinds)
+        d.evidence = evidence_by_key.get(d.key, [])
+        d.missing = _missing_checks(plan, kinds)
+
+
+def _build_calculation_trace(breakdown: ScoreBreakdown) -> list[dict]:
+    """The exact arithmetic score_plan() just performed, as an ordered, human-readable trace — the UI
+    renders this list verbatim, it never recomputes anything."""
+    trace = [{"step": "Six-dimension baseline",
+             "detail": " + ".join(f"{d.label} {d.points}" for d in breakdown.dimensions) + f" = {breakdown.baseline}",
+             "value": breakdown.baseline}]
+    running = breakdown.baseline
+    if breakdown.benign_baseline_applied:
+        trace.append({"step": "Benign baseline applied",
+                     "detail": f"Nothing was positively verified, so the ordinary unverified floor of {BENIGN_BASELINE} applies "
+                               f"instead of the lower {running}.",
+                     "value": BENIGN_BASELINE})
+        running = BENIGN_BASELINE
+    if breakdown.legitimacy_credit:
+        running = max(0, running - breakdown.legitimacy_credit)
+        trace.append({"step": "Legitimacy credit", "detail": f"-{breakdown.legitimacy_credit} ({breakdown.legitimacy_reason})", "value": running})
+    if breakdown.rating > running and not breakdown.decisive_floor_applied:
+        trace.append({"step": "Impersonation/corroboration floor", "detail": f"Raised to {breakdown.rating} (PRD \u00a72.3's \u201clikely a scam\u201d floor).", "value": breakdown.rating})
+    if breakdown.decisive_floor_applied:
+        trace.append({"step": "Decisive mechanism floor", "detail": f"{breakdown.decisive_mechanism} \u2014 never scored below {DECISIVE_FLOOR}.", "value": DECISIVE_FLOOR})
+    trace.append({"step": "Final rating (0-100)", "detail": f"{breakdown.finding}", "value": breakdown.rating})
+    return trace
+
+
+def _build_narrative(breakdown: ScoreBreakdown) -> str:
+    """Higgins' own plain-English account of why this rating and verdict were reached — composed
+    only from the structured breakdown above, never from a separate explanation."""
+    label = {"scam": "This is a Scam", "likely_scam": "This is Likely a Scam",
+             "unlikely_scam": "This is Unlikely a Scam", "not_scam": "This is Not a Scam"}[breakdown.finding]
+    contributing = [d for d in breakdown.dimensions if d.points > 0]
+    parts = [f"Higgins rated this {breakdown.rating}/100 \u2014 {label}."]
+    if contributing:
+        parts.append("That came from: " + "; ".join(f"{d.label} ({d.points}/{d.maximum} \u2014 {d.why})" for d in contributing) + ".")
+    else:
+        parts.append("None of the six dimensions found anything concerning.")
+    if breakdown.benign_baseline_applied:
+        parts.append(f"Because nothing was positively verified either way, the rating used the ordinary unverified baseline of {BENIGN_BASELINE} rather than reading as confirmed-safe.")
+    if breakdown.legitimacy_credit:
+        parts.append(f"{breakdown.legitimacy_credit} points were credited back: {breakdown.legitimacy_reason}")
+    if breakdown.decisive_floor_applied:
+        parts.append(f"A decisive scam mechanism was established ({breakdown.decisive_mechanism}), which is never scored below {DECISIVE_FLOOR}, regardless of the other dimensions.")
+    missing_total = sum(len(d.missing) for d in breakdown.dimensions)
+    if missing_total:
+        parts.append(f"{missing_total} check(s) were unavailable and are recorded as unavailable, not as evidence either way.")
+    return " ".join(parts)
+
 
 # ── Contextual adjustments (PRD §2.3) ───────────────────────────────────────
 
@@ -332,4 +438,10 @@ def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
 
     breakdown.rating = max(0, min(100, score))
     breakdown.finding = classify_finding(breakdown.rating)
+
+    # DI Scoring Transparency — attach the real trace behind the number above; changes nothing already decided.
+    _enrich_with_real_evidence(breakdown, plan, ipdmc)
+    breakdown.content_gaps = [f"{g.get('item', '')}: {g.get('what', '')}" for g in (plan.gaps or [])]
+    breakdown.calculation_trace = _build_calculation_trace(breakdown)
+    breakdown.narrative = _build_narrative(breakdown)
     return breakdown
