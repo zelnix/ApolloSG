@@ -13,12 +13,13 @@ import RotateCcw from "lucide-react-native/icons/rotate-ccw";
 import Settings from "lucide-react-native/icons/settings";
 import X from "lucide-react-native/icons/x";
 import React, { useState } from "react";
-import { Alert, Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isPopupRoute } from "@/src/navigation/modalRoutes";
 import { useApollo } from "@/src/store/ApolloContext";
 import { fonts, makeStyles, spacing, useTheme } from "@/src/theme";
+import { confirmDialog } from "@/src/utils/confirmDialog";
 
 const ITEMS = [
   { label: "Sample checks", icon: Beaker, route: "/sample-checks", testID: "menu-sample-checks" },
@@ -51,7 +52,7 @@ export function AppMenuButton({ testID }: { testID: string }) {
 
   const confirmRestartOnboarding = () => {
     setOpen(false);
-    Alert.alert(
+    confirmDialog(
       "Redo onboarding?",
       "You'll go through ApolloSG's onboarding steps again — the welcome screens, privacy disclosures and permission prompts. Your Patrol history, trust list and protection settings stay exactly as they are.",
       [

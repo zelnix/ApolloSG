@@ -14,7 +14,7 @@ import Smartphone from "lucide-react-native/icons/smartphone";
 import Trash from "lucide-react-native/icons/trash";
 import Users from "lucide-react-native/icons/users";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, AppState, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AlertPreviewSheet } from "@/src/components/AlertPreviewSheet";
@@ -28,6 +28,7 @@ import { Body, Button, Card, Pill } from "@/src/components/ui";
 import { APP_VERSION } from "@/src/config/buildInfo";
 import { openPrivacyPolicy } from "@/src/config/privacyPolicy";
 import { apiDelete, apiGet } from "@/src/api/client";
+import { confirmDialog } from "@/src/utils/confirmDialog";
 import { getDeviceIdentity } from "@/src/auth/deviceIdentity";
 import { CallSdk } from "@/src/security/callSdk";
 import { MessagingSdk } from "@/src/security/messagingSdk";
@@ -112,7 +113,7 @@ export default function SettingsScreen() {
   useEffect(() => { void loadLinkedEmails(); }, [loadLinkedEmails]);
 
   const removeEmail = useCallback((email: string) => {
-    Alert.alert(
+    confirmDialog(
       "Remove email account?",
       `ApolloSG will lose read-only access to ${email}. You can reconnect at any time from Email accounts.`,
       [
@@ -206,7 +207,7 @@ export default function SettingsScreen() {
   }, [showToast]);
 
   const unlinkCalls = useCallback(() => {
-    Alert.alert(
+    confirmDialog(
       "Unlink call screening?",
       Platform.OS === "ios"
         ? "To stop ApolloSG screening calls, open iPhone Settings > Phone > Call Blocking & Identification and turn off ApolloSG."
@@ -234,7 +235,7 @@ export default function SettingsScreen() {
   }, [showToast]);
 
   const unlinkMessages = useCallback(() => {
-    Alert.alert(
+    confirmDialog(
       "Unlink message screening?",
       "To stop ApolloSG reading message notifications, open Settings > Apps > Special access > Notification access and turn off ApolloSG.",
       [
