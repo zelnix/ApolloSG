@@ -178,11 +178,11 @@ export default function TextGuard() {
         <Text style={s.title}>Message screening</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <CloseButton testID="textguard-close" onPress={() => goBackOrHome(router)} />
-          <InfoButton info={{ title: "About message screening", body: ["Apollo investigates pasted texts and chosen screenshots using local scam detection and link and public evidence checks: TC FlyBy first, and Magnum DI only if a deeper look could change the answer.", ...(Platform.OS === "android" ? ["Apollo can also automatically scan new text-message notifications from your chosen messaging app as they arrive. Apollo never reads your SMS inbox or message history."] : []), "Raw content is discarded after the assessment; provider-side retention follows the configured AI provider policy."] }} testID="textguard-info" />
+          <InfoButton info={{ title: "About message screening", body: ["Apollo investigates pasted texts and chosen screenshots using local scam detection and link and public evidence checks: TC Hawkeye first, and Magnum DI only if a deeper look could change the answer.", ...(Platform.OS === "android" ? ["Apollo can also automatically scan new text-message notifications from your chosen messaging app as they arrive. Apollo never reads your SMS inbox or message history."] : []), "Raw content is discarded after the assessment; provider-side retention follows the configured AI provider policy."] }} testID="textguard-info" />
         </View>
       </View>
       <KeyboardAwareScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + spacing.xl }]} bottomOffset={24} testID="textguard-scroll">
-        <Body testID="textguard-intro">Apollo investigates pasted texts and chosen screenshots using local scam detection and link and public evidence checks: TC FlyBy first, and Magnum DI only if a deeper look could change the answer. Raw content is not retained by ApolloSG.</Body>
+        <Body testID="textguard-intro">Apollo investigates pasted texts and chosen screenshots using local scam detection and link and public evidence checks: TC Hawkeye first, and Magnum DI only if a deeper look could change the answer. Raw content is not retained by ApolloSG.</Body>
 
         <Card style={{ gap: spacing.sm }} testID="textguard-auto-card">
           <View style={s.rowTop}>

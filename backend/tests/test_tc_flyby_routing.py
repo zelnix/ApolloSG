@@ -1,9 +1,9 @@
-"""Cost routing: Higgins Triage → TC FlyBy → Magnum DI.
+"""Cost routing: Higgins Triage → TC Hawkeye → Magnum DI.
 
 - Triage extracts entities deterministically and plans only the relevant checks.
-- TC FlyBy stops as soon as a check is reliably resolved: an official listing, an official domain, Apollo's
-  KB or one targeted Brave search read deterministically — TC FlyBy makes no AI call, and then Magnum DI is never called.
-- When Magnum DI is needed it receives the material plus TC FlyBy's brief (not the raw lookups), with web
+- TC Hawkeye stops as soon as a check is reliably resolved: an official listing, an official domain, Apollo's
+  KB or one targeted Brave search read deterministically — TC Hawkeye makes no AI call, and then Magnum DI is never called.
+- When Magnum DI is needed it receives the material plus TC Hawkeye's brief (not the raw lookups), with web
   search off unless a specific external fact is still missing. One Magnum call, no second model.
 - Admin portal shows "Answered by" and the cost-routing measurements.
 
@@ -60,7 +60,7 @@ def test_a_general_question_is_not_material_to_check():
 
 # ── Harness ──────────────────────────────────────────────────────────────────
 def _gateway(monkeypatch, flyby_text=None, flyby_grounding=None):
-    """Gemini gateway replaced: TC FlyBy's search purpose answers with `flyby_text`, Magnum's with the simulator."""
+    """Gemini gateway replaced: TC Hawkeye's search purpose answers with `flyby_text`, Magnum's with the simulator."""
     calls: list[dict] = []
 
     async def fake(system, contents, **kwargs):
@@ -178,7 +178,7 @@ def _grounded(lines: list[str], urls: list[tuple[str, str]]) -> tuple[str, dict]
     return text, {"grounding_chunks": chunks, "grounding_supports": supports, "web_search_queries": ["q"] * len(lines)}
 
 
-# ── TC FlyBy settles it: Magnum DI is never called ──────────────────────────
+# ── TC Hawkeye settles it: Magnum DI is never called ──────────────────────────
 async def test_an_official_listing_settles_the_case_without_gemini(monkeypatch):
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch, verdict="malicious", threats=["SOCIAL_ENGINEERING"])
@@ -192,7 +192,7 @@ async def test_an_official_listing_settles_the_case_without_gemini(monkeypatch):
     assert case["routing"]["answeredBy"] == "tc_flyby_official" and case["routing"]["tc_flyby"]["resolved"] is True
     assert case["routing"]["assessment"] == "concern_found" and "magnum" not in case["routing"]
     commit = await db.investigation_turn_commits.find_one({"owner_id": owner, "case_id": case["case_id"]})
-    assert commit, "TC FlyBy's result is committed through the same turn commit as Magnum DI's"
+    assert commit, "TC Hawkeye's result is committed through the same turn commit as Magnum DI's"
 
 
 async def test_an_official_government_link_is_cleared_without_gemini(monkeypatch):
@@ -224,7 +224,7 @@ async def test_a_general_question_is_answered_from_apollo_kb(monkeypatch):
 
 
 def _brave(monkeypatch, results_for):
-    """TC FlyBy's Brave search replaced: `results_for(query)` gives the pages. Every request is recorded; none leaves the test."""
+    """TC Hawkeye's Brave search replaced: `results_for(query)` gives the pages. Every request is recorded; none leaves the test."""
     monkeypatch.setattr(search, "run", REAL_SEARCH)
     monkeypatch.setattr(search.brave_search, "configured", lambda: True)
     queries: list[dict] = []
@@ -247,11 +247,11 @@ async def test_a_targeted_search_finding_an_official_warning_stops(monkeypatch):
     queries = _brave(monkeypatch, lambda q: [ALERT_PAGE] if "Zenith Quantum Markets" in q else [])
     calls = _gateway(monkeypatch)
     owner, case, response, _ = await _case([("text", "Zenith Quantum Markets offers 3% daily returns. Message us on WhatsApp to start.")])
-    assert calls == [], "TC FlyBy makes no AI call, and Magnum DI isn't needed"
+    assert calls == [], "TC Hawkeye makes no AI call, and Magnum DI isn't needed"
     assert len(queries) == 1 and "Zenith Quantum Markets" in queries[0]["q"], "one Brave search for the case"
     assert queries[0]["correlation_id"] == f"case-{case['case_id']}" and queries[0]["device_id"] == owner
     assert response["assessment"] == "concern_found" and "Investor Alert List" in response["overview"]
-    assert response["outcome"] == "scam", "the planned search ran before TC FlyBy settled the outcome"
+    assert response["outcome"] == "scam", "the planned search ran before TC Hawkeye settled the outcome"
     assert response["findings"][0]["sourceIds"], "the warning keeps its source"
     assert case["routing"]["answeredBy"] == "tc_flyby_search"
     flyby = case["routing"]["tc_flyby"]
@@ -273,7 +273,7 @@ async def test_a_targeted_search_finding_an_official_warning_stops(monkeypatch):
 
 # ── Magnum DI receives only the unresolved slice ────────────────────────────
 # A payment request through a route nobody verified, that no Higgins Triage rule flags: only Magnum DI's reasoning could
-# change what to do. (Once Triage flags a message, TC FlyBy settles it as Concerning — test_unified_energy_sms.py.)
+# change what to do. (Once Triage flags a message, TC Hawkeye settles it as Concerning — test_unified_energy_sms.py.)
 INVOICE = ("Hi, it's Sarah from Brightline Accounts. Please pay invoice 4471 ($1,240) to "
            "account 1234 5678 today. The invoice is at https://brightline-docs.net/inv/4471")
 
@@ -289,15 +289,15 @@ async def test_magnum_gets_only_the_unresolved_issue_and_tc_flybys_brief_with_se
                    "_summary": {"providers_consulted": ["safe_browsing"], "total_lookups": 1}}
     _owner, case, response, _ = await _case([("text", INVOICE)], pregathered=pregathered)
     purposes = [c["purpose"] for c in calls]
-    assert purposes == [Purpose.INVESTIGATION] and len(queries) == 1, "TC FlyBy's one Brave search (no AI), then Magnum DI's one call"
+    assert purposes == [Purpose.INVESTIGATION] and len(queries) == 1, "TC Hawkeye's one Brave search (no AI), then Magnum DI's one call"
     magnum = calls[0]
-    assert magnum["web_search"] is False, "TC FlyBy already has the external facts, so Magnum's Google Search is off"
+    assert magnum["web_search"] is False, "TC Hawkeye already has the external facts, so Magnum's Google Search is off"
     assert magnum["model"] == await ai_settings.investigation_model(), "the existing configured model — no escalation"
     assert "outcome" in magnum["response_schema"]["required"], "Magnum DI feeds the same outcome system"
     sent = [p.text for p in captured[0] if p.text]
-    assert any("TC FlyBy fly-by results" in t and "For Magnum DI to settle" in t for t in sent)
+    assert any("TC Hawkeye fly-by results" in t and "For Magnum DI to settle" in t for t in sent)
     assert any("(reasoning) Message and deception analysis" in t and "payment (“" in t for t in sent), "only the unresolved issue"
-    assert not any("apollo-triage-intelligence" in t or '"safe_browsing"' in t for t in sent), "raw lookups TC FlyBy settled are not resent"
+    assert not any("apollo-triage-intelligence" in t or '"safe_browsing"' in t for t in sent), "raw lookups TC Hawkeye settled are not resent"
     assert any("Please pay invoice 4471" in t for t in sent), "the material the issue is about is sent in full"
     flyby = case["routing"]["tc_flyby"]
     assert [i["capability"] for i in flyby["issues"]] == ["reasoning"]
@@ -308,12 +308,12 @@ async def test_magnum_gets_only_the_unresolved_issue_and_tc_flybys_brief_with_se
 
 async def test_a_newly_registered_link_is_a_weak_signal_never_concerning(monkeypatch):
     """No fixed list sends a message to Magnum DI, and a newly registered domain is a weak signal: alone it never makes
-    a case Concerning. It is recorded, and the case is Unable to determine (rule book, TC FlyBy weak signals)."""
+    a case Concerning. It is recorded, and the case is Unlikely a Scam (ordinary, unverified — rule book, TC Hawkeye weak signals)."""
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch, age_days=6)
     _owner, case, response, _ = await _case([("text", "Hi, it's Sarah from the conference. Here are the slides you asked for: https://slides-deck.net/deck")])
     assert calls == [], "Magnum DI couldn't change the finding or what to do"
-    assert response["outcome"] == "unable_to_determine"
+    assert response["outcome"] == "unlikely_scam"
     assert any("registered on 2026-06-01" in f["text"] for f in response["findings"]), "the weak signal is listed"
     assert "only a weak signal that isn't a concern on its own" in response["overview"]
     # Offline, the link's targeted search is unavailable: the gap and the weak signal are both named, nothing broader.
@@ -328,9 +328,9 @@ async def test_a_plain_message_asking_nothing_is_settled_without_magnum(monkeypa
     calls = _gateway(monkeypatch)
     _owner, case, response, _ = await _case([("text", "Hey, are we still on for dinner on Friday? Let me know what time suits.")])
     assert calls == []
-    assert response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
-    assert "isn't proof it's genuine" in response["overview"] and "safe" not in response["overview"].lower()
-    assert "Apollo found no links, numbers, addresses or names in it to look up" in response["explanationMarkdown"]
+    assert response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
+    assert "isn't the same as it being safe" in response["overview"]
+    assert "Nothing beyond what's listed under what isn't certain" in response["explanationMarkdown"]
     flyby = case["routing"]["tc_flyby"]
     assert flyby["resolved"] is True and flyby["issues"] == []
     assert {c["kind"]: c["status"] for c in flyby["checks"]}["message_analysis"] == "not_needed"
@@ -424,7 +424,7 @@ async def test_admin_report_shows_answered_by_and_routing(monkeypatch):
     assert 'data-testid="outcome-scam"' in drill
 
 
-# ── When a case is resolved at TC FlyBy (Apollo's outcome criteria) ─────────
+# ── When a case is resolved at TC Hawkeye (Apollo's outcome criteria) ─────────
 async def test_impersonation_with_a_brand_new_domain_is_concerning_without_gemini(monkeypatch):
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch, age_days=6)
@@ -438,7 +438,7 @@ async def test_impersonation_with_a_brand_new_domain_is_concerning_without_gemin
                                            "CommBank's published domains.")
     assert any(a["label"] == "Don't use the link" for a in response["actions"])
     assert "So these weren't taken further:" in response["explanationMarkdown"] and "deception analysis" in response["explanationMarkdown"]
-    assert not any("TC FlyBy" in u or "Not taken further" in u for u in response["uncertainties"]), "how Apollo checked is on the DI tab"
+    assert not any("TC Hawkeye" in u or "Not taken further" in u for u in response["uncertainties"]), "how Apollo checked is on the DI tab"
     assert case["routing"]["answeredBy"] == "tc_flyby_official" and case["routing"]["tc_flyby"]["basis"] == "impersonation"
     assert "magnum" not in case["routing"]
 
@@ -524,8 +524,10 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch, age_days=6)
     _owner, case, response, _ = await _case([("url", "https://fresh-deals.shop/promo")], message="Is this link safe?")
-    # A newly registered domain is a weak signal: recorded, never Concerning on its own.
-    assert calls == [] and response["outcome"] == "unable_to_determine" and response["assessment"] == "uncertain"
+    # A newly registered domain is a weak signal: recorded, never Concerning on its own. Nothing was
+    # positively verified either, so it's Unlikely a Scam (the merged unable_to_determine/unlikely_scam
+    # case), not a flat "uncertain".
+    assert calls == [] and response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
     assert any("registered on 2026-06-01" in f["text"] for f in response["findings"])
     calls.clear()   # now nothing can be checked: every lookup and the search are unavailable
     from services.higgins.tc_flyby import search as tc_flyby_search
@@ -542,8 +544,8 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     monkeypatch.setattr(official, "lookup_domain", none)
     _owner, case, response, _ = await _case([("url", "https://quietbrook-gardens.net/")], message="Is this link safe?")
     assert calls == [], "Magnum DI can't open the page either: nothing it could add"
-    assert response["outcome"] == "unable_to_determine" and response["assessment"] == "uncertain"
-    assert case["routing"]["outcome"] == "unable_to_determine" and case["routing"]["tc_flyby"]["resolved"] is True
+    assert response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
+    assert case["routing"]["outcome"] == "unlikely_scam" and case["routing"]["tc_flyby"]["resolved"] is True
     assert "Some of what would settle this couldn't be checked" in response["explanationMarkdown"]
     assert response["attentionReason"] == "Something ApolloSG couldn't fully check may still be unsafe."
 

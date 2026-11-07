@@ -1,6 +1,6 @@
 """ApolloSG Settings → AI Provider & Model: the one provider and model every AI investigation call uses.
 
-Magnum DI and TC FlyBy both use this one selection; TC FlyBy has no selection of its own. Ask Higgins makes no AI call.
+Magnum DI and TC Hawkeye both use this one selection; TC Hawkeye has no selection of its own. Ask Higgins makes no AI call.
 The selection is stored in the database, so it applies from the next investigation on every server process and survives
 restarts and redeploys. Who changed it and when is stored with it, and each change is written to the admin audit log.
 An investigation keeps the model it started with (repository.create_job), so a change never alters existing results.
@@ -132,7 +132,7 @@ async def selection() -> dict:
 
 
 async def investigation_model() -> str:
-    """The model the next Magnum DI or TC FlyBy call uses — exactly as selected, never substituted."""
+    """The model the next Magnum DI or TC Hawkeye call uses — exactly as selected, never substituted."""
     return (await selection())["model"]
 
 

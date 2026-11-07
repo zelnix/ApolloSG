@@ -114,7 +114,7 @@ def _units(draft: Draft) -> list[tuple[str, str]]:
 def check(f: Facts, draft: Draft) -> FidelityResult:
     failures: list[FidelityFailure] = []
     parts = literal_parts(f)
-    own_label = f"{outcomes.LABELS[f.outcome]}." if f.outcome else ""
+    own_label = f"{outcomes.label(f.outcome)}." if f.outcome else ""
     core = W.swap(f.core)  # Apollo's own wording, with the same plain swaps, so a contraction isn't counted as new
 
     # ── The outcome and how serious it is ──
@@ -242,7 +242,7 @@ def check(f: Facts, draft: Draft) -> FidelityResult:
     for name in outcomes.LABELS.values():
         if f"{name}." != own_label and _count(shown_text, name.lower()) > _count(core, name.lower()):
             failures.append(_fail("OUTCOME_CONFLICT", _where_item(draft, name.lower(), count=True)))
-    other = "Magnum DI" if f.by == "TC FlyBy" else "TC FlyBy"
+    other = "Magnum DI" if f.by == "TC Hawkeye" else "TC Hawkeye"
     if _count(shown_text, other.lower()) > _count(core, other.lower()):
         failures.append(_fail("ATTRIBUTION_CHANGED", _where_item(draft, other.lower(), count=True)))
 

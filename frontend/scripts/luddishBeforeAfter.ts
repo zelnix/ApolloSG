@@ -1,6 +1,6 @@
 // @ts-nocheck — a Node dev script (run with node's type stripping), not app code.
 // Higgins Luddish L1 — the before/after list for review: real ApolloSG wording, before and after Luddish.
-// Check results come from the app's own analysers and adapters; reports from TC FlyBy results the server's own
+// Check results come from the app's own analysers and adapters; reports from TC Hawkeye results the server's own
 // wording builds (backend tests' scenarios, dumped to JSON); Ask Higgins answers from the phone's own responders.
 // Run: node scripts/luddishBeforeAfter.ts /tmp/backend_results.json > ../memory/luddish_before_after.md
 import { readFileSync } from "node:fs";
@@ -87,7 +87,7 @@ checkResult("App — remote-access app from a link", buildAppCheckResult({ analy
 checkResult("File — invoice that's really a program", buildFileCheckResult({ analysis: analyseFile({ name: "invoice_june.pdf.exe", size: 482_000, source: "email" }), event: null, fileName: "invoice_june.pdf.exe", submissionId: "s" }));
 checkResult("Account — sign-in approval you didn't start", buildAccountCheckResult({ analysis: analyseAccountAlert({ kind: "mfa_prompt", provider: "microsoft", userInitiated: false, repeated: true }), event: null, provider: "microsoft", kind: "mfa_prompt", initiated: false }));
 
-// ── Reports (TC FlyBy results in the server's own wording) ──
+// ── Reports (TC Hawkeye results in the server's own wording) ──
 const backend = JSON.parse(readFileSync(process.argv[2] ?? "/tmp/backend_results.json", "utf8")) as Record<string, Record<string, unknown>>;
 const REPORT_CASE: Record<string, string> = { ato_official: "The ATO's own website", clear_message: "An ordinary message from a friend", impersonation: "A link using CommBank's name",
   signals: "An investment offer", undetermined: "A new shopping website" };

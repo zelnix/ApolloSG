@@ -78,7 +78,7 @@ def test_stoko_acceptance_the_explanation_keeps_every_subject_and_the_unresolved
     assert briefing.unresolved == ["Apollo can't confirm who actually sent this."]
     # No decision the person owes: never "Needs you".
     assert briefing.user_action_required is False and briefing.action_reason is None
-    assert briefing.status == "No scam indicators found" and briefing.status_code == "no_scam_indicators"
+    assert briefing.status == "This is not a scam" and briefing.status_code == "no_scam_indicators"
 
 
 def test_needs_you_only_with_a_concrete_reason():

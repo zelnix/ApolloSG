@@ -1,5 +1,5 @@
 """The Magnum DI request contains exactly three things: the person's question, the case evidence it needs
-(the submitted material in full, plus TC FlyBy's brief, each labelled with id and kind), and the response
+(the submitted material in full, plus TC Hawkeye's brief, each labelled with id and kind), and the response
 schema. No system prompt, no framework, no summarised or duplicated representation of the material.
 
 Runs against the preview simulator: the request below is the real one; only the external call is
@@ -65,15 +65,15 @@ async def test_request_is_question_plus_complete_evidence_plus_schema():
     assert sent_schema["properties"]["sourceIds"]["maxItems"] == 0
     finding = sent_schema["properties"]["findings"]["items"]["properties"]
     assert finding["sourceIds"]["maxItems"] == 0
-    # Magnum DI may cite only what it was sent: the material and TC FlyBy's brief. The raw lookups TC FlyBy
-    # already read, and TC FlyBy's full check record, stay registered for the case but are not resent.
+    # Magnum DI may cite only what it was sent: the material and TC Hawkeye's brief. The raw lookups TC Hawkeye
+    # already read, and TC Hawkeye's full check record, stay registered for the case but are not resent.
     supplied = {row["evidence_id"] for row in await repo.list_evidence(owner, case["case_id"])
                 if row["client_item_id"] not in ("apollo-triage-intelligence", "tc-flyby-di-checks")}
     allowed = finding["evidenceIds"]["items"].get("enum") or []
     assert allowed and set(allowed) == supplied
     assert sent_schema["properties"]["remainingEvidenceIds"]["items"]["enum"] == allowed
     assert captured["kwargs"]["json_output"] is True
-    # Nothing in this case needs an external fact TC FlyBy couldn't establish, so Google Search is off.
+    # Nothing in this case needs an external fact TC Hawkeye couldn't establish, so Google Search is off.
     assert captured["kwargs"].get("web_search", False) is False
 
     parts = captured["contents"][0].parts
@@ -95,7 +95,7 @@ async def test_request_is_question_plus_complete_evidence_plus_schema():
     assert long_text in message_part
     assert "only the first 2000" not in message_part
 
-    # 5. Pre-gathered results TC FlyBy has no reader for are passed on verbatim inside its brief, never
+    # 5. Pre-gathered results TC Hawkeye has no reader for are passed on verbatim inside its brief, never
     #    summarised away; the raw item itself is not sent a second time.
     assert any("safe_browsing" in t and "SOCIAL_ENGINEERING" in t for t in evidence_texts)
     assert not any("Higgins triage specialist intelligence" in t for t in evidence_texts)

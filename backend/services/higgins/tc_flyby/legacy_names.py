@@ -1,7 +1,7 @@
-"""Records saved under TC FlyBy's old internal name ("teddy") move to its current names, once, at startup.
+"""Records saved under TC Hawkeye's old internal name ("teddy") move to its current names, once, at startup.
 
 Moved: a case's routing record (`routing.teddy` → `routing.tc_flyby`), its encrypted check record (`teddy_ciphertext`
-→ `tc_flyby_ciphertext`), who settled it (`teddy_*` → `tc_flyby_*`), TC FlyBy's internal evidence items, and the purpose
+→ `tc_flyby_ciphertext`), who settled it (`teddy_*` → `tc_flyby_*`), TC Hawkeye's internal evidence items, and the purpose
 on usage and DI transaction records. Turn commits are immutable (their digest covers the whole body), so they stay as
 recorded. The old search cache, which nothing reads any more, is dropped. Running it again finds nothing to do.
 """
@@ -20,7 +20,7 @@ ITEM_IDS = {"teddy-di-checks": "tc-flyby-di-checks", "teddy-di-brief": "tc-flyby
 
 
 def renamed(value: Any) -> Any:
-    """The same value with TC FlyBy's old names replaced: keys, `teddy_*` routes and `teddy-*` item ids."""
+    """The same value with TC Hawkeye's old names replaced: keys, `teddy_*` routes and `teddy-*` item ids."""
     if isinstance(value, dict):
         return {KEYS.get(k, k): renamed(v) for k, v in value.items()}
     if isinstance(value, list):

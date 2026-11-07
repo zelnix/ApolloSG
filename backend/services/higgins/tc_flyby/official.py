@@ -1,4 +1,4 @@
-"""TC FlyBy stage 1 — direct and authoritative sources.
+"""TC Hawkeye stage 1 — direct and authoritative sources.
 
 Every lookup here is a direct check against the source that holds the answer: Apollo's blocklist and
 Google Safe Browsing (cached in reputation_cache), the domain registry's RDAP record, Apollo's register of
@@ -21,7 +21,7 @@ LOOKUP_SECONDS = 8.0
 
 def fact(text: str, signal: str, *, decisive: bool = False, kind: str = "live_evidence", source: dict | None = None,
          topic: str | None = None) -> dict:
-    """One statement TC FlyBy established. `kind` keeps live evidence apart from Apollo knowledge (never a finding).
+    """One statement TC Hawkeye established. `kind` keeps live evidence apart from Apollo knowledge (never a finding).
     `signal`: concern | anomaly (a warning sign) | weak (a weak signal: alone or together never Concerning, only the
     corroboration a warning sign or impersonation needs) | clear | neutral | missing (looked up, not established) |
     context (knowledge)."""
@@ -276,7 +276,7 @@ def _add_au_domestic_phone_intel(check: Check) -> None:
 
 
 def unread_sections(pe: dict | None) -> dict:
-    """Pre-gathered results TC FlyBy has no reader for. They are passed on verbatim so nothing is lost."""
+    """Pre-gathered results TC Hawkeye has no reader for. They are passed on verbatim so nothing is lost."""
     out = {}
     for key, value in (pe or {}).items():
         if key not in KNOWN_SECTIONS:

@@ -1,7 +1,7 @@
 """Higgins Plain-English Renderer, step 1: the authoritative findings, in structured form.
 
-Built only from the validated result (TC FlyBy's or Magnum DI's) and the case's own records: Apollo's routing
-(what Higgins Triage and TC FlyBy did, what Magnum DI was sent) and the registered sources. Nothing is
+Built only from the validated result (TC Hawkeye's or Magnum DI's) and the case's own records: Apollo's routing
+(what Higgins Triage and TC Hawkeye did, what Magnum DI was sent) and the registered sources. Nothing is
 recomputed, re-scored or reinterpreted here. The renderer explains these facts; the Fidelity Check compares its
 wording against them; where the two ever differ, these facts win.
 """
@@ -191,7 +191,7 @@ _ORG_NAME = r"([A-Z][\w&.-]*(?: (?:[A-Z][\w&.-]*|of|and|&)){0,4})"
 _ORG = (re.compile(rf"\bpublished {_ORG_NAME} (?:customer|contact|support|enquir|help|email|address)"),
         re.compile(rf"(?<![\w.@]){_ORG_NAME}['’]s (?:official|own|published|customer|support|contact|domain)"),
         re.compile(rf"\bnot {_ORG_NAME}['’]s\b"))
-_NOT_ORG = {"Apollo", "ApolloSG", "TC FlyBy", "Magnum DI", "Higgins", "Google", "Google Safe Browsing", "Safe Browsing", "IPQualityScore",
+_NOT_ORG = {"Apollo", "ApolloSG", "TC Hawkeye", "Magnum DI", "Higgins", "Google", "Google Safe Browsing", "Safe Browsing", "IPQualityScore",
             "It", "This", "The", "That", "Every", "No", "Its", "Their", "A", "An"}
 # A finding that names its subject only generically, by type.
 _GENERIC = {
@@ -315,7 +315,7 @@ def case_subject(findings: list[dict], gates: tuple[str, ...] | list[str]) -> Op
 
 # ── The authoritative findings ───────────────────────────────────────────────
 CONTRAST = re.compile(r"\b(but|however|although|though|whereas|contradict\w*|inconsistent|doesn't match|does not match|don't match|differ\w*|unlike)\b", re.I)
-_FOUND = re.compile(r"^what (was|apollo|tc flyby|magnum di) found", re.I)
+_FOUND = re.compile(r"^what (was|apollo|tc hawkeye|magnum di) found", re.I)
 _HOW = re.compile(r"^how apollo(?:sg)? (checked|answered)", re.I)
 _MEANS = re.compile(r"^what it means", re.I)
 AUTHORITY = {"official": "official source", "independent": "independent source",

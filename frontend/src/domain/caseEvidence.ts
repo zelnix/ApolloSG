@@ -19,7 +19,7 @@ export type FactStance = "supporting" | "contrary" | "neutral";
 /** Who established a fact: an investigation stage, or Apollo itself on this device (a block it recorded). */
 export type Finder = EvidenceStage | "this_device";
 export const FINDER_LABEL: Record<Finder, string> = {
-  higgins_triage: "Higgins Triage", tc_flyby: "TC FlyBy", magnum_di: "Magnum DI", this_device: "Apollo on this device",
+  higgins_triage: "Higgins Triage", tc_flyby: "TC Hawkeye", magnum_di: "Magnum DI", this_device: "Apollo on this device",
 };
 export type Confidence = "low" | "medium" | "high";
 
@@ -38,7 +38,7 @@ export interface FactPiece {
   observed: boolean;
   /** How it was found, in plain words. */
   basis: string | null;
-  /** What it rests on, by name ("the email you submitted", "TC FlyBy's checks"). */
+  /** What it rests on, by name ("the email you submitted", "TC Hawkeye's checks"). */
   basedOn: string[];
   at: string | null;
   simulated: boolean;
@@ -70,7 +70,7 @@ export interface CaseEvidence {
 const clean = (v: string | null | undefined) => (v ?? "").replace(/\s+/g, " ").trim();
 const normal = (v: string) => clean(v).toLowerCase().replace(/[’‘]/g, "'").replace(/[^a-z0-9'$%@.]+/g, " ").trim();
 
-/** "Found by TC FlyBy · Confirmed by Magnum DI" — null when who found it wasn't recorded. */
+/** "Found by TC Hawkeye · Confirmed by Magnum DI" — null when who found it wasn't recorded. */
 export function provenanceLine(p: Pick<FactPiece, "foundBy" | "confirmedBy">): string | null {
   if (!p.foundBy) return null;
   const confirmed = p.confirmedBy.filter((f) => f !== p.foundBy).map((f) => FINDER_LABEL[f]);
@@ -98,14 +98,14 @@ const BASIS_WORDS: Record<string, string> = {
 };
 const SUBMITTED_NOUN: Record<string, string> = { email: "email", call: "call details", file: "file", app: "app details", link: "link", website: "link" };
 const INTERNAL_ITEM: Record<string, string> = {
-  "tc-flyby-di-checks": "TC FlyBy's checks", "tc-flyby-di-brief": "TC FlyBy's brief to Magnum DI", "apollo-triage-intelligence": "Higgins Triage's lookups",
+  "tc-flyby-di-checks": "TC Hawkeye's checks", "tc-flyby-di-brief": "TC Hawkeye's brief to Magnum DI", "apollo-triage-intelligence": "Higgins Triage's lookups",
 };
 
 function itemName(item: EvidenceItem, byId: Map<string, EvidenceItem>, category: string): string | null {
   const noun = SUBMITTED_NOUN[category] ?? "message";
   if (INTERNAL_ITEM[item.clientItemId]) return INTERNAL_ITEM[item.clientItemId];
   if (item.origin === "device_observation") return "a reading from this device";
-  if (item.origin === "apollo_inference") return /fly-?by/i.test(item.label) ? "TC FlyBy's checks" : clean(item.label) || null;
+  if (item.origin === "apollo_inference") return /fly-?by/i.test(item.label) ? "TC Hawkeye's checks" : clean(item.label) || null;
   const parent = item.parentId ? byId.get(item.parentId) : undefined;
   if (parent) return item.kind === "url" ? `a link in the ${noun} you submitted` : `part of the ${noun} you submitted`;
   if (item.kind === "url") return "the link you submitted";
@@ -200,9 +200,9 @@ export function evidenceTrail(input: { event: PatrolEvent; trace: DiTrace | null
   const hasCase = !!(event.investigation_case_id ?? event.patrol_record?.investigationCaseId);
   if (triage || flyby) out.push({ id: "triage", name: "Higgins Triage", status: "Completed", tone: "done", at: triage?.evaluatedAt ?? flyby?.ranAt ?? null });
   if (flyby) {
-    out.push({ id: "flyby", name: "TC FlyBy", status: flyby.resolved ? "Completed" : "Escalated to Magnum DI", tone: flyby.resolved ? "done" : "escalated", at: flyby.ranAt });
+    out.push({ id: "flyby", name: "TC Hawkeye", status: flyby.resolved ? "Completed" : "Escalated to Magnum DI", tone: flyby.resolved ? "done" : "escalated", at: flyby.ranAt });
   } else if (hasCase && event.investigation_completed_at && settledByFlyby(event.investigation_answered_by)) {
-    out.push({ id: "flyby", name: "TC FlyBy", status: "Completed", tone: "done", at: event.investigation_completed_at });
+    out.push({ id: "flyby", name: "TC Hawkeye", status: "Completed", tone: "done", at: event.investigation_completed_at });
   }
   if (records.length) {
     const last = records[records.length - 1];
@@ -215,7 +215,7 @@ export function evidenceTrail(input: { event: PatrolEvent; trace: DiTrace | null
     out.push({ id: "magnum", name: "Magnum DI", status: "Completed", tone: "done", at: event.investigation_completed_at });
   }
   if (hasCase && !event.investigation_completed_at && !out.some((s) => s.id !== "triage")) {
-    out.push({ id: "flyby", name: "TC FlyBy", status: "In progress", tone: "pending", at: null });
+    out.push({ id: "flyby", name: "TC Hawkeye", status: "In progress", tone: "pending", at: null });
   }
   return out;
 }

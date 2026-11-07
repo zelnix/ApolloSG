@@ -1,5 +1,5 @@
 """
-TC FlyBy — Definite Scam Classification Regression Tests
+TC Hawkeye — Definite Scam Classification Regression Tests
 =========================================================
 Covers the ApolloSG classification fixes applied to decide.py, finding_rules.py,
 official.py, and report.py.

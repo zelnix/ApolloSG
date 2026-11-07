@@ -451,7 +451,7 @@ async def export_investigation_pdf(case_id: str, request: Request):
     evidence_rows = await repo.list_evidence(owner, case_id)
     evidence_wire = [repo.evidence_view(r).wire() for r in evidence_rows]
     subject = (case_wire.get("response") or {}).get("subject", "Investigation")
-    # Tagged when any external source behind it was simulated: Magnum DI's Gemini call or TC FlyBy's search.
+    # Tagged when any external source behind it was simulated: Magnum DI's Gemini call or TC Hawkeye's search.
     flyby = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.tc_flyby.simulated": 1}) or {})
              .get("routing") or {}).get("tc_flyby") or {}
     simulated = bool(flyby.get("simulated")) or any(r.get("simulated") for r in await get_di_records(owner, case_id))
@@ -482,7 +482,7 @@ async def get_case(case_id: str, request: Request):
 
 @router.get("/investigations/{case_id}/di")
 async def get_di_transactions(case_id: str, request: Request):
-    """How this case was investigated, for the DI tab: the recorded decision path (Higgins Triage → TC FlyBy →
+    """How this case was investigated, for the DI tab: the recorded decision path (Higgins Triage → TC Hawkeye →
     Magnum DI → Evidence Lock) and each Magnum DI transaction described — whether it finished, live or the preview
     simulator, and what it was handed. Token counts, cost, the prompts, the full reply and rule-book codes stay in
     the Admin Portal. Evidence is untouched by this view."""
@@ -904,7 +904,7 @@ async def _follow_up(owner: str, case: dict, body: SubmitTurn) -> Optional[dict]
         response = repo.dec_json(case["response_ciphertext"])
         answer = presenter.investigation_follow_up(response, await repo.sources(owner, case["case_id"]), question, answered_by)
     elif await repo.magnum_call_used(owner, case["case_id"]):
-        # Magnum DI's one call didn't produce a result: the reason, and what TC FlyBy established.
+        # Magnum DI's one call didn't produce a result: the reason, and what TC Hawkeye established.
         answer = presenter.stopped_follow_up(await _failure_of(owner, case), await tc_flyby.established(owner, case["case_id"]))
     else:
         return None

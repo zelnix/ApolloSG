@@ -425,7 +425,7 @@ export default function CheckNumber() {
         visible={busy}
         title="Checking number"
         subject={numberState.trim() || undefined}
-        description={"Higgins Triage and TC FlyBy are checking\nreputation data and scam patterns.\nThis usually takes a few seconds."}
+        description={"Higgins Triage and TC Hawkeye are checking\nreputation data and scam patterns.\nThis usually takes a few seconds."}
       />
     </View>
   );

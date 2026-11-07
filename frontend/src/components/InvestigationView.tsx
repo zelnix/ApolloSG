@@ -1,5 +1,5 @@
 // Unified Investigation Report, the same as a Threat Case: Findings Brief | Evidence | History | DI, opening on the
-// Findings Brief. Apollo detects; Higgins Triage, TC FlyBy and Magnum DI investigate; the Evidence Lock keeps what
+// Findings Brief. Apollo detects; Higgins Triage, TC Hawkeye and Magnum DI investigate; the Evidence Lock keeps what
 // they established; Higgins Luddish explains it. Findings Brief = the result in plain words; Evidence = the original
 // material and the sources used; History = what happened when; DI = how it was checked.
 import * as FileSystemLegacy from "expo-file-system/legacy";
@@ -695,7 +695,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   // The Findings Brief's verdict and how serious it is, from the Case Briefing — read the same way on a threat.
   const computedVerdict = useMemo(() => (response ? investigationVerdict(response) : null), [response]);
   const verdict = overrideVerdict ?? computedVerdict;
-  // Whoever actually settled this result: TC FlyBy or Magnum DI.
+  // Whoever actually settled this result: TC Hawkeye or Magnum DI.
   const investigator = investigatorName(caseData?.answeredBy);
   // What you can do: the investigation's own steps. One Apollo can carry out (open a setting, a verified source) is tappable.
   const pressAction = (action: ActionProposal) => {
@@ -912,7 +912,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
 
           {/* Related history — context, never evidence */}
           {response?.history?.length ? (
-            <CollapsibleSection title="Related history" testID="tc-di-history" subtitle="Context TC FlyBy and Magnum DI had, never evidence for this case. It can't change the verdict." defaultOpen={false}>
+            <CollapsibleSection title="Related history" testID="tc-di-history" subtitle="Context TC Hawkeye and Magnum DI had, never evidence for this case. It can't change the verdict." defaultOpen={false}>
               {response.history.map((n, i) => (
                 <Text key={`${i}-${n.text}`} style={s.muted} testID={`tc-di-history-${i}`}>
                   {`${n.source}: ${n.text}${n.findingIds.length ? ` Raised the confidence of ${n.findingIds.length === 1 ? "one finding" : `${n.findingIds.length} findings`}.` : ""}`}

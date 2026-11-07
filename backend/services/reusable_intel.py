@@ -2,7 +2,7 @@
 
 This is NOT the Apollo knowledge base (services/higgins/knowledge.py). The KB is Apollo's trusted, sourced, general
 knowledge. This cache holds results Apollo bought from external providers — Gemini's answers to general questions,
-TC FlyBy's grounded lookups about public identifiers — each with its provider, when it was obtained and last
+TC Hawkeye's grounded lookups about public identifiers — each with its provider, when it was obtained and last
 verified, and when it stops counting as current. Nothing here is ever promoted into the KB: AI-derived results stay
 labelled as AI-derived (`ai_generated`), and `authoritative` is always False.
 
@@ -34,7 +34,7 @@ log = logging.getLogger("apollo.reusable_intel")
 # ── Freshness: information type → how long a record counts as current. Change it here only. ──
 TTL: dict[str, timedelta] = {
     "general_answer": timedelta(days=90),       # Gemini's answer to a general scam-safety question
-    "web_lookup": timedelta(days=7),            # TC FlyBy grounded search that found something (a warning, a register entry)
+    "web_lookup": timedelta(days=7),            # TC Hawkeye grounded search that found something (a warning, a register entry)
     "web_lookup_negative": timedelta(days=1),   # ...that found nothing: new warnings appear fast, so "nothing found" ages quickly
     "phone_reputation": timedelta(hours=24),    # IPQualityScore phone scoring (phonerisk.py)
     "url_reputation": timedelta(hours=12),      # IPQualityScore URL scoring (urlrisk.py)
@@ -44,8 +44,8 @@ STALE_KEPT_FOR = timedelta(days=90)
 
 # Providers and source types (who produced it, by which Apollo process).
 GEMINI = "gemini"
-GEMINI_SEARCH = "gemini_google_search"   # TC FlyBy's old AI-grounded lookups: no longer read or written
-BRAVE_SEARCH = "brave_search"            # TC FlyBy's web search results, read deterministically
+GEMINI_SEARCH = "gemini_google_search"   # TC Hawkeye's old AI-grounded lookups: no longer read or written
+BRAVE_SEARCH = "brave_search"            # TC Hawkeye's web search results, read deterministically
 GENERAL_ANSWER = "higgins_general_answer"
 TC_FLYBY_LOOKUP = "tc_flyby_lookup"
 # How long an in-progress claim on a public lookup holds before another request may take it over (a crashed holder).

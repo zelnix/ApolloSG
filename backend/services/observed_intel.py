@@ -13,7 +13,7 @@ The owner's rules:
   worked out from the marks when it is read). Inconclusive and insufficient marks never break unanimity and are kept
   apart. A disputed subject asserts only "mixed previous reports", and only once THRESHOLD independent reports exist.
 - No artificial consensus: a finding made while ApolloSG already asserted something about that subject to the case
-  (`kbAsserted` in the TC FlyBy record: the cross-source record in Magnum DI's brief, or the history notes beside the
+  (`kbAsserted` in the TC Hawkeye record: the cross-source record in Magnum DI's brief, or the history notes beside the
   result) is recorded as dependent and never counts as independent confirmation of the same assertion; a device's
   dependent finding never replaces its own earlier independent one. So Case A → assertion → Case B can never grow it.
 - A device's own marks are never part of the assertion it receives (`exclude`): its own cases are its related cases.
@@ -136,7 +136,7 @@ async def _add(scope: str, key: str, device: str, now: datetime, fields: dict, *
 
 
 def _subjects_of(record: dict) -> list[tuple[str, str, str | None]]:
-    """(kind, key, readable) for each website, number, address, message and file in a TC FlyBy record."""
+    """(kind, key, readable) for each website, number, address, message and file in a TC Hawkeye record."""
     entities = {}
     for check in record.get("checks") or []:
         entities.setdefault({"link": "domain", "phone": "phone", "email": "email"}.get(check["kind"], ""), []).append(check["subject"])
@@ -167,7 +167,7 @@ def stance_of(outcome: str | None, completion: str | None) -> str | None:
 
 async def record_case(owner: str, case_id: str, outcome: str | None, *, simulated: bool = False, completion: str | None = "complete") -> int:
     """Set this device's mark on each of a finished case's subjects (and, when supporting, how they appeared together).
-    Returns the subjects recorded. Intelligence never reaches TC FlyBy's checks, so a case's own evidence (or Magnum DI's
+    Returns the subjects recorded. Intelligence never reaches TC Hawkeye's checks, so a case's own evidence (or Magnum DI's
     reasoning) made its outcome; only the subjects ApolloSG asserted something about to this case are dependent."""
     stance = stance_of(outcome, completion)
     if not stance or simulated:

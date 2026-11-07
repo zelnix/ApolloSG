@@ -9,11 +9,11 @@ const plain: PlainEnglish = {
   version: 1, renderer: "apollo", mode: "plain",
   result: "Concerning. This uses ANZ's name, but its link goes to anz-secure-login.co, which isn't ANZ's domain.",
   severity: "How serious: you need to act. See what you can do.",
-  established: [{ text: "The link anz-secure-login.co was registered 3 days ago.", detail: "Seen directly by TC FlyBy · High confidence",
+  established: [{ text: "The link anz-secure-login.co was registered 3 days ago.", detail: "Seen directly by TC Hawkeye · High confidence",
     explain: "A domain is the name part of a web or email address, the part that says who runs it.", findingId: "f1" }],
   means: ["To protect your account, don't enter anything on it."], matters: ["Anything typed into that link goes to whoever runs it."],
   todo: ["Don't open anz-secure-login.co and don't enter anything on it."], uncertain: ["Apollo can't confirm who actually sent this."],
-  how: ["TC FlyBy checked the submitted material using official source checks.", "Nothing was opened or fetched from the destination."],
+  how: ["TC Hawkeye checked the submitted material using official source checks.", "Nothing was opened or fetched from the destination."],
   fidelity: { status: "PASS", failures: [] }, attempts: 1, attemptFailures: [[]],
 };
 
@@ -22,7 +22,7 @@ const response: HigginsResponse = {
   explanationMarkdown: "**What it means**\nIn order to protect your account, do not enter anything on it.", assessment: "concern_found", outcome: "concerning",
   attention: "action_needed", attentionReason: "Anything typed into that link goes to whoever runs it.",
   findings: [{ id: "f1", text: "The link anz-secure-login.co was registered 3 days ago.", basis: "observation", confidence: "high", evidenceIds: [], sourceIds: [] }],
-  uncertainties: ["Apollo is unable to confirm who actually sent this."], scope: "TC FlyBy checked the submitted material using official source checks.",
+  uncertainties: ["Apollo is unable to confirm who actually sent this."], scope: "TC Hawkeye checked the submitted material using official source checks.",
   sourceIds: ["s1"], remainingEvidenceIds: [],
   actions: [{ id: "a1", kind: "instruction", label: "Don't use the link", instruction: "Do not open anz-secure-login.co and do not enter anything on it.", capabilityId: null,
     executionDescriptorId: null, requiresUserGesture: false, sourceIds: [], desiredField: null, desiredValue: null }],

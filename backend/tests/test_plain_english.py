@@ -1,6 +1,6 @@
 """Higgins Plain-English Renderer and Fidelity Check (services/higgins/explain).
 
-- The renderer explains a validated TC FlyBy or Magnum DI result in plain words, Apollo's wording only, and never
+- The renderer explains a validated TC Hawkeye or Magnum DI result in plain words, Apollo's wording only, and never
   changes the structured result.
 - The Fidelity Check fails a draft that loses, adds or changes anything; the failing part is put back in Apollo's own
   wording and checked again; if it still fails the person sees Apollo's own wording only ("literal").
@@ -24,7 +24,7 @@ EXPLANATION = (
     "In order to protect your account, do not enter anything on it.\n\n"
     "**What Apollo's knowledge base adds** (general knowledge, not evidence about what you sent)\n"
     "- Scamwatch: “Bank impersonation scams” — https://www.scamwatch.gov.au/types-of-scams/phishing\n\n"
-    "**How ApolloSG checked**\nTC FlyBy checked the submitted material using official source checks. "
+    "**How ApolloSG checked**\nTC Hawkeye checked the submitted material using official source checks. "
     "Magnum DI's deeper analysis wasn't needed, because it couldn't change the outcome or what to do."
 )
 
@@ -41,7 +41,7 @@ def _response(**over) -> HigginsResponse:
             Finding(id="f3", text="The sender is probably not ANZ, although the logo looks real.", basis="inference", confidence="low"),
         ],
         uncertainties=["Apollo is unable to confirm who actually sent this."],
-        scope="TC FlyBy checked the submitted material using official source checks. Nothing was opened or fetched from the destination.",
+        scope="TC Hawkeye checked the submitted material using official source checks. Nothing was opened or fetched from the destination.",
         source_ids=["s1"],
         actions=[ActionProposal(id="a1", kind="instruction", label="Don't use the link", instruction="Do not open anz-secure-login.co and do not enter anything on it."),
                  ActionProposal(id="a2", kind="instruction", label="Contact ANZ yourself", instruction="Contact ANZ using the number on your card.")],
@@ -67,12 +67,12 @@ def _codes(result) -> set[str]:
 def test_a_tc_flyby_result_is_explained_in_plain_words_and_passes():
     plain = explain.explain(_response(), answered_by="tc_flyby_official", routing=ROUTING, sources=SOURCES)
     assert plain.mode == "plain" and plain.fidelity.status == "PASS" and plain.attempts == 1
-    assert plain.result.startswith("Concerning.")
+    assert plain.result.startswith("This is likely a scam.")
     assert plain.severity == W.SEVERITY["action_needed"]
     # Every finding, in order, with who established it and how firmly.
     assert [i.finding_id for i in plain.established] == ["f1", "f2", "f3"]
-    assert plain.established[0].detail == "Seen directly by TC FlyBy · High confidence"
-    assert plain.established[2].detail == "TC FlyBy's reading of the evidence, not seen directly · Low confidence"
+    assert plain.established[0].detail == "Seen directly by TC Hawkeye · High confidence"
+    assert plain.established[2].detail == "TC Hawkeye's reading of the evidence, not seen directly · Low confidence — supporting context only"
     # Jargon is explained once, in Apollo's fixed words, beside the finding — never inside it.
     assert plain.established[0].explain in W.GLOSSARY_TEXTS
     # Plain words: formal phrases swapped, quotes and identifiers untouched.
@@ -124,13 +124,13 @@ def _with_finding(draft, i, **over):
 
 
 @pytest.mark.parametrize("change, code", [
-    (lambda d: replace(d, result=replace(d.result, text=d.result.text.replace("Concerning.", "Likely scam."))), "OUTCOME_CHANGED"),
+    (lambda d: replace(d, result=replace(d.result, text=d.result.text.replace("This is likely a scam.", "This is a scam."))), "OUTCOME_CHANGED"),
     (lambda d: replace(d, severity=W.SEVERITY["review"]), "SEVERITY_CHANGED"),
     (lambda d: replace(d, established=d.established[:2]), "FINDING_DROPPED"),
     (lambda d: replace(d, established=list(reversed(d.established))), "FINDING_ORDER"),
     (lambda d: _with_finding(d, 0, text="The link anz-secure-login.co was registered 30 days ago."), "FINDING_ALTERED"),
     (lambda d: _with_finding(d, 2, text="The sender is probably ANZ, although the logo looks real."), "FINDING_ALTERED"),
-    (lambda d: _with_finding(d, 0, detail="Seen directly by TC FlyBy · Medium confidence"), "CONFIDENCE_CHANGED"),
+    (lambda d: _with_finding(d, 0, detail="Seen directly by TC Hawkeye · Medium confidence"), "CONFIDENCE_CHANGED"),
     (lambda d: _with_finding(d, 0, detail="Seen directly by Magnum DI · High confidence"), "BASIS_CHANGED"),
     (lambda d: _with_finding(d, 0, explain="This domain is new, so it's a scam."), "EXPLANATION_NOT_APOLLO"),
     (lambda d: _with_finding(d, 1, text="It asks you to pay $4.20 within 24 hours: “Pay now”."), "QUOTE_ALTERED"),
@@ -180,7 +180,7 @@ def test_still_failing_shows_apollos_wording_only(monkeypatch):
     monkeypatch.setattr(render, "render", lambda f, literal=frozenset(): replace(real(f, literal), severity="How serious: nothing needs doing."))
     plain = explain.explain(_response(), answered_by="tc_flyby_official", routing=ROUTING, sources=SOURCES)
     assert plain.mode == "literal" and plain.fidelity.status == "FAIL"
-    summary = explain.summary(plain, by="TC FlyBy", revision=1)
+    summary = explain.summary(plain, by="TC Hawkeye", revision=1)
     assert summary["status"] == "FAIL" and summary["mode"] == "literal"
     assert summary["attemptFailures"][-1][0]["code"] == "SEVERITY_CHANGED"
 
@@ -213,10 +213,10 @@ async def test_a_committed_result_carries_checked_plain_english_and_the_portal_s
     _owner, case, response, _ = await _case([("text", "Your ANZ account is locked. Verify now: https://anz-verify.co/login")])
     plain = response["plainEnglish"]
     assert plain["mode"] == "plain" and plain["fidelity"]["status"] == "PASS"
-    assert plain["result"].startswith("Confirmed scam or threat.")
+    assert plain["result"].startswith("This is a scam.")
     assert [i["findingId"] for i in plain["established"]] == [f["id"] for f in response["findings"]]
     fid = case["routing"]["fidelity"]
-    assert fid["status"] == "PASS" and fid["mode"] == "plain" and fid["by"] == "TC FlyBy" and fid["revision"] == 1
+    assert fid["status"] == "PASS" and fid["mode"] == "plain" and fid["by"] == "TC Hawkeye" and fid["revision"] == 1
     assert "anz" not in str(fid["attemptFailures"]).lower(), "the routing record holds no case content"
 
     async def admin(_request):
@@ -233,7 +233,7 @@ async def test_a_committed_result_carries_checked_plain_english_and_the_portal_s
     drill = await admin_portal.investigation_drilldown(request, case["case_id"])
     assert 'data-testid="fidelity-drilldown"' in drill and 'data-testid="fidelity-mode">Plain English shown<' in drill
     assert "data-testid='fidelity-apollo-text'" in drill and "data-testid='fidelity-plain-text'" in drill
-    assert "Seen directly by TC FlyBy" in drill
+    assert "Seen directly by TC Hawkeye" in drill
 
 
 @pytest.mark.anyio

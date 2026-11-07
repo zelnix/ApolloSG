@@ -1,5 +1,5 @@
 // The rule book as closed sections under its parts: the intro stays open, each part (Protection Gates,
-// Investigation process…) is a heading, and each section under it (Link Gate, TC FlyBy, Privacy…) opens with a tap
+// Investigation process…) is a heading, and each section under it (Link Gate, TC Hawkeye, Privacy…) opens with a tap
 // on its title. "Open all" / "Close all" open or close every section at once.
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronUp from "lucide-react-native/icons/chevron-up";

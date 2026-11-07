@@ -3,7 +3,7 @@
 //   origin         — every Threat Case begins on the device that detected it. Server processing, Magnum DI, syncing,
 //                    privacy projection and missing evidence never change that, and never point anywhere else;
 //   evidence       — what supplied the evidence (`evidence_provenance`). Never a server: processing is not a source;
-//   processing     — what checked it: Higgins Triage on this device or on ApolloSG's servers, TC FlyBy, Magnum DI;
+//   processing     — what checked it: Higgins Triage on this device or on ApolloSG's servers, TC Hawkeye, Magnum DI;
 //   completeness   — what this case's record holds, and every check that didn't finish with its recorded reason;
 //   representation — the privacy step that shaped what ApolloSG's servers worked from or keep.
 // Missing evidence is never evidence of a threat: it only narrows what ApolloSG could verify. Pure, no Expo imports.

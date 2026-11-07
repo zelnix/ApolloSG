@@ -4,8 +4,8 @@ Work starts after a 202 and runs in-process; a crashed or restarted server recov
 
 NO RETRIES (one correlated case = at most one Magnum DI call): when Magnum DI's call fails or its answer doesn't pass
 Apollo's checks, the investigation stops and Higgins says why. Nothing is tried again — not automatically, not by a
-recovered job and not by Resubmit — and TC FlyBy's deterministic findings stay with the case and are shown. Only a stop
-BEFORE the case's Magnum DI call was made (TC FlyBy interrupted, the daily spending limit) can be resubmitted.
+recovered job and not by Resubmit — and TC Hawkeye's deterministic findings stay with the case and are shown. Only a stop
+BEFORE the case's Magnum DI call was made (TC Hawkeye interrupted, the daily spending limit) can be resubmitted.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ PROVIDER_CONFIGURATION_MESSAGE = ("Magnum DI couldn't access one of its analysis
 
 
 def stop_message(reason: str, *, magnum_used: bool, kept: list[str]) -> str:
-    """Higgins says plainly why the investigation stopped, and keeps what TC FlyBy established. Nothing is substituted."""
+    """Higgins says plainly why the investigation stopped, and keeps what TC Hawkeye established. Nothing is substituted."""
     why = _STOP_REASONS.get(reason, "something interrupted the investigation")
     if magnum_used:
         text = (f"Magnum DI stopped because {why}. No conclusion has been made up in its place. Each case gets one Magnum DI "
@@ -49,7 +49,7 @@ def stop_message(reason: str, *, magnum_used: bool, kept: list[str]) -> str:
         text = (f"The investigation stopped because {why}, before Magnum DI's call was made. No conclusion has been made up "
                 "in its place. Everything you submitted is kept, so you can resubmit with one tap.")
     if kept:
-        text += " What TC FlyBy established before that: " + " ".join(f"• {line}" for line in kept)
+        text += " What TC Hawkeye established before that: " + " ".join(f"• {line}" for line in kept)
     return text
 
 
@@ -130,8 +130,8 @@ async def _fail(owner: str, case: dict, job: dict, failure: Failure, *, partial:
 
 async def _stop(owner: str, case: dict, job: dict, code: str, diag: Optional[DiagnosticDetail],
                 history: list[RetryAttempt], *, reason: Optional[str] = None) -> None:
-    """Stop the investigation and say why, keeping TC FlyBy's findings. Once the case's Magnum DI call was made nothing
-    can be resubmitted; before it (TC FlyBy interrupted, the spending limit) the person may resubmit."""
+    """Stop the investigation and say why, keeping TC Hawkeye's findings. Once the case's Magnum DI call was made nothing
+    can be resubmitted; before it (TC Hawkeye interrupted, the spending limit) the person may resubmit."""
     used = await repo.magnum_call_used(owner, case["case_id"])
     kept = await tc_flyby.established(owner, case["case_id"])
     if diag:

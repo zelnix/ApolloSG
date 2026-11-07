@@ -65,7 +65,7 @@ _WORD_START = re.compile(r"\b\w")
 def negated_before(before: str) -> bool:
     """The text just before an ask holds a negation that governs it: the nearest one in the same clause, with only
     what _GOVERNS allows in between. Used by every reader of requests (Higgins Triage on the phone and in a case,
-    TC FlyBy's patterns), so "Do not delay, send me your password" is a request everywhere."""
+    TC Hawkeye's patterns), so "Do not delay, send me your password" is a request everywhere."""
     clause = _CLAUSE.split(before)[-1] if before else ""
     last = None
     for last in _NEGATION.finditer(clause):

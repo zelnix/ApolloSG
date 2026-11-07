@@ -22,14 +22,14 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 
 const CONCERN = lockEvidence({
   state: "concern",
-  by: "TC FlyBy",
+  by: "TC Hawkeye",
   headline: "This text uses ANZ's name, but its link isn't ANZ's website.",
-  findings: [{ text: "The link anz-secure-login.co was registered 3 days ago.", basis: "observed", confidence: "high", by: "TC FlyBy" },
-    { text: "The message asks you to pay $250 to 0412 345 678 by 5:00 pm.", basis: "inferred", confidence: "medium", by: "TC FlyBy" }],
+  findings: [{ text: "The link anz-secure-login.co was registered 3 days ago.", basis: "observed", confidence: "high", by: "TC Hawkeye" },
+    { text: "The message asks you to pay $250 to 0412 345 678 by 5:00 pm.", basis: "inferred", confidence: "medium", by: "TC Hawkeye" }],
   explanation: "Magnum DI was unable to confirm who sent it, but the link indicates an impersonation of ANZ, so you should not enter any details on it.",
   uncertainties: ["Apollo is unable to confirm who actually sent this."],
   actions: ["Do not open anz-secure-login.co and do not enter anything on it."],
-  how: "TC FlyBy checked the submitted material using official source checks.",
+  how: "TC Hawkeye checked the submitted material using official source checks.",
 });
 
 // ── Evidence Lock ──
@@ -113,7 +113,7 @@ test("a long sentence is split only where a full stop changes nothing, and never
     "It found no warning signs, only a weak signal that isn't a concern on its own — only use it if you reached it yourself from the official app.", "a dash before a fragment stays");
   assert.equal(rewrite("This uses CommBank's name and its link goes somewhere CommBank doesn't use — don't use the link and go to CommBank directly instead."),
     "This uses CommBank's name and its link goes somewhere CommBank doesn't use. Don't use the link and go to CommBank directly instead.");
-  const aside = "TC FlyBy — Apollo's fast, low-cost investigator — can't settle something that could change the answer for you right now.";
+  const aside = "TC Hawkeye — Apollo's fast, low-cost investigator — can't settle something that could change the answer for you right now.";
   assert.equal(rewrite(aside), aside, "a pair of dashes is an aside, never split");
 });
 
@@ -172,7 +172,7 @@ test("the Composer writes Finding → Meaning → Importance → Limitation → 
   assert.equal(ex.brief.text, CONCERN.headline);
   assert.equal(ex.explanation?.text, "Magnum DI couldn't confirm who sent it. But the link shows an impersonation of ANZ, so you shouldn't enter any details on it.");
   assert.deepEqual(ex.findings.map((f) => f.text), CONCERN.findings.map((f) => f.text), "findings already plain stay word for word");
-  assert.deepEqual(ex.findings.map((f) => f.detail), ["Seen directly by TC FlyBy · High confidence", "TC FlyBy's reading of the evidence, not seen directly · Medium confidence"]);
+  assert.deepEqual(ex.findings.map((f) => f.detail), ["Seen directly by TC Hawkeye · High confidence", "TC Hawkeye's reading of the evidence, not seen directly · Medium confidence"]);
   assert.equal(ex.meaning.length, 1);
   assert.equal(ex.meaning[0].source, "rule");
   assert.ok(STATE_RULES.concern.means.includes(ex.meaning[0].text), "one of the state's approved variations");
@@ -268,7 +268,7 @@ test("question buttons: five questions in order, each answered only from the exp
   }
   assert.equal(by("matters")[0].items[0].text, STATE_RULES.concern.matters);
   const sure = by("sure");
-  assert.deepEqual(sure[0].items[0], { label: "Result", text: "Concerning", detail: "Recorded by TC FlyBy" });
+  assert.deepEqual(sure[0].items[0], { label: "Result", text: "Concerning", detail: "Recorded by TC Hawkeye" });
   assert.deepEqual(sure[1].items.map((i) => i.text), ex.findings.map((f) => f.detail), "how each finding was established, in fixed words");
   assert.deepEqual(sure[2].items.map((i) => i.text), ex.limitation.map((p) => p.text));
   assert.deepEqual(by("todo")[0].items.map((i) => i.text), [STATE_RULES.concern.action], "the step already on screen isn't repeated; the state's approved step is added");
@@ -282,7 +282,7 @@ test("\"Show the technical detail\" is Apollo's locked wording exactly as record
   assert.equal(technical.length, 1);
   const items = technical[0].items;
   assert.deepEqual(items.map((i) => i.text), lockedTexts(CONCERN), "word for word, nothing reworded");
-  assert.deepEqual(items.map((i) => i.detail), ["Recorded by TC FlyBy", ...CONCERN.findings.map(findingDetail), "Recorded by TC FlyBy", "Recorded by TC FlyBy", "Recorded by TC FlyBy", "Recorded by TC FlyBy"]);
+  assert.deepEqual(items.map((i) => i.detail), ["Recorded by TC Hawkeye", ...CONCERN.findings.map(findingDetail), "Recorded by TC Hawkeye", "Recorded by TC Hawkeye", "Recorded by TC Hawkeye", "Recorded by TC Hawkeye"]);
   const explanation = items.find((i) => i.label === "Higgins' explanation")!;
   assert.equal(explanation.plain, ex.explanation!.text, "the plain wording sits beside the original");
   assert.equal(items.find((i) => i.label === "Finding")!.plain, null, "a piece Luddish didn't reword has no plain line");
@@ -364,10 +364,10 @@ test("a check result: plain headline, explanation and steps, plain item findings
 test("a report: every section in plain words, the severity line and sources untouched, a jargon word explained once", () => {
   const report: Report = {
     answer: ["Concerning. The message is attempting to obtain your bank details."], severity: "How serious: you need to act. See what you can do.",
-    found: [{ text: "The sender's domain failed its DMARC check.", detail: "Seen directly by TC FlyBy · High confidence", explain: null },
+    found: [{ text: "The sender's domain failed its DMARC check.", detail: "Seen directly by TC Hawkeye · High confidence", explain: null },
       { text: "The domain was registered 3 days ago.", detail: null, explain: BY_ID.registration_record.meaning }],
     means: ["You should not reply."], more: [{ title: "Also", paragraphs: ["It does not indicate who sent it."] }],
-    uncertain: ["Apollo is unable to confirm the sender."], how: ["TC FlyBy checked the message."], sources: [],
+    uncertain: ["Apollo is unable to confirm the sender."], how: ["TC Hawkeye checked the message."], sources: [],
   };
   const out = luddishReport(report);
   assert.deepEqual(out.answer, ["Concerning. The message is trying to get your bank details."]);
@@ -397,7 +397,7 @@ test("Ask Higgins: answers in plain words with plain notes last; a source's own 
 test("a finished investigation's own record locks as recorded", () => {
   const lock = lockFromInvestigation({ revision: 1, overview: "Delivery scam.", explanationMarkdown: "", assessment: "concern_found", outcome: "likely_scam", attention: "action_needed",
     attentionReason: "The link leads to a lookalike site.", findings: [{ id: "f1", text: "The link domain is not auspost.com.au.", basis: "observation", confidence: "high", evidenceIds: [], sourceIds: [] }],
-    uncertainties: ["Who sent it could not be traced."], scope: "The message text and its link.", sourceIds: [], remainingEvidenceIds: [], actions: [], recommendedActionId: null, question: null, completion: "complete" }, "TC FlyBy");
+    uncertainties: ["Who sent it could not be traced."], scope: "The message text and its link.", sourceIds: [], remainingEvidenceIds: [], actions: [], recommendedActionId: null, question: null, completion: "complete" }, "TC Hawkeye");
   assert.equal(lock.state, "likely_scam");
   assert.equal(lock.findings[0].basis, "observed");
   const ex = compose(lock);

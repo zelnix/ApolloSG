@@ -83,7 +83,7 @@ def extract_submittable_items(message: str) -> list[dict]:
     for phone in _PHONE_RE.findall(message):
         clean = phone.strip()
         digits = re.sub(r"\D", "", clean)
-        if 7 <= len(digits) <= 15 and clean not in seen:
+        if 8 <= len(digits) <= 15 and clean not in seen:
             items.append({"kind": "phone", "value": clean})
             seen.add(clean)
 
@@ -195,5 +195,5 @@ def submitted_answer(items: list[dict]) -> str:
     """What Higgins tells the person when their message went to the investigation pipeline."""
     artefact = items[0]["value"][:80] if items else "your item"
     return (f"I've submitted that for investigation. Apollo is now investigating {artefact} through the same pipeline "
-            "used for all security checks: TC FlyBy investigates it first, and Magnum DI looks deeper only if that could change the answer. "
+            "used for all security checks: TC Hawkeye investigates it first, and Magnum DI looks deeper only if that could change the answer. "
             "You'll find the full briefing, evidence chain and recommended actions in your investigation history once it completes.")

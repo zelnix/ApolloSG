@@ -15,7 +15,7 @@ export interface FollowUpAnswer {
   answeredBy: "apollo";
 }
 
-// "{name}" is whichever investigator settled the result: TC FlyBy or Magnum DI.
+// "{name}" is whichever investigator settled the result: TC Hawkeye or Magnum DI.
 const ASSESSMENT_TEXT: Record<string, string> = {
   concern_found: "{name} found a concern.",
   no_concern_found_within_scope: "{name} found no concern within what it was able to check.",

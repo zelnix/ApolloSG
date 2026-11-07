@@ -54,7 +54,7 @@ test("a call names the number; Higgins Triage's short step is used when there is
   assert.equal(b.line2, "28 Oct, 4:42 pm. Hang up.");
 });
 
-test("while TC FlyBy or Magnum DI is still working the hero says to be careful, never 'Action required'", () => {
+test("while TC Hawkeye or Magnum DI is still working the hero says to be careful, never 'Action required'", () => {
   const b = eventBrief(event({ category: "message", investigation_case_id: "c1", what_to_do: "Don't reply to this message or call any number in it until you've checked." }), NOW);
   assert.equal(b.line1, "Text message (no # found), looks like a scam.");
   assert.equal(b.line2, "28 Oct, 4:42 pm. Be careful until Higgins has finished.");

@@ -130,7 +130,7 @@ class Said {
 const NOT_TAKEN = /^Not taken further, because (.+?): (.+)$/i;
 /** A line about how Apollo checked (it names Apollo's own investigators): it belongs on the DI tab, never under what
  *  isn't certain. Cases settled before the server said these under "How ApolloSG checked", and Magnum DI's own wording. */
-const METHOD_LINE = /\b(?:TC FlyBy|Magnum DI|Higgins Triage)\b/;
+const METHOD_LINE = /\b(?:TC Hawkeye|Magnum DI|Higgins Triage)\b/;
 
 /** "impersonation: whether it's from Linkt" reads as "impersonation (whether it's from Linkt)". */
 function topic(text: string): string {
@@ -145,7 +145,7 @@ export function buildReport(input: ReportInput): Report {
 
   const explanation = blocks(input.explanationMarkdown ?? "");
   const section = (re: RegExp) => explanation.filter((b) => b.title && re.test(b.title)).flatMap((b) => paragraphs(b.lines));
-  const FOUND = /^what (was|apollo|tc flyby|magnum di) found/i, MEANS = /^what it means/i, HOW = /^how apollo(?:sg)? (checked|answered)/i;
+  const FOUND = /^what (was|apollo|tc hawkeye|magnum di) found/i, MEANS = /^what it means/i, HOW = /^how apollo(?:sg)? (checked|answered)/i;
 
   // 1. The answer: Higgins' overview, then anything the explanation says before its first heading.
   const answer: string[] = [];

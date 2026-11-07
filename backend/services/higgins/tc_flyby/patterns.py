@@ -3,15 +3,15 @@
 Each pattern is an official source's description of a known scam, reduced to what defines it: the
 hallmarks (who the message claims to be and the story it tells) and the ask (what it wants the person to
 do). They are Apollo knowledge-base entries (kind "scam_pattern") like any other, with publisher, link and
-authority tier, and TC FlyBy reads the markers from the KB entry itself.
+authority tier, and TC Hawkeye reads the markers from the KB entry itself.
 
-TC FlyBy compares the submitted material with them deterministically — no AI, no cost:
+TC Hawkeye compares the submitted material with them deterministically — no AI, no cost:
   full     every defining indicator and the ask are present           → supports "Likely scam"
   opening  every defining indicator, no ask yet (family pattern only) → supports "Concerning"
   partial  some of it                                                 → not established on its own
 Each indicator is a phrase-level construction (a request bound to what it asks for, a claim bound to its
 subject), never a lone keyword, and a negated one ("we will never ask for your password") doesn't count.
-Impersonation patterns also need the evidence-based indicator TC FlyBy established: the link isn't the
+Impersonation patterns also need the evidence-based indicator TC Hawkeye established: the link isn't the
 organisation's own. A match supports Apollo's assessment. It is general knowledge applied to the material,
 never proof of the identity or intent of this particular sender.
 """
@@ -481,7 +481,7 @@ def _find(regex: str, text: str) -> re.Match | None:
 
 def match_one(entry: dict, text: str, *, has_link: bool, has_brand: bool, offsite: bool | None) -> PatternMatch | None:
     """A full match needs every defining indicator — each a phrase-level construction in the material, or an
-    evidence-based one TC FlyBy established (a link that isn't the organisation's own) — never a lone keyword."""
+    evidence-based one TC Hawkeye established (a link that isn't the organisation's own) — never a lone keyword."""
     p = entry["pattern"]
     found: list[tuple[str, str]] = []
     missing: list[str] = []

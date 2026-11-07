@@ -280,7 +280,7 @@ async def record_usage(
 
 async def record_search(*, record_id: str, provider: str, model: str, purpose: str, success: bool, failure_code: str | None, cost_usd: float,
                         correlation_id: str | None, device_id: str | None, case_id: str | None, trigger_source: str | None) -> None:
-    """One paid web-search request that isn't an AI call (TC FlyBy's Brave search): no tokens, one search, its price."""
+    """One paid web-search request that isn't an AI call (TC Hawkeye's Brave search): no tokens, one search, its price."""
     now = datetime.now(timezone.utc)
     await db[COLLECTION].update_one({"record_id": record_id}, {"$set": {
         "record_id": record_id, "correlation_id": correlation_id, "device_id": device_id, "case_id": case_id or _case_of(correlation_id),

@@ -1,6 +1,6 @@
 """Four-Stage Evidence Evaluation Pipeline — the Robust Threat Decision Engine.
 
-Sits between TC FlyBy's raw check results and the final decision in ``decide.py``.
+Sits between TC Hawkeye's raw check results and the final decision in ``decide.py``.
 It does NOT replace the existing decision logic; it provides a structured evaluation
 that ``decide.provisional()`` uses to avoid false-positive escalation while preserving
 detection of genuine threats.
@@ -16,7 +16,7 @@ Design constraints (from the PRD):
     - No arbitrary weights or invented confidence thresholds.
     - AI-generated claims never become trusted evidence without validation.
     - Verified malicious indicators are never overridden by otherwise-legitimate context.
-    - Preserve the established workflow: Apollo → Higgins → TC FlyBy → Magnum DI → Explain.
+    - Preserve the established workflow: Apollo → Higgins → TC Hawkeye → Magnum DI → Explain.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ HypothesisBalance = Literal["legitimate", "malicious", "ambiguous", "verified_th
 class EvidenceRecord:
     """One piece of evidence with its four-stage evaluation metadata.
 
-    ``fact`` is the original TC FlyBy check fact (a dict with text, signal, decisive,
+    ``fact`` is the original TC Hawkeye check fact (a dict with text, signal, decisive,
     class, source, topic).  Everything else is evaluation metadata this module adds.
     """
     fact: dict
@@ -391,7 +391,7 @@ def _calibrate(records: list[EvidenceRecord]) -> EvaluationResult:
 # ── Public API ───────────────────────────────────────────────────────────────
 
 def evaluate(plan: Plan) -> EvaluationResult:
-    """Run the full four-stage evidence evaluation pipeline on a TC FlyBy plan.
+    """Run the full four-stage evidence evaluation pipeline on a TC Hawkeye plan.
 
     Returns an ``EvaluationResult`` that ``decide.py`` uses to calibrate its decision.
     The evaluation never overrides established threat evidence; it only advises when

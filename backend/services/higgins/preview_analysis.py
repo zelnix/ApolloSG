@@ -87,8 +87,8 @@ def _briefing(ind: Indicators, subject: str | None, assessment: str) -> str:
 
 def analyse(blocks: list[EvidenceBlock], question: str = "") -> dict:
     """Build the investigation payload from the evidence that was actually sent."""
-    # TC FlyBy's brief restates official domains and lookups; it is Apollo's record, not the person's material.
-    blocks = [b for b in blocks if "TC FlyBy" not in (b.label or "")]
+    # TC Hawkeye's brief restates official domains and lookups; it is Apollo's record, not the person's material.
+    blocks = [b for b in blocks if "TC Hawkeye" not in (b.label or "")]
     text_blocks = [b for b in blocks if b.text.strip()]
     evidence_ids = [b.evidence_id for b in text_blocks if b.evidence_id]
     all_ids = [b.evidence_id for b in blocks if b.evidence_id]

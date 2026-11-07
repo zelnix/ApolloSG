@@ -39,7 +39,7 @@ export interface DeviceInvestigation {
   patrolEventId: string | null;
   /** ISO timestamp of the local commit */
   committedAt: string;
-  /** Who settled the result: "magnum_di" or a TC FlyBy route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search"). */
+  /** Who settled the result: "magnum_di" or a TC Hawkeye route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search"). */
   answeredBy?: string | null;
   /** The rule that settled it, as one plain sentence. Absent on results saved before it was recorded. */
   settledReason?: import("./types").SettledReason | null;

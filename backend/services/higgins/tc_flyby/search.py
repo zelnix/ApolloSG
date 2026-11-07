@@ -1,4 +1,4 @@
-"""TC FlyBy stage 3 — one targeted web search, read deterministically. No AI is called.
+"""TC Hawkeye stage 3 — one targeted web search, read deterministically. No AI is called.
 
 Only checks that the direct sources and Apollo's KB could not settle reach this stage.
 
@@ -267,7 +267,7 @@ def _unavailable(check: Check, reason: str, note: str) -> dict:
 
 
 _REASON_WORDS = {
-    "not_configured": "TC FlyBy's web search isn't set up yet",
+    "not_configured": "TC Hawkeye's web search isn't set up yet",
     "preview_no_paid_search": "the preview server makes no paid web searches",
     "budget_limit": "ApolloSG's daily spending limit was reached",
     "one_search_used": "this case had already used its one web search",
@@ -308,7 +308,7 @@ async def run(checks: list[Check], *, correlation_id: str, trigger_source: str |
     for check in to_ask:
         if check is not chosen:
             out["answers"][check.id] = _unavailable(check, "one_search_per_case",
-                                                    f"TC FlyBy runs one web search per case. It went to {chosen.subject}, so {check.subject} wasn't searched.")
+                                                    f"TC Hawkeye runs one web search per case. It went to {chosen.subject}, so {check.subject} wasn't searched.")
 
     q = query(chosen)
     if q is None:

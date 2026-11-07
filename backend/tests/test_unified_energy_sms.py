@@ -1,4 +1,4 @@
-"""Acceptance: the UNIﬁed Energy SMS through the server's Higgins Triage (mirror of the phone's), and TC FlyBy's
+"""Acceptance: the UNIﬁed Energy SMS through the server's Higgins Triage (mirror of the phone's), and TC Hawkeye's
 method lines kept out of what isn't certain."""
 import pytest
 
@@ -31,14 +31,14 @@ def test_never_a_threat_on_their_own():
 
 @pytest.mark.anyio
 async def test_tc_flyby_settles_what_triage_flagged_as_concerning_never_as_no_scam_indicators(monkeypatch):
-    """Apollo detects → Higgins Triage flags it → TC FlyBy finds nothing more → settled as Concerning, with the message's
+    """Apollo detects → Higgins Triage flags it → TC Hawkeye finds nothing more → settled as Concerning, with the message's
     own words as the findings. Magnum DI isn't called: it couldn't change what to do."""
     from tests.test_tc_flyby_routing import _case, _gateway, _lookups
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch)
     _owner, case, response, _ = await _case([("text", SMS)], message="Investigate this captured text-message notification.")
     assert calls == [], "Magnum DI's deeper analysis couldn't change the outcome or what to do"
-    assert response["outcome"] == "concerning" and response["assessment"] == "concern_found"
+    assert response["outcome"] == "likely_scam" and response["assessment"] == "concern_found"
     assert response["attention"] == "review" and response["completion"] == "complete"
     flyby = case["routing"]["tc_flyby"]
     assert flyby["resolved"] is True and flyby["basis"] == "signals" and flyby["answeredBy"] == "tc_flyby_official"
@@ -67,9 +67,9 @@ def test_tc_flyby_method_lines_are_said_under_how_apollo_checked_not_what_isnt_c
     class C:  # a check that found nothing, and one left open
         def __init__(self, status, facts, open_issue=None):
             self.status, self.facts, self.open_issue, self.subject = status, facts, open_issue, "UNI\ufb01ed Energy"
-    checks = [C("not_found", [{"text": "TC FlyBy's search found no record for UNI\ufb01ed Energy", "signal": "missing"}]),
+    checks = [C("not_found", [{"text": "TC Hawkeye's search found no record for UNI\ufb01ed Energy", "signal": "missing"}]),
               C("not_needed", [], "Impersonation: whether the material genuinely comes from UNI\ufb01ed Energy.")]
-    assert _not_found(checks) == ["TC FlyBy's search found no record for UNI\ufb01ed Energy."]
-    how = _method("TC FlyBy checked the submitted material. Magnum DI's deeper analysis wasn't needed.", checks, not_taken=True)
+    assert _not_found(checks) == ["TC Hawkeye's search found no record for UNI\ufb01ed Energy."]
+    how = _method("TC Hawkeye checked the submitted material. Magnum DI's deeper analysis wasn't needed.", checks, not_taken=True)
     assert how.endswith("So these weren't taken further: impersonation (whether the material genuinely comes from UNI\ufb01ed Energy). "
-                        "TC FlyBy's search found no record for UNI\ufb01ed Energy.")
+                        "TC Hawkeye's search found no record for UNI\ufb01ed Energy.")

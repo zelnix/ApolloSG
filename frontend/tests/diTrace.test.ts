@@ -31,7 +31,7 @@ const flybyTrace = (resolved: boolean): DiTrace => ({
   },
   magnum: resolved ? null : { webSearch: false, searchQueries: 0, itemsSent: 3, simulated: false, at: null },
   settledReason: resolved
-    ? { rule: "Corroborated impersonation", by: "TC FlyBy", sentence: "Settled by TC FlyBy — corroborated impersonation: x." }
+    ? { rule: "Corroborated impersonation", by: "TC Hawkeye", sentence: "Settled by TC Hawkeye — corroborated impersonation: x." }
     : { rule: "Reasoning", by: "Magnum DI", sentence: "Settled by Magnum DI — reasoning: y." },
   higgins: { status: "PASS", mode: "plain", attempts: 1 },
 });
@@ -39,9 +39,9 @@ const flybyTrace = (resolved: boolean): DiTrace => ({
 const CODES = /\b[A-Z]{2,}(?:_[A-Z]+)+\b|\bM0\d\b|catalogue|tokens?\b|cost|US\$|\b[a-z]+_[a-z_]+\b/i;
 const everyLine = (steps: ReturnType<typeof buildDecisionTrace>) => steps.flatMap((s) => [s.label, s.summary, ...s.details]);
 
-test("the path runs Higgins Triage → TC FlyBy → Magnum DI → Evidence Lock", () => {
+test("the path runs Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock", () => {
   const steps = buildDecisionTrace({ trace: flybyTrace(false), records: [record()], triage: null, hasCase: true });
-  assert.deepEqual(steps.map((s) => s.name), ["Higgins Triage", "TC FlyBy", "Magnum DI", "Evidence Lock"]);
+  assert.deepEqual(steps.map((s) => s.name), ["Higgins Triage", "TC Hawkeye", "Magnum DI", "Evidence Lock"]);
 });
 
 test("a Triage-only Limited case: stops at Triage, Magnum DI not engaged, never shown as safe, no codes", () => {
@@ -55,16 +55,16 @@ test("a Triage-only Limited case: stops at Triage, Magnum DI not engaged, never 
   for (const line of everyLine(steps)) assert.doesNotMatch(line, CODES, line);
 });
 
-test("TC FlyBy settled: Triage read from TC FlyBy's record, its checks in plain words, Magnum DI not engaged", () => {
+test("TC Hawkeye settled: Triage read from TC Hawkeye's record, its checks in plain words, Magnum DI not engaged", () => {
   const steps = buildDecisionTrace({ trace: flybyTrace(true), records: [], triage: null, hasCase: true });
-  assert.equal(steps[0].label, "Ran with TC FlyBy");
-  assert.equal(steps[0].summary, "Higgins Triage prepared what was sent and planned 1 check for TC FlyBy.");
+  assert.equal(steps[0].label, "Ran with TC Hawkeye");
+  assert.equal(steps[0].summary, "Higgins Triage prepared what was sent and planned 1 check for TC Hawkeye.");
   assert.deepEqual(steps[0].details, ["Planned to check: the website."]);
   assert.equal(steps[1].label, "Settled · Concerning");
-  assert.match(steps[1].summary, /^Settled by TC FlyBy/);
+  assert.match(steps[1].summary, /^Settled by TC Hawkeye/);
   assert.deepEqual(steps[1].details, ["The website: checked with official sources"]);
-  assert.equal(steps[2].summary, "Magnum DI was not engaged — TC FlyBy settled the case.");
-  assert.match(steps[3].summary, /^TC FlyBy's result was locked before Higgins explained it/);
+  assert.equal(steps[2].summary, "Magnum DI was not engaged — TC Hawkeye settled the case.");
+  assert.match(steps[3].summary, /^TC Hawkeye's result was locked before Higgins explained it/);
   for (const line of everyLine(steps)) assert.doesNotMatch(line, CODES, line);
 });
 
@@ -93,10 +93,10 @@ test("escalated but no Magnum DI record yet, a failed call and a simulated answe
   assert.match(simulated.summary, /the preview stood in for the outside service Magnum DI calls/);
 });
 
-test("a case with no Triage or TC FlyBy record says so for each; no result yet means nothing locked", () => {
+test("a case with no Triage or TC Hawkeye record says so for each; no result yet means nothing locked", () => {
   const steps = buildDecisionTrace({ trace: null, records: [], triage: null, hasCase: true });
   assert.equal(steps[0].summary, "No Higgins Triage record is stored for this case.");
-  assert.equal(steps[1].summary, "No TC FlyBy record is stored for this case.");
+  assert.equal(steps[1].summary, "No TC Hawkeye record is stored for this case.");
   assert.equal(steps[3].summary, "There's no result to lock yet.");
 });
 

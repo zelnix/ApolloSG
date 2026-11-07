@@ -40,7 +40,7 @@ const inv = (answeredBy: string): DeviceInvestigation => ({
 
 const ids = (trail: ReturnType<typeof caseAuditTrail>) => trail.map((e) => e.id);
 
-test("a case Magnum DI settled: created → Triage → opened → TC FlyBy → escalated → Magnum DI → Evidence locked → verdict", () => {
+test("a case Magnum DI settled: created → Triage → opened → TC Hawkeye → escalated → Magnum DI → Evidence locked → verdict", () => {
   const event = { ...base, investigation_case_id: "case-1", investigation_completed_at: "2026-10-28T01:01:00Z", investigation_answered_by: "magnum_di" } as PatrolEvent;
   const trail = caseAuditTrail({ event, investigation: inv("magnum_di"), trace: flyby(false), records: [record], verdict: "Likely scam" });
   assert.deepEqual(ids(trail), ["created", "triage-0", "opened", "flyby", "escalated", "magnum-0", "lock", "verdict"]);
@@ -51,11 +51,11 @@ test("a case Magnum DI settled: created → Triage → opened → TC FlyBy → e
   assert.ok(trail.every((e) => e.at));
 });
 
-test("TC FlyBy settled it: no escalation and no Magnum DI entry", () => {
+test("TC Hawkeye settled it: no escalation and no Magnum DI entry", () => {
   const event = { ...base, investigation_case_id: "case-1", investigation_completed_at: "2026-10-28T01:01:00Z", investigation_answered_by: "tc_flyby_official" } as PatrolEvent;
   const trail = caseAuditTrail({ event, investigation: inv("tc_flyby_official"), trace: flyby(true), records: [], verdict: "Concerning" });
   assert.deepEqual(ids(trail), ["created", "triage-0", "opened", "flyby", "lock", "verdict"]);
-  assert.equal(trail.find((e) => e.id === "flyby")!.title, "TC FlyBy settled the case");
+  assert.equal(trail.find((e) => e.id === "flyby")!.title, "TC Hawkeye settled the case");
   assert.ok(!trail.some((e) => /Magnum DI (completed|didn't)/.test(e.title)));
 });
 

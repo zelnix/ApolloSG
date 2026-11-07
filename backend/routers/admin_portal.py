@@ -1497,10 +1497,10 @@ def _env_label(model_str: str | None) -> str:
     return "Production"
 
 
-# How each investigation was answered (cost routing): TC FlyBy's route, or Magnum DI's Gemini call.
+# How each investigation was answered (cost routing): TC Hawkeye's route, or Magnum DI's Gemini call.
 ANSWERED_BY_LABELS = {"tc_flyby_official": "Official check", "tc_flyby_kb": "ApolloSG KB", "tc_flyby_search": "Web search", "magnum_di": "Gemini"}
 _ROUTE_LABELS = {"triage_rules": "Higgins Triage rules", "official_source": "Official source", "apollo_kb": "ApolloSG KB",
-                 "google_search": "Web search (TC FlyBy)"}
+                 "google_search": "Web search (TC Hawkeye)"}
 
 
 def _answered_by(case: dict, magnum_calls: int) -> str:
@@ -1512,7 +1512,7 @@ def _answered_by_badge(key: str) -> str:
     if not key:
         return '<span style="color:var(--muted);">&mdash;</span>'
     colour = "var(--yellow)" if key == "magnum_di" else "var(--green)"
-    who = "Magnum DI" if key == "magnum_di" else "TC FlyBy"
+    who = "Magnum DI" if key == "magnum_di" else "TC Hawkeye"
     return (f'<span class="badge" data-testid="answered-by-{html_mod.escape(key)}" style="background:rgba(127,127,127,0.12);color:{colour};">'
             f'{html_mod.escape(ANSWERED_BY_LABELS.get(key, key))}</span> <span style="font-size:0.78em;color:var(--muted);">{who}</span>')
 
@@ -1537,7 +1537,7 @@ def _outcome_badge(key: str | None) -> str:
 
 
 def _routing_html(rows: list[dict], avg_cost: float) -> str:
-    """Cost & performance measurement for Triage → TC FlyBy → Magnum DI over the period."""
+    """Cost & performance measurement for Triage → TC Hawkeye → Magnum DI over the period."""
     routed = [r for r in rows if (r["routing"] or {}).get("tc_flyby")]
     n = len(routed)
     resolved = sum(1 for r in routed if r["routing"]["tc_flyby"].get("resolved"))
@@ -1566,21 +1566,21 @@ def _routing_html(rows: list[dict], avg_cost: float) -> str:
         for key, b in sorted(outcomes.items()))
     outcome_heads = "".join(f"<th>{html_mod.escape(case_outcomes.LABELS[o])}</th>" for o in case_outcomes.OUTCOMES)
     return f"""
-    <h2 data-testid="cost-routing-heading">Cost Routing — Triage &rarr; TC FlyBy &rarr; Magnum DI</h2>
+    <h2 data-testid="cost-routing-heading">Cost Routing — Triage &rarr; TC Hawkeye &rarr; Magnum DI</h2>
     <div class="stats-grid">
-        {_stat_card(f'{n:,}', 'TC FlyBy Investigations')}
+        {_stat_card(f'{n:,}', 'TC Hawkeye Investigations')}
         {_stat_card(f'{resolved:,} ({pct(resolved, n)})', 'Resolved Without Magnum DI')}
         {_stat_card(pct(n - resolved, n), 'Magnum DI Invocation Rate')}
-        {_stat_card(f"{total('flyby_queries'):,} / {total('magnum_queries'):,}", 'Search Queries (TC FlyBy / Magnum DI)')}
-        {_stat_card(f"{total('flyby_in'):,} / {total('flyby_out'):,}", 'TC FlyBy AI Tokens (in / out)')}
+        {_stat_card(f"{total('flyby_queries'):,} / {total('magnum_queries'):,}", 'Search Queries (TC Hawkeye / Magnum DI)')}
+        {_stat_card(f"{total('flyby_in'):,} / {total('flyby_out'):,}", 'TC Hawkeye AI Tokens (in / out)')}
         {_stat_card(f"{total('magnum_in'):,} / {total('magnum_out'):,}", 'Magnum Gemini Tokens (in / out)')}
         {_stat_card(f"{total('magnum_search_calls'):,} / {total('magnum_calls') - total('magnum_search_calls'):,}", 'Magnum Calls with Search On / Off')}
         {_stat_card(f'{cache_hits + reused + magnum_search_off:,}', 'Repeated Searches Avoided')}
         {_stat_card(f'${avg_cost:.4f}', 'Avg Cost per Investigation')}
     </div>
     <p style="font-size:0.82em;color:var(--muted);margin:4px 0 8px;">
-        Repeated searches avoided = {cache_hits:,} TC FlyBy lookups served from its 7-day cache &middot; {reused:,} Magnum retries that reused
-        TC FlyBy's record &middot; {magnum_search_off:,} Magnum calls sent with Google Search off because TC FlyBy had the facts.
+        Repeated searches avoided = {cache_hits:,} TC Hawkeye lookups served from its 7-day cache &middot; {reused:,} Magnum retries that reused
+        TC Hawkeye's record &middot; {magnum_search_off:,} Magnum calls sent with Google Search off because TC Hawkeye had the facts.
         Search cost is estimated at the list price per query.
     </p>
     <table>
@@ -1628,9 +1628,9 @@ def _routing_drilldown_html(case: dict | None) -> str:
             <tr><td style="color:var(--muted);">Why</td><td>{_settled_reason_html(routing)}</td></tr>
             <tr><td style="color:var(--muted);">Message Type</td><td>{html_mod.escape(flyby.get('messageType') or 'unknown')}</td></tr>
             <tr><td style="color:var(--muted);">ApolloSG KB Scam Pattern</td><td>{pattern_line}</td></tr>
-            <tr><td style="color:var(--muted);">TC FlyBy Search</td><td>{flyby.get('searchCalls', 0)} call(s) &middot; {flyby.get('searchQueries', 0)} queries &middot; {flyby.get('cacheHits', 0)} from cache</td></tr>
+            <tr><td style="color:var(--muted);">TC Hawkeye Search</td><td>{flyby.get('searchCalls', 0)} call(s) &middot; {flyby.get('searchQueries', 0)} queries &middot; {flyby.get('cacheHits', 0)} from cache</td></tr>
             <tr><td style="color:var(--muted);">Magnum DI</td><td>{magnum_line}</td></tr>
-            <tr><td style="color:var(--muted);">Sent To Magnum DI</td><td data-testid="magnum-issues">{issues or 'Nothing — TC FlyBy settled it'}</td></tr>
+            <tr><td style="color:var(--muted);">Sent To Magnum DI</td><td data-testid="magnum-issues">{issues or 'Nothing — TC Hawkeye settled it'}</td></tr>
         </tbody>
     </table>
     <table style="margin-top:8px;">
@@ -1792,7 +1792,7 @@ def _triage_rules_html(triage: dict | None) -> str:
 
 
 def _di_transactions_html(records: list[dict]) -> str:
-    """Every AI transaction recorded for this case in full (Magnum DI's, and TC FlyBy's search call): status, tokens,
+    """Every AI transaction recorded for this case in full (Magnum DI's, and TC Hawkeye's search call): status, tokens,
     cost, timing, the prompts sent and the complete reply. The app's DI tab shows only whether Magnum DI ran and what
     it was handed."""
     if not records:
@@ -1809,7 +1809,7 @@ def _di_transactions_html(records: list[dict]) -> str:
         response = r.get("response") or {}
         blocks += f"""
         <div class="s-card" style="margin-bottom:12px;" data-testid="di-transaction-{i}">
-            <div class="s-card-head"><strong>Transaction {i + 1}</strong> &nbsp; {'TC FlyBy search' if r.get('purpose') == 'tc_flyby_search' else 'Magnum DI'} &middot; {_to_local(r.get('created_at'))}
+            <div class="s-card-head"><strong>Transaction {i + 1}</strong> &nbsp; {'TC Hawkeye search' if r.get('purpose') == 'tc_flyby_search' else 'Magnum DI'} &middot; {_to_local(r.get('created_at'))}
                 &middot; {html_mod.escape(str(r.get('status') or 'not recorded'))}{(' (' + html_mod.escape(str(r['failure_code'])) + ')') if r.get('failure_code') else ''}
                 &middot; {'Simulated' if r.get('simulated') else 'Live'} &middot; {html_mod.escape(str(r.get('environment', '')))}</div>
             <table style="margin-top:8px;"><tbody>
@@ -1903,7 +1903,7 @@ async def investigations_cost_report(request: Request):
             "purposes": {"$addToSet": "$purpose"},
             "models": {"$addToSet": "$model"},
             "sources": {"$addToSet": "$extra.trigger_source"},
-            # Cost routing: Magnum DI's call(s) and TC FlyBy's search call(s) are counted apart.
+            # Cost routing: Magnum DI's call(s) and TC Hawkeye's search call(s) are counted apart.
             "magnum_calls": {"$sum": {"$cond": [{"$eq": ["$purpose", "investigation"]}, 1, 0]}},
             "flyby_calls": {"$sum": {"$cond": [{"$eq": ["$purpose", "tc_flyby_search"]}, 1, 0]}},
             "magnum_in": {"$sum": {"$cond": [{"$eq": ["$purpose", "investigation"]}, {"$ifNull": ["$tokens.input", 0]}, 0]}},
@@ -1929,7 +1929,7 @@ async def investigations_cost_report(request: Request):
         else:
             unattributed_groups.append(g)
 
-    # Cases TC FlyBy settled without any Gemini call have no usage record, but they are investigations too.
+    # Cases TC Hawkeye settled without any Gemini call have no usage record, but they are investigations too.
     gemini_case_ids = [g["_id"][5:] for g in investigation_groups]
     async for routed in db.investigation_cases.find({"routing.tc_flyby.ranAt": {"$gte": start_utc, "$lte": end_utc},
                                                      "case_id": {"$nin": gemini_case_ids}}, {"_id": 0, "case_id": 1, "routing": 1}):
@@ -2137,7 +2137,7 @@ async def investigations_cost_report(request: Request):
         return str(n)
 
     # One Magnum DI investigation = at most one Gemini call, never retried.
-    # TC FlyBy's search request is counted separately below, under cost routing.
+    # TC Hawkeye's search request is counted separately below, under cost routing.
     over_limit = sum(1 for r in report_rows if r["magnum_calls"] > 1)
     magnum_cases = sum(1 for r in report_rows if r["magnum_calls"])
     avg_calls = total_calls / total_investigations if total_investigations else 0.0
@@ -3088,7 +3088,7 @@ _KB_TASKS: set = set()  # keeps a manual refresh alive until it finishes
 
 
 # ── Intelligence Reuse: what Apollo reused instead of paying to ask again ─────
-_REUSE_SITES = {"higgins_general_question": "Ask Higgins general question (ApolloSG's KB; no AI call)", "tc_flyby_search": "TC FlyBy targeted search (Brave web search; no AI call)",
+_REUSE_SITES = {"higgins_general_question": "Ask Higgins general question (ApolloSG's KB; no AI call)", "tc_flyby_search": "TC Hawkeye targeted search (Brave web search; no AI call)",
                 "ipqs_phone": "Phone reputation (IPQualityScore)", "ipqs_url": "Link reputation (IPQualityScore)", "rdap": "Domain registration (RDAP)"}
 
 
@@ -3754,7 +3754,7 @@ def _rule_book_sections(text: str) -> str:
 
 def _rule_book_groups(text: str) -> str:
     """The rule book: the intro stays open, each part (Protection Gates, Investigation process…) is a heading, and
-    every section under it (Link Gate, TC FlyBy…) is its own closed <details>, as in the app."""
+    every section under it (Link Gate, TC Hawkeye…) is its own closed <details>, as in the app."""
     from services.rulebook_export import split_groups
     intro, groups = split_groups(text)
     out = [_book_md(intro), f'<div class="rb-tools">{_BOOK_TOOLS}'
@@ -3902,7 +3902,7 @@ async def family_help_test_page(request: Request):
 _DEVICE_PAGE_SIZE = 50
 _PLATFORMS = ("android", "ios", "web")
 _OS_NAMES = {"android": "Android", "ios": "iOS", "web": "Web"}
-_COUNT_COLUMNS = (("tc_flyby", "TC FlyBy"), ("magnum_di", "Magnum DI"), ("ask_higgins", "Ask Higgins"),
+_COUNT_COLUMNS = (("tc_flyby", "TC Hawkeye"), ("magnum_di", "Magnum DI"), ("ask_higgins", "Ask Higgins"),
                   ("device_checks", "Device checks"), ("learn_read", "Learn with Higgins read"), ("scam_alerts_read", "Scam alerts read"))
 
 
@@ -4017,8 +4017,8 @@ async def device_list_page(request: Request):
 _GEMINI_FEATURES = (
     ("magnum_di", "Magnum DI", "The full investigation of a case, with web search when it needs it.",
      "services/higgins/coordinator.py → run_turn()",
-     "When TC FlyBy and what ApolloSG already knows can't settle an investigation."),
-    ("tc_flyby", "TC FlyBy web search", "Narrow searches about a link, number, company, ABN, ACN or licence.",
+     "When TC Hawkeye and what ApolloSG already knows can't settle an investigation."),
+    ("tc_flyby", "TC Hawkeye web search", "Narrow searches about a link, number, company, ABN, ACN or licence.",
      "services/higgins/tc_flyby/search.py → run()",
      "During an investigation, only for what no saved answer from the last 7 days covers."),
     ("model_test", "Test this model", "One fixed, made-up sample check of a provider and model, shaped like a Magnum DI call.",
@@ -4130,7 +4130,7 @@ def _selection_text(sel: dict) -> str:
 
 def _models_rows(sel: dict) -> str:
     """The AI investigation provider and model in use, for the System and Releases pages."""
-    return (f"<tr><td>AI investigation provider &amp; model (Magnum DI and TC FlyBy)</td><td><code>{html_mod.escape(_selection_text(sel))}</code> "
+    return (f"<tr><td>AI investigation provider &amp; model (Magnum DI and TC Hawkeye)</td><td><code>{html_mod.escape(_selection_text(sel))}</code> "
             f"<a href='/api/admin/apollosg-settings'>Change in ApolloSG Settings</a></td></tr>")
 
 
@@ -4180,7 +4180,7 @@ async def gemini_map_page(request: Request):
     <div class="table-scroll"><table data-testid="gemini-map-table"><thead><tr><th>Feature</th><th>Where in the code</th><th>Model</th>
     <th>When it calls</th>{head}</tr></thead><tbody>{rows}</tbody></table></div>
     <p class="muted">Every call goes through one gateway, <code>generate()</code> in <code>services/higgins/provider.py</code>,
-    which records it and hands it to the selected provider's adapter. Magnum DI and TC FlyBy use the one provider and
+    which records it and hands it to the selected provider's adapter. Magnum DI and TC Hawkeye use the one provider and
     model selected in ApolloSG Settings; Ask Higgins makes no AI call.</p>
     {_trend_table(weeks, trend, tz)}
     {f'<h2>Other calls this week</h2><p class="muted">From features that have been removed or no longer call the AI provider.</p><table data-testid="gemini-map-other"><thead><tr><th>Feature</th>{head}</tr></thead><tbody>{other_rows}</tbody></table>' if other_rows else ""}
@@ -4221,7 +4221,7 @@ def _ai_model_section(sel: dict, flash: str = "", error: str = "") -> str:
                         f"<ul>{''.join(not_listed)}</ul></details>" if not_listed else "")
     return f"""
     <h2>AI Provider &amp; Model</h2>
-    <p class="muted">The one provider and model Apollo's AI investigations use. Magnum DI uses it, and TC FlyBy always follows
+    <p class="muted">The one provider and model Apollo's AI investigations use. Magnum DI uses it, and TC Hawkeye always follows
     Magnum DI. Ask Higgins makes no AI call. API keys stay in the server's secure settings and are never shown here.</p>
     {f"<p class='flash' data-testid='ai-model-saved'>{flash}</p>" if flash else ""}
     {f"<p class='error' data-testid='ai-model-error'>{esc(error)}</p>" if error else ""}
@@ -4299,7 +4299,7 @@ async def apollosg_settings_page(request: Request):
     if not adm:
         return _login_redirect()
     sel = await ai_settings.selection()
-    flash = (f"Saved. Magnum DI and TC FlyBy use <strong>{html_mod.escape(_selection_text(sel))}</strong> from the next "
+    flash = (f"Saved. Magnum DI and TC Hawkeye use <strong>{html_mod.escape(_selection_text(sel))}</strong> from the next "
              f"investigation. The change is in the audit log.") if request.query_params.get("saved") else ""
     return await _apollosg_settings(adm, flash=flash)
 

@@ -68,7 +68,7 @@ async def snapshot() -> dict:
         "feeds": {row["feedId"]: {"status": row["status"], "via": row["relay"] or "direct"} for row in feeds["feeds"]},
         "settings": {name: os.environ.get(name) or None for name in SETTINGS},
         # The AI investigation provider and model, as selected in ApolloSG Settings (stored per server, in its own
-        # database). Magnum DI and TC FlyBy both use it.
+        # database). Magnum DI and TC Hawkeye both use it.
         "aiModel": {key: (await ai_settings.selection())[key] for key in ("provider", "model")},
         "credentialsSet": {name: bool(os.environ.get(name)) for name in CREDENTIALS},
         "fileStorage": "ok" if await _storage_ok() else "failing",

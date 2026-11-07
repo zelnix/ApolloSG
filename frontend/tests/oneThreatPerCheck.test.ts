@@ -1,4 +1,4 @@
-// One check, one entry in Threats. When TC FlyBy answers before this device's own record reaches the
+// One check, one entry in Threats. When TC Hawkeye answers before this device's own record reaches the
 // server, the server may already have filed a twin for the same check (its own id, naming this device's
 // record as client_submission_id). The merge folds the twin into the device's record.
 import { test } from "node:test";

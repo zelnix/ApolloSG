@@ -81,7 +81,7 @@ SEVERITY = {
     "urgent": "How serious: urgent. Act now.",
 }
 
-# Who established a finding, and how firmly. {by} is TC FlyBy or Magnum DI.
+# Who established a finding, and how firmly. {by} is TC Hawkeye or Magnum DI.
 BASIS = {"observation": "Seen directly by {by}", "user_report": "From what you told Apollo",
          "inference": "{by}'s reading of the evidence, not seen directly"}
 CONFIDENCE = {"high": "High confidence", "medium": "Medium confidence", "low": "Low confidence — supporting context only"}

@@ -46,7 +46,7 @@ async def mark_read(device_id: str, kind: str, item: str) -> None:
 
 
 def investigator(answered_by: Optional[str]) -> Optional[str]:
-    """Which count an investigation's first answer adds to: TC FlyBy settled it, or Magnum DI answered it."""
+    """Which count an investigation's first answer adds to: TC Hawkeye settled it, or Magnum DI answered it."""
     if answered_by == "magnum_di":
         return "magnum_di"
     if outcomes.settled_by_flyby(answered_by):

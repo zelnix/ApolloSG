@@ -1,7 +1,7 @@
 """The case's Evidence record: each material fact the investigation established — once — with the stage that found
-it first and the later stages that established it too (Higgins Triage → TC FlyBy → Magnum DI).
+it first and the later stages that established it too (Higgins Triage → TC Hawkeye → Magnum DI).
 
-Built at commit from the case's own records only: TC FlyBy's check record (Higgins Triage's message rules are one of
+Built at commit from the case's own records only: TC Hawkeye's check record (Higgins Triage's message rules are one of
 its checks) and the validated result's findings. Nothing is looked up, re-scored or reworded:
 - A lookup that found nothing, or didn't answer, is no evidence either way: it stays in "How ApolloSG checked".
 - ApolloSG's knowledge base is general knowledge, never evidence about this case.
@@ -65,7 +65,7 @@ def _time(value) -> Optional[datetime]:
 
 
 def _from_checks(record: dict, outcome: Optional[str]) -> tuple[list[dict], set[str]]:
-    """What Higgins Triage's rules and TC FlyBy's checks established, in the order they ran — and the names of the
+    """What Higgins Triage's rules and TC Hawkeye's checks established, in the order they ran — and the names of the
     message rules that were met. A rule's name ("Multiple moderate scam indicators form a coherent scam pattern") is
     its conclusion, not evidence: only a rule that quotes what it saw in the material is a fact."""
     out, rule_names = [], set()
@@ -83,7 +83,7 @@ def _from_checks(record: dict, outcome: Optional[str]) -> tuple[list[dict], set[
             out.append({"id": f"{check.get('id')}.{n + 1}", "text": f["text"].strip(), "stage": "higgins_triage" if triage else "tc_flyby",
                         "stance": _stance(_POLARITY.get(signal, "neutral"), outcome), "weak": signal == "weak",
                         "confidence": "high" if f.get("decisive") else "medium", "basis": "observation",
-                        # A message rule read the material itself; TC FlyBy's facts are in its check record.
+                        # A message rule read the material itself; TC Hawkeye's facts are in its check record.
                         "evidence_ids": list(record.get("settled") or []) if triage else [checks_item] if checks_item else [],
                         "source_ids": list(f.get("sourceIds") or []),
                         "finding_ids": [], "rule_id": f.get("ruleId"), "at": at})

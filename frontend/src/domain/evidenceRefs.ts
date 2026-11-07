@@ -23,7 +23,7 @@ function itemName(id: string, kind: string | null, label: string | null, known: 
   const ref = known.get(id.toLowerCase());
   const named = (label ?? ref?.label ?? "").trim();
   const type = (kind ?? ref?.kind ?? "").toLowerCase();
-  if (/^(TC FlyBy|Apollo|Higgins)/i.test(named)) return "TC FlyBy's notes";
+  if (/^(TC Hawkeye|Apollo|Higgins)/i.test(named)) return "TC Hawkeye's notes";
   if (named) return /^(the|a|an|your|my|this|that)\b/i.test(named) ? lowerFirst(named) : `the ${lowerFirst(named)}`;
   return KIND_NAME[type] ?? "an item in this case";
 }

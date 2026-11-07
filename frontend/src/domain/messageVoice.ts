@@ -158,8 +158,8 @@ export function scrubMessage(text: string | null | undefined): string {
 }
 
 // --- Investigation status history (History Everywhere) -----------------------------------------------
-/** TC FlyBy settled the result (the case's `answeredBy` is "tc_flyby_*"): the one place this is decided on this device.
- *  Results saved on a phone before TC FlyBy's rename carry its old prefix, "teddy_*", and still count as TC FlyBy's. */
+/** TC Hawkeye settled the result (the case's `answeredBy` is "tc_flyby_*"): the one place this is decided on this device.
+ *  Results saved on a phone before TC Hawkeye's rename carry its old prefix, "teddy_*", and still count as TC Hawkeye's. */
 const FLYBY_PREFIXES = ["tc_flyby", "teddy"];
 export function settledByFlyby(answeredBy: string | null | undefined): boolean {
   return FLYBY_PREFIXES.some((prefix) => (answeredBy ?? "").startsWith(prefix));
@@ -167,8 +167,8 @@ export function settledByFlyby(answeredBy: string | null | undefined): boolean {
 
 /** Who settled an investigation result, by name (the case's `answeredBy`). Results recorded before
  *  routing existed were Magnum DI's. */
-export function investigatorName(answeredBy: string | null | undefined): "TC FlyBy" | "Magnum DI" {
-  return settledByFlyby(answeredBy) ? "TC FlyBy" : "Magnum DI";
+export function investigatorName(answeredBy: string | null | undefined): "TC Hawkeye" | "Magnum DI" {
+  return settledByFlyby(answeredBy) ? "TC Hawkeye" : "Magnum DI";
 }
 
 /** Plain-English "what has been done so far", derived from the turns and current phase, credited to whichever

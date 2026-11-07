@@ -1,4 +1,4 @@
-// One plain sentence under a finished result naming the rule that settled it, e.g. "Settled by TC FlyBy —
+// One plain sentence under a finished result naming the rule that settled it, e.g. "Settled by TC Hawkeye —
 // Known scam, every step: …". Hidden when the person turned it off in Settings, and when the case's
 // record doesn't say (never guessed).
 import React from "react";

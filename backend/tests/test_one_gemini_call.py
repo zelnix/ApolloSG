@@ -4,9 +4,9 @@ Every test drives the real durable job (`jobs.run`) with the gateway replaced, a
 - a successful investigation makes exactly ONE call — no tool rounds, no nested research, no second
   "presentation" call;
 - a failed call or an invalid answer is never retried: the investigation stops, says why, and keeps what
-  TC FlyBy established;
+  TC Hawkeye established;
 - a second job, a recovered job, a duplicate worker, a follow-up, a Resubmit tap or a restart can make no further call;
-- a case TC FlyBy settles makes none.
+- a case TC Hawkeye settles makes none.
 
 Run: cd /app/backend && python -m pytest tests/test_one_gemini_call.py -q -n 0
 """
@@ -56,7 +56,7 @@ async def _investigation():
     owner = f"one-call-{uuid.uuid4().hex[:8]}"
     await repo.ensure_indexes()
     case = await repo.create_case(owner, "text", None)
-    # A request to send money through a route nothing TC FlyBy established, and no Higgins Triage rule flags: Magnum DI's
+    # A request to send money through a route nothing TC Hawkeye established, and no Higgins Triage rule flags: Magnum DI's
     # analysis could change what to do, so it reaches Magnum DI's one call.
     await ev.ingest_text(owner, case, "message-text", "Hi, it's Sarah from accounts. Please pay invoice 4471 "
                          "($1,240) to account 1234 5678 today.", kind="text", origin="user_submission", label="Submitted message text")

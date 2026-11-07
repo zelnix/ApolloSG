@@ -352,7 +352,7 @@ export default function CheckMessage() {
       <View style={[s.top, { paddingTop: insets.top + spacing.md }]}>
         <CheckToolHeader
           title={params.source === "email" ? "Email monitoring" : "Check a message"}
-          info={{ title: params.source === "email" ? "About email monitoring" : "About message screening", body: ["Paste any message and Apollo will check it using local scam detection and link and public evidence checks. TC FlyBy investigates it first, and Magnum DI looks deeper only if that could change the answer. Higgins explains the result.", "Apollo checks claimed identity, pressure tactics, embedded links and sender reputation. Raw content is discarded after the assessment."] }}
+          info={{ title: params.source === "email" ? "About email monitoring" : "About message screening", body: ["Paste any message and Apollo will check it using local scam detection and link and public evidence checks. TC Hawkeye investigates it first, and Magnum DI looks deeper only if that could change the answer. Higgins explains the result.", "Apollo checks claimed identity, pressure tactics, embedded links and sender reputation. Raw content is discarded after the assessment."] }}
           testID="message"
         />
       </View>
@@ -581,7 +581,7 @@ export default function CheckMessage() {
         visible={busy !== "idle"}
         title={busy === "reading" ? "Reading message" : "Checking message"}
         subject={sender.trim() ? `From: ${sender.trim()}` : undefined}
-        description={busy === "reading" ? "Reading the visible text and links…" : "Higgins Triage and TC FlyBy are checking\nwording, scam patterns and reputation signals."}
+        description={busy === "reading" ? "Reading the visible text and links…" : "Higgins Triage and TC Hawkeye are checking\nwording, scam patterns and reputation signals."}
       />
     </View>
   );

@@ -81,7 +81,8 @@ class Draft:
 
 
 def label(f: Facts) -> str:
-    return f"{outcomes.LABELS[f.outcome]}." if f.outcome else ""
+    text = outcomes.label(f.outcome)
+    return f"{text}." if text else ""
 
 
 def subject_line(f: Facts) -> Optional[str]:

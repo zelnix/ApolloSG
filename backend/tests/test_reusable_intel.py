@@ -2,7 +2,7 @@
 before paying to ask again — kept apart from the authoritative Apollo KB and from private case evidence.
 
 Covers: the cache record and its metadata, subject keys, freshness, reuse at every paid call site (Higgins' general
-Gemini answer, TC FlyBy's grounded search, IPQualityScore phone and link reputation, RDAP), the KB boundary (AI
+Gemini answer, TC Hawkeye's grounded search, IPQualityScore phone and link reputation, RDAP), the KB boundary (AI
 output never promoted), evidence isolation, moving the KB's old saved Gemini answers, observability (counters and
 the admin portal) and the KB retrieval benchmark baseline. Every external call is replaced and counted.
 
@@ -187,7 +187,7 @@ def _code() -> dict[str, str]:
 def test_only_approved_lookups_write_the_reusable_cache():
     code = _code()
     writers = {path for path, text in code.items() if re.search(r"\b(?:intel|reusable_intel)\.put\(", text)}
-    assert writers == {"services/higgins/tc_flyby/search.py"}, "only TC FlyBy's public-identifier lookups are cached; Ask Higgins writes nothing"
+    assert writers == {"services/higgins/tc_flyby/search.py"}, "only TC Hawkeye's public-identifier lookups are cached; Ask Higgins writes nothing"
     direct = {path for path, text in code.items() if "db.reusable_intelligence" in text}
     assert direct == {"services/reusable_intel.py", "services/stats_reset.py"}
     reset = code["services/stats_reset.py"]
@@ -224,10 +224,10 @@ def test_a_question_with_personal_detail_is_not_storable():
     assert knowledge.storable(QUESTION)
 
 
-# ── TC FlyBy's one Brave search (no AI) ─────────────────────────────────────
+# ── TC Hawkeye's one Brave search (no AI) ─────────────────────────────────────
 @pytest.fixture
 def web(monkeypatch, store):
-    """TC FlyBy's Brave search replaced (no request leaves the test): each search returns one official page that names
+    """TC Hawkeye's Brave search replaced (no request leaves the test): each search returns one official page that names
     the query's quoted subject, with a warning unless `status[subject]` says otherwise."""
     monkeypatch.setattr(search, "run", REAL_SEARCH)
     monkeypatch.setattr(search.brave_search, "configured", lambda: True)

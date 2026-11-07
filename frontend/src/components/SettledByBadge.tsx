@@ -1,4 +1,4 @@
-// "Settled by TC FlyBy" / "Settled by Magnum DI" — who settled a threat's investigation. Shown only once
+// "Settled by TC Hawkeye" / "Settled by Magnum DI" — who settled a threat's investigation. Shown only once
 // the investigation has finished and this device recorded who settled it; never guessed.
 import ScanSearch from "lucide-react-native/icons/scan-search";
 import Zap from "lucide-react-native/icons/zap";
@@ -20,7 +20,7 @@ export function SettledByBadge({ event, testID }: { event: Pick<PatrolEvent, "in
   const { colors } = useTheme();
   const settled = settledBy(event);
   if (!settled) return null;
-  const Icon = settled === "TC FlyBy" ? Zap : ScanSearch;
+  const Icon = settled === "TC Hawkeye" ? Zap : ScanSearch;
   return (
     <View style={s.badge} testID={testID} accessibilityLabel={`Settled by ${settled}`}>
       <Icon size={11} color={colors.onSurfaceSecondary} />

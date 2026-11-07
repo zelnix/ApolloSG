@@ -1,7 +1,7 @@
-"""The deciding test — is the case resolved at TC FlyBy, or could Magnum DI change the result?
+"""The deciding test — is the case resolved at TC Hawkeye, or could Magnum DI change the result?
 
     Could deeper Magnum DI investigation or reasoning change Apollo's finding or Higgins' action?
-        NO  → TC FlyBy resolves the case. "Unable to determine" is a valid finished outcome.
+        NO  → TC Hawkeye resolves the case. "Unable to determine" is a valid finished outcome.
         YES → only the unresolved element, with the minimum context it needs, goes to Magnum DI.
 
 No input format, case category or uncertainty sends a case to Magnum DI by itself. A screenshot or document
@@ -110,9 +110,9 @@ def provisional(plan_: Plan) -> Decision | None:
 
     The four-stage evidence evaluation pipeline still reviews for false-positive avoidance.
     """
-    from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
+    from services.higgins.tc_flyby.finding_rules import evaluate_rules
 
-    rules_result = rules_evaluate(plan_)
+    rules_result = evaluate_rules(plan_)
     finding = rules_result.finding
 
     if finding == "scam":
@@ -167,7 +167,7 @@ def _ids_with(texts: dict[str, str], needles: list[str]) -> list[str]:
 
 
 def resting_on(plan_: Plan, found: Decision) -> list[tuple[str | None, str]]:
-    """(check id, finding) for each finding TC FlyBy's concern outcome rests on."""
+    """(check id, finding) for each finding TC Hawkeye's concern outcome rests on."""
     if found.basis == "threat":
         return [(c.id, f["text"]) for c, f in _live(plan_) if f["signal"] == "concern" and f["decisive"]]
     if found.basis == "pattern":
@@ -198,7 +198,7 @@ def floor(plan_: Plan, found: Decision | None) -> dict | None:
 
 def magnum_issues(plan_: Plan, texts: dict[str, str], found: Decision | None = None) -> list[Issue]:
     """What Magnum DI's extra capabilities could still change. With a concern outcome reached, only what could
-    change it or the protective action counts: content TC FlyBy couldn't read, and (for a provisional concern) a
+    change it or the protective action counts: content TC Hawkeye couldn't read, and (for a provisional concern) a
     contradiction about the very facts the concern rests on. The concern's request is already known, so reasoning
     about it can't change what to do."""
     issues = _all_issues(plan_, texts)
@@ -220,7 +220,7 @@ def _all_issues(plan_: Plan, texts: dict[str, str]) -> list[Issue]:
                   if plan_.pattern and plan_.pattern["stage"] == "partial" else "")
         analysis = next((c.id for c in plan_.checks if c.kind == "message_analysis"), None)
         issues.append(Issue("reasoning", f"Message and deception analysis. The material asks the person to act — {asks} — through a route "
-                                         f"no official source verified, and nothing TC FlyBy established settles what to do.{partly}", list(texts), analysis))
+                                         f"no official source verified, and nothing TC Hawkeye established settles what to do.{partly}", list(texts), analysis))
     for c in plan_.checks:
         if c.open_issue.startswith("Conflict"):
             issues.append(Issue("relating", c.open_issue, _ids_with(texts, plan_.entities.companies + [c.subject]), c.id))
@@ -259,14 +259,14 @@ def _complete(plan_: Plan) -> bool:
 
 
 def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decision | None, list[Issue]]:
-    """(TC FlyBy's decision, []) when the case is resolved; (None, issues) when Magnum DI could change it.
-    Before the last stage only a decisive official result (or an answered general question) stops TC FlyBy —
+    """(TC Hawkeye's decision, []) when the case is resolved; (None, issues) when Magnum DI could change it.
+    Before the last stage only a decisive official result (or an answered general question) stops TC Hawkeye —
     every other outcome waits until the checks Higgins Triage planned have run.
 
     Uses the S1–S4, N1–N4, L1–L3 rules to determine the Finding."""
     found = provisional(plan_)
     if found and found.outcome == "scam":
-        # TC FlyBy's stages end here; the deciding test still applies to what it couldn't read.
+        # TC Hawkeye's stages end here; the deciding test still applies to what it couldn't read.
         issues = magnum_issues(plan_, texts, found)
         return (None, issues) if issues else (found, [])
     if plan_.general:
@@ -275,14 +275,14 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
             return Decision("tc_flyby_kb" if check.route == "apollo_kb" else "tc_flyby_search", None, "knowledge"), []
         return None, ([Issue("reasoning", f"Answer the general question: {check.subject}", list(texts), check.id)] if final else [])
     if plan_.channel == "call" and not plan_.has_message and not plan_.link_only:
-        # A call described only in the question: TC FlyBy has nothing to compare, so Magnum DI assesses the call itself.
+        # A call described only in the question: TC Hawkeye has nothing to compare, so Magnum DI assesses the call itself.
         return None, ([Issue("reasoning", "Assess the phone call the person describes in their question: who the caller claimed to be, "
                                           "what they asked for, and what the person should do.", list(texts))] if final else [])
     if not final:
         return None, []
 
     # Check the rules engine FIRST for not_scam before generating magnum issues
-    # If the rules engine says not_scam (all N rules pass), TC FlyBy settles it here.
+    # If the rules engine says not_scam (all N rules pass), TC Hawkeye settles it here.
     from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
     rules_result = rules_evaluate(plan_)
 
@@ -296,23 +296,20 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
     if found:
         return found, []           # a concern outcome nothing unresolved could change: the protective action stands
 
-    # No provisional concern reached and no magnum issues — use the rules engine result
+    # No provisional concern reached and no magnum issues — use the rules engine result (the Findings
+    # Rating's classification: scam / likely_scam / unlikely_scam / not_scam — "unable_to_determine" is
+    # no longer produced here; see finding_rules.evaluate()).
     route = _route(plan_.checks)
-
-    if rules_result.finding == "unable_to_determine":
-        return Decision(route, "unable_to_determine", "unknown"), []
-
-    # Shouldn't reach here if provisional() handled scam/likely_scam correctly
-    return Decision(route, "unable_to_determine", "unknown"), []
+    return Decision(route, rules_result.finding, "unknown"), []
 
 
 def decisive(plan_: Plan) -> bool:
-    """A decisive concern was found: TC FlyBy's stages end (the deciding test still applies)."""
+    """A decisive concern was found: TC Hawkeye's stages end (the deciding test still applies)."""
     found = provisional(plan_)
     return bool(found and found.outcome == "scam")
 
 
 def magnum_needs_search(plan_: Plan, issues: list[Issue]) -> bool:
     """Web search stays OFF for Magnum DI unless a specific external fact may still be missing: content it
-    will read for the first time, a lookup that was unavailable, or a general question TC FlyBy couldn't answer."""
+    will read for the first time, a lookup that was unavailable, or a general question TC Hawkeye couldn't answer."""
     return bool(any(i.capability == "reading" for i in issues) or any(c.status == "unavailable" for c in plan_.checks) or plan_.general)

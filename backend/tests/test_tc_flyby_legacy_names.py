@@ -1,4 +1,4 @@
-"""Records saved under TC FlyBy's old internal name ("teddy") move to its current names, and nothing else changes."""
+"""Records saved under TC Hawkeye's old internal name ("teddy") move to its current names, and nothing else changes."""
 import uuid
 
 from core.db import db

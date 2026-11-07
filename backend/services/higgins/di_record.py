@@ -182,7 +182,7 @@ def _iso(value: Any) -> Any:
 
 
 async def decision_trace(owner: str, case_id: str) -> dict:
-    """The recorded decision path for one case: the deterministic Triage record, what TC FlyBy checked and
+    """The recorded decision path for one case: the deterministic Triage record, what TC Hawkeye checked and
     decided, whether Magnum DI was engaged, and how Higgins presented the result. Recorded data only —
     a stage with no record is null, never inferred."""
     from services import rulebook
@@ -212,8 +212,8 @@ async def decision_trace(owner: str, case_id: str) -> dict:
 
 
 async def get_di_records(owner: str, case_id: str) -> list[dict]:
-    """Magnum DI's own records for one case. TC FlyBy's search call is recorded under the same case but is not
-    Magnum DI: it stays in the Admin Portal, so a case TC FlyBy settled never shows Magnum DI as engaged. Access is
+    """Magnum DI's own records for one case. TC Hawkeye's search call is recorded under the same case but is not
+    Magnum DI: it stays in the Admin Portal, so a case TC Hawkeye settled never shows Magnum DI as engaged. Access is
     authorised by the caller (it resolves the case for this device first)."""
     cursor = db.di_transactions.find({"correlation_id": f"case-{case_id}", "purpose": {"$ne": "tc_flyby_search"}}).sort("created_at", 1)
     return [wire(doc) async for doc in cursor]

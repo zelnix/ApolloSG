@@ -9,11 +9,11 @@
         {
           "id": "what-is-apollosg",
           "title": "What ApolloSG does",
-          "answer": "ApolloSG helps protect you from scams and online threats. Apollo watches and checks things for you, TC FlyBy and Magnum DI investigate anything that needs a closer look, and Higgins explains what was found and shows you where to go.",
+          "answer": "ApolloSG helps protect you from scams and online threats. Apollo watches and checks things for you, TC Hawkeye and Magnum DI investigate anything that needs a closer look, and Higgins explains what was found and shows you where to go.",
           "details": [
             {
               "heading": "Who does what",
-              "text": "• Apollo — the watchdog. Watches, checks, blocks and records what happens on this device.\n• TC FlyBy — Apollo's quick investigator. Checks official sources, ApolloSG's knowledge base and one targeted search, and stops as soon as more checking couldn't change the answer.\n• Magnum DI — the deep investigator. Called in only when TC FlyBy can't settle something and a deeper look could change the answer.\n• Higgins — your guide. Explains results, answers questions about scams and about ApolloSG, and takes you to the right screen. Higgins doesn't investigate."
+              "text": "• Apollo — the watchdog. Watches, checks, blocks and records what happens on this device.\n• TC Hawkeye — Apollo's quick investigator. Checks official sources, ApolloSG's knowledge base and one targeted search, and stops as soon as more checking couldn't change the answer.\n• Magnum DI — the deep investigator. Called in only when TC Hawkeye can't settle something and a deeper look could change the answer.\n• Higgins — your guide. Explains results, answers questions about scams and about ApolloSG, and takes you to the right screen. Higgins doesn't investigate."
             },
             {
               "heading": "No account needed",
@@ -433,7 +433,7 @@
         {
           "id": "after-submit",
           "title": "What happens after you submit something",
-          "answer": "Apollo's rules check it first. If they settle it, you get the answer straight away; if not, TC FlyBy investigates, and Magnum DI looks deeper only when that could change the answer.",
+          "answer": "Apollo's rules check it first. If they settle it, you get the answer straight away; if not, TC Hawkeye investigates, and Magnum DI looks deeper only when that could change the answer.",
           "details": [
             {
               "heading": "While it's being checked",
@@ -457,7 +457,7 @@
             { "route": "/how-apollo-checks", "label": "How Apollo checks" }
           ],
           "questions": ["what happens after i submit something", "what happens when i check something", "how do investigations work", "what happens after triage", "how long are results kept", "can i ask about a result"],
-          "keywords": ["investigation", "triage", "tc flyby", "magnum di", "result", "findings", "follow-up", "progress"]
+          "keywords": ["investigation", "triage", "tc hawkeye", "magnum di", "result", "findings", "follow-up", "progress"]
         }
       ]
     },
@@ -920,7 +920,7 @@
         {
           "id": "how-apollo-checks",
           "title": "How Apollo checks (the rules)",
-          "answer": "☰ → “How Apollo checks” explains the rules Apollo, TC FlyBy, Magnum DI and Higgins follow and what each result means. Settings → “Rule book” has every rule in full.",
+          "answer": "☰ → “How Apollo checks” explains the rules Apollo, TC Hawkeye, Magnum DI and Higgins follow and what each result means. Settings → “Rule book” has every rule in full.",
           "links": [
             { "route": "/how-apollo-checks", "label": "How Apollo checks" },
             { "route": "/settings/rule-book", "label": "Rule book" }

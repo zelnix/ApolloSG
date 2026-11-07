@@ -71,7 +71,7 @@ def inconclusive(response) -> bool:
     b = response.briefing if response.briefing is not None and response.briefing.fidelity.status == "PASS" else None
     owed = (b.user_action_required and (b.action_reason or "").strip()) if b is not None else (
         response.completion == "waiting_user" and response.question is not None and (response.question.reason_needed or "").strip())
-    return response.outcome == "unable_to_determine" and response.attention in ("none", "review") and not owed
+    return response.outcome in ("unlikely_scam", "unable_to_determine") and response.attention in ("none", "review") and not owed
 
 
 def established_threat(event: dict | None) -> bool:
@@ -134,7 +134,7 @@ async def project_committed_cases(limit: int = 100) -> int:
 
 async def project_case_now(owner: str, case_id: str) -> int:
     """Project one case straight away. Called just before the server purges a case the device has committed:
-    TC FlyBy often answers in a couple of seconds, so the periodic projection could find the case already gone,
+    TC Hawkeye often answers in a couple of seconds, so the periodic projection could find the case already gone,
     leaving its Threats record on "Apollo is investigating this" and no history entry."""
     rows = await db.investigation_cases.find({**_UNPROJECTED, "owner_id": owner, "case_id": case_id}, _CASE_FIELDS).to_list(1)
     return await _project(rows)
@@ -163,7 +163,7 @@ async def _project(rows: list[dict]) -> int:
         kept_raised = established_threat(existing) and _RANK.get(existing.get("state"), 0) > _RANK[state]
         if kept_raised:
             state = existing["state"]
-        # Not synced yet (TC FlyBy often answers before the device's copy of its record reaches the server):
+        # Not synced yet (TC Hawkeye often answers before the device's copy of its record reaches the server):
         # file under the device's own event id, so when that copy arrives it is the same record, never a twin.
         event_id = (existing["event_id"] if existing else case.get("client_submission_id")
                     or str(uuid.uuid5(uuid.NAMESPACE_URL, f"apollo-patrol:{case['owner_id']}:{case['case_id']}")))
@@ -309,19 +309,20 @@ async def project_case_started(case: dict) -> bool:
 _ENDED = {"expired", "deleted", "cancelled", "failed"}
 _OUTCOME_STATE = {
     # Current four Findings
-    "not_scam": "resting", "likely_scam": "barking", "scam": "barking", "unable_to_determine": "resting",
+    "not_scam": "resting", "likely_scam": "barking", "scam": "barking", "unlikely_scam": "resting",
     # Legacy codes (backward compat)
-    "no_scam_indicators": "resting", "concerning": "growling", "confirmed_threat": "barking",
+    "no_scam_indicators": "resting", "concerning": "growling", "confirmed_threat": "barking", "unable_to_determine": "resting",
 }
 _OUTCOME_ATTENTION = {
     # Current four Findings
-    "not_scam": "none", "likely_scam": "action_needed", "scam": "urgent", "unable_to_determine": "review",
+    "not_scam": "none", "likely_scam": "action_needed", "scam": "urgent", "unlikely_scam": "review",
     # Legacy codes
-    "no_scam_indicators": "none", "concerning": "review", "confirmed_threat": "urgent",
+    "no_scam_indicators": "none", "concerning": "review", "confirmed_threat": "urgent", "unable_to_determine": "review",
 }
 _OUTCOME_TODO = {
     "not_scam": "Nothing more to do. If anything about it feels off, contact the person or organisation using details you already have.",
     "no_scam_indicators": "Nothing more to do. If anything about it feels off, contact the person or organisation using details you already have.",
+    "unlikely_scam": NOT_FULLY_CHECKED_TODO,
     "unable_to_determine": NOT_FULLY_CHECKED_TODO,
 }
 _CONCERN_TODO = "Don't reply, call back or follow its instructions. Contact the organisation using details you already have."

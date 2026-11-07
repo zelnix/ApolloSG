@@ -16,11 +16,13 @@ CaseStatus = Literal["queued", "investigating", "waiting_device", "waiting_user"
 Origin = Literal["user_submission", "device_observation", "external_source", "apollo_inference"]
 CoverageStatus = Literal["not_started", "partial", "examined", "unavailable", "out_of_scope"]
 Assessment = Literal["concern_found", "no_concern_found_within_scope", "uncertain"]
-# Apollo's case Finding (services/higgins/outcomes.py), shared by TC FlyBy and Magnum DI.
-# New findings: scam, not_scam, likely_scam, unable_to_determine
-# Legacy codes (confirmed_threat, no_scam_indicators, concerning) accepted for backward compatibility.
-Outcome = Literal["scam", "not_scam", "likely_scam", "unable_to_determine",
-                  "no_scam_indicators", "concerning", "confirmed_threat"]
+# Apollo's case Finding (services/higgins/outcomes.py), shared by TC Hawkeye and Magnum DI.
+# Current findings: scam, not_scam, likely_scam, unlikely_scam
+# Legacy codes (confirmed_threat, no_scam_indicators, concerning, unable_to_determine) accepted for
+# backward compatibility with records stored before the Findings Rating (unable_to_determine now
+# normalizes to unlikely_scam — see outcomes.LEGACY_MAP).
+Outcome = Literal["scam", "not_scam", "likely_scam", "unlikely_scam",
+                  "no_scam_indicators", "concerning", "confirmed_threat", "unable_to_determine"]
 Attention = Literal["none", "review", "action_needed", "urgent"]
 Completion = Literal["complete", "partial", "waiting_user"]
 FailureCode = Literal["invalid_input", "unauthenticated", "not_found", "conflict", "provider_configuration", "rate_limited",
@@ -319,6 +321,10 @@ class HigginsResponse(Wire):
     history: list[HistoryNote] = Field(default_factory=list)
     # None: recorded before the Evidence record existed (never reconstructed). [] : recorded, nothing established.
     evidence: Optional[list[EvidenceFact]] = None
+    # The Findings Rating (0-100, Apollo PRD v2.2 §2) and its six-dimension explanation
+    # (services.higgins.tc_flyby.scoring.ScoreBreakdown.wire()). None for a general question / no Finding.
+    findings_rating: Optional[int] = Field(default=None, ge=0, le=100)
+    findings_rating_breakdown: Optional[dict] = None
 
 
 class Inventory(Wire):
@@ -334,7 +340,7 @@ class SettledReason(Wire):
     """The rule that settled a result, as one plain sentence (services/rulebook.py)."""
     rule_id: str
     rule: str
-    by: Literal["TC FlyBy", "Magnum DI"]
+    by: Literal["TC Hawkeye", "Magnum DI"]
     sentence: str
 
 
@@ -354,13 +360,13 @@ class InvestigationCase(Wire):
     pending_device_request_ids: list[str] = Field(default_factory=list)
     inventory: Inventory = Field(default_factory=Inventory)
     cleanup_status: Literal["not_due", "pending", "complete", "failed"] = "not_due"
-    # Who settled the latest result: "magnum_di", or TC FlyBy by route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search").
+    # Who settled the latest result: "magnum_di", or TC Hawkeye by route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search").
     answered_by: Optional[str] = None
     # The rule that settled it, as one plain sentence (services/rulebook.py). None when the record doesn't say.
     settled_reason: Optional[SettledReason] = None
     # The latest moment the server keeps what was submitted: 24 hours after the investigation finished (None while it runs).
     content_delete_by: Optional[datetime] = None
-    # An outside source behind the result was simulated (the preview's stand-in for Magnum DI's call or TC FlyBy's search).
+    # An outside source behind the result was simulated (the preview's stand-in for Magnum DI's call or TC Hawkeye's search).
     # Everything else ran exactly as in production; this only tags it.
     simulated: bool = False
     # Who started the investigation, as recorded when the case was opened: the person ("user") or Apollo ("apollo").
@@ -529,7 +535,7 @@ class Usage(Wire):
 
 
 class ProviderResult(Wire):
-    # "apollo" for TC FlyBy (runs locally without an external API).
+    # "apollo" for TC Hawkeye (runs locally without an external API).
     # "gemini", "anthropic", or "openai" for Magnum DI, set directly from AIResult.provider.
     provider: str = "gemini"
     model: str
@@ -540,7 +546,7 @@ class ProviderResult(Wire):
     source_ids: list[str] = Field(default_factory=list)
     # True when the preview simulator answered instead of Gemini — recorded, never hidden.
     simulated: bool = False
-    # Who settled this turn: "magnum_di", or TC FlyBy by route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search").
+    # Who settled this turn: "magnum_di", or TC Hawkeye by route ("tc_flyby_official", "tc_flyby_kb", "tc_flyby_search").
     answered_by: str = "magnum_di"
 
 
@@ -697,6 +703,12 @@ class ModelResponse(Wire):
     recommended_action_index: Optional[int] = None
     question: Optional[ModelQuestion] = None
     completion: Completion
+    # TC Hawkeye's own Findings Rating (0-100, Apollo PRD v2.2 §2) and six-dimension explanation
+    # (services.higgins.tc_flyby.scoring) — attached to the dict report.compose() builds before it's
+    # validated through this same model. The Gemini-facing schema allows but never asks for these;
+    # Magnum DI's model output leaves them null.
+    findings_rating: Optional[int] = Field(default=None, ge=0, le=100)
+    findings_rating_breakdown: Optional[dict] = None
 
 
 MODEL_RESPONSE_SCHEMA = ModelResponse.model_json_schema(by_alias=True)

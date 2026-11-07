@@ -1,7 +1,7 @@
 """Higgins Triage — makes every input investigation-ready and identifies what needs checking.
 
     Apollo detects and protects. Higgins Triage extracts, structures and identifies what needs checking.
-    TC FlyBy does the fly-by investigation. Magnum DI investigates deeply only when doing so could change
+    TC Hawkeye does the fly-by investigation. Magnum DI investigates deeply only when doing so could change
     the finding or action. Higgins explains and guides.
 
 Triage does not investigate and never decides whether something is a scam. From the content of every
@@ -363,7 +363,7 @@ class Check:
     id: str
     kind: str
     subject: str
-    question: str = ""                         # the narrow factual question for TC FlyBy's search, when that stage applies
+    question: str = ""                         # the narrow factual question for TC Hawkeye's search, when that stage applies
     statuses: tuple[str, ...] = ()             # the answers that question allows
     status: str = "open"                       # open | resolved | not_found | unavailable | needs_reasoning | not_needed
     route: str | None = None                   # official_source | apollo_kb | web_search | magnum_di
@@ -391,7 +391,7 @@ class Plan:
     link_only: bool
     general: bool
     gaps: list[dict]                           # what Triage couldn't extract: {"evidenceId", "item", "what", "magnum"}
-    advisories: list[dict] = field(default_factory=list)   # official advisories TC FlyBy's stage 1 matched
+    advisories: list[dict] = field(default_factory=list)   # official advisories TC Hawkeye's stage 1 matched
     pattern: dict | None = None                            # the established scam pattern (Apollo KB) the material matches best
     channel: str | None = None                             # "call": a phone call the person describes (a Call Gate check)
 

@@ -346,7 +346,7 @@ export default function CheckLink() {
         <CheckToolHeader
           title="Check Website Link"
           info={{ title: "About website link checking", body: [
-            "Paste or share any URL and Apollo will check where it really goes and look it up against known threat databases. TC FlyBy investigates it first, and Magnum DI looks deeper only if that could change the answer. Higgins explains the result.",
+            "Paste or share any URL and Apollo will check where it really goes and look it up against known threat databases. TC Hawkeye investigates it first, and Magnum DI looks deeper only if that could change the answer. Higgins explains the result.",
             "Apollo checks domain reputation, SSL certificates, redirect chains and page content. The link is visited in a sandboxed environment — your device never loads the page directly.",
             "A completed check does not guarantee a website is safe. Results reflect what Apollo was able to verify at the time of the check.",
           ] }}
@@ -361,7 +361,7 @@ export default function CheckLink() {
       >
         {/* ── Description ── */}
         <Text style={s.description}>
-          Enter a website link, choose one from your recent links, or take a screenshot.{"\n"}TC FlyBy will check it for possible scams, and Magnum DI looks deeper if needed.
+          Enter a website link, choose one from your recent links, or take a screenshot.{"\n"}TC Hawkeye will check it for possible scams, and Magnum DI looks deeper if needed.
         </Text>
 
         {/* ── Website Link Card ── */}
@@ -517,7 +517,7 @@ export default function CheckLink() {
         visible={busy}
         title="Checking link"
         subject={input.trim() || undefined}
-        description={"Higgins Triage and TC FlyBy are checking\nreputation data and scam patterns.\nThis usually takes a few seconds."}
+        description={"Higgins Triage and TC Hawkeye are checking\nreputation data and scam patterns.\nThis usually takes a few seconds."}
       />
     </View>
   );

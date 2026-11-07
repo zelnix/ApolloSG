@@ -16,7 +16,7 @@ WHAT_IS_RESET = (
     "Web-search usage and the Intelligence Reuse counts",
     "Finished investigation records (open ones are left alone)",
     "Knowledge Base and Intelligence Reuse hit counts (the entries stay)",
-    "Every device's counts: TC FlyBy, Magnum DI, Ask Higgins, device checks, Learn read, scam alerts read",
+    "Every device's counts: TC Hawkeye, Magnum DI, Ask Higgins, device checks, Learn read, scam alerts read",
 )
 WHAT_IS_KEPT = ("devices", "family links and Family Help sessions", "saved reports", "Higgins history",
                 "the knowledge base", "blocklists", "the admin audit log")

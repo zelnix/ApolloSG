@@ -419,7 +419,7 @@ export default function CheckDevice() {
               <ActivityIndicator size="small" color={colors.brandPrimary} />
               <Text style={[s.statusTitle, { flex: 1 }]}>Checking device</Text>
             </View>
-            <Body>Apollo is reviewing your device settings, permissions and protection health. If anything needs investigating, TC FlyBy checks it first and Magnum DI looks deeper only if needed. This takes a moment.</Body>
+            <Body>Apollo is reviewing your device settings, permissions and protection health. If anything needs investigating, TC Hawkeye checks it first and Magnum DI looks deeper only if needed. This takes a moment.</Body>
           </Card>
         ) : null}
 

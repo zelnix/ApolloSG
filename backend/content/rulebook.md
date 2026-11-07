@@ -2,15 +2,15 @@
 
 How a check moves through ApolloSG, the rules each part follows, when a check is settled, what sends it to the next step, and what information can be requested. Written from the code, word for word the same in the app (Settings → Rule book) and the admin portal.
 
-_Last reviewed against the code: 2026-11-04._
+_Last reviewed against the code: 2026-11-07._
 
-_Revision 2, 27 October 2026: rules corrected after the Rule Book review (rule classes, Possible Threat, TC FlyBy weak signals and verified checks, Magnum DI triggers and provider calls, ABN, ACN and licence numbers), with the second-round corrections the same day (LINK-11, CORR-08, text copied elsewhere, Magnum DI correcting a provisional concern). Status: approved by the owner, then the code was audited against it and brought into line the same day: both engines decide from each rule's class, so ROUTE and COVERAGE rules no longer make a Possible Threat; CORR-08 needs a harmful payload; a failed lookup never supplies a rule's evidence; TC FlyBy treats weak signals as weak; Magnum DI can't go below TC FlyBy's concern without resolving evidence; and ABN, ACN and licence numbers reach only their register question. The EXPLAIN class was added for Higgins' explanation rules, and each one was checked against the code._
+_Revision 2, 27 October 2026: rules corrected after the Rule Book review (rule classes, Possible Threat, TC Hawkeye weak signals and verified checks, Magnum DI triggers and provider calls, ABN, ACN and licence numbers), with the second-round corrections the same day (LINK-11, CORR-08, text copied elsewhere, Magnum DI correcting a provisional concern). Status: approved by the owner, then the code was audited against it and brought into line the same day: both engines decide from each rule's class, so ROUTE and COVERAGE rules no longer make a Possible Threat; CORR-08 needs a harmful payload; a failed lookup never supplies a rule's evidence; TC Hawkeye treats weak signals as weak; Magnum DI can't go below TC Hawkeye's concern without resolving evidence; and ABN, ACN and licence numbers reach only their register question. The EXPLAIN class was added for Higgins' explanation rules, and each one was checked against the code._
 
 This is the only copy. Whenever a rule or process changes, this book is updated in the same change. An automatic check stops the change until it is.
 
 **The path of every check**
 
-Apollo detection (the gate) → *only if Possible Threat* → one investigation case → **Higgins Triage** → **TC FlyBy** (official sources → ApolloSG KB → one targeted Brave search, no AI) → settled, *or*, when unresolved evidence could materially change the outcome or the protective action → **Magnum DI** (at most 1 Magnum DI call per correlated case, no retry) → **Higgins** explains the result.
+Apollo detection (the gate) → *only if Possible Threat* → one investigation case → **Higgins Triage** → **TC Hawkeye** (official sources → ApolloSG KB → one targeted Brave search, no AI) → settled, *or*, when unresolved evidence could materially change the outcome or the protective action → **Magnum DI** (at most 1 Magnum DI call per correlated case, no retry) → **Higgins** explains the result.
 
 Each check creates exactly one entry in the Threats list. The phone's first detection and the later investigation update the same card.
 
@@ -28,7 +28,7 @@ Every check starts at a gate. Each gate below lists every one of its rules, word
 
 **Process**
 1. **First look on the phone.** Fixed rules give the check one of six states: Checking, Patrolling, Sniffing, Growling, Barking or Biting.
-2. **Specialist lookups, gathered once.** These are Google Safe Browsing, Apollo's blocklist and the free threat lists (see ApolloSG's knowledge base), the domain registration record (RDAP), redirect expansion, IPQualityScore (links and phone numbers), direct-download detection, official scam advisories and breach data. TC FlyBy and Magnum DI reuse these results; they never repeat them.
+2. **Specialist lookups, gathered once.** These are Google Safe Browsing, Apollo's blocklist and the free threat lists (see ApolloSG's knowledge base), the domain registration record (RDAP), redirect expansion, IPQualityScore (links and phone numbers), direct-download detection, official scam advisories and breach data. TC Hawkeye and Magnum DI reuse these results; they never repeat them.
 3. **Gate rules.** A fixed catalogue of 155 rules covers links/QR, messages, calls, email/accounts, files, apps, device, network and correlated sequences. Each source type is checked only against its own rule groups. Every rule has one class (see Rule classes) and is listed under its gate below, grouped by class.
 4. **Retries.** A temporary failure gets up to 3 attempts. This covers a provider not answering, a network failure, content that couldn't be opened, or a check error. Permanent limits are never retried. On the phone, link and number reputation lookups follow the same policy within a time budget, and identical lookups already running are shared, never sent twice. An authorisation failure or rejected input is not retried. If every attempt fails, the lookup is recorded as unavailable, with how it failed. It is never counted as a pass, and the attempts appear in the DI.
 5. **Rules that can't run here.** A rule that needs something this context can never provide is **not applicable**, not a coverage gap. The DI still lists it, with the reason. Example: BITM-01 to BITM-04 need the page's live content and WebSocket traffic as a browser sees them, which ApolloSG can't observe from an app. A coverage gap means a check that should have run, but didn't.
@@ -97,7 +97,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 - The domain's registration record (RDAP) is fetched alongside it. It adds detail but never decides the result.
 - Every link Apollo checks, in a message, an email or on its own, gets the same check.
 - **QR codes:** the address inside is checked as a link. QR-01 is a ROUTE rule: it hands the address to the Link Gate rules and never makes a Possible Threat by itself. A QR check is a Possible Threat only when a threat-producing rule is met for the address (QR-02, QR-03 or any other Link Gate rule). The QR code itself is never a threat.
-- A link the person checks themselves opens an investigation, which TC FlyBy and Magnum DI pick up as usual.
+- A link the person checks themselves opens an investigation, which TC Hawkeye and Magnum DI pick up as usual.
 - **Trusted links:** trust covers only the exact link the person chose. Removing it ends the trust.
 - **Never a threat on their own:** an http link, a bare IP address, punycode, an unusual port, a risky TLD, a link shortener, a long link, deep subdomains, encoded characters, a newly registered domain, a QR code itself, and data or blob links.
 - **Several weak URL-risk indicators** that intelligence can't resolve are recorded by LINK-11, a COVERAGE rule. They can make the result Limited, never a Possible Threat. When the link also carries independent strong threat evidence (a brand lookalike with a login or payment form, a credential lure with a deceptive destination, a displayed link that differs from where it really goes, an authoritative malicious listing), that evidence meets its own DETECT rule, and that rule is the one recorded as met.
@@ -511,7 +511,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
    **Who the material speaks as:** its From name, or how its text introduces or signs itself ("This is Sam from Apple Support", "The PayPal Team"). An organisation it only mentions (a retailer selling Apple products) is not who it claims to be.
 5. **Message type:** investment, family impersonation, tech support, delivery/toll, government, bank, job, romance, prize, invoice or unknown. A submission can also be classed as link only or as a general question.
 6. **General question.** This applies only when nothing was submitted except the question, it holds no identifier or amount, it is 40 words or fewer, it is phrased as a question, and it doesn't describe something that happened to the person.
-7. **A first reading can be disproved before the Evidence Lock.** A Higgins Triage warning sign that rests on who the material says it is and where it sends the person (MSG-08, MSG-14, MSG-18, MSG-20, MSG-21, MSG-22) stops counting when TC FlyBy's official sources verify every link, number and address in it as the organisation's own. The first reading is kept, marked disproved, beside the verification.
+7. **A first reading can be disproved before the Evidence Lock.** A Higgins Triage warning sign that rests on who the material says it is and where it sends the person (MSG-08, MSG-14, MSG-18, MSG-20, MSG-21, MSG-22) stops counting when TC Hawkeye's official sources verify every link, number and address in it as the organisation's own. The first reading is kept, marked disproved, beside the verification.
 8. **A check that couldn't run is not a threat.** A Limited result resting only on checks that couldn't run (a lookup that didn't answer, headers that weren't available) is recorded as "Not every check could run": no warning, and never a claim that it's safe.
 9. **Plans the checks.** Each check asks one narrow factual question about one exact value:
 
@@ -528,11 +528,11 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 | Claims, scam alerts | ApolloSG KB only |
 | Message analysis | Planned, but it reaches Magnum DI only if the deciding test says so |
 
-### TC FlyBy {#tc-flyby}
+### TC Hawkeye {#tc-flyby}
 
-**Job:** a fast, low-cost investigation that takes the cheapest reliable route. TC FlyBy makes no AI call. It runs once per case; a recovered job reuses its record and repeats no lookups.
+**Job:** a fast, low-cost investigation that takes the cheapest reliable route. TC Hawkeye makes no AI call. It runs once per case; a recovered job reuses its record and repeats no lookups.
 
-**What Higgins Triage flagged is never dismissed.** Before its own stages, TC FlyBy runs Higgins Triage's message rules (the same catalogue the phone runs) over the material, except for a call. Each threat-producing rule met is a **warning sign** about this case, recorded in the message's own words (for example, an organisation name written with a look-alike character: MSG-23). TC FlyBy's own checks can add to it, never dismiss it on their own: the only exception is a sign that rests on who the material says it is and where it sends the person, which stops counting once official sources verify every link, number and address in it as the organisation's own (Higgins Triage step 7). A case Triage flagged can't end as "This is not a scam" while any warning sign still counts. When TC FlyBy finds nothing more, it settles the case as **This is likely a scam** ("be careful and check it first"); Magnum DI isn't called, because it couldn't change what to do.
+**What Higgins Triage flagged is never dismissed.** Before its own stages, TC Hawkeye runs Higgins Triage's message rules (the same catalogue the phone runs) over the material, except for a call. Each threat-producing rule met is a **warning sign** about this case, recorded in the message's own words (for example, an organisation name written with a look-alike character: MSG-23). TC Hawkeye's own checks can add to it, never dismiss it on their own: the only exception is a sign that rests on who the material says it is and where it sends the person, which stops counting once official sources verify every link, number and address in it as the organisation's own (Higgins Triage step 7). A case Triage flagged can't end as "This is not a scam" while any warning sign still counts. When TC Hawkeye finds nothing more, it settles the case as **This is likely a scam** ("be careful and check it first"); Magnum DI isn't called, because it couldn't change what to do.
 
 **Weak signals, warning signs and verified checks**
 - **Weak signals:** a redirect to another site, a newly registered domain, a direct download, a third-party reputation warning (an IPQualityScore flag on a link or a number, or a warning the search finds from a source that isn't official), the material's text found copied elsewhere online. Alone or together they never establish a scam. They are recorded as signals, and they count only as the independent corroboration that an impersonation or another warning sign needs. Related history (this device's own earlier cases, ApolloSG's previous reports) is never a signal of any kind (see Related history).
@@ -560,7 +560,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 - **Email:** named on ASIC's investor alert list → **decisive concern** (an official source naming this exact address). A listed organisation's published address on the Official Organisation Directory → **verified as an official contact**, which settles that check only. An official domain → **verified as official**, which settles the email address check only. A free personal account (Gmail and similar) while an organisation is named → warning sign, but it needs corroboration.
 - **ABN/ACN:** checked with the official check-digit test. A fail is a warning sign and settles the check. A pass shows only that the number is well formed, never who holds it.
 
-**TC FlyBy's stages end here only for a decisive concern → This is a scam.** The deciding test still applies.
+**TC Hawkeye's stages end here only for a decisive concern → This is a scam.** The deciding test still applies.
 
 #### Stage 2: ApolloSG Knowledge Base (no AI)
 - **Scam patterns.** There are 13 patterns from Scamwatch: family "new number" ("Hi Mum"), organisation phishing, delivery/toll, government threat, unexpected money or prize, job/paid task, investment returns, remote access/tech support, and OTP or verification code sharing request (account takeover); and four for phone calls only: a bank or card provider asking for a code, PIN, password or card details; government or police impersonation asking you to pay, move money or hand over details; tech support or an internet provider asking you to install an app, share your screen or give remote access; and a delivery or parcel company asking for a fee or card details.
@@ -595,11 +595,11 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 - **ABN, ACN and licence numbers:** the exact number goes only into the register search that verifies it (who holds it, and is it current). Any other search carries it as a label, never the number (see Privacy and redaction).
 
 #### The deciding test
-*"Could unresolved evidence materially change Apollo's outcome or the protective action Higgins recommends?"* If not, TC FlyBy settles the case. If it could, the case goes to Magnum DI, even when TC FlyBy has already reached a concern outcome. "Unable to determine" is a valid finished result.
+*"Could unresolved evidence materially change Apollo's outcome or the protective action Higgins recommends?"* If not, TC Hawkeye settles the case. If it could, the case goes to Magnum DI, even when TC Hawkeye has already reached a concern outcome. "This is unlikely a scam" is a valid finished result.
 
-**How TC FlyBy's Finding is chosen**
+**How TC Hawkeye's Finding is chosen**
 
-TC FlyBy uses four customer-facing Findings. The backend evaluates five investigation checks (IPDMC: Identity, Purpose, Destination, Mechanism, Contradictions) and applies eleven rules in the following decision order:
+TC Hawkeye uses four customer-facing Findings. The backend evaluates five investigation checks (IPDMC: Identity, Purpose, Destination, Mechanism, Contradictions) and applies eleven rules in the following decision order:
 
 **Scam rules (S1–S4) — any one passing → "This is a scam":**
 1. **S1 — Known scam:** a reliable existing scam report, intelligence record or previously verified investigation identifies the same website, sender, phone number, payment destination or scam operation, with a specific match. A similar-looking domain, a generic reputation warning, or an unverified user allegation does not qualify.
@@ -628,11 +628,11 @@ If any L rule passes and no reliable genuine explanation resolves the suspected 
 
 Missing evidence and conflicting findings must be handled before the final Finding is selected. A numerical score or keyword count never overrides the rules.
 
-**Then the Magnum DI triggers below are checked, whatever the Finding.** A trigger sends the case to Magnum DI only when what it leaves unresolved could materially change the Finding or the protective action. Otherwise TC FlyBy settles the case with its Finding.
+**Then the Magnum DI triggers below are checked, whatever the Finding.** A trigger sends the case to Magnum DI only when what it leaves unresolved could materially change the Finding or the protective action. Otherwise TC Hawkeye settles the case with its Finding.
 - **The Finding changes materially** when the unresolved evidence could decide whether there is a concern at all: a case with no scam finding could reach one, an "unable to determine" could be resolved, or a provisional concern could prove to be a false positive. Established threat evidence is never overridden (see Magnum DI).
 - **The protective action changes materially** when the unresolved evidence could call for a different or additional step, for example contacting the bank because a payment may be involved, removing an app because remote access may be involved, or changing a password because credentials may be involved.
 - "This is a scam" and "This is likely a scam" lead to the same protective action, so Magnum DI is never called only to move a case between them.
-- **Once a scam Finding is reached,** the request is already known, so reasoning about it can't change what to do. What can still count is content TC FlyBy couldn't read (Reading), and, for a provisional concern, a contradiction about the very facts the concern rests on (Relating). A concern resting on established threat evidence goes to Magnum DI only for Reading.
+- **Once a scam Finding is reached,** the request is already known, so reasoning about it can't change what to do. What can still count is content TC Hawkeye couldn't read (Reading), and, for a provisional concern, a contradiction about the very facts the concern rests on (Relating). A concern resting on established threat evidence goes to Magnum DI only for Reading.
 
 #### Triggers for Magnum DI (whether or not a concern outcome was reached)
 | Capability | Trigger |
@@ -641,19 +641,19 @@ Missing evidence and conflicting findings must be handled before the final Findi
 | **Reasoning** | The material makes a consequential request (money, credentials, personal details, remote access, gift cards/crypto, changed payment details, or a call-back for a named organisation) through a route no official source verified. A route is verified only by an official domain, an official email domain, or a number the search confirmed as official. Payment details can never be verified. |
 | **Relating** | Findings that contradict each other: a register entry under a related but different name; an organisation named beside an address that isn't its own, with nothing to corroborate it; or scam-pattern wording beside the organisation's real links while the request still goes somewhere unverified. |
 | General question | Neither the KB nor the search could answer it. |
-| Safety net | TC FlyBy's own result fails Apollo's validation, so Magnum DI takes the whole case with search on. |
+| Safety net | TC Hawkeye's own result fails Apollo's validation, so Magnum DI takes the whole case with search on. |
 
-A trigger counts only under the deciding test above. The type of input, its category or uncertainty alone never sends a case to Magnum DI. Example: a text already "likely a scam" because of a lookalike link, with a picture TC FlyBy couldn't read that may hold a bank-transfer request, goes to Magnum DI (Reading). The same text without the picture is settled by TC FlyBy as "likely a scam", because nothing unresolved could change what the person should do.
+A trigger counts only under the deciding test above. The type of input, its category or uncertainty alone never sends a case to Magnum DI. Example: a text already "likely a scam" because of a lookalike link, with a picture TC Hawkeye couldn't read that may hold a bank-transfer request, goes to Magnum DI (Reading). The same text without the picture is settled by TC Hawkeye as "likely a scam", because nothing unresolved could change what the person should do.
 
 **What Magnum DI receives:**
 - the person's question, once
-- TC FlyBy's brief ("For Magnum DI to settle — only these"), with the facts that bear on each issue and any partial pattern match
-- TC FlyBy's outcome, when it reached one, marked as resting on established threat evidence or as provisional, with each finding it rests on labelled (E1, E2… for established threat evidence, P1, P2… for a provisional concern)
+- TC Hawkeye's brief ("For Magnum DI to settle — only these"), with the facts that bear on each issue and any partial pattern match
+- TC Hawkeye's outcome, when it reached one, marked as resting on established threat evidence or as provisional, with each finding it rests on labelled (E1, E2… for established threat evidence, P1, P2… for a provisional concern)
 - the evidence each issue needs, with any exact ABN, ACN or licence number as a label beside the register check's result (see Privacy and redaction)
-- anything TC FlyBy didn't examine
-- any pre-gathered results TC FlyBy had no reader for
+- anything TC Hawkeye didn't examine
+- any pre-gathered results TC Hawkeye had no reader for
 
-What TC FlyBy already settled, and the raw lookups behind it, are not sent again.
+What TC Hawkeye already settled, and the raw lookups behind it, are not sent again.
 
 **Magnum DI's web search is on only when** something is being read for the first time, a lookup failed, or a general question is still open.
 
@@ -662,12 +662,12 @@ What TC FlyBy already settled, and the raw lookups behind it, are not sent again
 **Job:** a deep investigation, only when unresolved evidence could materially change the Finding or the protective action (see the deciding test).
 
 **Process**
-1. It runs only when TC FlyBy hands it issues under the deciding test, whether or not TC FlyBy reached a scam Finding. It never runs for a follow-up: follow-up questions, answers to its own question, retries, Resubmit taps, new jobs and restarts are answered from the case's locked findings (HIG-01).
+1. It runs only when TC Hawkeye hands it issues under the deciding test, whether or not TC Hawkeye reached a scam Finding. It never runs for a follow-up: follow-up questions, answers to its own question, retries, Resubmit taps, new jobs and restarts are answered from the case's locked findings (HIG-01).
 2. **Size limit.** If the written evidence is over 10,000 words, nothing is sent, and the person is told the word count.
 3. **At most 1 Magnum DI call per correlated case, and no retry.** The call goes to the AI provider and model selected in ApolloSG Settings → AI Provider & Model (ApolloSG's default until an admin changes it). The model is fixed when the investigation starts, so a change applies from the next investigation. If that model can't be used, or its call fails, the investigation says so: ApolloSG never switches to another model or provider.
-   - The call is claimed for the case before anything is sent, apart from the case and job records, so a follow-up, retry, Resubmit tap, new job, recovered job or app restart never resets it. A case TC FlyBy settles uses none: the limit is at most one, never a requirement to make one.
-   - If the call fails or its answer doesn't pass Apollo's checks, the investigation stops and says why, with what TC FlyBy established kept and shown. It is never tried again for that case. A configuration error says a technical fix is needed.
-   - Only a stop before the call was made (TC FlyBy interrupted, or the daily spending limit refused the call before anything was sent) can be resubmitted.
+   - The call is claimed for the case before anything is sent, apart from the case and job records, so a follow-up, retry, Resubmit tap, new job, recovered job or app restart never resets it. A case TC Hawkeye settles uses none: the limit is at most one, never a requirement to make one.
+   - If the call fails or its answer doesn't pass Apollo's checks, the investigation stops and says why, with what TC Hawkeye established kept and shown. It is never tried again for that case. A configuration error says a technical fix is needed.
+   - Only a stop before the call was made (TC Hawkeye interrupted, or the daily spending limit refused the call before anything was sent) can be resubmitted.
    - A new case needs a genuinely separate incident or materially new evidence. Rewording a question, or submitting identical evidence again on the same device, opens the existing case instead.
 4. There is no system prompt; the response shape and the outcome definitions travel in the schema. There are no tool rounds, no escalation to a bigger model and no further provider call to present the answer.
 5. **The answer contains:**
@@ -690,7 +690,7 @@ What TC FlyBy already settled, and the raw lookups behind it, are not sent again
 - Every action needs a label and an instruction. "Action needed" or "urgent" needs at least one action and a reason. If there are actions, a recommended one must be set.
 - "Waiting for the person" needs a question, and a question needs that status.
 - "Complete" only when all material evidence was examined; otherwise "partial".
-- A result can never contradict established threat evidence. A material that asks for a password, PIN, one-time code or card details can't end below "This is likely a scam". A result below TC FlyBy's provisional concern must name the provisional finding it corrects (its label, such as P1, among the finding's superseded findings) and cite the evidence that resolves it.
+- A result can never contradict established threat evidence. A material that asks for a password, PIN, one-time code or card details can't end below "This is likely a scam". A result below TC Hawkeye's provisional concern must name the provisional finding it corrects (its label, such as P1, among the finding's superseded findings) and cite the evidence that resolves it.
 - The AI tool must have finished normally.
 
 If the answer fails, the check fails honestly. The raw reply is kept only in the technical details.
@@ -701,7 +701,7 @@ If the answer fails, the check fails honestly. The raw reply is kept only in the
 
 **Established threat evidence and provisional concern**
 - **Established threat evidence** is never overridden. It is authoritative evidence (a Safe Browsing, blocklist or free threat list listing, an official scam advisory, or an official source naming this exact item: a decisive concern) and deterministic evidence Apollo observed directly that is threat evidence in itself (the material asks for a password, PIN, one-time code or card details; a program disguised as a document; credentials written into a link; a displayed link that differs from where it really goes). Magnum DI can't contradict it, and a case whose Finding rests on it is never lowered.
-- **A provisional concern** is one TC FlyBy inferred: a scam-pattern match, a corroborated impersonation, an established warning sign, or a concern resting on what Apollo's register or a third party doesn't list. Magnum DI may confirm it, raise it, or correct it downward when deeper investigation shows it was a false positive, for example when the link proves to be the organisation's own or the contact proves official.
+- **A provisional concern** is one TC Hawkeye inferred: a scam-pattern match, a corroborated impersonation, an established warning sign, or a concern resting on what Apollo's register or a third party doesn't list. Magnum DI may confirm it, raise it, or correct it downward when deeper investigation shows it was a false positive, for example when the link proves to be the organisation's own or the contact proves official.
 - Magnum DI lowers a provisional concern only with evidence that resolves it, and its result names the provisional finding it corrected and cites that evidence. Finding nothing more never lowers a concern.
 - It is never called only to move a case between concern Findings.
 
@@ -715,11 +715,11 @@ If the answer fails, the check fails honestly. The raw reply is kept only in the
 
 **EXPLAIN** (11)
 - **HIG-01** · Every follow-up on an investigated case is answered from its locked findings, with no AI, and the case is never reopened
-  - This includes an answer to Magnum DI's own question, and a case whose Magnum DI call failed: its reason and what TC FlyBy established.
+  - This includes an answer to Magnum DI's own question, and a case whose Magnum DI call failed: its reason and what TC Hawkeye established.
   - It covers: checking again, what wasn't established, sources, evidence, confidence, what to watch for, why it's suspicious, what it means, what to do, and what was found.
   - Anything new (a link, email or phone number) is named as not covered: "start a new check".
   - A general question about that kind of scam is answered from the KB, labelled as general knowledge and kept apart from the case.
-  - The answer credits whoever settled the check: TC FlyBy or Magnum DI.
+  - The answer credits whoever settled the check: TC Hawkeye or Magnum DI.
 - **HIG-02** · Something to check goes to the investigation pipeline
   - What counts as something to check is set out under Ask Higgins below.
 - **HIG-03** · A scam alert the person opened is shown in the source's own words
@@ -731,13 +731,13 @@ If the answer fails, the check fails honestly. The raw reply is kept only in the
 - **HIG-07** · An off-topic question gets a fixed reply, word for word
   - "I specialise in helping you stay safe from scams and cyber threats through ApolloSG. For that question, a general assistant would be a better fit. Is there anything security-related I can help with?"
 - **HIG-08** · A question nothing above answers is told plainly that ApolloSG's trusted knowledge doesn't cover it; no general AI model is asked
-  - "ApolloSG's trusted knowledge doesn't cover that question yet, so I won't guess at an answer. If it's about something you've received — a message, link, email, call, app or file — tap + and add it, and Apollo's investigators will check it. Learn with Higgins has guides on the common scams.", with a tap to Learn with Higgins. Something specific to check still goes to TC FlyBy and Magnum DI (HIG-02).
+  - "ApolloSG's trusted knowledge doesn't cover that question yet, so I won't guess at an answer. If it's about something you've received — a message, link, email, call, app or file — tap + and add it, and Apollo's investigators will check it. Learn with Higgins has guides on the common scams.", with a tap to Learn with Higgins. Something specific to check still goes to TC Hawkeye and Magnum DI (HIG-02).
 - **HIG-09** · The phone's live reading is the truth: Higgins never contradicts it, guesses past it or invents a concern
 - **HIG-10** · A case gets at most one Magnum DI call: answering its pending question doesn't reopen the investigation
 - **HIG-11** · Plain Australian English, no internal codes, 2–4 short paragraphs
 
 #### Plain English and the Fidelity Check
-Every finished TC FlyBy or Magnum DI result is explained in plain English by the **Higgins Plain-English Renderer** and checked by the **Fidelity Check** before it is shown. Both have their own sections below.
+Every finished TC Hawkeye or Magnum DI result is explained in plain English by the **Higgins Plain-English Renderer** and checked by the **Fidelity Check** before it is shown. Both have their own sections below.
 
 #### Higgins Luddish L1 (on the phone)
 Luddish L1 is the one language layer everywhere Higgins speaks on the phone: check results, reports (Ask Higgins and a threat's Overview) and Ask Higgins answers. It is fixed rules only: no AI and no network. **It changes the language, never the evidence.**
@@ -759,11 +759,11 @@ Luddish L1 is the one language layer everywhere Higgins speaks on the phone: che
 
 ### Higgins Plain-English Renderer {#plain-english-renderer}
 
-**Job:** explains a finished TC FlyBy or Magnum DI result in everyday words, in Apollo's wording only. No AI is used and it costs nothing. A general question with nothing checked has nothing to explain, so it is shown as answered.
+**Job:** explains a finished TC Hawkeye or Magnum DI result in everyday words, in Apollo's wording only. No AI is used and it costs nothing. A general question with nothing checked has nothing to explain, so it is shown as answered.
 
 **The evidence lock.** The plain English can't add, drop or change a fact, a link, address, number, date or amount, how sure ApolloSG is, how serious it is, what to do, or who established it. The result itself is never changed: the explanation sits beside it, and where the two could ever differ the result wins.
 
-**Step 1: the facts.** Built only from the validated result and the case's own records: what Higgins Triage and TC FlyBy did, what Magnum DI was sent, and the registered sources the result relied on. Nothing is recomputed, re-scored or reinterpreted. The facts are split into parts:
+**Step 1: the facts.** Built only from the validated result and the case's own records: what Higgins Triage and TC Hawkeye did, what Magnum DI was sent, and the registered sources the result relied on. Nothing is recomputed, re-scored or reinterpreted. The facts are split into parts:
 - **The result:** the outcome's label, then the result's overview, sentence by sentence.
 - **Each finding:** its words, who established it, and how firmly.
 - **What it means:** the result's explanation. A "what was found" line that isn't one of the findings is still a fact and is kept here.
@@ -786,7 +786,7 @@ Luddish L1 is the one language layer everywhere Higgins speaks on the phone: che
 | Attention | Line shown |
 |---|---|
 | None | How serious: nothing Apollo found needs action. |
-| Review | How serious: worth a careful look before you act on it. |
+| Review | How serious: worth a careful look, but nothing here is proven harmful. |
 | Action needed | How serious: you need to act. See what you can do. |
 | Urgent | How serious: urgent. Act now. |
 
@@ -794,11 +794,11 @@ Luddish L1 is the one language layer everywhere Higgins speaks on the phone: che
 
 | Basis | Label shown |
 |---|---|
-| Seen directly | Seen directly by TC FlyBy / Seen directly by Magnum DI |
+| Seen directly | Seen directly by TC Hawkeye / Seen directly by Magnum DI |
 | Told by the person | From what you told Apollo |
-| The investigator's reading | TC FlyBy's reading of the evidence, not seen directly / Magnum DI's reading of the evidence, not seen directly |
+| The investigator's reading | TC Hawkeye's reading of the evidence, not seen directly / Magnum DI's reading of the evidence, not seen directly |
 
-How firmly: **High confidence**, **Medium confidence**, **Low confidence**.
+How firmly: **High confidence**, **Medium confidence**, **Low confidence — supporting context only**.
 
 **Plain-English Renderer rules (10)**
 
@@ -892,7 +892,7 @@ How firmly: **High confidence**, **Medium confidence**, **Low confidence**.
 | malware | Malware is software made to harm your device or steal from it. |
 | redirect | A redirect sends you on from the address you tapped to a different one. |
 | Safe Browsing | Google Safe Browsing is Google's list of websites known to be harmful. |
-| IPQualityScore | IPQualityScore rates how risky a link or phone number looks. Its score is a likelihood, not proof. |
+| IPQualityScore | IPQualityScore rates how risky a link or phone number looks. Its score is a likelihood estimate, not proof — many legitimate new websites score high. |
 | blocklist | A blocklist is a list of addresses already known to be harmful. |
 | VoIP | A VoIP number runs over the internet, and anyone can set one up in minutes. |
 | ABN | An ABN or ACN is the public number of a business registered in Australia. |
@@ -986,41 +986,45 @@ A renderer error never fails an investigation. It is recorded as RENDERER_ERROR 
 
 ### Settling rules: the reason shown on each result {#settling-rules}
 
-Every finished result can show one plain sentence naming the rule that settled it, in the form **"Settled by TC FlyBy — Known scam, every step: …"**. Each settling rule is an EXPLAIN rule (13): it names what settled the result and never changes it. People can turn the sentence off in Settings → App. Staff see the same sentence on each case in the admin portal. The sentence never repeats anything from what the person sent.
+Every finished result can show one plain sentence naming the rule that settled it, in the form **"Settled by TC Hawkeye — Known scam, every step: …"**. Each settling rule is an EXPLAIN rule (13): it names what settled the result and never changes it. People can turn the sentence off in Settings → App. Staff see the same sentence on each case in the admin portal. The sentence never repeats anything from what the person sent.
 
 | Rule ID | Rule | Settled by | When it applies |
 |---|---|---|---|
-| FLYBY-THREAT | This is a scam (S1) | TC FlyBy | A direct safety check, an official scam advisory, or an official source found by the search names this exact link, number, address or company as a scam or threat. |
-| FLYBY-PATTERN | Known scam, every step | TC FlyBy | A full match with a known scam pattern in ApolloSG's knowledge base, and nothing contradicts it. |
-| FLYBY-IMPERSONATION | Corroborated impersonation | TC FlyBy | An organisation is named, a link isn't its website, and a separate check on that link backs this up. |
-| FLYBY-OPENING | Known scam opening | TC FlyBy | The message opens like the family "new number" scam but hasn't asked for anything yet. |
-| FLYBY-SIGNS | Established warning signs | TC FlyBy | The checks found an established warning sign (weak signals alone never count), but not enough to call it a scam. |
-| FLYBY-CLEAR | Nothing found, everything checked | TC FlyBy | Every planned check ran over everything sent and none found a scam indicator. |
-| FLYBY-UNKNOWN | Can't establish more | TC FlyBy | The checks couldn't establish more, and a deeper look couldn't change what to do. |
-| FLYBY-ANSWERED | Question answered from a source | TC FlyBy | A general question answered by ApolloSG's knowledge base or a sourced search. |
+| FLYBY-THREAT | Confirmed threat | TC Hawkeye | A direct safety check, an official scam advisory, or an official source found by the search names this exact link, number, address or company as a scam or threat. |
+| FLYBY-PATTERN | Known scam, every step | TC Hawkeye | A full match with a known scam pattern in ApolloSG's knowledge base, and nothing contradicts it. |
+| FLYBY-IMPERSONATION | Corroborated impersonation | TC Hawkeye | An organisation is named, a link isn't its website, and a separate check on that link backs this up. |
+| FLYBY-OPENING | Known scam opening | TC Hawkeye | The message opens like the family "new number" scam but hasn't asked for anything yet. |
+| FLYBY-SIGNS | Established warning signs | TC Hawkeye | The checks found an established warning sign (weak signals alone never count), but not enough to call it a scam. |
+| FLYBY-CLEAR | Nothing found, everything checked | TC Hawkeye | Every planned check ran over everything sent and none found a scam indicator. |
+| FLYBY-UNKNOWN | Can't establish more | TC Hawkeye | The checks couldn't establish more, and a deeper look couldn't change what to do. |
+| FLYBY-ANSWERED | Question answered from a source | TC Hawkeye | A general question answered by ApolloSG's knowledge base or a sourced search. |
 | MAGNUM-READING | Reading | Magnum DI | Part of what was sent (a picture or scanned page) had to be read directly. |
 | MAGNUM-REASONING | Reasoning | Magnum DI | The material asks for money, details or access through a route no official source verified. |
-| MAGNUM-RELATING | Relating | Magnum DI | TC FlyBy's findings pointed in different directions and needed weighing up. |
+| MAGNUM-RELATING | Relating | Magnum DI | TC Hawkeye's findings pointed in different directions and needed weighing up. |
 | MAGNUM-QUESTION | Open general question | Magnum DI | Neither the knowledge base nor a targeted search could answer a general question. |
-| MAGNUM-SAFETY-NET | Safety net | Magnum DI | TC FlyBy's own result didn't pass Apollo's checks, so Magnum DI looked at the whole case. |
+| MAGNUM-SAFETY-NET | Safety net | Magnum DI | TC Hawkeye's own result didn't pass Apollo's checks, so Magnum DI looked at the whole case. |
 
 When Magnum DI was needed for more than one reason, the sentence names them together, for example "Reading and reasoning". Results recorded before these rules existed show no sentence rather than a guessed one.
 
-### Outcomes (one system for TC FlyBy and Magnum DI) {#outcomes}
+### Outcomes (one system for TC Hawkeye and Magnum DI) {#outcomes}
 
-| Outcome | Meaning |
-|---|---|
-| **This is a scam** | An authoritative source names this exact link, number, address or company as a scam or threat; or the investigation has established a fake identity, a deceptive activity, or a complete corroborated scam pattern. |
-| **Likely scam** | The evidence and an established scam pattern point to a scam, without proof about this particular sender. |
-| **This is likely a scam** | Strong signs of impersonation, a strong scam-pattern match, or several independent scam indicators — but an important part of the evidence remains unverified. |
-| **Unable to determine** | The available evidence can't establish more. With nothing concrete left to act on, the case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. |
-| **This is not a scam** | The investigation verified the identity, destinations, purpose and resolved all scam warnings. This is **not** proof it's safe, and it is never described as safe. |
+Every Finding carries a 0–100 Findings Rating (Apollo PRD v2.2 §2) across six investigative dimensions
+(scam mechanism, requested action, identity & destination, manipulation & behaviour, knowledge base
+intelligence, evidence corroboration), then classified into exactly one of four tiers by its score —
+the boundaries are exact and inclusive:
 
-Every result shows **"Settled by TC FlyBy"** or **"Settled by Magnum DI"**, in the app and in the admin portal.
+| Outcome | Rating | Meaning |
+|---|---|---|
+| **This is a scam** | 85–100 | An authoritative source names this exact link, number, address or company as a scam or threat; or the investigation has established a fake identity, a deceptive activity, or a complete corroborated scam pattern. |
+| **This is likely a scam** | 60–84 | Strong signs of impersonation, a strong scam-pattern match, or several independent scam indicators — but an important part of the evidence remains unverified. |
+| **This is unlikely a scam** | 25–59 | A benign or routine communication without meaningful scam indicators, but without enough positive verification to call it genuine — the normal finding for ordinary, unverified communications. The case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. (Replaces the earlier "Unable to determine" outcome, now fully merged into this tier.) |
+| **This is not a scam** | 0–24 | The investigation verified the identity, destinations, purpose and resolved all scam warnings. This is **not** proof it's safe, and it is never described as safe. |
+
+Every result shows **"Settled by TC Hawkeye"** or **"Settled by Magnum DI"**, in the app and in the admin portal.
 
 ### ApolloSG's knowledge base (KB) {#knowledge-base}
 
-**Job:** sourced general knowledge that Higgins and TC FlyBy can use with no AI. KB knowledge is general knowledge. It is never evidence about anything a person asked Apollo to check.
+**Job:** sourced general knowledge that Higgins and TC Hawkeye can use with no AI. KB knowledge is general knowledge. It is never evidence about anything a person asked Apollo to check.
 
 **What is in it**
 | Kind | Where it comes from |
@@ -1028,7 +1032,7 @@ Every result shows **"Settled by TC FlyBy"** or **"Settled by Magnum DI"**, in t
 | Learn articles | Published Learn with Higgins articles, each linked to its screen |
 | Scam alerts | Official alerts and advisories from the government feeds, in the source's own words |
 | Official guidance | cyber.gov.au guidance shipped with ApolloSG (CC BY 4.0, attributed) |
-| Scam patterns | The Scamwatch patterns TC FlyBy compares material against |
+| Scam patterns | The Scamwatch patterns TC Hawkeye compares material against |
 | Researched pages | Pages on trusted websites, found and kept up to date through Tavily |
 | Exploited vulnerabilities | CISA's Known Exploited Vulnerabilities catalogue, with the severity from the US National Vulnerability Database (NVD) |
 | Attack techniques | MITRE ATT&CK techniques for Mobile and Enterprise (attributed to The MITRE Corporation) |
@@ -1059,12 +1063,12 @@ Exploited vulnerabilities and attack techniques are technical knowledge: they ar
 - **What counts as official:** a domain counts when it shipped with ApolloSG or a source page is on it or names it. A phone number or email address counts only when ApolloSG found it on one of the source pages within the last 30 days. A successful re-read that no longer shows it stops it counting at once. A page that can't be read keeps the last confirmation until those 30 days run out, and never confirms anything new. A page that refuses cloud servers is read from an Internet Archive copy no older than 30 days.
 - **Freshness:** every source page is re-read once a week, and a day after an attempt that couldn't read any of them. Staff can re-check now from the admin portal.
 - **Admins** add, edit and remove organisations in the admin portal (Official Organisations). Every change is audit-logged and takes effect at once; a shipped entry an admin changed is never overwritten by a later release.
-- **How checks use it (TC FlyBy and every check result):** a number or address on the directory is that organisation's published contact, which settles that check only. A number, email address or website presented as a listed organisation's that isn't one of its published ones is a warning sign that needs corroboration (organisations have many numbers), and the person is shown the official contact to use instead. A website carrying a listed organisation's name that isn't its domain is the lookalike or shared-service warning sign above.
+- **How checks use it (TC Hawkeye and every check result):** a number or address on the directory is that organisation's published contact, which settles that check only. A number, email address or website presented as a listed organisation's that isn't one of its published ones is a warning sign that needs corroboration (organisations have many numbers), and the person is shown the official contact to use instead. A website carrying a listed organisation's name that isn't its domain is the lookalike or shared-service warning sign above.
 - **Every check result** (link, message, email and call) lists the directory's verdict on each website, number and address it holds: "the organisation's own", or "not the official contact" with the official one to use instead. It never changes the result's outcome. The phone sends only those contacts and the organisation the material names; nothing is fetched and nothing is kept.
 
 #### ApolloSG previous reports {#observed-patterns}
 **Job:** ApolloSG's cross-device intelligence: what independent ApolloSG findings on other devices say about a website, phone number, email address, message or file, kept on ApolloSG's servers as one-way codes and per-device marks, never content. It lives in ApolloSG's own indicator store, and it is the only way anything learned on one device reaches another.
-- **What is recorded:** each finished, non-simulated case sets one mark per device on each of its websites (their registrable domain), phone numbers and email addresses, and on the message and file themselves (as one-way codes of their content): **supporting** ("This is a scam" or "This is likely a scam"), **contradicting** (a complete check that found no scam: "This is not a scam"), **inconclusive** ("Unable to determine") or **insufficient evidence** (part of the evidence couldn't be checked). A device's latest finding replaces its earlier mark. Which websites, numbers and addresses appeared together in supporting material is recorded too (a possible campaign). Never an organisation's own or official address, a shared platform, a free mail provider's domain, or a number on the Official Organisation Directory.
+- **What is recorded:** each finished, non-simulated case sets one mark per device on each of its websites (their registrable domain), phone numbers and email addresses, and on the message and file themselves (as one-way codes of their content): **supporting** ("This is a scam" or "This is likely a scam"), **contradicting** (a complete check that found no scam: "This is not a scam"), **inconclusive** ("This is unlikely a scam") or **insufficient evidence** (part of the evidence couldn't be checked). A device's latest finding replaces its earlier mark. Which websites, numbers and addresses appeared together in supporting material is recorded too (a possible campaign). Never an organisation's own or official address, a shared platform, a free mail provider's domain, or a number on the Official Organisation Directory.
 - **Consensus (on ApolloSG's servers only):** unanimous means no contradicting mark exists; one contradicting mark removes unanimity at once. Inconclusive and insufficient marks never break unanimity and never count as support.
 - **No artificial consensus:** when ApolloSG's previous reports asserted something about a subject to a case (in Magnum DI's brief or beside the result), that case's finding on the subject is recorded as dependent and never counts as independent confirmation of the same assertion; a device's dependent finding never replaces its own earlier independent one. A device's own marks are never part of what it is told: its own cases are its related cases.
 - **What a device is told (these words only; never which device, how many, when, or anyone's case or verdict):** 3 or more independent supporting findings from other devices, unanimous: "has been previously reported as malicious — High confidence". 2, unanimous: "has been previously reported as concerning — Medium confidence". Supporting and contradicting findings, at least 3 together: "has mixed previous reports" (it adds no weight). Fewer asserts nothing. Seen together on 3 or more independent devices with a website a free threat list lists now: "has been previously reported together with …, which … lists — High confidence". What a person reads never says "knowledge base" or "cases": these are previous reports.
@@ -1081,7 +1085,7 @@ Exploited vulnerabilities and attack techniques are technical knowledge: they ar
 
 #### Cross-source record {#cross-source}
 **Job:** for each website, phone number and email address in a case, what every ApolloSG source says about it, side by side: the free threat lists, Google Safe Browsing, the official-domain register, the Official Organisation Directory, the official scam advisories and ApolloSG's previous reports (in their approved words only). Each row keeps the source's own reference, when it last confirmed it and when it stops counting, plus how many of the sources that answered list it.
-- It adds nothing to TC FlyBy's checks. It is context: it goes into Magnum DI's brief so Magnum DI doesn't re-derive what is known and knows how current each piece is. It is never a finding by itself.
+- It adds nothing to TC Hawkeye's checks. It is context: it goes into Magnum DI's brief so Magnum DI doesn't re-derive what is known and knows how current each piece is. It is never a finding by itself.
 
 Saved AI answers are **not** in the KB. They are reusable intelligence (below), labelled as written by AI and never treated as sourced knowledge.
 
@@ -1092,7 +1096,7 @@ Saved AI answers are **not** in the KB. They are reusable intelligence (below), 
 - A source is reproduced as a Learn article only when its licence allows it. Every other source is quoted briefly, with a link to read the rest.
 
 **How Tavily is used**
-- Only to find and re-read trusted pages for the KB. Never by TC FlyBy or Magnum DI, never in a live investigation, and never to answer a question as it is asked.
+- Only to find and re-read trusted pages for the KB. Never by TC Hawkeye or Magnum DI, never in a live investigation, and never to answer a question as it is asked.
 - Tavily is never the source. Its own generated answer is switched off, and every page it returns is checked against the trusted list again.
 - **Once a week:** a run is due when the last successful run is 7 days old and no attempt was made in the last day. Staff can also start one from the admin portal.
 - **Each run** searches 14 guidance topics on every tier (up to 5 results from Tier 1, 4 from Tier 2 and 3 from Tier 3) and 4 scam-alert topics in Tier 1 news. Up to 40 stored pages last checked 7 or more days ago are read again.
@@ -1135,7 +1139,7 @@ Only the page's own headings, paragraphs and bullet points are kept; menus, foot
 
 **Where the KB is used**
 - **Higgins:** quoted as general knowledge (Higgins step 6), and for a general question asked about a finished case, kept apart from its findings.
-- **TC FlyBy:** stage 2 (scam patterns, claims and general questions). Only sourced, current entries are used; historical pages and saved AI answers never are.
+- **TC Hawkeye:** stage 2 (scam patterns, claims and general questions). Only sourced, current entries are used; historical pages and saved AI answers never are.
 - **Preview:** the preview runs exactly as production does. Only the AI tools are simulated, answered here from the KB, and anything that came from the simulator is tagged **Simulated**. Its rules, processing and wording are production's.
 
 #### Reusable intelligence (not KB knowledge)
@@ -1143,7 +1147,7 @@ Only the page's own headings, paragraphs and bullet points are kept; menus, foot
 
 **What it holds**
 - Answers an AI tool wrote to general questions before Ask Higgins stopped asking one. They are kept until they expire and are never shown again.
-- TC FlyBy's targeted search about a link, phone number, email address, company, ABN, ACN or licence.
+- TC Hawkeye's targeted search about a link, phone number, email address, company, ABN, ACN or licence.
 - Phone and link reputation (IPQualityScore) and domain registration (RDAP) keep their own stores, with freshness from the same table.
 - Each result records who produced it, by which ApolloSG process, when ApolloSG first obtained it, when it was last checked, and when it stops counting as current.
 
@@ -1153,8 +1157,8 @@ Only the page's own headings, paragraphs and bullet points are kept; menus, foot
 | Information | Current for |
 |---|---|
 | Old AI answer to a general question (never shown) | 90 days |
-| TC FlyBy search that found something | 7 days |
-| TC FlyBy search that found nothing | 1 day |
+| TC Hawkeye search that found something | 7 days |
+| TC Hawkeye search that found nothing | 1 day |
 | Phone reputation (IPQualityScore) | 24 hours |
 | Link reputation (IPQualityScore) | 12 hours |
 | Domain registration (RDAP) | 48 hours |
@@ -1197,7 +1201,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 - A field that holds unrelated personal data is sent as "[personal data withheld]", unless the request is an investigation the person asked for.
 - Long tracking links are shortened: tracking parameters (utm, gclid, fbclid and similar) are removed, other values over 80 characters are cut, and any link over 200 characters is cut. The domain and path are always kept.
 - Research and public-advisory requests also have personal identifiers replaced with labels: email addresses, phone numbers, card and account numbers, BSBs, TFNs, Medicare, ABN, ACN and licence numbers, passport and social security numbers.
-- **ABN, ACN and licence numbers:** an exact number may be sent only to the approved lookup that verifies it: TC FlyBy's register question about that number (who holds it, and is it current). Every other AI or research request (Magnum DI, every other search question and KB research) carries it redacted as a label (an ABN becomes "[business number]"), with the register check's result where there is one.
+- **ABN, ACN and licence numbers:** an exact number may be sent only to the approved lookup that verifies it: TC Hawkeye's register question about that number (who holds it, and is it current). Every other AI or research request (Magnum DI, every other search question and KB research) carries it redacted as a label (an ABN becomes "[business number]"), with the register check's result where there is one.
 - The original evidence is never changed; only the copy being sent is.
 
 **Pictures**
@@ -1248,7 +1252,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 - **What Higgins remembers between chats:** a recent result for 7 days, protection status for 1 hour, a preference for 90 days, a goal for 30 days and a permission for 1 day. At most 25 of each kind and 100 in all.
 - **Threats records:** fixed wording and a domain only (see Privacy and redaction). Kept until the person deletes them (see Deleting chosen cases), clears the Threats history, which hides them, or deletes all their data, which deletes them.
 - **Remembered gate results:** a possible threat for 30 days and no threat for 7 days, kept against a fingerprint (a one-way code) of what was checked.
-- **TC FlyBy's search answers:** 7 days for something found and 1 day for nothing found, filed under what was looked up (a one-way code for a phone number or email address). They are shared, never tied to the person who asked, and deleted 90 days after they expire (see Reusable intelligence).
+- **TC Hawkeye's search answers:** 7 days for something found and 1 day for nothing found, filed under what was looked up (a one-way code for a phone number or email address). They are shared, never tied to the person who asked, and deleted 90 days after they expire (see Reusable intelligence).
 - **Trusted links:** until the person removes the link.
 - **Gmail:** an encrypted sign-in token, until the person disconnects. Message content is never stored (see Email Gate).
 - **Family links:** until the person unpairs. A pairing code is 6 random digits, works once, and expires after 15 minutes; only the newest code a phone made works, and 5 wrong codes in 15 minutes pause linking on that phone. There is no email invitation. A Family Help session is deleted 30 days after it starts.
@@ -1256,7 +1260,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 - **ApolloSG previous reports:** one-way codes and per-device marks (supporting, contradicting, inconclusive or insufficient) for websites, numbers, addresses, messages and files, for 30 days, never content and never which device (see ApolloSG previous reports).
 - **This device's case history:** one-way codes of each case's subjects, its result and when, for 90 days, read back only on this device and deleted with its data (see Related history).
 - **Diagnostics:** device registration, protection-health checks and alert-delivery records, with no personal content. Kept until the person deletes all their data, unless they expire sooner.
-- **Usage counts:** with the device record, how many times this phone used TC FlyBy, Magnum DI, Ask Higgins and Device Check, and how many different Learn articles and scam alerts it opened. Kept until the person deletes all their data, or ApolloSG's admin resets the counts (Reset Stats also deletes the AI usage and cost records and finished investigation records).
+- **Usage counts:** with the device record, how many times this phone used TC Hawkeye, Magnum DI, Ask Higgins and Device Check, and how many different Learn articles and scam alerts it opened. Kept until the person deletes all their data, or ApolloSG's admin resets the counts (Reset Stats also deletes the AI usage and cost records and finished investigation records).
 - **Saved AI answers:** kept only when the question holds no secret and no personal detail. Current for 90 days, then deleted 90 days after that (see Reusable intelligence).
 
 **Deleting everything**
@@ -1297,7 +1301,7 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 **Job:** one record for each check, showing what Apollo found and what to do next.
 
 **One record, never twins**
-- **Where a case begins:** every Threat Case begins on the device that detected it. Server processing, TC FlyBy, Magnum DI, syncing, the privacy-protected server copy and missing evidence never change that, and ApolloSG never says a case or its evidence came from, or is held on, a different device. A detection on a second device is that device's own case, never a continuation of the first.
+- **Where a case begins:** every Threat Case begins on the device that detected it. Server processing, TC Hawkeye, Magnum DI, syncing, the privacy-protected server copy and missing evidence never change that, and ApolloSG never says a case or its evidence came from, or is held on, a different device. A detection on a second device is that device's own case, never a continuation of the first.
 - Each check creates exactly one entry. The phone's first detection and the later investigation update the same card.
 - Records that name the same investigation are one case. Repeat checks of the same subject show as one case with the latest result, and every check stays in its history.
 - Two records are the same finding only when they share an investigation, an explicit link between them, or the same verified indicator. A brand, website or scenario in common never merges two findings.
@@ -1317,12 +1321,12 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 **Rules**
 - **Biting only for a real block** (see How the gates decide). The server rejects any Biting claim without the block evidence, and an edit can never turn a record into Biting.
 - A handled finding reopens only when genuinely new detection evidence arrives. A repeat of old evidence never reopens it, and neither does an investigation's answer, a re-judge or a migration: a record the person handled or trusted, or one already resolved, stays closed: its closure (alert level, status and when it was closed) is kept exactly as it was, and only its findings and their words change.
-- Each finished investigation shows "Settled by TC FlyBy" or "Settled by Magnum DI". The badge is left off when the record doesn't say, rather than guessed.
+- Each finished investigation shows "Settled by TC Hawkeye" or "Settled by Magnum DI". The badge is left off when the record doesn't say, rather than guessed.
 - **Evidence on each card:** every case with an evidence profile shows its level code only, in a small pill ("L3") — its level out of the strongest that kind of evidence can have; screen readers hear the level's name too. Sort cycles Latest first → Oldest first → Strongest evidence (strongest share first, then newest).
-- **Threat Case Evidence keeps five facts apart:** Origin (always "Detected on this device"), Evidence (what supplied it: Apollo's check on this device, Apollo's DNS filter, the phone's built-in protection, a connected mailbox, or what this device sent for checking — never ApolloSG's servers, because server processing is not an evidence source), Checked (Higgins Triage on this device or on ApolloSG's servers, TC FlyBy, Magnum DI), Record (summary only, the checks that couldn't be completed, or none unfinished) and Privacy (when ApolloSG's servers worked from, or keep, a privacy-protected version). None is inferred from another.
-- **The Evidence tab lists the facts the case established, strongest first** — never the item that was submitted again, and never the verdict. Each fact is listed once, even when Higgins Triage, TC FlyBy and Magnum DI each established it: the first to establish it keeps it in its own words, and a later stage that reached it in its own words is shown as confirming it ("Found by TC FlyBy · Confirmed by Magnum DI"). A later stage repeating the same words is only passing the fact on and confirms nothing. Two statements are one fact only when they report the same check on the same subject, say the same thing, or quote the same words from the material. A fact that points the other way is listed with the rest and marked "Points the other way"; a weak signal is marked "Weak signal". A lookup that found nothing or didn't answer, ApolloSG's knowledge base, a message rule's name and a finding that only states the conclusion are never listed as evidence. A block this device recorded is listed like any other fact, "Found by Apollo on this device". Strongest first means: how firmly it was recorded, how many stages established it and whether it was seen directly; a weak signal, or a fact that points neither way, comes after the rest. The record of who found what is made when the result is committed. A result recorded before that record existed lists its findings in its own words with no "Found by" line — who found what is never guessed.
+- **Threat Case Evidence keeps five facts apart:** Origin (always "Detected on this device"), Evidence (what supplied it: Apollo's check on this device, Apollo's DNS filter, the phone's built-in protection, a connected mailbox, or what this device sent for checking — never ApolloSG's servers, because server processing is not an evidence source), Checked (Higgins Triage on this device or on ApolloSG's servers, TC Hawkeye, Magnum DI), Record (summary only, the checks that couldn't be completed, or none unfinished) and Privacy (when ApolloSG's servers worked from, or keep, a privacy-protected version). None is inferred from another.
+- **The Evidence tab lists the facts the case established, strongest first** — never the item that was submitted again, and never the verdict. Each fact is listed once, even when Higgins Triage, TC Hawkeye and Magnum DI each established it: the first to establish it keeps it in its own words, and a later stage that reached it in its own words is shown as confirming it ("Found by TC Hawkeye · Confirmed by Magnum DI"). A later stage repeating the same words is only passing the fact on and confirms nothing. Two statements are one fact only when they report the same check on the same subject, say the same thing, or quote the same words from the material. A fact that points the other way is listed with the rest and marked "Points the other way"; a weak signal is marked "Weak signal". A lookup that found nothing or didn't answer, ApolloSG's knowledge base, a message rule's name and a finding that only states the conclusion are never listed as evidence. A block this device recorded is listed like any other fact, "Found by Apollo on this device". Strongest first means: how firmly it was recorded, how many stages established it and whether it was seen directly; a weak signal, or a fact that points neither way, comes after the rest. The record of who found what is made when the result is committed. A result recorded before that record existed lists its findings in its own words with no "Found by" line — who found what is never guessed.
 - **The original, as it arrived, is inert.** The Evidence tab shows the original below the facts, as the item itself, never as a fact about it. Its links and buttons look as they did but do nothing when tapped, nothing in it runs, and nothing it refers to (pictures, fonts, tracking pixels) is fetched. An email is shown from its own HTML part, made inert; its text is shown only when it has no usable HTML part.
-- **The evidence source is recorded once,** when the evidence is. Server processing, TC FlyBy, Magnum DI, privacy transformation, syncing and storage never change it, and never change the case's origin. Records written before this rule that named the server as the source are read with their real source (the connected mailbox, or what this device sent), or "Not recorded" when the source was never recorded.
+- **The evidence source is recorded once,** when the evidence is. Server processing, TC Hawkeye, Magnum DI, privacy transformation, syncing and storage never change it, and never change the case's origin. Records written before this rule that named the server as the source are read with their real source (the connected mailbox, or what this device sent), or "Not recorded" when the source was never recorded.
 - **Checks that didn't finish** are listed under "Sources ApolloSG used" in this order: what was checked, what happened, why it failed (the reason recorded for it) and what ApolloSG therefore couldn't verify, for example "Final destination — couldn't be verified: The website's address doesn't exist. Couldn't verify where the link finally leads.", "Reputation check — didn't answer: The service timed out. Couldn't verify whether it's listed as a known threat." or "Sender authentication — didn't answer: ApolloSG didn't receive the full email headers." A coverage gap names the evidence its rule needed (page content, redirect chain, domain registration age …), never a vague catch-all, and isn't repeated in generic words when an unfinished check already names it. A block claim without packet proof is listed the same way: "Proof of the block — couldn't be verified: The record doesn't contain a packet drop Apollo observed and matched to this event. Couldn't verify that the connection was actually blocked." The fixed row "Original evidence — not recorded with this case: No reason was recorded." shows only when the record says evidence is missing and nothing records why; it never stands in for a recorded reason, and a known error is never replaced with generic "unavailable" wording. Missing evidence is never evidence of a threat: it only narrows what ApolloSG could verify, and a reason is never invented. The Evidence Pack and Higgins' narration carry the same five facts and the same rows.
 - **One way of saying it, everywhere:** Home, the Threats list, alerts, the triage history and the Threat Case read a case's words only through Higgins Luddish: its Higgins Case Briefing, else what Apollo recorded. Internal codes never show. Who sent it, its subject and its text are shown whole, as recorded; only the Home hero's two glanceable lines shorten them.
 - **Past cases are judged again when the rules change,** once per rule catalogue version: on ApolloSG's servers from what each Triage record holds, and on the phone from the original kept with the case. No lookup is repeated and no AI is called. A case with an investigation keeps its investigation's result. The earlier judgement stays in the case's history.
@@ -1436,8 +1440,8 @@ Each of these is replaced with "[credential redacted]" before anything leaves th
 ### Cost guardrails at a glance {#cost-guardrails}
 
 - Gate and Higgins Triage: 0 AI calls.
-- TC FlyBy: 0 AI calls. One Brave Search request per case, read by fixed rules; a lookup still current from an earlier case is reused, not asked again, and the same lookup already running is waited for, never sent twice.
-- Magnum DI: at most 1 Magnum DI call per correlated case, no retry. A case TC FlyBy settles makes none.
+- TC Hawkeye: 0 AI calls. One Brave Search request per case, read by fixed rules; a lookup still current from an earlier case is reused, not asked again, and the same lookup already running is waited for, never sent twice.
+- Magnum DI: at most 1 Magnum DI call per correlated case, no retry. A case TC Hawkeye settles makes none.
 - **Daily AI spending limits:** a daily total AI limit of $5.00 (every AI call and paid search), and automatic checks (mailbox monitoring, recovery, advisories, health checks) may use up to $2.00 of it. An admin can change both; the automatic-check limit can't be more than the total. Each paid call's estimated cost is reserved before it is sent, in one atomic step, and settled to the usage the provider reported afterwards. A call whose estimate would go over is refused and nothing is sent. This is an estimated spending guard, not a guaranteed billing ceiling: settling to the reported cost is not checked against the limit again, so a call that costs more than its estimate can take the day's total over the limit by the difference, and every later call that day is refused. When the billing outcome isn't known (a timeout, a dropped connection), the estimate stays held.
 - **Usage records:** each AI call and paid search records its model, purpose, time, device, case, job, input, answer, thinking and cached tokens, searches and estimated cost.
 - **No repeated processing:** the same evidence on the same device is taken on once (an email seen in two connected accounts, the same check submitted twice), claimed atomically before any work starts. Another device's evidence never matches. Each connected mailbox is read from its own checkpoint, so only newer mail is fetched.

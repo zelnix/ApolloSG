@@ -46,7 +46,7 @@ function finishedWithNewMaterial(response: HigginsResponse, sources: SourceRefer
 /** Device-local commit handshake: a finished investigation (not one waiting for the person's answer) is saved to
  *  permanent device storage with its original, read back, and only then is the server told it may delete its copy
  *  (investigation/pickup.ts). Idempotent. Also runs when the app attaches to a case that was already answered —
- *  TC FlyBy often settles a case before the app starts following it. Anything not yet confirmed is queued for retry. */
+ *  TC Hawkeye often settles a case before the app starts following it. Anything not yet confirmed is queued for retry. */
 async function commitAnswered(caseId: string, caseData: InvestigationCase, question: string): Promise<void> {
   if (!caseData.response || caseData.response.question || caseData.status === "failed") return;
   // Already on this device at this revision: nothing new to keep (an unconfirmed copy is already queued).

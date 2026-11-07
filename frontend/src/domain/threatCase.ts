@@ -23,7 +23,7 @@ import type {
 
 /** Who settled this threat's investigation, once it has finished and this device recorded who did.
  *  Null when there was no investigation, it is still running, or who settled it wasn't recorded. */
-export function settledBy(event: Pick<PatrolEvent, "investigation_completed_at" | "investigation_answered_by">): "TC FlyBy" | "Magnum DI" | null {
+export function settledBy(event: Pick<PatrolEvent, "investigation_completed_at" | "investigation_answered_by">): "TC Hawkeye" | "Magnum DI" | null {
   return event.investigation_completed_at && event.investigation_answered_by ? investigatorName(event.investigation_answered_by) : null;
 }
 

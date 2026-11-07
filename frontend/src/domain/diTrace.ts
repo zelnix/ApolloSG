@@ -1,5 +1,5 @@
 // The DI tab: how the investigation reached its result, in the order it ran —
-// Higgins Triage → TC FlyBy → Magnum DI → Evidence Lock — and the outside research behind it, each source with the
+// Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock — and the outside research behind it, each source with the
 // fact it supports or points against. Plain words only: rule-book codes, token counts, cost and Magnum DI's raw reply
 // are in the Admin Portal, never here. Every step is built from what was recorded (the Triage record, the case's
 // routing, the Magnum DI transactions and the result itself). A stage with no record says so — nothing is inferred.
@@ -23,7 +23,7 @@ export interface TraceStep {
   details: string[];
 }
 
-export const TRACE_ORDER = "Higgins Triage → TC FlyBy → Magnum DI → Evidence Lock";
+export const TRACE_ORDER = "Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock";
 
 const plural = (n: number, word: string, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 
@@ -32,7 +32,7 @@ export function diSucceeded(record: DiTransaction): boolean {
   return !record.failureCode && (record.status ?? "success") === "success";
 }
 
-// ── TC FlyBy's checks, in plain words ───────────────────────────────────────
+// ── TC Hawkeye's checks, in plain words ───────────────────────────────────────
 
 const CHECK_LABEL: Record<string, string> = {
   general_question: "Your question", link: "The website", impersonation: "Who it claims to be from", phone: "The phone number",
@@ -61,19 +61,19 @@ function searchLine(flyby: NonNullable<DiTrace["flyby"]>): string | null {
   const calls = flyby.searchCalls ?? 0;
   if (!calls) return null;
   const saved = flyby.cacheHits ?? 0;
-  return `TC FlyBy ran ${plural(flyby.searchQueries || calls, "web search", "web searches")}${saved ? `, ${saved} answered from earlier results` : ""}.`;
+  return `TC Hawkeye ran ${plural(flyby.searchQueries || calls, "web search", "web searches")}${saved ? `, ${saved} answered from earlier results` : ""}.`;
 }
 
 // ── The steps ────────────────────────────────────────────────────────────────
 
-/** On the server, Higgins Triage runs at the start of TC FlyBy (it prepares what was sent and plans TC FlyBy's
- *  checks), so a case with no Triage record of its own has its Triage in TC FlyBy's record. */
+/** On the server, Higgins Triage runs at the start of TC Hawkeye (it prepares what was sent and plans TC Hawkeye's
+ *  checks), so a case with no Triage record of its own has its Triage in TC Hawkeye's record. */
 function triageInFlyby(flyby: NonNullable<DiTrace["flyby"]>): TraceStep {
   const rulesMet = flyby.checks.some((c) => c.kind === "triage_rules");
   const planned = [...new Set(flyby.checks.filter((c) => c.kind !== "triage_rules").map((c) => checkLabel(c.kind).toLowerCase()))];
   return {
-    id: "triage", name: "Higgins Triage", status: "ran", label: rulesMet ? "Warning signs found" : "Ran with TC FlyBy",
-    summary: `Higgins Triage prepared what was sent and planned ${plural(planned.length, "check")} for TC FlyBy`
+    id: "triage", name: "Higgins Triage", status: "ran", label: rulesMet ? "Warning signs found" : "Ran with TC Hawkeye",
+    summary: `Higgins Triage prepared what was sent and planned ${plural(planned.length, "check")} for TC Hawkeye`
       + (rulesMet ? "; its rules found warning signs in it." : "."),
     details: planned.length ? [`Planned to check: ${planned.join(", ")}.`] : [],
   };
@@ -98,12 +98,12 @@ function triageStep(triage: TriageInvestigationRecord | null, hasCase: boolean, 
 }
 
 function flybyStep(trace: DiTrace | null, hasCase: boolean): TraceStep {
-  const name = "TC FlyBy";
+  const name = "TC Hawkeye";
   const flyby = trace?.flyby;
   if (!flyby) {
     return hasCase
-      ? { id: "flyby", name, status: "not_recorded", label: "No record", summary: "No TC FlyBy record is stored for this case.", details: [] }
-      : { id: "flyby", name, status: "not_engaged", label: "Not engaged", summary: "TC FlyBy was not engaged — Higgins Triage didn't open an investigation.", details: [] };
+      ? { id: "flyby", name, status: "not_recorded", label: "No record", summary: "No TC Hawkeye record is stored for this case.", details: [] }
+      : { id: "flyby", name, status: "not_engaged", label: "Not engaged", summary: "TC Hawkeye was not engaged — Higgins Triage didn't open an investigation.", details: [] };
   }
   const reason = trace?.settledReason;
   const common = [
@@ -115,13 +115,13 @@ function flybyStep(trace: DiTrace | null, hasCase: boolean): TraceStep {
   if (flyby.resolved) {
     return {
       id: "flyby", name, status: "settled", label: `Settled · ${outcomeLabel(flyby.outcome) ?? "result recorded"}`,
-      summary: reason?.by === "TC FlyBy" ? reason.sentence : "TC FlyBy settled this case with its automated checks.",
+      summary: reason?.by === "TC Hawkeye" ? reason.sentence : "TC Hawkeye settled this case with its automated checks.",
       details: ["This is an administrative determination from rule-based checks, not a deep investigation by Magnum DI.", ...common],
     };
   }
   return {
     id: "flyby", name, status: "escalated", label: "Escalated to Magnum DI",
-    summary: reason?.by === "Magnum DI" ? reason.sentence : "TC FlyBy couldn't settle this case, so it passed it to Magnum DI.",
+    summary: reason?.by === "Magnum DI" ? reason.sentence : "TC Hawkeye couldn't settle this case, so it passed it to Magnum DI.",
     details: [...(flyby.issues ?? []).map((i) => `Left for Magnum DI: ${i.text}`), ...common],
   };
 }
@@ -155,7 +155,7 @@ function magnumStep(trace: DiTrace | null, records: DiTransaction[], hasCase: bo
     };
   }
   if (trace?.flyby?.resolved) return { id: "magnum", name, status: "not_engaged", label: "Not needed",
-    summary: "Magnum DI was not engaged because TC FlyBy's automated checks resolved all identified questions.",
+    summary: "Magnum DI was not engaged because TC Hawkeye's automated checks resolved all identified questions.",
     details: ["Deep investigation was not required — the rule-based checks were sufficient for this case."] };
   if (!hasCase) return { id: "magnum", name, status: "not_engaged", label: "Not needed",
     summary: "Magnum DI was not engaged because Higgins Triage did not open an investigation.",

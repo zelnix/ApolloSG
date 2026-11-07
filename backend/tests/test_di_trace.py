@@ -58,7 +58,7 @@ async def test_a_flyby_settled_case_records_every_stage_without_the_model(cases)
     assert trace["flyby"]["checks"][0]["route"] == "web_search"
     assert "searchModel" not in trace["flyby"] and "flybyTokens" not in trace["flyby"]
     assert trace["magnum"] is None
-    assert trace["settledReason"]["by"] == "TC FlyBy"
+    assert trace["settledReason"]["by"] == "TC Hawkeye"
     assert trace["higgins"] == {"status": "PASS", "mode": "plain", "attempts": 1}
     shown = repr(trace).lower().replace("'geminicalls'", "")  # a field name on the Triage record, never displayed
     assert "gemini" not in shown and "google" not in shown

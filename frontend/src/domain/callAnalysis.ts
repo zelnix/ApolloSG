@@ -43,7 +43,7 @@ const VERIFY: Record<CallClaim, string> = {
 const CLAIM_LABEL: Record<CallClaim, string> = { bank: "your bank", government: "a government agency", techsupport: "tech support", family: "a family member", telco: "your telco", business: "a business", delivery: "a delivery company", investment: "an investment firm", relationship: "someone you met online", unknown: "an unnamed caller" };
 
 // The call as the person described it, in their own plain sentences: what an investigation receives as the call's
-// details (never the screen's option ids), so TC FlyBy can compare it with Scamwatch's phone-scam patterns.
+// details (never the screen's option ids), so TC Hawkeye can compare it with Scamwatch's phone-scam patterns.
 const CLAIM_SENTENCE: Record<CallClaim, string> = {
   bank: "The caller said they were from my bank", government: "The caller said they were from the government, the police or the ATO",
   techsupport: "The caller said they were from tech support", family: "The caller said they were a family member",

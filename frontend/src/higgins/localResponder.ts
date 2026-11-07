@@ -53,19 +53,19 @@ const KNOWLEDGE_RESPONSES: Record<LocalKnowledgeIntent, string> = {
   how_apollo_works:
     "ApolloSG is your scam protection, and four of us do the work:\n\n" +
     "• **Apollo** watches and detects — websites, calls, messages, apps, your device and your connection. Apollo acts on the device.\n" +
-    "• **TC FlyBy** investigates quickly — checking official sources, ApolloSG's knowledge base and one targeted search.\n" +
-    "• **Magnum DI** investigates deeply — only when TC FlyBy can't settle something that could change the answer.\n" +
+    "• **TC Hawkeye** investigates quickly — checking official sources, ApolloSG's knowledge base and one targeted search.\n" +
+    "• **Magnum DI** investigates deeply — only when TC Hawkeye can't settle something that could change the answer.\n" +
     "• **Higgins** (me) knows ApolloSG and scams. I explain what was found, guide you, and take you to the right screen.\n\n" +
-    "Every check runs on your device first and produces exactly one threat case. If the checks settle it cleanly, that's your answer. If something looks possible, or can't be determined, TC FlyBy investigates it — and Magnum DI looks deeper only if that could change the answer. \"How Apollo checks\" explains the whole process.",
+    "Every check runs on your device first and produces exactly one threat case. If the checks settle it cleanly, that's your answer. If something looks possible, or can't be determined, TC Hawkeye investigates it — and Magnum DI looks deeper only if that could change the answer. \"How Apollo checks\" explains the whole process.",
 
   what_is_higgins:
     "I'm Higgins — Apollo's trusted adviser, interpreter and guide, and the savant of this app.\n\n" +
     "I know every screen, check, protection, setting and privacy rule in ApolloSG, and I know how scams work. Ask me where something is and I'll take you there. Ask me why Apollo is growling and I'll tell you from what your device actually reports.\n\n" +
-    "What I don't do is investigate — when you ask me to check a number, link, message or email, TC FlyBy investigates it first, Magnum DI looks deeper only if needed, and I bring you the findings.",
+    "What I don't do is investigate — when you ask me to check a number, link, message or email, TC Hawkeye investigates it first, Magnum DI looks deeper only if needed, and I bring you the findings.",
 
   what_is_magnum_di:
-    "Magnum DI is Apollo's deep investigator. It's called only when TC FlyBy — Apollo's fast, low-cost investigator — can't settle something that could change the answer.\n\n" +
-    "TC FlyBy checks official sources, ApolloSG's knowledge base and one targeted search first. Magnum DI then examines just what's still open — for example a picture Apollo couldn't read, or a request to send money somewhere nobody has verified — and returns a full briefing with findings and recommended actions.\n\n" +
+    "Magnum DI is Apollo's deep investigator. It's called only when TC Hawkeye — Apollo's fast, low-cost investigator — can't settle something that could change the answer.\n\n" +
+    "TC Hawkeye checks official sources, ApolloSG's knowledge base and one targeted search first. Magnum DI then examines just what's still open — for example a picture Apollo couldn't read, or a request to send money somewhere nobody has verified — and returns a full briefing with findings and recommended actions.\n\n" +
     "\"Am I protected?\" is answered on your device, with no investigation at all.",
 
   explain_feature:

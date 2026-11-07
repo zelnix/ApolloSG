@@ -3,7 +3,7 @@
 The owner's rules, proved:
 - Devices are mutually exclusive: a related case is only ever one of this device's own; another device's case is never
   found, and nothing on screen says which device or how many devices encountered something.
-- History never becomes evidence for the current case: TC FlyBy's checks never receive it, so it can't make or change
+- History never becomes evidence for the current case: TC Hawkeye's checks never receive it, so it can't make or change
   the outcome; it is never a finding.
 - It only adds weight: agreeing history raises the confidence of the concern findings about the same subject, one step.
 
@@ -40,7 +40,7 @@ def response(outcome: str = "concerning", attention: str = "review") -> HigginsR
                           confidence="medium", evidence_ids=["item-0"]),
                   Finding(id="f2", text="The message asks you to unlock your card.", basis="observation", confidence="low", evidence_ids=["item-0"]),
                   Finding(id="f3", text="commbank.com.au is CommBank's official domain.", basis="observation", confidence="high")],
-        uncertainties=["Apollo can't confirm who actually sent this."], scope="TC FlyBy checked the submitted material.",
+        uncertainties=["Apollo can't confirm who actually sent this."], scope="TC Hawkeye checked the submitted material.",
         actions=[ActionProposal(id="a1", kind="instruction", label="Don't open the link", instruction="Do not open commbank-unlock.top.")],
         recommended_action_id="a1", completion="complete")
 
@@ -121,7 +121,7 @@ def test_the_cross_source_record_adds_nothing_to_the_checks_and_never_names_devi
     before = [list(c.facts) for c in plan.checks]
     decision_before = decide.evaluate(plan, MATERIAL, final=True)[0]
     record = asyncio.run(correlation.cross_source(plan, {}, "owner-a"))
-    assert [list(c.facts) for c in plan.checks] == before            # nothing reaches TC FlyBy's checks
+    assert [list(c.facts) for c in plan.checks] == before            # nothing reaches TC Hawkeye's checks
     assert decide.evaluate(plan, MATERIAL, final=True)[0] == decision_before
     rows = [r for e in record for r in e["sources"] if r["source"] == observed_intel.LABEL]
     assert [r["status"] for r in rows][0] == "has been previously reported as malicious — High confidence"

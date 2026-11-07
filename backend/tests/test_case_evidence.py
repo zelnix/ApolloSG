@@ -41,7 +41,7 @@ def test_the_first_stage_keeps_the_fact_and_a_later_stage_in_its_own_words_confi
     facts = case_evidence.build(response, record, answered_by="tc_flyby_kb", simulated=False)
     assert len(facts) == 1, "the same fact is listed once"
     assert facts[0].text == TRIAGE and facts[0].discovered_by == "higgins_triage"
-    assert facts[0].corroborated_by == ["tc_flyby"], "TC FlyBy reached it in its own words; repeating Triage's words confirms nothing"
+    assert facts[0].corroborated_by == ["tc_flyby"], "TC Hawkeye reached it in its own words; repeating Triage's words confirms nothing"
     assert facts[0].rule_id == "MSG-24" and facts[0].finding_ids == ["f1", "f2"] and facts[0].stance == "supporting"
 
 
@@ -68,7 +68,7 @@ def test_what_points_the_other_way_is_kept_and_marked():
 
 
 def test_lookups_that_found_nothing_knowledge_and_bare_conclusions_are_never_evidence():
-    record = _record(("link", [_fact("TC FlyBy's search found no record for brightline-docs.net.", "missing")]),
+    record = _record(("link", [_fact("TC Hawkeye's search found no record for brightline-docs.net.", "missing")]),
                      ("scam_pattern", [_fact("Scamwatch (ACCC): “Investment scams”", "context", **{"class": "apollo_knowledge"})]))
     response = _response([{"text": "This message is likely a scam impersonating Brightline."},
                           {"text": "The sender's number couldn't be checked."},

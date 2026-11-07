@@ -10,7 +10,7 @@ Structural rules:
 - DIRECT: Action-needed/urgent attention requires at least one action with a non-empty instruction
 - GUIDE: When actions exist, recommendedActionIndex must be set; instructions must be actionable
 - VERIFY: Completion 'complete' requires all material evidence examined; fabricated evidence rejected
-- FLOOR: a result never contradicts established threat evidence; it goes below TC FlyBy's provisional concern only
+- FLOOR: a result never contradicts established threat evidence; it goes below TC Hawkeye's provisional concern only
   with a finding that cites the evidence resolving it and names the provisional finding (supersedesFindingIds)
 
 Findings that make the same point are merged before the response is returned, so the same fact is
@@ -43,9 +43,9 @@ CAPABILITY_ACTIONS = {"open_settings", "request_permission", "recheck"}
 # How far each outcome goes — the four Findings plus legacy codes for backward compatibility.
 _RANK = {
     # Current four Findings
-    "not_scam": 0, "unable_to_determine": 0, "likely_scam": 2, "scam": 3,
+    "not_scam": 0, "unlikely_scam": 0, "likely_scam": 2, "scam": 3,
     # Legacy codes (backward compat for floor checks against historical records)
-    "no_scam_indicators": 0, "concerning": 1, "confirmed_threat": 3,
+    "no_scam_indicators": 0, "unable_to_determine": 0, "concerning": 1, "confirmed_threat": 3,
 }
 
 
@@ -56,13 +56,13 @@ def floor_errors(model: ModelResponse, floor: Optional[dict]) -> list[str]:
     got, errors = _RANK[model.outcome], []
     outcome, minimum = floor.get("outcome"), floor.get("minimum")
     if outcome and floor.get("established") and got < _RANK[outcome]:
-        errors.append(f"outcome '{model.outcome}' contradicts established threat evidence (TC FlyBy: '{outcome}'); it can't be lowered")
+        errors.append(f"outcome '{model.outcome}' contradicts established threat evidence (TC Hawkeye: '{outcome}'); it can't be lowered")
     if minimum and got < _RANK[minimum]:
         errors.append(f"outcome '{model.outcome}' contradicts established threat evidence: the material asks for a secret, so the outcome can't be below '{minimum}'")
     if outcome and not floor.get("established") and got < _RANK[outcome]:
         provisional = {f["id"] for f in floor.get("findings") or [] if f["id"].startswith("P")}
         if not any(set(f.supersedes_finding_ids) & provisional and (f.evidence_ids or f.source_ids) for f in model.findings):
-            errors.append(f"outcome '{model.outcome}' is below TC FlyBy's provisional '{outcome}': add the finding that corrects it, citing the "
+            errors.append(f"outcome '{model.outcome}' is below TC Hawkeye's provisional '{outcome}': add the finding that corrects it, citing the "
                           f"evidence that resolves it, with the provisional finding's id ({', '.join(sorted(provisional)) or 'P1'}) in supersedesFindingIds")
     return errors
 
@@ -235,10 +235,11 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
                               desired_field=a.desired_field, desired_value=a.desired_value) for a in model.actions]
 
     # ── UNDETERMINED GUARD: strip brand-specific contact instructions ──
-    # An unable_to_determine result means Apollo hasn't established whose brand it is.  Any action
-    # whose instruction carries a contact identifier (email or phone number) is therefore a
-    # hallucinated address the person should never see.  Generic advice (no identifier) is kept.
-    if model.outcome == "unable_to_determine" and actions:
+    # An unlikely_scam result (ordinary, unverified — the merged unable_to_determine/unlikely_scam
+    # case) means Apollo hasn't established whose brand it is.  Any action whose instruction carries a
+    # contact identifier (email or phone number) is therefore a hallucinated address the person should
+    # never see.  Generic advice (no identifier) is kept.
+    if model.outcome in ("unlikely_scam", "unable_to_determine") and actions:
         clean = [a for a in actions if not _CONTACT_RE.search(a.instruction)]
         if len(clean) < len(actions):
             log.warning("undetermined_action_sanitized case_actions=%d dropped=%d",
@@ -273,5 +274,6 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
                                findings=[Finding(id=str(uuid.uuid4()), **f.model_dump()) for f in deduplicate_findings(model.findings)], uncertainties=model.uncertainties,
                                scope=model.scope, source_ids=model.source_ids, remaining_evidence_ids=model.remaining_evidence_ids, actions=actions,
                                recommended_action_id=recommended_action_id,
-                               question=question, completion=model.completion)
+                               question=question, completion=model.completion,
+                               findings_rating=model.findings_rating, findings_rating_breakdown=model.findings_rating_breakdown)
     return response, []

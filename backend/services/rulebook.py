@@ -178,14 +178,14 @@ def read() -> dict:
 # ── Settling rules: the one sentence on each result ─────────────────────────
 # (who, rule name). The book's "Settling rules" table lists every one of these, word for word.
 SETTLING_RULES: dict[str, tuple[str, str]] = {
-    "FLYBY-THREAT": ("TC FlyBy", "Confirmed threat"),
-    "FLYBY-PATTERN": ("TC FlyBy", "Known scam, every step"),
-    "FLYBY-IMPERSONATION": ("TC FlyBy", "Corroborated impersonation"),
-    "FLYBY-OPENING": ("TC FlyBy", "Known scam opening"),
-    "FLYBY-SIGNS": ("TC FlyBy", "Established warning signs"),
-    "FLYBY-CLEAR": ("TC FlyBy", "Nothing found, everything checked"),
-    "FLYBY-UNKNOWN": ("TC FlyBy", "Can't establish more"),
-    "FLYBY-ANSWERED": ("TC FlyBy", "Question answered from a source"),
+    "FLYBY-THREAT": ("TC Hawkeye", "Confirmed threat"),
+    "FLYBY-PATTERN": ("TC Hawkeye", "Known scam, every step"),
+    "FLYBY-IMPERSONATION": ("TC Hawkeye", "Corroborated impersonation"),
+    "FLYBY-OPENING": ("TC Hawkeye", "Known scam opening"),
+    "FLYBY-SIGNS": ("TC Hawkeye", "Established warning signs"),
+    "FLYBY-CLEAR": ("TC Hawkeye", "Nothing found, everything checked"),
+    "FLYBY-UNKNOWN": ("TC Hawkeye", "Can't establish more"),
+    "FLYBY-ANSWERED": ("TC Hawkeye", "Question answered from a source"),
     "MAGNUM-READING": ("Magnum DI", "Reading"),
     "MAGNUM-REASONING": ("Magnum DI", "Reasoning"),
     "MAGNUM-RELATING": ("Magnum DI", "Relating"),
@@ -233,7 +233,7 @@ EXPLAIN_RULES: dict[str, tuple[str, str, str]] = {
 _MAGNUM_WHY = {
     "MAGNUM-READING": "part of what you sent (a picture or scanned page) had to be read directly",
     "MAGNUM-REASONING": "the message asks you to send money, details or access through a route no official source has verified",
-    "MAGNUM-RELATING": "TC FlyBy's findings pointed in different directions and needed weighing up",
+    "MAGNUM-RELATING": "TC Hawkeye's findings pointed in different directions and needed weighing up",
     "MAGNUM-QUESTION": "neither ApolloSG's knowledge base nor a targeted search could answer the question",
 }
 _CAPABILITY_RULE = {"reading": "MAGNUM-READING", "reasoning": "MAGNUM-REASONING", "relating": "MAGNUM-RELATING"}
@@ -248,7 +248,7 @@ def _pattern_name(pattern: Optional[dict]) -> str:
 def _flyby(flyby: dict, answered_by: str) -> Optional[tuple[str, str]]:
     basis, outcome = flyby.get("basis"), flyby.get("outcome")
     if basis == "threat":
-        return "FLYBY-THREAT", ("an official source found in TC FlyBy's search names this exact item as a scam or threat" if answered_by == "tc_flyby_search"
+        return "FLYBY-THREAT", ("an official source found in TC Hawkeye's search names this exact item as a scam or threat" if answered_by == "tc_flyby_search"
                                 else "a direct safety check (Google Safe Browsing, Apollo's blocklist or an official scam advisory) lists this exact item as a threat")
     if basis == "pattern":
         name = _pattern_name(flyby.get("pattern"))
@@ -269,8 +269,8 @@ def _flyby(flyby: dict, answered_by: str) -> Optional[tuple[str, str]]:
 def _magnum(flyby: dict) -> Optional[tuple[list[str], str]]:
     issues = flyby.get("issues") or []
     if not issues:
-        # TC FlyBy reached a result, but it failed validation and Magnum DI took the whole case.
-        return (["MAGNUM-SAFETY-NET"], "TC FlyBy's own result didn't pass Apollo's checks, so Magnum DI looked at the whole case") if flyby.get("basis") else None
+        # TC Hawkeye reached a result, but it failed validation and Magnum DI took the whole case.
+        return (["MAGNUM-SAFETY-NET"], "TC Hawkeye's own result didn't pass Apollo's checks, so Magnum DI looked at the whole case") if flyby.get("basis") else None
     rule_ids: list[str] = []
     for issue in issues:
         rule_id = "MAGNUM-QUESTION" if (issue.get("text") or "").startswith("Answer the general question") else _CAPABILITY_RULE.get(issue.get("capability") or "")

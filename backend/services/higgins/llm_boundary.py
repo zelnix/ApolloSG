@@ -122,7 +122,7 @@ class Purpose(str, Enum):
     PUBLIC_ADVISORY_ANALYSIS = "public_advisory_analysis"  # Government scam advisory classification
     VISION_INVESTIGATION = "vision_investigation"  # Vision Gate: photograph/upload → indicator extraction + routing
     TRIAGE = "triage"                         # Minimal structured triage: SAFE/SUSPICIOUS/UNCERTAIN only
-    TC_FLYBY_SEARCH = "tc_flyby_search"             # TC FlyBy: narrow factual web search lookups about public identifiers
+    TC_FLYBY_SEARCH = "tc_flyby_search"             # TC Hawkeye: narrow factual web search lookups about public identifiers
     DEVICE_SETTING_VERIFICATION = "device_setting_verification"  # Screenshot verification of manual device settings
 
 
@@ -202,7 +202,7 @@ def enforce_boundary(purpose: Purpose, payload: Any, *, evidence_pii: set[str] |
     return payload
 
 
-# ABN, ACN and licence numbers: an exact number goes only to TC FlyBy's register question about that number (its search
+# ABN, ACN and licence numbers: an exact number goes only to TC Hawkeye's register question about that number (its search
 # call, where every other question already carries the number as a label: tc_flyby/search.prompt). Every other AI or
 # research request carries it as a label.
 _REGISTRATION_NUMBERS = (

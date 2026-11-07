@@ -14,6 +14,7 @@ SOURCE_DISPLAY_NAME = {
     "ncsc-uk": "UK National Cyber Security Centre",
     "ic3": "FBI Internet Crime Complaint Center (IC3)",
     "enisa": "European Union Agency for Cybersecurity (ENISA)",
+    "moneysmart": "Moneysmart (ASIC)",
 }
 
 

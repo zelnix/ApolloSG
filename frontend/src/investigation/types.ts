@@ -41,7 +41,7 @@ export interface InvestigationCase { schemaVersion: 1; id: string; revision: num
 /** Who started an investigation, as recorded when it was opened. Absent when the record doesn't say — never inferred. */
 export type CaseOrigin = "user" | "apollo" | "sample_check";
 /** The rule that settled a result, as one plain sentence (backend services/rulebook.py; listed in the rule book). */
-export interface SettledReason { ruleId: string; rule: string; by: "TC FlyBy" | "Magnum DI"; sentence: string }
+export interface SettledReason { ruleId: string; rule: string; by: "TC Hawkeye" | "Magnum DI"; sentence: string }
 export interface Failure { code: string; message: string; retryable: boolean; retryAfterSeconds: number | null; resubmitAt?: string | null; missingEvidenceIds: string[] }
 export interface Job { id: string; caseId: string; turnId: string; status: CaseStatus; startedAt: string | null; deadlineAt: string; retryAt: string | null; attempt: number; lastEventSequence: number; failure: Failure | null }
 export type UnavailableReason = "not_implemented" | "os_restricted" | "hardware_absent" | "configuration_missing" | "entitlement_missing" | "privacy_prohibited" | "source_refused" | "adapter_failed";

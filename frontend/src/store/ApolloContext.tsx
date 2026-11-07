@@ -1529,7 +1529,7 @@ export function ApolloProvider({ children }: { children: React.ReactNode }) {
       let investigationCaseId: string | null = existingCaseId;
       let escalationNote: string | null = null;
       if ((triage.outcome === "POSSIBLE_THREAT_IDENTIFIED" || triage.outcome === "LIMITED_UNABLE_TO_DETERMINE" || triggersInvestigation(nativeFact)) && !investigationCaseId) {
-        // The call in the person's own plain sentences, so TC FlyBy can compare it with the device-scam patterns.
+        // The call in the person's own plain sentences, so TC Hawkeye can compare it with the device-scam patterns.
         const callSummary = describeCall(input, nativeFact ? `${nativeFact.provider} classified this number as "${nativeFact.classification}" (${nativeFact.provider}'s own rating, not Apollo's)` : null);
         try {
           const remote = await apiPost<{ case?: { id?: string | null } }>("/investigations", "call_investigation", {

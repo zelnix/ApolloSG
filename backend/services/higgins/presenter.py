@@ -1,6 +1,6 @@
 """Deterministic Higgins presentation — Higgins may change presentation, never meaning.
 
-Every answer here is assembled from structured fields that TC FlyBy, Magnum DI, Patrol, the device or Apollo's
+Every answer here is assembled from structured fields that TC Hawkeye, Magnum DI, Patrol, the device or Apollo's
 product knowledge already established, using fixed mappings and templates. No AI is called. When the
 record doesn't hold the answer, Higgins says so instead of inferring one.
 """
@@ -85,7 +85,7 @@ def _join(labels: list[str]) -> str:
 
 
 def is_finished(response: Optional[dict[str, Any]]) -> bool:
-    """An investigation result (TC FlyBy's or Magnum DI's) that is complete or partial — not one still waiting for the person's answer."""
+    """An investigation result (TC Hawkeye's or Magnum DI's) that is complete or partial — not one still waiting for the person's answer."""
     return bool(response) and response.get("completion") in ("complete", "partial") and not response.get("question")
 
 
@@ -180,10 +180,10 @@ def investigation_follow_up(response: dict[str, Any], sources: list[dict[str, An
 
 
 def stopped_follow_up(reason: Optional[str], established: list[str]) -> dict[str, Any]:
-    """A follow-up on a case whose one Magnum DI call didn't produce a result: why it stopped, and what TC FlyBy
+    """A follow-up on a case whose one Magnum DI call didn't produce a result: why it stopped, and what TC Hawkeye
     established, word for word. No investigation is reopened and nothing is inferred."""
     parts = [reason or "Magnum DI's one call for this case didn't produce a result, so there is no finished investigation to answer from.",
-             ("What TC FlyBy established:\n" + _bullets(established)) if established else "TC FlyBy didn't establish anything specific before that."]
+             ("What TC Hawkeye established:\n" + _bullets(established)) if established else "TC Hawkeye didn't establish anything specific before that."]
     return {"answer": "\n\n".join(parts).strip(), "intent": "unanswered", "limitation": True, "newItems": []}
 
 

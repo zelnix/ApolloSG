@@ -56,7 +56,7 @@ async def test_case_without_a_device_record_is_still_filed():
 
 
 async def test_a_case_answered_before_the_device_record_arrives_is_filed_under_that_record():
-    """TC FlyBy often answers before the device's own patrol record reaches the server. The answer must be
+    """TC Hawkeye often answers before the device's own patrol record reaches the server. The answer must be
     filed under the device's event id, so when the device's copy arrives it is the same record — not a twin."""
     from services.higgins.contracts import HigginsResponse, ProviderResult, TurnCommit
     owner = f"fastcase-{uuid.uuid4().hex[:8]}"

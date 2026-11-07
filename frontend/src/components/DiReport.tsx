@@ -1,5 +1,5 @@
 // The Deep Investigation (DI) tab: how the investigation reached its result. The decision path in the order it ran —
-// Higgins Triage → TC FlyBy → Magnum DI → Evidence Lock — then the outside research behind it, each source with the
+// Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock — then the outside research behind it, each source with the
 // fact it supports or points against, how Apollo checked and the related history it had. Plain words only: token
 // counts, cost, Magnum DI's prompts and full reply, and rule-book codes are in the Admin Portal. The provider and
 // model are never shown. Shown on both the Threat Case screen and Ask Higgins. Evidence is never modified here.
@@ -235,10 +235,10 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
   presented?: PresentedResult | null;
   /** "How ApolloSG checked", in Higgins' plain words: the method behind the Findings Brief, kept here and not there. */
   how?: string[];
-  /** The related history TC FlyBy and Magnum DI had, with where each note came from (context, never evidence). */
+  /** The related history TC Hawkeye and Magnum DI had, with where each note came from (context, never evidence). */
   history?: HistoryNote[];
   triage?: TriageInvestigationRecord | null;
-  /** The rule that settled the result, as this phone recorded it ("Settled by TC FlyBy — …"). */
+  /** The rule that settled the result, as this phone recorded it ("Settled by TC Hawkeye — …"). */
   settledReason?: SettledReason | null;
   /** For results saved before the settling rule was recorded: who settled it, from the threat's record. */
   settledEvent?: Pick<PatrolEvent, "investigation_completed_at" | "investigation_answered_by"> | null;
@@ -256,7 +256,7 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
         <Card testID="tc-di-none">
           <Text style={s.sectionTitle}>No decision record</Text>
           <Text style={s.sourceSub}>
-            Apollo settled this case with his own checks. Magnum DI was not engaged, and no Higgins Triage, TC FlyBy or
+            Apollo settled this case with his own checks. Magnum DI was not engaged, and no Higgins Triage, TC Hawkeye or
             Magnum DI record is stored for it.
           </Text>
         </Card>

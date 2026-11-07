@@ -255,7 +255,7 @@ def test_signed_out_visitors_cannot_see_or_change_the_selection():
 
 def test_admin_pages_show_the_one_selection(admin_cookie):
     system = httpx.get(f"{BASE}/admin/system", cookies=admin_cookie, timeout=30).text
-    assert "AI investigation provider &amp; model (Magnum DI and TC FlyBy)" in system and "Ask Higgins model" not in system
+    assert "AI investigation provider &amp; model (Magnum DI and TC Hawkeye)" in system and "Ask Higgins model" not in system
     assert "Vision Model" not in system
     triage = httpx.get(f"{BASE}/admin/triage", cookies=admin_cookie, timeout=30).text
     assert "Triage Model" not in triage and "Input Price" not in triage

@@ -221,7 +221,7 @@ export interface PatrolEvent {
    *  the device holds the result, so only it can say the investigation has finished. While this is
    *  absent the case is genuinely still being investigated. */
   investigation_completed_at?: string | null;
-  /** Who settled that investigation: "magnum_di" or a TC FlyBy route ("tc_flyby_official", "tc_flyby_kb",
+  /** Who settled that investigation: "magnum_di" or a TC Hawkeye route ("tc_flyby_official", "tc_flyby_kb",
    *  "tc_flyby_search"). Device-local, copied from the committed result; absent when not recorded. */
   investigation_answered_by?: string | null;
   /** The outcome the case's investigation recorded (no_scam_indicators … unable_to_determine), never guessed. */

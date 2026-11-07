@@ -230,12 +230,12 @@ async def simulate_generate(
     )
 
 
-# ── TC FlyBy's targeted search, answered from Apollo's knowledge base ───────
+# ── TC Hawkeye's targeted search, answered from Apollo's knowledge base ───────
 _FLYBY_QUESTION = re.compile(r"^Q(\d+) \[statuses: ([A-Z_, ]+)\] \[subject: (.*?)\] (.+)$", re.M)
 
 
 async def flyby_lookup(blocks: list[EvidenceBlock]) -> tuple[str, dict]:
-    """Each TC FlyBy question answered from Apollo's KB, in the line format and grounding shape a provider's
+    """Each TC Hawkeye question answered from Apollo's KB, in the line format and grounding shape a provider's
     web search produces. A warning is reported only when an official alert in the KB names the exact value;
     anything else is reported as not found. No web search is made."""
     from urllib.parse import urlparse

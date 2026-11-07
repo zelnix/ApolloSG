@@ -6,7 +6,7 @@ Pipeline:
   3. Check Official Organisation Directory (Tier 1: the organisation's own page names this number)
   4. Check org_directory.number_verdict (Tier 2: not the official number but a known org is named)
   5. Check Apollo Knowledge Base for any existing research on this number
-  6. Web search (Brave, same as TC FlyBy) — only when above sources leave it unresolved
+  6. Web search (Brave, same as TC Hawkeye) — only when above sources leave it unresolved
   7. Deterministic association assessment (fixed rules, no AI)
   8. Cache with provenance
 
@@ -546,7 +546,7 @@ async def _check_apollo_kb(e164: str) -> list[IdentityEvidence]:
     return evidence
 
 
-# ── Stage 4: Web search (Brave, same as TC FlyBy) ─────────────────────────────
+# ── Stage 4: Web search (Brave, same as TC Hawkeye) ─────────────────────────────
 
 async def _web_search(e164: str, national_form: str) -> tuple[list[IdentityEvidence], str]:
     """Search the web for this number. Returns (evidence, status).

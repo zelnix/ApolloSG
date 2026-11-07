@@ -92,7 +92,7 @@ test("every Threat Case's origin is the device that detected it", () => {
 
 test("server processing never changes the case's origin or its evidence source, and stays attached to the same case", () => {
   const local = ev({ evidence_provenance: "dns_observation", what_happened: "Apollo's DNS filter matched parcel-fee.top." });
-  // What the server now holds for this case after TC FlyBy / Magnum DI worked from a privacy-protected copy.
+  // What the server now holds for this case after TC Hawkeye / Magnum DI worked from a privacy-protected copy.
   const remote = ev({ ...projectedEventVoice("message", "growling", false), evidence_provenance: "device_submission", processing_source: "apollosg_servers",
     evidence_representation: "privacy_protected_copy", device_id: "phone-a", adapter_label: "Magnum DI investigation",
     what_happened: projectedEventVoice("message", "growling", false).whatHappened, investigation_case_id: "case-1" });

@@ -1,7 +1,7 @@
 """Higgins chat — the router. Higgins faithfully communicates what Apollo already knows. Ask Higgins makes NO AI call.
 
 Each question goes to the first of these that applies; each one's work lives in its own module:
-  1. Something specific to check → the shared investigation pipeline (pipeline_submit.py): TC FlyBy first, Magnum DI
+  1. Something specific to check → the shared investigation pipeline (pipeline_submit.py): TC Hawkeye first, Magnum DI
      only when a deeper look could change the answer. Never answered here.
   2. A scam alert or Learn article the person opened → its source's own words (government_alerts, learning, presenter.py).
   3. What Apollo already established — Patrol findings, the phone's live state, recent investigations or Apollo's
@@ -204,7 +204,7 @@ GENERAL_SITE = "higgins_general_question"  # this call site, in the reuse counte
 
 async def _from_apollo(owner: str, message: str, plan: context_tools.ContextPlan,
                        snapshot: DeviceSnapshot | None, patrol_record_id: str | None = None) -> Optional[tuple[dict, str, list[str]]]:
-    """What Apollo, Patrol, TC FlyBy, Magnum DI or the device already established — presented, never re-reasoned."""
+    """What Apollo, Patrol, TC Hawkeye, Magnum DI or the device already established — presented, never re-reasoned."""
     label = plan.label
     # "How do I…" / "Where is…" is about using ApolloSG: the User Guide answers it directly, before any record or reading.
     if label == "sharing_help" or context_tools.procedural(message):

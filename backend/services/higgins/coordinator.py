@@ -1,14 +1,14 @@
-"""Investigation coordinator: Higgins Triage → TC FlyBy → Magnum DI.
+"""Investigation coordinator: Higgins Triage → TC Hawkeye → Magnum DI.
 
-On the first turn of a case, Higgins Triage decides what needs checking and TC FlyBy runs those checks the
-cheapest reliable way (official sources → Apollo KB → one targeted web search call). When TC FlyBy
+On the first turn of a case, Higgins Triage decides what needs checking and TC Hawkeye runs those checks the
+cheapest reliable way (official sources → Apollo KB → one targeted web search call). When TC Hawkeye
 reliably settles the case, its result is committed and Magnum DI is not called at all.
 
 Otherwise Magnum DI makes its call with the existing configured model. The request contains exactly three
 things:
   1. the person's question, once;
-  2. the case evidence Magnum DI needs — the submitted material itself plus TC FlyBy's brief of what is
-     still unresolved — each item labelled with its id and kind (raw lookups TC FlyBy already settled are not
+  2. the case evidence Magnum DI needs — the submitted material itself plus TC Hawkeye's brief of what is
+     still unresolved — each item labelled with its id and kind (raw lookups TC Hawkeye already settled are not
      resent);
   3. the required response shape (`response_schema.py`), which the provider adapter turns into its own
      structured-output schema.
@@ -16,12 +16,12 @@ There is no system prompt. Web search is attached only when a specific external 
 
 The model is the one selected in ApolloSG Settings → AI Provider & Model (services/higgins/ai_settings.py),
 pinned on the job when the investigation starts. The call goes through the single AI gateway (provider.generate),
-never a provider SDK. TC FlyBy makes no AI call.
+never a provider SDK. TC Hawkeye makes no AI call.
 
 ONE MAGNUM DI CALL PER CORRELATED CASE, AT MOST. There are no tool rounds, no nested research calls, no model
 escalation, no Pro fallback, no second call to present the answer and no retry: Higgins shows what this one call
 returned, or why it failed. The call is claimed atomically for the case (repository.claim_magnum_call) before anything
-is sent, so a follow-up, retry, Resubmit, new job, recovered job or restart can never make a second one. Cases TC FlyBy
+is sent, so a follow-up, retry, Resubmit, new job, recovered job or restart can never make a second one. Cases TC Hawkeye
 settles use none. Follow-up questions are answered from the case's locked findings and ApolloSG's approved knowledge
 (routers/investigations._follow_up), never by another investigation.
 """
@@ -196,7 +196,7 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
 
 async def _commit_flyby(owner: str, case: dict, job: dict, payload: dict, fly_by: tc_flyby.FlyByOutcome,
                         capability_ids: set[str]) -> Optional[Outcome]:
-    """TC FlyBy settled the case: its result passes the same validation as Magnum DI's, then commits.
+    """TC Hawkeye settled the case: its result passes the same validation as Magnum DI's, then commits.
     None when it doesn't validate — Magnum DI then takes the case."""
     rows = await repo.list_evidence(owner, case["case_id"])
     evidence_ids = {row["evidence_id"] for row in rows}
@@ -214,7 +214,7 @@ async def _commit_flyby(owner: str, case: dict, job: dict, payload: dict, fly_by
 
 
 async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
-    """The case's investigation: Higgins Triage → TC FlyBy → (only if needed) Magnum DI's one call for the case.
+    """The case's investigation: Higgins Triage → TC Hawkeye → (only if needed) Magnum DI's one call for the case.
 
     Magnum DI flow: claim the case's one call → send question and evidence → validate the schema-shaped response
     → commit. No autonomous tool rounds, reassessment cycles, repair loops or retries.
@@ -225,7 +225,7 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     job_model = job.get("provider_model") or await ai_settings.investigation_model()
     if not job.get("provider_model"):
         await repo.set_job(owner, job["job_id"], job["fence"], {"$set": {"provider_model": job_model}})
-        job = {**job, "provider_model": job_model}  # TC FlyBy reads it from here
+        job = {**job, "provider_model": job_model}  # TC Hawkeye reads it from here
 
     # ── Step 1: Assemble the case evidence ──
     await progress("ingest", "Assembling the case evidence.")
@@ -233,19 +233,19 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     rows = await repo.list_evidence(owner, case["case_id"])
     first_turn = not case.get("response_revision") and not payload.get("answerToQuestionId")
     search_on = True
-    # What Magnum DI's result can't go below: TC FlyBy's concern, established or provisional (tc_flyby/decide.floor).
+    # What Magnum DI's result can't go below: TC Hawkeye's concern, established or provisional (tc_flyby/decide.floor).
     stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "routing.tc_flyby.floor": 1}) or {}
     floor = ((stored.get("routing") or {}).get("tc_flyby") or {}).get("floor")
 
     # Too much written evidence for one investigation. Apollo sends NOTHING rather than quietly
     # shortening, sampling or dropping any of it, and no evidence is marked as examined — so this is
-    # decided before TC FlyBy reads anything.
+    # decided before TC Hawkeye reads anything.
     _parts, _marks, evidence_words = await ev.model_parts(owner, case, rows)
     if evidence_words > ev.EVIDENCE_WORD_LIMIT:
         return Outcome("evidence_too_large", evidence_words=evidence_words,
                        errors=[f"written evidence is {evidence_words} words; Apollo's limit for one investigation is {ev.EVIDENCE_WORD_LIMIT}"])
 
-    # ── Step 2: Higgins Triage → TC FlyBy (first turn only) ──
+    # ── Step 2: Higgins Triage → TC Hawkeye (first turn only) ──
     if not first_turn:
         # A follow-up is answered from the case's locked findings (routers/investigations._follow_up), never by
         # another investigation: this turn sends nothing.
@@ -260,12 +260,12 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     rows, search_on, floor = fly_by.rows, fly_by.magnum_search, fly_by.floor
 
     # ── Post-TC-FlyBy word-limit guard ──
-    # TC FlyBy may add new evidence rows (e.g. a source snapshot). Re-check the word budget
+    # TC Hawkeye may add new evidence rows (e.g. a source snapshot). Re-check the word budget
     # before sending anything to Magnum DI; Apollo sends NOTHING rather than silently dropping rows.
     evidence_parts, pending_marks, evidence_words = await ev.model_parts(owner, case, rows)
     if evidence_words > ev.EVIDENCE_WORD_LIMIT:
         return Outcome("evidence_too_large", evidence_words=evidence_words,
-                       errors=[f"written evidence is {evidence_words} words after TC FlyBy; "
+                       errors=[f"written evidence is {evidence_words} words after TC Hawkeye; "
                                f"Apollo's limit for one investigation is {ev.EVIDENCE_WORD_LIMIT}"])
 
     contents = [Message("user", [Part(text=payload["message"]), *evidence_parts])]

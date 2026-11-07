@@ -27,7 +27,7 @@ export interface DiTransaction {
   notice: string | null;
 }
 
-/** What TC FlyBy recorded for the case (server `routing.tc_flyby`, without the model). */
+/** What TC Hawkeye recorded for the case (server `routing.tc_flyby`, without the model). */
 export interface FlybyTrace {
   ranAt: string | null;
   resolved: boolean;
@@ -47,7 +47,7 @@ export interface FlybyTrace {
   simulated: boolean | null;
 }
 
-/** The recorded decision path: Higgins Triage → TC FlyBy → Magnum DI → Evidence Lock. A stage with no
+/** The recorded decision path: Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock. A stage with no
  *  record is null — never inferred. */
 export interface DiTrace {
   triage: TriageInvestigationRecord | null;

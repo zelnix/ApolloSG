@@ -3,7 +3,7 @@
 - A case opened from a call check is a call to assess, never a general question for the knowledge base.
 - The call as the person describes it is compared with Scamwatch's phone-scam patterns (bank or card provider asking
   for a code, fake police / tax office / government, fake tech support, delivery or parcel fees): a full match is
-  Likely scam, settled by TC FlyBy with no AI call.
+  Likely scam, settled by TC Hawkeye with no AI call.
 - Those patterns are for calls only: the same words in a message are compared with the message patterns.
 
 Run: cd /app/backend && python -m pytest tests/test_call_investigation.py -q
@@ -80,7 +80,7 @@ async def test_bank_wants_my_code_gets_a_scam_assessment_without_gemini(monkeypa
     _lookups(monkeypatch)
     case, response = await _call_case("The caller said they were from my bank (CommBank).\nThey asked me to give a verification code.\n"
                                       "What the caller said, in my words: bank wants my code")
-    assert calls == [], "a full phone-scam pattern match is settled by TC FlyBy"
+    assert calls == [], "a full phone-scam pattern match is settled by TC Hawkeye"
     assert response["outcome"] == "likely_scam" and response["attention"] == "action_needed"
     assert response["findings"], "a scam assessment, not a library answer"
     assert "bank call scam" in response["overview"] and "Scamwatch" in response["overview"]

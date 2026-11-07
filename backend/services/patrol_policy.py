@@ -77,7 +77,7 @@ def summary_narrative(category, state, verified, outcome=None) -> dict:
     state_phrase = _STATE_PHRASE.get(state, "a result")
     cat_label = _CATEGORY_LABEL.get(category, category)
     a_cat = f"{'an' if cat_label[:1].lower() in 'aeiou' else 'a'} {cat_label}"
-    if state == 'resting' and outcome == 'unable_to_determine' and not verified:
+    if state == 'resting' and outcome in ('unlikely_scam', 'unable_to_determine') and not verified:
         return {
             'headline': f'Apollo checked {a_cat} but couldn\u2019t settle it',
             'what_happened': f'Apollo checked {a_cat}. Nothing was found to act on, but not every check could settle it.',

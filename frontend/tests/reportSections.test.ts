@@ -5,19 +5,19 @@ import assert from "node:assert/strict";
 import { buildReport } from "../src/domain/reportSections.ts";
 import { sentences } from "../src/domain/luddish/patterns.ts";
 
-// The Linkt check from the preview, exactly as TC FlyBy settled it.
+// The Linkt check from the preview, exactly as TC Hawkeye settled it.
 const linkt = {
   overview: "What you sent raises a concern: linkt-au-pay.top carries Linkt's name, but it is not Linkt's domain (linkt.com.au). Nothing here proves it's a scam, but don't act on it until you've checked it through a channel you trust.",
-  explanationMarkdown: "**What was found**\n- linkt-au-pay.top carries Linkt's name, but it is not Linkt's domain (linkt.com.au).\n\n**What it means**\nApollo's checks established the warning sign above. That's reason to be careful, but not enough to call it a scam.\n\n**How ApolloSG checked**\nTC FlyBy checked what you sent using Apollo's knowledge base and a targeted web search. Magnum DI's deeper analysis wasn't needed, because it couldn't change the outcome or what to do.",
+  explanationMarkdown: "**What was found**\n- linkt-au-pay.top carries Linkt's name, but it is not Linkt's domain (linkt.com.au).\n\n**What it means**\nApollo's checks established the warning sign above. That's reason to be careful, but not enough to call it a scam.\n\n**How ApolloSG checked**\nTC Hawkeye checked what you sent using Apollo's knowledge base and a targeted web search. Magnum DI's deeper analysis wasn't needed, because it couldn't change the outcome or what to do.",
   attentionReason: "Acting on something with warning signs before checking it is how people lose money or access to their accounts.",
   findings: [{ id: "f1", text: "linkt-au-pay.top carries Linkt's name, but it is not Linkt's domain (linkt.com.au).", basis: "observation" as const, confidence: "medium" as const, evidenceIds: [], sourceIds: [] }],
   uncertainties: [
-    "TC FlyBy's search found no record for linkt-au-pay.top: Apollo's knowledge base has nothing on linkt-au-pay.top.",
+    "TC Hawkeye's search found no record for linkt-au-pay.top: Apollo's knowledge base has nothing on linkt-au-pay.top.",
     "Not taken further, because it couldn't change the outcome or what to do: impersonation: whether the material genuinely comes from Linkt.",
     "Not taken further, because it couldn't change the outcome or what to do: message and deception analysis of the submitted material (requests, pressure, persuasion, intent).",
   ],
-  scope: "TC FlyBy checked the submitted material using Apollo's knowledge base and a targeted web search. Nothing was opened or fetched from the destination, no one was contacted and no account was accessed.",
-  alreadySaid: ["Settled by TC FlyBy — Established warning signs: its checks found real warning signs, but not enough to call it a scam."],
+  scope: "TC Hawkeye checked the submitted material using Apollo's knowledge base and a targeted web search. Nothing was opened or fetched from the destination, no one was contacted and no account was accessed.",
+  alreadySaid: ["Settled by TC Hawkeye — Established warning signs: its checks found real warning signs, but not enough to call it a scam."],
 };
 
 test("each fact appears once: the finding the answer states, the rule's restatement and the repeated scope are gone", () => {
@@ -28,9 +28,9 @@ test("each fact appears once: the finding the answer states, the rule's restatem
   assert.deepEqual(r.uncertain, [], "how Apollo checked is on the DI tab, never under what isn't certain");
   assert.equal(r.how.length, 1);
   const how = r.how[0];
-  assert.match(how, /^TC FlyBy checked what you sent using Apollo's knowledge base and a targeted web search\. Magnum DI's deeper analysis wasn't needed/);
+  assert.match(how, /^TC Hawkeye checked what you sent using Apollo's knowledge base and a targeted web search\. Magnum DI's deeper analysis wasn't needed/);
   assert.match(how, /So these weren't taken further: impersonation \(whether the material genuinely comes from Linkt\); message and deception analysis/);
-  assert.match(how, /no account was accessed\. TC FlyBy's search found no record for linkt-au-pay\.top: Apollo's knowledge base has nothing on linkt-au-pay\.top\.$/);
+  assert.match(how, /no account was accessed\. TC Hawkeye's search found no record for linkt-au-pay\.top: Apollo's knowledge base has nothing on linkt-au-pay\.top\.$/);
   assert.equal((how.match(/couldn't change the outcome/g) ?? []).length, 1, "the reason is said once");
   assert.equal((how.match(/targeted web search/g) ?? []).length, 1, "'What this covered' merged into 'How ApolloSG checked'");
 });
@@ -38,10 +38,10 @@ test("each fact appears once: the finding the answer states, the rule's restatem
 // The AusPost link check from the preview: an official source already lists it (stored with the older wording).
 const auspost = {
   overview: "Apollo's blocklist and Google Safe Browsing lists testsafebrowsing.appspot.com as a phishing (social engineering) site. Don't act on it — if you need to, contact AusPost yourself.",
-  explanationMarkdown: "**What was found**\n- Apollo's blocklist and Google Safe Browsing lists testsafebrowsing.appspot.com as a phishing (social engineering) site.\n\n**What it means**\nAn official safety source has already identified this as dangerous, so there's nothing left to weigh up: acting on it would put your money, accounts or device at risk.\n\n**How ApolloSG checked**\nTC FlyBy settled this with official source checks. Magnum DI's deeper analysis wasn't needed, because the result above already settles what to do.",
+  explanationMarkdown: "**What was found**\n- Apollo's blocklist and Google Safe Browsing lists testsafebrowsing.appspot.com as a phishing (social engineering) site.\n\n**What it means**\nAn official safety source has already identified this as dangerous, so there's nothing left to weigh up: acting on it would put your money, accounts or device at risk.\n\n**How ApolloSG checked**\nTC Hawkeye settled this with official source checks. Magnum DI's deeper analysis wasn't needed, because the result above already settles what to do.",
   attentionReason: "An official source has already identified it as dangerous, so acting on it puts your money or accounts at risk.",
   uncertainties: ["Not taken further, because the official result already settles what to do: impersonation: whether the material genuinely comes from AusPost."],
-  scope: "TC FlyBy checked the submitted material using official source checks. Nothing was opened or fetched from the destination, no one was contacted and no account was accessed.",
+  scope: "TC Hawkeye checked the submitted material using official source checks. Nothing was opened or fetched from the destination, no one was contacted and no account was accessed.",
 };
 
 test("the same point in other words is said once: 'What it means' and the reason a question wasn't taken further", () => {

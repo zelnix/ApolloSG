@@ -162,7 +162,7 @@ def _routing(answered_by, **flyby):
 def test_tc_flyby_results_name_the_rule_that_settled_them():
     cases = [
         (_routing("tc_flyby_official", basis="threat", outcome="confirmed_threat"), "FLYBY-THREAT", "direct safety check"),
-        (_routing("tc_flyby_search", basis="threat", outcome="confirmed_threat"), "FLYBY-THREAT", "official source found in TC FlyBy's search"),
+        (_routing("tc_flyby_search", basis="threat", outcome="confirmed_threat"), "FLYBY-THREAT", "official source found in TC Hawkeye's search"),
         (_routing("tc_flyby_kb", basis="pattern", outcome="likely_scam", pattern={"key": "family_new_number", "stage": "full"}), "FLYBY-PATTERN", "“Hi Mum”"),
         (_routing("tc_flyby_kb", basis="pattern", outcome="concerning", pattern={"key": "family_new_number", "stage": "opening"}), "FLYBY-OPENING", "hasn't asked"),
         (_routing("tc_flyby_official", basis="impersonation", outcome="concerning"), "FLYBY-IMPERSONATION", "isn't the organisation's website"),
@@ -173,8 +173,8 @@ def test_tc_flyby_results_name_the_rule_that_settled_them():
     ]
     for routing, rule_id, words in cases:
         reason = rulebook.settled_reason(routing)
-        assert reason["ruleId"] == rule_id and reason["by"] == "TC FlyBy", routing
-        assert reason["sentence"].startswith(f"Settled by TC FlyBy — {rulebook.SETTLING_RULES[rule_id][1]}: ") and words in reason["sentence"]
+        assert reason["ruleId"] == rule_id and reason["by"] == "TC Hawkeye", routing
+        assert reason["sentence"].startswith(f"Settled by TC Hawkeye — {rulebook.SETTLING_RULES[rule_id][1]}: ") and words in reason["sentence"]
         assert reason["sentence"].endswith(".") and reason["sentence"].count(". ") == 0, "one sentence"
 
 
@@ -189,7 +189,7 @@ def test_magnum_di_results_name_why_they_went_to_magnum_di():
     assert relating["ruleId"] == "MAGNUM-RELATING"
     question = rulebook.settled_reason(_routing("magnum_di", basis=None, issues=[{"capability": "reasoning", "text": "Answer the general question: x"}]))
     assert question["ruleId"] == "MAGNUM-QUESTION"
-    # TC FlyBy reached a result, but it failed validation, so Magnum DI took the whole case.
+    # TC Hawkeye reached a result, but it failed validation, so Magnum DI took the whole case.
     net = rulebook.settled_reason(_routing("magnum_di", basis="signals", outcome="concerning", issues=[]))
     assert net["ruleId"] == "MAGNUM-SAFETY-NET"
 
@@ -211,7 +211,7 @@ def test_the_admin_rule_book_page_is_the_shared_file(monkeypatch):
     monkeypatch.setattr(rulebook, "changed", lambda: [])
     page = admin_portal._rule_book_html()
     assert 'data-testid="rule-book-in-step"' in page and 'id="settling-rules"' in page
-    assert "Settled by TC FlyBy — Known scam, every step" in page
+    assert "Settled by TC Hawkeye — Known scam, every step" in page
     monkeypatch.setattr(rulebook, "changed", lambda: ["services/higgins/tc_flyby/decide.py"])
     assert "rule-book-behind" in admin_portal._rule_book_html() and "decide.py" in admin_portal._rule_book_html()
 
@@ -242,7 +242,7 @@ def test_the_your_data_rules_match_the_code():
         f"a preference for {_days(expiry['preference'])}, a goal for {_days(expiry['goal'])} and a permission for {_days(expiry['permission'])}",
         f"At most {chat_memory.MAX_PER_CATEGORY} of each kind and {chat_memory.MAX_TOTAL} in all",
         f"a possible threat for {triage_engine._CACHE_TTL[Outcome.POSSIBLE_THREAT].days} days and no threat for {triage_engine._CACHE_TTL[Outcome.NO_THREAT].days} days",
-        f"**TC FlyBy's search answers:** {intel.TTL['web_lookup'].days} days for something found and {intel.TTL['web_lookup_negative'].days} day for nothing found",
+        f"**TC Hawkeye's search answers:** {intel.TTL['web_lookup'].days} days for something found and {intel.TTL['web_lookup_negative'].days} day for nothing found",
         f"deleted {intel.STALE_KEPT_FOR.days} days after they expire",
         f"Current for {intel.TTL['general_answer'].days} days, then deleted {intel.STALE_KEPT_FOR.days} days after that",
         f"valid for {TOKEN_TTL_DAYS} days",
@@ -394,7 +394,7 @@ def test_the_plain_english_renderer_rules_match_the_code_word_for_word():
     assert section.count('\n| "') == len(words.PLAIN_SWAPS), "and nothing else is listed as one"
     glossary = [f"| {term} | {text} |" for term, _, text in words.GLOSSARY]
     assert [row for row in glossary if row not in section] == [], "every jargon explanation is listed, word for word"
-    for by in ("TC FlyBy", "Magnum DI"):
+    for by in ("TC Hawkeye", "Magnum DI"):
         assert words.BASIS["observation"].format(by=by) in section and words.BASIS["inference"].format(by=by) in section
     assert words.BASIS["user_report"] in section
     assert all(f"**{label}**" in section for label in words.CONFIDENCE.values())
@@ -427,8 +427,8 @@ def test_the_reusable_intelligence_rules_match_the_code():
     days = lambda td: f"{td.days} day{'' if td.days == 1 else 's'}"  # noqa: E731
     hours = lambda td: f"{int(td.total_seconds() // 3600)} hours"  # noqa: E731
     rows = [("Old AI answer to a general question (never shown)", days(intel.TTL["general_answer"])),
-            ("TC FlyBy search that found something", days(intel.TTL["web_lookup"])),
-            ("TC FlyBy search that found nothing", days(intel.TTL["web_lookup_negative"])),
+            ("TC Hawkeye search that found something", days(intel.TTL["web_lookup"])),
+            ("TC Hawkeye search that found nothing", days(intel.TTL["web_lookup_negative"])),
             ("Phone reputation (IPQualityScore)", hours(intel.TTL["phone_reputation"])),
             ("Link reputation (IPQualityScore)", hours(intel.TTL["url_reputation"])),
             ("Domain registration (RDAP)", hours(intel.TTL["domain_registration"]))]

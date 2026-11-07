@@ -7,7 +7,7 @@ import { CHECK_ROLES, HOW_INTRO, OUTCOME_GUIDE, PROMISES } from "../src/domain/h
 import { looksLikeInternalCode, outcomeLabel } from "../src/domain/messageVoice.ts";
 
 test("the five parts of Apollo appear in the order a check moves through them", () => {
-  assert.deepEqual(CHECK_ROLES.map((r) => r.name), ["Apollo", "Higgins Triage", "TC FlyBy", "Magnum DI", "Higgins"]);
+  assert.deepEqual(CHECK_ROLES.map((r) => r.name), ["Apollo", "Higgins Triage", "TC Hawkeye", "Magnum DI", "Higgins"]);
   for (const role of CHECK_ROLES) assert.ok(role.rules.length >= 3 && role.job.trim(), `${role.name} needs a job and its rules`);
 });
 

@@ -1,6 +1,6 @@
 """Chain invariants, proved as tests (they never run in the app):
 
-  Higgins Triage → TC FlyBy → Magnum DI (when warranted) → Evidence Lock → Higgins Luddish → Findings Brief.
+  Higgins Triage → TC Hawkeye → Magnum DI (when warranted) → Evidence Lock → Higgins Luddish → Findings Brief.
 
 1. Higgins can't create or alter threats. Higgins' explanation (services/higgins/explain) sits beside the validated
    result and changes nothing in it: the same outcome, attention, findings, evidence and sources, for every outcome and
@@ -44,7 +44,7 @@ def result(outcome: str, attention: str) -> HigginsResponse:
                           confidence="high", evidence_ids=["e1"], source_ids=["s1"]),
                   Finding(id="f2", text="The message asks for your NetBank password.", basis="observation", confidence="medium",
                           evidence_ids=["e1"])],
-        uncertainties=["Apollo can't confirm who actually sent this."], scope="TC FlyBy examined the submitted message.",
+        uncertainties=["Apollo can't confirm who actually sent this."], scope="TC Hawkeye examined the submitted message.",
         source_ids=["s1"], remaining_evidence_ids=[],
         actions=[] if clear else [ActionProposal(id="a1", kind="instruction", label="Don't open the link",
                                                  instruction="Do not open commbank-cancel.co.")],

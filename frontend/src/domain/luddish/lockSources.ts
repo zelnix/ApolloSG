@@ -1,5 +1,5 @@
 // Higgins Luddish L1 — the Evidence Lock for each kind of result ApolloSG shows: a check result worked out on the device,
-// a TC FlyBy / Magnum DI investigation, and a Patrol finding handed to Ask Higgins. Each takes the state and findings
+// a TC Hawkeye / Magnum DI investigation, and a Patrol finding handed to Ask Higgins. Each takes the state and findings
 // exactly as recorded; nothing is recomputed or inferred. Pure: type imports only.
 import type { CheckResultModel } from "../checkResult.ts";
 import type { HigginsIssueContext } from "../higginsHandoff.ts";
@@ -31,7 +31,7 @@ const BASIS: Record<string, Basis> = { observation: "observed", user_report: "re
  *  not a result about anything checked, so there's nothing for the question buttons to explain. */
 export const isGeneralAnswer = (response: Pick<HigginsResponse, "outcome" | "findings">): boolean => !response.outcome && !(response.findings ?? []).length;
 
-/** A finished TC FlyBy or Magnum DI result. A finding's confidence that related history raised keeps where the extra
+/** A finished TC Hawkeye or Magnum DI result. A finding's confidence that related history raised keeps where the extra
  *  weight came from (this device's earlier cases or ApolloSG's previous reports), so it never reads as the case's own
  *  evidence; history notes themselves are never findings. */
 export function lockFromInvestigation(response: HigginsResponse, by: string): EvidenceLock {

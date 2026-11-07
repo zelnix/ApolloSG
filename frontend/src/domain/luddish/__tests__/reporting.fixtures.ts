@@ -88,14 +88,14 @@ const FIXTURES: Fixture[] = [
       state: "safe",
       headline: "This looks like a genuine promotional email from Adidas.",
       findings: [
-        { text: "The sender's domain passes SPF and DKIM checks for Salesforce marketing infrastructure.", basis: "observed", confidence: "high", by: "TC FlyBy" },
-        { text: "The sending address bounces.salesforce.com is a known Salesforce marketing platform.", basis: "observed", confidence: "high", by: "TC FlyBy" },
-        { text: "Links in the email resolve to adidas.com, the brand's official website.", basis: "observed", confidence: "high", by: "TC FlyBy" },
+        { text: "The sender's domain passes SPF and DKIM checks for Salesforce marketing infrastructure.", basis: "observed", confidence: "high", by: "TC Hawkeye" },
+        { text: "The sending address bounces.salesforce.com is a known Salesforce marketing platform.", basis: "observed", confidence: "high", by: "TC Hawkeye" },
+        { text: "Links in the email resolve to adidas.com, the brand's official website.", basis: "observed", confidence: "high", by: "TC Hawkeye" },
       ],
       explanation: "The sender's details and the links we verified are consistent with the brand's marketing activity.",
       uncertainties: [],
       actions: [],
-      by: "TC FlyBy",
+      by: "TC Hawkeye",
       confidence: "High",
     },
     expected: {
@@ -121,7 +121,7 @@ const FIXTURES: Fixture[] = [
       state: "limited",
       headline: "This looks like a promotional email, but the sender couldn't be confirmed.",
       findings: [
-        { text: "No known threat was found in the checks that completed.", basis: "observed", confidence: "medium", by: "TC FlyBy" },
+        { text: "No known threat was found in the checks that completed.", basis: "observed", confidence: "medium", by: "TC Hawkeye" },
       ],
       explanation: "Some checks were completed without finding known threats, while others couldn't be finished.",
       uncertainties: [
@@ -129,7 +129,7 @@ const FIXTURES: Fixture[] = [
         "SPF/DKIM checks were inconclusive for this sending infrastructure.",
       ],
       actions: ["Check the brand's official website directly rather than using links in the email."],
-      by: "TC FlyBy",
+      by: "TC Hawkeye",
       confidence: null,
     },
     expected: {
@@ -155,14 +155,14 @@ const FIXTURES: Fixture[] = [
       state: "suspicious",
       headline: "This email claims to be from the brand, but there are signs it may not be genuine.",
       findings: [
-        { text: "The display name claims Adidas, but the sending domain doesn't match any known Adidas infrastructure.", basis: "observed", confidence: "medium", by: "TC FlyBy" },
-        { text: "The reply-to address uses a different domain from the sender.", basis: "observed", confidence: "high", by: "TC FlyBy" },
+        { text: "The display name claims Adidas, but the sending domain doesn't match any known Adidas infrastructure.", basis: "observed", confidence: "medium", by: "TC Hawkeye" },
+        { text: "The reply-to address uses a different domain from the sender.", basis: "observed", confidence: "high", by: "TC Hawkeye" },
       ],
       explanation: "Apollo found signs that this email may be an impersonation attempt.",
       reason: "Warning signs are worth checking before you act.",
       uncertainties: ["The sending domain's ownership couldn't be established."],
       actions: ["Check it another way before you act on it."],
-      by: "TC FlyBy",
+      by: "TC Hawkeye",
       confidence: null,
     },
     expected: {
@@ -224,7 +224,7 @@ const FIXTURES: Fixture[] = [
       state: "limited",
       headline: "Apollo couldn't complete every check.",
       findings: [
-        { text: "No threat was found in the checks that completed.", basis: "observed", confidence: "low", by: "TC FlyBy" },
+        { text: "No threat was found in the checks that completed.", basis: "observed", confidence: "low", by: "TC Hawkeye" },
       ],
       explanation: "Some checks couldn't run because an outside service didn't respond.",
       uncertainties: [
@@ -232,7 +232,7 @@ const FIXTURES: Fixture[] = [
         "The email authentication check returned an error.",
       ],
       actions: ["Treat this with caution."],
-      by: "TC FlyBy",
+      by: "TC Hawkeye",
       confidence: null,
     },
     expected: {
@@ -260,9 +260,9 @@ const FIXTURES: Fixture[] = [
       state: "unknown",
       headline: "Apollo couldn't determine whether this is a scam.",
       findings: [
-        { text: "SPF and DKIM checks pass for the sending domain.", basis: "observed", confidence: "high", by: "TC FlyBy" },
-        { text: "The sending domain was registered less than 7 days ago.", basis: "observed", confidence: "high", by: "TC FlyBy" },
-        { text: "No organisation matching the display name was found in official registers.", basis: "observed", confidence: "medium", by: "TC FlyBy" },
+        { text: "SPF and DKIM checks pass for the sending domain.", basis: "observed", confidence: "high", by: "TC Hawkeye" },
+        { text: "The sending domain was registered less than 7 days ago.", basis: "observed", confidence: "high", by: "TC Hawkeye" },
+        { text: "No organisation matching the display name was found in official registers.", basis: "observed", confidence: "medium", by: "TC Hawkeye" },
       ],
       explanation: "The evidence points in different directions: the technical checks pass, but the domain is new and unverified.",
       reason: "What couldn't be established could still matter.",
@@ -271,7 +271,7 @@ const FIXTURES: Fixture[] = [
         "The new domain has no reputation history.",
       ],
       actions: ["Treat this with caution."],
-      by: "TC FlyBy",
+      by: "TC Hawkeye",
       confidence: null,
     },
     expected: {

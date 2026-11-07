@@ -1,6 +1,6 @@
 """Higgins Plain-English Renderer and Fidelity Check.
 
-A validated result (TC FlyBy's or Magnum DI's) is explained in everyday words, in Apollo's wording only, and
+A validated result (TC Hawkeye's or Magnum DI's) is explained in everyday words, in Apollo's wording only, and
 checked against the result before anything is shown:
   1. facts.py   — the authoritative findings, in structured form (Subject → Check → Result for every finding), from
                   the validated result and the case's records;

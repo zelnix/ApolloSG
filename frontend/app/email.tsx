@@ -1142,12 +1142,12 @@ export default function CheckEmail() {
         visible={busy}
         title="Checking email"
         subject={subject.trim() ? subject.trim() : fromState.trim() ? `From: ${fromState.trim()}` : undefined}
-        description={"Higgins Triage and TC FlyBy are checking\nheaders, sender reputation and content\nfor phishing patterns."}
+        description={"Higgins Triage and TC Hawkeye are checking\nheaders, sender reputation and content\nfor phishing patterns."}
       />
       <SourcePickerSheet
         visible={emailSourcePicker}
         title="Your inbox"
-        note="Apollo runs the real email check on whichever one you pick — on-device analysis first, then TC FlyBy, and Magnum DI only where a deeper look matters."
+        note="Apollo runs the real email check on whichever one you pick — on-device analysis first, then TC Hawkeye, and Magnum DI only where a deeper look matters."
         preview
         items={simulation.emails.map((x) => ({ id: x.id, primary: x.subject, secondary: x.from, meta: x.probes }))}
         emptyText="There are no emails to choose from here."

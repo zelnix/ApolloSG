@@ -4,7 +4,7 @@ Tier 1 (here): deterministic catalogue rules (services/triage) over normalised
     evidence plus specialist provider results. Outcome is one of
     NO THREAT IDENTIFIED / POSSIBLE THREAT IDENTIFIED / LIMITED-UNABLE TO DETERMINE.
 Tier 2 (the investigation): started by the caller ONLY for POSSIBLE THREAT — one correlated
-    case, investigated by TC FlyBy first and by Magnum DI (exactly one Gemini call) only
+    case, investigated by TC Hawkeye first and by Magnum DI (exactly one Gemini call) only
     when a deeper look could change the answer.
 
 DESIGN PRINCIPLES:
@@ -51,7 +51,7 @@ class TriageResult:
 
     @property
     def should_escalate(self) -> bool:
-        """Only a deterministic POSSIBLE THREAT may open one investigation case (TC FlyBy first, Magnum DI only if needed)."""
+        """Only a deterministic POSSIBLE THREAT may open one investigation case (TC Hawkeye first, Magnum DI only if needed)."""
         return self.outcome is Outcome.POSSIBLE_THREAT
 
     @property
@@ -470,7 +470,7 @@ async def gather_provider_evidence(evidence: dict) -> dict:
     """Run all applicable specialist providers and return structured results.
 
     Called ONCE before triage_item. Results are reused across all tiers and
-    forwarded to the investigation (TC FlyBy, then Magnum DI if needed) if escalation occurs.
+    forwarded to the investigation (TC Hawkeye, then Magnum DI if needed) if escalation occurs.
 
     Each provider entry includes:
       - status: "ok" | "unavailable" | "not_configured" | "not_applicable"

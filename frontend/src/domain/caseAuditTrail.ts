@@ -1,5 +1,5 @@
 // The Threat Case History tab: a strict audit trail of what happened to the case and when, oldest first — the case
-// created, Higgins Triage, TC FlyBy, the escalation, Magnum DI, evidence added, the Evidence Lock, the verdict, and
+// created, Higgins Triage, TC Hawkeye, the escalation, Magnum DI, evidence added, the Evidence Lock, the verdict, and
 // what the person did with it. Every entry is a recorded event with its recorded time: a stage that didn't run has no
 // entry, an event whose time wasn't recorded says so, and earlier results stay on the trail. Nothing from another case
 // or another device appears here; sources and related cases belong to the Evidence tab and the Findings Brief.
@@ -85,16 +85,16 @@ function investigationEntries(event: PatrolEvent, investigation: DeviceInvestiga
   const answeredBy = investigation?.answeredBy ?? event.investigation_answered_by ?? null;
   if (flyby) {
     if (flyby.resolved) {
-      out.push({ id: "flyby", at: flyby.ranAt, title: "TC FlyBy settled the case", tone: "done",
+      out.push({ id: "flyby", at: flyby.ranAt, title: "TC Hawkeye settled the case", tone: "done",
         description: `Result: ${caseOutcomeLabel(flyby.outcome) ?? "recorded"}. Magnum DI wasn't needed.` });
     } else {
-      out.push({ id: "flyby", at: flyby.ranAt, title: "TC FlyBy completed its checks", tone: "check", description: "Its checks alone couldn't settle the case." });
+      out.push({ id: "flyby", at: flyby.ranAt, title: "TC Hawkeye completed its checks", tone: "check", description: "Its checks alone couldn't settle the case." });
       const issues = (flyby.issues ?? []).map((i) => i.text.trim()).filter(Boolean);
       out.push({ id: "escalated", at: flyby.ranAt, title: "Escalated to Magnum DI", tone: "escalated",
-        description: issues.length ? `Left for Magnum DI: ${issues.join(" ")}` : "TC FlyBy passed the case to Magnum DI." });
+        description: issues.length ? `Left for Magnum DI: ${issues.join(" ")}` : "TC Hawkeye passed the case to Magnum DI." });
     }
   } else if (event.investigation_completed_at && settledByFlyby(answeredBy)) {
-    out.push({ id: "flyby", at: event.investigation_completed_at, title: "TC FlyBy settled the case", tone: "done", description: "Magnum DI wasn't needed." });
+    out.push({ id: "flyby", at: event.investigation_completed_at, title: "TC Hawkeye settled the case", tone: "done", description: "Magnum DI wasn't needed." });
   }
   records.forEach((r, i) => {
     const failed = !!r.failureCode || (r.status ?? "success") !== "success";

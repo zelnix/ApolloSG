@@ -643,7 +643,7 @@ async def create_job(owner: str, case: dict, turn_id: str, key_digest: str, payl
            "payload_digest": payload_digest, "kind": kind, "status": "queued", "attempt": 0, "created_at": now, "started_at": None, "deadline_at": deadline,
            "retry_at": None, "lease_until": None, "fence": None, "epoch": case["epoch"], "work_epoch": case.get("work_epoch", case["epoch"]), "input_revision": case["revision"], "last_sequence": 0,
            "failure": None, "payload_ciphertext": enc_json(payload), "checkpoint_ciphertext": None, "checkpoint_revision": 0,
-           # Fixed for this investigation: Magnum DI and TC FlyBy both use the model selected in ApolloSG Settings
+           # Fixed for this investigation: Magnum DI and TC Hawkeye both use the model selected in ApolloSG Settings
            # when it starts, even if an admin changes the selection meanwhile.
            "provider_model": await ai_settings.investigation_model(),
            "consumed_device_request_ids": [],

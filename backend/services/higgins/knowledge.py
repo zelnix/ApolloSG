@@ -5,7 +5,7 @@ Every entry keeps its source, link, authority tier, jurisdiction and dates, and 
 - scam_alert         — official scam alerts and advisories from the government feeds
 - official_guidance  — cyber.gov.au guidance (CC BY 4.0), shipped in data/cyber_gov_au_guidance.json
 - scam_pattern       — established scam patterns as official sources describe them (tc_flyby/patterns.py), with the
-                       markers TC FlyBy compares submitted material against
+                       markers TC Hawkeye compares submitted material against
 - researched         — trusted pages found and maintained through Tavily (services/apollo_kb.py), versioned
 - exploited_vulnerability, attack_technique — technical knowledge from the free feeds (services/threat_feeds.py):
                        CISA's Known Exploited Vulnerabilities (with NVD severity) and MITRE ATT&CK. Found only by its
@@ -205,7 +205,7 @@ TECHNICAL_KINDS = ("exploited_vulnerability", "attack_technique")
 # The Official Organisation Directory is reference data the checks read (services/org_directory.py), never quoted as an answer.
 _NOT_GENERAL = {"$nin": ["gemini_answer", *TECHNICAL_KINDS, "official_organisation"]}
 # What a general question or related reading may use: every general kind, except the phone-call scam patterns, which
-# are TC FlyBy's matching rules for a call check (patterns.py), not library articles.
+# are TC Hawkeye's matching rules for a call check (patterns.py), not library articles.
 _GENERAL = {"kind": _NOT_GENERAL, "pattern.channel": {"$exists": False}}
 _TECHNICAL_ID = re.compile(r"\b(CVE-\d{4}-\d{4,}|T\d{4}(?:\.\d{3})?)\b", re.I)
 

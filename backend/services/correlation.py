@@ -5,7 +5,7 @@ Sources: the free threat lists (services/threat_feeds.py), Google Safe Browsing 
 ApolloSG's official-domain register and Official Organisation Directory (services/org_directory.py), the official scam
 advisories ApolloSG holds, and ApolloSG's own observations (services/observed_intel.py).
 
-It adds nothing to TC FlyBy's checks. The record goes to Magnum DI (tc_flyby/report.magnum_brief) so it doesn't re-derive
+It adds nothing to TC Hawkeye's checks. The record goes to Magnum DI (tc_flyby/report.magnum_brief) so it doesn't re-derive
 what is known, and knows how current each piece is. ApolloSG's previous reports are said only in their approved words
 (observed_intel.SAID) — never which device, how many or when (the owner's rule: devices are mutually exclusive). Nothing
 here is ever a finding, and history never changes a case's outcome (services/higgins/history.py).

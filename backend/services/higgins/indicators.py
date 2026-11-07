@@ -1,7 +1,7 @@
 """What submitted material itself states — organisations named, links, requests for credentials or money,
 amounts, urgency, numbers and addresses. Deterministic reading, no inference and no lookup.
 
-Used by Higgins Triage (tc_flyby/triage.py) and TC FlyBy in every environment, and by the preview simulator.
+Used by Higgins Triage (tc_flyby/triage.py) and TC Hawkeye in every environment, and by the preview simulator.
 It lives outside the preview package so production never loads a simulation module.
 """
 from __future__ import annotations

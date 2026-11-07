@@ -91,7 +91,7 @@ def device_key(owner: str, subject: dict) -> str:
 
 def observed_subjects(subs: list[dict]) -> list[dict]:
     """The message and file subjects ApolloSG may record in its previous reports (its websites, numbers and
-    addresses come from the TC FlyBy checks themselves)."""
+    addresses come from the TC Hawkeye checks themselves)."""
     return [{"kind": s["match"], "value": s["value"]} for s in subs if s["match"] in ("message", "file")]
 
 

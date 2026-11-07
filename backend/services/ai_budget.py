@@ -1,4 +1,4 @@
-"""Daily AI spending limits, enforced at the AI gateway (services/higgins/provider.py) and for TC FlyBy's web search
+"""Daily AI spending limits, enforced at the AI gateway (services/higgins/provider.py) and for TC Hawkeye's web search
 (services/brave_search.py).
 
 Two limits, both changeable by an admin (routers/admin.py → /api/admin/ai-budget), kept in apollo_config:

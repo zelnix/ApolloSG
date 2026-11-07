@@ -205,7 +205,7 @@ export default function CheckAccount() {
       <View style={[s.top, { paddingTop: insets.top + spacing.md }]}>
         <CheckToolHeader
           title="Check an account alert"
-          info={{ title: "About account alerts", body: ["Received an unexpected security alert from a service? Paste or describe the alert and Apollo will investigate whether it's genuine or a phishing attempt. TC FlyBy investigates it first, and Magnum DI looks deeper only if that could change the answer.", "Apollo checks the claimed sender, alert language, embedded links and known phishing patterns. This does not access your accounts — it analyses the alert itself."] }}
+          info={{ title: "About account alerts", body: ["Received an unexpected security alert from a service? Paste or describe the alert and Apollo will investigate whether it's genuine or a phishing attempt. TC Hawkeye investigates it first, and Magnum DI looks deeper only if that could change the answer.", "Apollo checks the claimed sender, alert language, embedded links and known phishing patterns. This does not access your accounts — it analyses the alert itself."] }}
           testID="account"
         />
       </View>

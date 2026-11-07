@@ -1,7 +1,7 @@
 // The Home hero's two-line Higgins briefing, one per thing Apollo wants the person to see:
 //   Line 1: {Type}: {subject/identifier} from {source}, detected as {finding}.
 //   Line 2: {date/time}. {Higgins' recommended action}.
-// Read only from the case's authoritative record: its Higgins Case Briefing (Higgins Triage → TC FlyBy → Magnum DI
+// Read only from the case's authoritative record: its Higgins Case Briefing (Higgins Triage → TC Hawkeye → Magnum DI
 // when warranted → Evidence Lock → Higgins Luddish) when it has one, else what Higgins Triage recorded. Nothing is
 // added: a part Apollo didn't record is left out, and long identifiers are shortened to keep the two lines. The full
 // explanation, steps and evidence stay in the Threat Case the card opens. Pure: no React, unit-tested.

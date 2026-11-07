@@ -1,4 +1,4 @@
-// Acceptance: the UNIﬁed Energy SMS (sender 0419 841 238) must reach TC FlyBy. Higgins Triage spots the look-alike
+// Acceptance: the UNIﬁed Energy SMS (sender 0419 841 238) must reach TC Hawkeye. Higgins Triage spots the look-alike
 // "ﬁ" in the business name (on its own enough), the government-rebate claim, the deadline pressure and "Reply YES".
 import assert from "node:assert/strict";
 import { test } from "node:test";

@@ -1,6 +1,6 @@
 """What ApolloSG sends through its AI gateway, in no provider's terms.
 
-Feature code (Magnum DI, TC FlyBy) builds its request from these types and hands it to the gateway
+Feature code (Magnum DI, TC Hawkeye) builds its request from these types and hands it to the gateway
 (services/higgins/provider.generate). Only a provider adapter (services/higgins/adapters/) turns them into
 a provider SDK's own types, so no feature code depends on Gemini, Claude or OpenAI.
 

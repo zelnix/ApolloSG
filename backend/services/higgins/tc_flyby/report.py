@@ -1,8 +1,8 @@
-"""What Higgins shows when TC FlyBy settles a check, and the slice Magnum DI receives when it can't.
+"""What Higgins shows when TC Hawkeye settles a check, and the slice Magnum DI receives when it can't.
 
 Higgins explains what was found → what it means → what to do. Every finding is live evidence about this
-case, citing the TC FlyBy evidence item and the source that established it. Apollo KB knowledge is never a
-finding: it appears only as supporting context in the explanation. Anything TC FlyBy could not establish stays
+case, citing the TC Hawkeye evidence item and the source that established it. Apollo KB knowledge is never a
+finding: it appears only as supporting context in the explanation. Anything TC Hawkeye could not establish stays
 an uncertainty — missing evidence is never turned into a fact.
 """
 from __future__ import annotations
@@ -42,10 +42,10 @@ def _knowledge(checks: list[Check]) -> list[dict]:
 
 
 def _not_found(checks: list[Check]) -> list[str]:
-    """How ApolloSG checked, for the DI tab only: lookups that found nothing or didn't answer. They describe TC FlyBy's
+    """How ApolloSG checked, for the DI tab only: lookups that found nothing or didn't answer. They describe TC Hawkeye's
     method, so they are never listed under what isn't certain."""
     out = [f["text"] for c in checks for f in c.facts if f["signal"] == "missing"]
-    out += [f"{c.subject}: TC FlyBy's lookup was unavailable, so this wasn't established either way." for c in checks if c.status == "unavailable"]
+    out += [f"{c.subject}: TC Hawkeye's lookup was unavailable, so this wasn't established either way." for c in checks if c.status == "unavailable"]
     return [t if t.endswith((".", "!", "?")) else f"{t}." for t in out]
 
 
@@ -57,7 +57,7 @@ def _topic(text: str) -> str:
 
 
 def _method(lead: str, checks: list[Check], *, not_taken: bool) -> str:
-    """"How ApolloSG checked": what TC FlyBy did and, said once after the reason it gives, the open issues it didn't take
+    """"How ApolloSG checked": what TC Hawkeye did and, said once after the reason it gives, the open issues it didn't take
     further; then the lookups that found nothing or didn't answer."""
     topics = [_topic(c.open_issue) for c in checks if not_taken and c.open_issue and c.status in ("open", "needs_reasoning", "not_needed")]
     return " ".join([lead, *([f"So these weren't taken further: {'; '.join(topics)}."] if topics else []), *_not_found(checks)])
@@ -79,7 +79,7 @@ def _knowledge_block(checks: list[Check]) -> str:
 
 
 def _evidence_for(subject: str, material: dict[str, str], flyby_item: str) -> list[str]:
-    """The TC FlyBy record, plus the submitted item(s) the checked value actually appears in."""
+    """The TC Hawkeye record, plus the submitted item(s) the checked value actually appears in."""
     needle = subject.lower()
     return [flyby_item, *[eid for eid, text in material.items() if needle and needle in text.lower()][:2]]
 
@@ -111,7 +111,7 @@ def _checked(plan_: Plan, how: str) -> str:
     """One sentence, used word for word by "How ApolloSG checked" and the scope, so the report says it once."""
     examined = ("the call details" if plan_.channel == "call" else
                 "the submitted link" + ("s" if len(plan_.entities.hosts) > 1 else "") if plan_.link_only else "the submitted material")
-    return f"TC FlyBy checked {examined} using {how}."
+    return f"TC Hawkeye checked {examined} using {how}."
 
 
 def _scope(plan_: Plan, how: str) -> str:
@@ -476,7 +476,7 @@ def _cctld_technical_section(confirmed_host: str, brand: str) -> str:
 
 
 def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, route: str) -> dict:
-    """No scam indicators in what TC FlyBy checked — never described as safe."""
+    """No scam indicators in what TC Hawkeye checked — never described as safe."""
     facts = _live(checks)
     findings = [_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in facts]
     official_check, official = next(((c, f) for c, f in facts if f["decisive"] and f["signal"] == "clear"), (None, None))
@@ -507,8 +507,10 @@ def clear(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item
         brand = plan_.entities.brands[0][0] if plan_.entities.brands else None
         domains = plan_.entities.hosts[:3]
 
-        if domains or brand:
-            # ── "Why This Looks Safe" format — triggered when there are actual entities ──
+        if brand:
+            # ── "Why This Looks Safe" format — triggered only when a named organisation is involved.
+            # A bare link/phone number with no claimed organisation uses the generic structured
+            # format below (test_higgins_wording.py #2: "Apollo checked … names only what was checked").
             why_bullets: list[str] = []
 
             # 1. Domain legitimacy
@@ -912,7 +914,7 @@ def _unchecked(plan_: Plan) -> bool:
     return False
 
 
-def undetermined(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str) -> dict:
+def undetermined(plan_: Plan, checks: list[Check], material: dict[str, str], flyby_item: str, outcome: str = "unlikely_scam") -> dict:
     """The available evidence can't establish more, and deeper investigation couldn't change that. It says why:
     something couldn't be checked, weak signals were found, or both — never a gap that isn't there."""
     subject = _subject(plan_)
@@ -927,7 +929,7 @@ def undetermined(plan_: Plan, checks: list[Check], material: dict[str, str], fly
     why = why or ["the checks that ran couldn't settle it either way"]
     means = f"{why[0][0].upper()}{why[0][1:]}{' and ' + why[1] if len(why) > 1 else ''}, so the available evidence can't establish more."
     return _result(
-        plan_, checks, outcome="unable_to_determine", attention="review", actions=[_action("Check before using it", _CHECK_FIRST)],
+        plan_, checks, outcome=outcome, attention="review", actions=[_action("Check before using it", _CHECK_FIRST)],
         found=[_finding(f, _evidence(c, material, flyby_item), "medium") for c, f in _live(checks)],
         overview=f"ApolloSG couldn't establish enough about {subject} to say either way. {found}, but that isn't the same as it being safe — {after}",
         means=means,
@@ -992,7 +994,7 @@ def _risk_score(result: dict, plan_: Plan) -> int:
 
 
 def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_item: str) -> dict:
-    """Higgins' result for a case TC FlyBy resolved, by what settled it."""
+    """Higgins' result for a case TC Hawkeye resolved, by what settled it."""
     route, checks = decision.answered_by, plan_.checks
     if decision.basis == "threat":
         result = concern(plan_, checks, material, flyby_item, route)
@@ -1006,10 +1008,13 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
     elif decision.outcome in ("not_scam", "no_scam_indicators"):
         result = clear(plan_, checks, material, flyby_item, route)
     else:
-        result = undetermined(plan_, checks, material, flyby_item)
+        result = undetermined(plan_, checks, material, flyby_item, outcome=decision.outcome or "unlikely_scam")
     final = _with_gaps(result, plan_)
-    # Attach evidence-based risk score (Module 5)
-    final["riskScore"] = _risk_score(final, plan_)
+    # Attach the Findings Rating (0-100, Apollo PRD v2.2 §2) and its explainable breakdown.
+    from services.higgins.tc_flyby import finding_rules, scoring
+    breakdown = scoring.score_plan(plan_, finding_rules.gather_ipdmc(plan_))
+    final["findingsRating"] = breakdown.rating
+    final["findingsRatingBreakdown"] = breakdown.wire()
     return final
 
 
@@ -1025,7 +1030,7 @@ def knowledge_answer(check: Check, route: str, presented: str, source_ids: list[
         body = f"{overview}\n\nSources:\n{sources}" if sources else overview
     return {
         "overview": overview,
-        "explanationMarkdown": f"{body}\n\n**How ApolloSG answered**\nTC FlyBy answered this with {ROUTE_LABEL[route]}. It's general information, "
+        "explanationMarkdown": f"{body}\n\n**How ApolloSG answered**\nTC Hawkeye answered this with {ROUTE_LABEL[route]}. It's general information, "
                                "not a finding about anything you've submitted.",
         "assessment": "no_concern_found_within_scope", "outcome": None, "attention": "none", "attentionReason": None, "findings": [],
         "uncertainties": ["This is general information. If something specific has happened to you, send it to Apollo to check."],
@@ -1046,7 +1051,7 @@ def magnum_brief(checks: list[Check], issues: list[dict], unread_sections: dict,
     missing += [f"- {c.subject}: lookup unavailable" for c in checks if c.status == "unavailable"]
     clean = sorted({f"{c.kind} {c.subject}" for c in checks for f in c.facts if f.get("class") == "live_evidence" and f["signal"] == "clear"})
     neutral = [f"- {f['text']}" for c in checks for f in c.facts if f.get("class") == "live_evidence" and f["signal"] == "neutral"]
-    parts = ["TC FlyBy fly-by results for this case (live evidence, with sources)."]
+    parts = ["TC Hawkeye fly-by results for this case (live evidence, with sources)."]
     if signals:
         parts.append("Established signals:\n" + "\n".join(signals))
     if neutral:
@@ -1063,7 +1068,7 @@ def magnum_brief(checks: list[Check], issues: list[dict], unread_sections: dict,
         how = ("resting on established threat evidence, which Magnum DI can't contradict or lower" if floor["established"] else
                "provisional: Magnum DI may confirm it, raise it, or correct it downward only with evidence that resolves it. "
                "A finding that corrects it cites that evidence and lists the provisional finding's id in supersedesFindingIds")
-        parts.append(f"TC FlyBy's outcome: {outcomes.label(floor['outcome'])} — {how}:\n"
+        parts.append(f"TC Hawkeye's outcome: {outcomes.label(floor['outcome'])} — {how}:\n"
                      + "\n".join(f"- {f['id']}: {f['text']}" for f in floor["findings"] if not f["text"].startswith("It asks for a secret")))
     if floor and floor.get("minimum"):
         parts.append("Established threat evidence (Magnum DI can't contradict it; the outcome can't be below "

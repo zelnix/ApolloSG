@@ -1,4 +1,4 @@
-// Higgins Luddish L1 — the Evidence Lock. What Apollo, TC FlyBy or Magnum DI established is frozen before any language
+// Higgins Luddish L1 — the Evidence Lock. What Apollo, TC Hawkeye or Magnum DI established is frozen before any language
 // stage starts: the state, every finding with who established it and how firmly, what isn't certain, what to do and
 // who blocked it. Luddish may explain locked findings; it can't modify, reinterpret, strengthen or weaken them.
 // A lock whose fingerprint no longer matches is never explained. Pure: no React, no native imports.
@@ -14,7 +14,7 @@ export interface LockedFinding {
   readonly text: string;
   readonly basis: Basis;
   readonly confidence: "high" | "medium" | "low" | null;
-  /** Who established it (TC FlyBy, Magnum DI, Apollo), when recorded. */
+  /** Who established it (TC Hawkeye, Magnum DI, Apollo), when recorded. */
   readonly by: string | null;
   /** What raised its confidence beyond what the case's own evidence gave it, as the result recorded it. */
   readonly raisedBy: readonly RaisedBy[];
@@ -36,7 +36,7 @@ export interface EvidenceLock {
   readonly how: string | null;
   /** Who actually blocked it (Android, your carrier, Apollo's Site Gate). null: not recorded. */
   readonly blockedBy: string | null;
-  /** Who recorded the result (Apollo, TC FlyBy, Magnum DI). */
+  /** Who recorded the result (Apollo, TC Hawkeye, Magnum DI). */
   readonly by: string | null;
   /** How sure Apollo said it is overall, in its own words ("High"). null: not recorded. */
   readonly confidence: string | null;

@@ -51,7 +51,7 @@ test("the real rule book renders as clean text with every section and the settli
     assert.ok(!/\*\*|\{#|^\||^#+\s|`/.test(line), `unrendered markdown in: ${line}`);
   }
   const headings = blocks.filter((b): b is Extract<Block, { kind: "heading" }> => b.kind === "heading").map((b) => b.text);
-  for (const part of ["Apollo detection", "Higgins Triage", "TC FlyBy", "Magnum DI", "Higgins (explanation)", "Ask Higgins", "Privacy and redaction", "knowledge base", "Settling rules"]) {
+  for (const part of ["Apollo detection", "Higgins Triage", "TC Hawkeye", "Magnum DI", "Higgins (explanation)", "Ask Higgins", "Privacy and redaction", "knowledge base", "Settling rules"]) {
     assert.ok(headings.some((h) => h.includes(part)), `missing section: ${part}`);
   }
   assert.ok(blocks.some((b) => b.kind === "heading" && b.id === "settling-rules"));

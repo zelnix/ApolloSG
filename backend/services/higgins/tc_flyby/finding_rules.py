@@ -1,9 +1,18 @@
-"""Apollo Scam Guard — Finding Rules (S1–S4, N1–N4, L1–L3).
+"""Apollo Scam Guard — Finding Rules (S1–S4, N1–N4, L1–L3) and the Findings Rating.
 
-Each rule is an explicit, testable condition evaluated against TC FlyBy's investigation
-Plan. No scoring, no keyword counting, no new AI calls.
+Each rule is an explicit, testable condition evaluated against TC Hawkeye's investigation Plan. No
+keyword counting, no new AI calls — the rules below gather and explain evidence exactly as before.
 
-Decision order (decide.py calls these):
+What changed (Apollo PRD v2.2): the Finding itself (scam / likely_scam / unlikely_scam / not_scam) is
+no longer picked by "did any rule pass" — evaluate() now gets it from the 0-100 Findings Rating
+(scoring.py), a weighted score across six investigative dimensions. evaluate_rules() below still runs
+the S1-S4/N1-N4/L1-L3 waterfall in full; its deciding_rules/rules_passed/rules_failed keep feeding
+Higgins' explanations and decide.py's routing (which rule explains "why"). "unable_to_determine" is no
+longer a Finding people see — it's merged into "unlikely_scam" (outcomes.py); a genuinely incomplete
+investigation (a critical check that never got an answer, even after retrying) is caught upstream,
+before any Finding is attempted.
+
+Historical decision order (evaluate_rules — still computed, no longer decisive on its own):
   1. Evaluate S1–S4. If any passes and no unresolved reliable info undermines it → scam.
   2. Evaluate N1–N4. If all applicable pass → not_scam.
   3. Evaluate L1–L3. If any passes and no genuine explanation resolves it → likely_scam.
@@ -77,7 +86,7 @@ class IPDMCChecks:
 @dataclass
 class FindingRulesResult:
     """Complete output of the rules evaluation."""
-    finding: str   # scam | not_scam | likely_scam | unable_to_determine
+    finding: str   # scam | not_scam | likely_scam | unlikely_scam
     rules_passed: list[RuleResult] = field(default_factory=list)
     rules_failed: list[RuleResult] = field(default_factory=list)
     ipdmc: IPDMCChecks = field(default_factory=IPDMCChecks)
@@ -87,6 +96,9 @@ class FindingRulesResult:
     incomplete_checks: list[str] = field(default_factory=list)
     # Unresolved conflicts
     unresolved_conflicts: list[str] = field(default_factory=list)
+    # The Findings Rating (0-100) and its full explainable breakdown (scoring.py) — populated by evaluate().
+    rating: int = 0
+    rating_breakdown: dict = field(default_factory=dict)
 
 
 # ── Helper functions ─────────────────────────────────────────────────────────
@@ -804,11 +816,16 @@ def l3_independent_indicators(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
         return RuleResult("L3", False, "failed",
                           reason=f"Only {len(warnings)} warning signal(s); need at least 2.")
 
-    # Check for genuinely different observations
-    # Group by check kind and subject to detect duplicate observations
+    # Check for genuinely different observations.
+    # Group by check kind and subject to detect duplicate observations — but a "triage_rules" check
+    # can carry several genuinely independent catalogue rules (each ruleId is its own distinct finding,
+    # e.g. a look-alike character beside unrelated urgency/pressure wording), so those are split by
+    # ruleId/topic rather than lumped together just because they came from the one check object.
     groups: dict[str, list[tuple[Check, dict]]] = {}
     for c, f in warnings:
         key = f"{c.kind}:{registrable(c.subject) or c.subject}"
+        if c.kind == "triage_rules":
+            key = f"{key}:{f.get('ruleId') or f.get('topic') or f['text']}"
         groups.setdefault(key, []).append((c, f))
 
     independent_groups = list(groups.values())
@@ -819,7 +836,7 @@ def l3_independent_indicators(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
     # Condition 3: At least one directly concerns deception
     deception_indicators = []
     deception_topics = {"impersonation", "lookalike", "shared_service", "freemail", "claim", "company"}
-    deception_kinds = {"email", "phone", "company", "claim"}
+    deception_kinds = {"email", "phone", "company", "claim", "triage_rules"}
     for c, f in warnings:
         topic = f.get("topic", "")
         if topic in deception_topics:
@@ -850,10 +867,16 @@ def l3_independent_indicators(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
 
 # ── Decision Engine ──────────────────────────────────────────────────────────
 
-def evaluate(plan: Plan) -> FindingRulesResult:
-    """Evaluate all rules against the investigation plan and select the Finding.
+def evaluate_rules(plan: Plan) -> FindingRulesResult:
+    """Evaluate the S1-S4 / N1-N4 / L1-L3 rules against the investigation plan.
 
-    Decision order:
+    This still runs in full on every case — its evidence, deciding_rules and ipdmc feed Higgins'
+    narrative and decide.py's routing (which rule explains "why", not just "what"). It no longer picks
+    the Finding on its own, though: evaluate() below does that from the Findings Rating instead. The
+    docstring below is historical (kept because deciding_rules / rules_passed / rules_failed still mean
+    exactly what it says), but see evaluate() for what actually becomes `result.finding`.
+
+    Decision order (informational only — superseded by the Findings Rating in evaluate()):
     1. S1-S4: If any passes → scam
     2. N1-N4: If all applicable pass → not_scam
     3. L1-L3: If any passes → likely_scam
@@ -948,17 +971,43 @@ def evaluate(plan: Plan) -> FindingRulesResult:
     return result
 
 
+def evaluate(plan: Plan) -> FindingRulesResult:
+    """The Finding TC Hawkeye actually reports: the rule evaluation above still gathers and explains the
+    evidence (deciding_rules, rules_passed/failed, ipdmc — decide.py's routing and Higgins' narrative
+    both depend on these), but which of the four Findings applies is now decided by the Findings Rating
+    (scoring.py), per Apollo PRD v2.2 §2 — a 0-100 score across six weighted dimensions, replacing the
+    old all-or-nothing "did any rule pass" waterfall. "unable_to_determine" is no longer one of the four
+    Findings (it's merged into "unlikely_scam" — see outcomes.py); genuine investigation failures (a
+    critical check that never got an answer even after retrying) are handled upstream, before a Finding
+    is attempted at all.
+    """
+    from services.higgins.tc_flyby import scoring
+
+    result = evaluate_rules(plan)
+    breakdown = scoring.score_plan(plan, result.ipdmc)
+    result.finding = breakdown.finding
+    result.rating = breakdown.rating
+    result.rating_breakdown = breakdown.wire()
+    # Keep deciding_rules consistent with the rating's Finding when they already agree (the common
+    # case); when the score disagrees with the old waterfall's pick, leave deciding_rules as whatever
+    # rules DID pass (if any) so decide.py's routing still has something to work with, rather than
+    # clearing it to nothing.
+    if not result.deciding_rules and (result.rules_passed):
+        result.deciding_rules = [r.rule_id for r in result.rules_passed]
+    return result
+
+
 def evaluate_for_magnum(plan: Plan, magnum_outcome: str | None) -> FindingRulesResult:
     """Map a Magnum DI outcome to the new finding codes using the same rules.
     Magnum DI selects its own outcome via the AI model, but this function ensures
     the same finding criteria are applied."""
-    # First evaluate the TC FlyBy evidence with the rules
+    # First evaluate the TC Hawkeye evidence with the rules
     rules_result = evaluate(plan)
 
     # If Magnum DI provided an outcome, validate it against the rules
     if magnum_outcome:
         # Magnum DI's outcome is trusted if it's consistent with the rules
-        # or if it has additional evidence TC FlyBy didn't have
+        # or if it has additional evidence TC Hawkeye didn't have
         pass
 
     return rules_result

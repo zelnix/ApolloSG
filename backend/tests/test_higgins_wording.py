@@ -140,7 +140,9 @@ def test_weak_signals_are_never_called_warning_signs():
     assert result2["outcome"] == "likely_scam"
 
 
-# 5. "Unable to determine" says why: a gap only when something wasn't checked, weak signals when they were found.
+# 5. "Unlikely a scam" says why: a gap only when something wasn't checked, weak signals when they were found.
+# (The legacy "unable to determine" outcome is fully merged into "unlikely_scam" — Apollo PRD v2.2 §2 —
+# so this is the same wording contract under its current Finding name.)
 def _bare_link(*facts: dict, unavailable: bool = False) -> triage.Plan:
     plan = _plan("https://fresh-deals.shop/promo", "Is this link safe?")
     link = _check(plan, "link")
@@ -151,9 +153,9 @@ def _bare_link(*facts: dict, unavailable: bool = False) -> triage.Plan:
 
 def _undetermined(plan: triage.Plan) -> dict:
     decision, issues = decide.evaluate(plan, MATERIAL, final=True)
-    assert issues == [] and decision.outcome == "unable_to_determine", "settlement unchanged"
+    assert issues == [] and decision.outcome == "unlikely_scam", "settlement unchanged"
     result = report.compose(decision, plan, MATERIAL, "flyby-1")
-    assert result["attention"] == "review" and result["outcome"] == "unable_to_determine"
+    assert result["attention"] == "review" and result["outcome"] == "unlikely_scam"
     return result
 
 

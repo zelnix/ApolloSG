@@ -67,7 +67,7 @@ function response(outcome: string, attention: string, briefing: BriefingKind) {
     revision: 1, overview: "This looks like a CommBank impersonation attempt. The link isn't CommBank's.", explanationMarkdown: "",
     assessment: outcome === "no_scam_indicators" ? "no_concern_found_within_scope" : outcome === "unable_to_determine" ? "uncertain" : "concern_found",
     outcome, attention, attentionReason: attention === "urgent" || attention === "action_needed" ? "The link isn't CommBank's domain." : null,
-    findings: FINDINGS, uncertainties: ["Apollo can't confirm who actually sent this."], scope: "TC FlyBy checked the submitted message.",
+    findings: FINDINGS, uncertainties: ["Apollo can't confirm who actually sent this."], scope: "TC Hawkeye checked the submitted message.",
     sourceIds: [], remainingEvidenceIds: [], actions: outcome === "no_scam_indicators" ? [] : [action],
     recommendedActionId: outcome === "no_scam_indicators" ? null : "a1", question: null, completion: "complete", briefing: b,
   };
@@ -87,7 +87,7 @@ const matrix = OUTCOMES.flatMap((o) => ATTENTION.flatMap((a) => (["pass", "fail"
 // ── 1. Higgins Luddish can't change locked evidence or findings ─────────────────────────────────────────────────────
 
 test("the Evidence Lock is frozen: nothing in it can be changed, added or removed", () => {
-  const lock = lockFromInvestigation(response("likely_scam", "action_needed", "pass") as never, "TC FlyBy");
+  const lock = lockFromInvestigation(response("likely_scam", "action_needed", "pass") as never, "TC Hawkeye");
   assert.ok(lockIntact(lock));
   assert.throws(() => { (lock as { state: string }).state = "resting"; }, TypeError);
   assert.throws(() => { (lock.findings[0] as { text: string }).text = "Nothing to worry about."; }, TypeError);
@@ -102,7 +102,7 @@ test("explaining a result changes nothing in the lock or in the result it was lo
   for (const [o, a, b] of matrix) {
     const resp = response(o, a, b);
     const before = JSON.stringify(resp);
-    const lock = lockFromInvestigation(resp as never, "TC FlyBy");
+    const lock = lockFromInvestigation(resp as never, "TC Hawkeye");
     const fingerprint = lock.fingerprint;
     const ex = compose(lock);
     assert.ok(lockIntact(lock), `${o}/${a}/${b}`);
@@ -119,7 +119,7 @@ test("explaining a result changes nothing in the lock or in the result it was lo
 });
 
 test("a lock whose content no longer matches its fingerprint is never reworded — Apollo's words only", () => {
-  const lock = lockFromInvestigation(response("likely_scam", "action_needed", "pass") as never, "TC FlyBy");
+  const lock = lockFromInvestigation(response("likely_scam", "action_needed", "pass") as never, "TC Hawkeye");
   const tampered = Object.freeze({ ...lock, findings: Object.freeze([Object.freeze({ ...lock.findings[0], text: "It isn't CommBank's domain, utilise caution." })]) });
   assert.equal(lockIntact(tampered), false);
   const ex = compose(tampered);
@@ -135,7 +135,7 @@ test("the lock keeps where a finding's extra confidence came from: case evidence
     note("previously_encountered", "This link, commbank-cancel.co, has been previously reported as malicious — High confidence.", ["f1"]),
     note("previously_encountered", "This number has mixed previous reports.", []),
   ] };
-  const lock = lockFromInvestigation(resp as never, "TC FlyBy");
+  const lock = lockFromInvestigation(resp as never, "TC Hawkeye");
   assert.ok(lockIntact(lock));
   assert.deepEqual(lock.findings.map((f) => [...f.raisedBy]), [["this_device", "previous_reports"], []]);
   // History never becomes a finding, and the case's own basis stays as recorded (never "seen directly" because of it).

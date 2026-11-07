@@ -58,8 +58,8 @@ test("a Triage that opened an investigation says where it went", () => {
     event: ev({ triage_investigation: triage, investigation_case_id: "case-9" }),
     investigation: { answeredBy: "tc_flyby_official", response: { findings: [] }, sources: [] } as never,
   });
-  assert.match(settled.find((s) => s.id === "triage")!.returned, /TC FlyBy settled it — Magnum DI was not engaged\.$/);
-  assert.equal(settled.find((s) => s.id === "magnum")!.name, "TC FlyBy investigation");
+  assert.match(settled.find((s) => s.id === "triage")!.returned, /TC Hawkeye settled it — Magnum DI was not engaged\.$/);
+  assert.equal(settled.find((s) => s.id === "magnum")!.name, "TC Hawkeye investigation");
 });
 
 test("a DNS detection names the list that matched", () => {

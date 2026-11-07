@@ -1,6 +1,6 @@
 """Evidence model — server processing is never an evidence source (core/evidence_model.py).
 
-Origin, evidence source, processing, completeness and privacy state are kept apart. Server Triage, TC FlyBy / Magnum DI
+Origin, evidence source, processing, completeness and privacy state are kept apart. Server Triage, TC Hawkeye / Magnum DI
 projection, device sync and storage never write or imply the server as the answer to "Where did this evidence come
 from?", and never change a source once it is recorded. Records stored with the old "server_projected" / "incomplete"
 values are read into the separated model without being rewritten.

@@ -18,9 +18,11 @@ CLEAR_ROUTING = {"answeredBy": "tc_flyby_search", "tc_flyby": {"resolved": True,
 
 def test_recorded_outcome_is_the_final_result():
     view = ended_view({"status": "expired", "response_revision": 1, "routing": CLEAR_ROUTING})
-    assert view["outcome"] == "no_scam_indicators" and view["headline"] == "No scam indicators found"
+    # The four PRD tiers use unified wording — a legacy "no_scam_indicators" record is shown with the
+    # current "not_scam" tier's headline (outcomes.LEGACY_LABELS), not its own historical wording.
+    assert view["outcome"] == "no_scam_indicators" and view["headline"] == "This is not a scam"
     assert view["state"] == "resting" and view["status"] == "resolved"
-    assert view["what_happened"].startswith("Settled by TC FlyBy")
+    assert view["what_happened"].startswith("Settled by TC Hawkeye")
 
 
 def test_finished_without_a_kept_result_never_claims_a_verdict():
@@ -62,7 +64,7 @@ async def test_ended_cases_get_their_final_state_and_live_ones_are_left(owner):
 
     by_case = {e["investigation_case_id"]: e async for e in db.patrol_events.find({"device_id": owner}, {"_id": 0})}
     done = by_case[settled]
-    assert done["headline"] == "No scam indicators found" and done["state"] == "resting" and done["status"] == "resolved"
+    assert done["headline"] == "This is not a scam" and done["state"] == "resting" and done["status"] == "resolved"
     assert done["investigation_completed_at"] and done["resolved_at"]
     history = await db.higgins_investigation_history.find_one({"owner_id": owner, "case_id": settled})
     assert history and history["deleted"] is False and history["attention"] == "none"

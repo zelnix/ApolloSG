@@ -1,4 +1,4 @@
-// "How Apollo checks" — the rules Apollo, Higgins Triage, TC FlyBy, Magnum DI and Higgins operate under,
+// "How Apollo checks" — the rules Apollo, Higgins Triage, TC Hawkeye, Magnum DI and Higgins operate under,
 // in plain English for the person using Apollo. Mirrors memory/OPERATING_RULES.md: keep the two in step.
 // Pure: no React, no native imports.
 
@@ -43,7 +43,7 @@ export const CHECK_ROLES: CheckRole[] = [
   },
   {
     id: "tc_flyby",
-    name: "TC FlyBy",
+    name: "TC Hawkeye",
     job: "Investigates quickly",
     rules: [
       "Uses no AI. Checks the cheapest reliable way first: official sources, then ApolloSG's knowledge base, then one small, targeted web search.",
@@ -51,7 +51,7 @@ export const CHECK_ROLES: CheckRole[] = [
       "Stops as soon as checking further couldn't change the result or what you should do. “Unable to determine” is an honest answer.",
       "A known scam only matches when the whole pattern is there — one word on its own never counts.",
       "A web address that uses a company's name but isn't that company's website is a warning sign.",
-      "When TC FlyBy settles a check, Magnum DI isn't called at all.",
+      "When TC Hawkeye settles a check, Magnum DI isn't called at all.",
     ],
   },
   {
@@ -59,10 +59,10 @@ export const CHECK_ROLES: CheckRole[] = [
     name: "Magnum DI",
     job: "Investigates deeply, only when needed",
     rules: [
-      "Called only when TC FlyBy can't settle something that could change the answer — a picture Apollo couldn't read, a request to send money or details somewhere nobody has verified, or findings that disagree.",
-      "Looks only at what's still open, with TC FlyBy's notes — not the whole case again.",
+      "Called only when TC Hawkeye can't settle something that could change the answer — a picture Apollo couldn't read, a request to send money or details somewhere nobody has verified, or findings that disagree.",
+      "Looks only at what's still open, with TC Hawkeye's notes — not the whole case again.",
       "Makes at most one AI call per case, and it's never retried. It searches the web only if a fact is still missing.",
-      "If that call fails, ApolloSG tells you why and shows what TC FlyBy already found.",
+      "If that call fails, ApolloSG tells you why and shows what TC Hawkeye already found.",
       "Every finding must point to real evidence. If its answer doesn't hold up, ApolloSG says so rather than making one up.",
       "It's the only part of ApolloSG that may ask you a question or ask your device for a fresh reading.",
     ],
@@ -91,6 +91,6 @@ export const OUTCOME_GUIDE: { outcome: string; meaning: string }[] = [
 export const PROMISES: string[] = [
   "ApolloSG never tells you something is safe — only what its checks found.",
   "Anything Apollo couldn't check is listed, not hidden.",
-  "Every result says who settled it: TC FlyBy or Magnum DI.",
+  "Every result says who settled it: TC Hawkeye or Magnum DI.",
 ];
 

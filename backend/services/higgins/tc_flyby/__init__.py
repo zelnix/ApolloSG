@@ -1,14 +1,14 @@
-"""TC FlyBy — Apollo's fast, low-cost fly-by investigation.
+"""TC Hawkeye — Apollo's fast, low-cost fly-by investigation.
 
     Input → Higgins Triage → only the relevant checks → for each check:
         1. direct / authoritative source (official.py)
         2. Apollo Knowledge Base — including the established scam patterns (patterns.py)
         3. one targeted web search per case — Brave Search, read deterministically; no AI model (search.py)
     → an Apollo case outcome (outcomes.py) when further investigation couldn't change the finding or what
-      Higgins tells the person, or hand Magnum DI only what TC FlyBy could not settle.
+      Higgins tells the person, or hand Magnum DI only what TC Hawkeye could not settle.
 
-TC FlyBy makes no AI call at all, never pays to confirm what a reliable source has already established, and Magnum DI never
-rediscovers what TC FlyBy found: it receives a short brief of the unresolved issues and the facts that bear on
+TC Hawkeye makes no AI call at all, never pays to confirm what a reliable source has already established, and Magnum DI never
+rediscovers what TC Hawkeye found: it receives a short brief of the unresolved issues and the facts that bear on
 them, with web search left off unless a specific external fact is still missing.
 
 Evidence integrity: live evidence (facts about this case, each with its source), Apollo knowledge (general
@@ -39,7 +39,7 @@ from services.higgins.tc_flyby.triage import plan as triage_plan
 log = logging.getLogger("apollo.tc_flyby")
 
 PREGATHERED_ITEM_ID = "apollo-triage-intelligence"   # what Higgins Triage gathered before the case started
-CHECKS_ITEM_ID = "tc-flyby-di-checks"                   # TC FlyBy's full check record, with provenance
+CHECKS_ITEM_ID = "tc-flyby-di-checks"                   # TC Hawkeye's full check record, with provenance
 BRIEF_ITEM_ID = "tc-flyby-di-brief"                     # the slice Magnum DI receives
 _CORPORATE = re.compile(r"\b(pty|ltd|limited|inc|llc|plc|the|group|holdings)\b\.?", re.I)
 # A warning only an official source naming this exact value makes decisive; any other warning is a third-party
@@ -54,7 +54,7 @@ class FlyByOutcome:
     response: dict | None = None
     rows: list[dict] = field(default_factory=list)       # what Magnum DI receives when it is needed
     magnum_search: bool = False
-    #: What Magnum DI's result can't go below (decide.floor): TC FlyBy's concern, established or provisional.
+    #: What Magnum DI's result can't go below (decide.floor): TC Hawkeye's concern, established or provisional.
     floor: dict | None = None
     usage: dict = field(default_factory=dict)
     simulated: bool = False
@@ -74,7 +74,7 @@ def _gap(row: dict, item: str, what: str, *, magnum: bool) -> dict:
 
 
 async def _material(owner: str, case: dict, rows: list[dict]) -> tuple[dict[str, str], list[dict], list[dict]]:
-    """Before TC FlyBy sees anything: submitted text and links, the text the phone read from screenshots and
+    """Before TC Hawkeye sees anything: submitted text and links, the text the phone read from screenshots and
     images, and the text layer of documents — and a record of whatever couldn't be extracted.
     Returns (texts, gaps, rows read)."""
     texts: dict[str, str] = {}
@@ -124,7 +124,7 @@ async def _material(owner: str, case: dict, rows: list[dict]) -> tuple[dict[str,
     return texts, gaps, read
 
 
-# ── Higgins Triage's rules: what flagged the case is a warning sign TC FlyBy builds on ──
+# ── Higgins Triage's rules: what flagged the case is a warning sign TC Hawkeye builds on ──
 def _lookalike_chars(org: str, text: str) -> list[str]:
     from services import triage_engine as te
     return list(dict.fromkeys(ch for word in te.disguised_words(text) if word in org for ch in word
@@ -150,7 +150,7 @@ def _rule_fact(rule_id: str, title: str, text: str) -> str:
 
 def _triage_stage(plan_: Plan, text: str, provider_evidence: dict | None) -> None:
     """Higgins Triage's message rules — the catalogue the phone runs — over the material. Each threat-producing rule
-    met is a warning sign about this case: TC FlyBy's own checks can add to it, never dismiss it."""
+    met is a warning sign about this case: TC Hawkeye's own checks can add to it, never dismiss it."""
     if not plan_.has_message or plan_.channel == CALL_GATE:
         return
     from services.triage import evaluate
@@ -171,9 +171,9 @@ _ROUTE_RULES = frozenset({"MSG-08", "MSG-14", "MSG-18", "MSG-20", "MSG-21", "MSG
 
 def _reconsider_triage(plan_: Plan) -> None:
     """Before the Evidence Lock, an initial detection can be disproved. A route-based Higgins Triage rule stops counting
-    as a warning sign when TC FlyBy's official sources verified every link, number and address in the material as the
+    as a warning sign when TC Hawkeye's official sources verified every link, number and address in the material as the
     organisation's own: what it rested on turned out to be genuine. The rule's fact is kept, marked disproved, and the
-    verification is recorded as TC FlyBy's own fact."""
+    verification is recorded as TC Hawkeye's own fact."""
     routes = [c.subject for c in plan_.checks if c.kind in ("link", "email", "phone")]
     if not routes or not all(deciding.verified(r, plan_) for r in routes):
         return
@@ -307,11 +307,11 @@ def _apply(check: Check, answer: dict, plan_: Plan) -> None:
         src.update(reused=True, checkedAt=answer.get("lastVerifiedAt"))
     if status in ("UNANSWERED", "UNSOURCED"):
         check.status = "not_found"
-        check.facts.append(fact(f"TC FlyBy's search returned no sourced answer about {check.subject}.", "missing"))
+        check.facts.append(fact(f"TC Hawkeye's search returned no sourced answer about {check.subject}.", "missing"))
         return
     if status in search.NOT_FOUND:
         check.status = "not_found"
-        check.facts.append(fact(answer.get("fact") or f"TC FlyBy's search found no record for {check.subject}.", "missing", source=src))
+        check.facts.append(fact(answer.get("fact") or f"TC Hawkeye's search found no record for {check.subject}.", "missing", source=src))
         return
     decisive = (status == "WARNING" and check.kind in ("link", "phone", "email", "company")
                 and any(s.get("authority") == "official" for s in sources) and _names(check, answer.get("fact", "")))
@@ -391,7 +391,7 @@ async def _item(owner: str, case: dict, client_item_id: str, text: str, label: s
 
 
 async def _mark_read(owner: str, case_id: str, read: list[dict], texts: dict[str, str]) -> None:
-    """TC FlyBy read these items in full to triage them, so they are examined."""
+    """TC Hawkeye read these items in full to triage them, so they are examined."""
     for row in read:
         coverage = row.get("coverage") or {}
         total = coverage.get("total") or (1 if coverage.get("unit") == "items" else len(texts[row["evidence_id"]]))
@@ -399,9 +399,9 @@ async def _mark_read(owner: str, case_id: str, read: list[dict], texts: dict[str
 
 
 async def _magnum_rows(owner: str, case: dict, brief_id: str, needed: set[str] | None, settled: set[str]) -> list[dict]:
-    """What Magnum DI receives: TC FlyBy's brief, the evidence each unresolved issue needs, and anything TC FlyBy didn't
-    examine. Material TC FlyBy already settled — and the raw lookups behind it — isn't resent. `needed` None: the
-    whole case (TC FlyBy's own result couldn't be used)."""
+    """What Magnum DI receives: TC Hawkeye's brief, the evidence each unresolved issue needs, and anything TC Hawkeye didn't
+    examine. Material TC Hawkeye already settled — and the raw lookups behind it — isn't resent. `needed` None: the
+    whole case (TC Hawkeye's own result couldn't be used)."""
     pe_values = {json.dumps(v, sort_keys=True, default=str) for v in (case.get("triage_provider_evidence") or {}).values()}
     skip = set() if needed is None else settled - needed
     rows = []
@@ -437,7 +437,7 @@ def _summary(plan_: Plan, decision: deciding.Decision | None, issues: list[decid
 
 # ── Entry point ─────────────────────────────────────────────────────────────
 async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress) -> FlyByOutcome:
-    """Triage → TC FlyBy. Runs once per case: a retry of Magnum DI reuses this record and repeats no lookup."""
+    """Triage → TC Hawkeye. Runs once per case: a retry of Magnum DI reuses this record and repeats no lookup."""
     case_id = case["case_id"]
     stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
     if stored and stored.get("tc_flyby_ciphertext"):
@@ -464,7 +464,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     combined = "\n".join(texts.values())
     _triage_stage(plan_, combined, case.get("triage_provider_evidence"))
 
-    await progress("observe", "TC FlyBy is checking official sources first.")
+    await progress("observe", "TC Hawkeye is checking official sources first.")
     await official.run(plan_, case.get("triage_provider_evidence"), combined)
     _reconsider_triage(plan_)
     # Cross-source matching: every source's own answer per website, number and address, with its freshness. Context for
@@ -482,16 +482,16 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     notes = await history.gather(owner, case, subjects)
     decision, issues = deciding.evaluate(plan_, texts, final=False)
     searched = {"calls": 0, "queries": 0, "cacheHits": 0, "tokens": {"input": 0, "output": 0}, "simulated": False, "model": None, "status": "skipped"}
-    # A decisive concern ends TC FlyBy's stages, whether it settles the case or hands Magnum DI what it couldn't read.
+    # A decisive concern ends TC Hawkeye's stages, whether it settles the case or hands Magnum DI what it couldn't read.
     if not decision and not deciding.decisive(plan_):
-        await progress("observe", "TC FlyBy is checking ApolloSG's knowledge base.")
+        await progress("observe", "TC Hawkeye is checking ApolloSG's knowledge base.")
         await _kb_stage(plan_, combined)
         decision, issues = deciding.evaluate(plan_, texts, final=False)
     if not decision and not deciding.decisive(plan_):
         # Only what no verified source already answered: a check settled by a direct source or the KB isn't open.
         open_checks = [c for c in plan_.checks if c.question and c.status == "open"]
         if open_checks:
-            await progress("research", "TC FlyBy is running one targeted web search.")
+            await progress("research", "TC Hawkeye is running one targeted web search.")
             focus = {t for r in deciding.unverified_requests(plan_) for t in r["targets"]}
             searched = await search.run(open_checks, correlation_id=f"case-{case_id}", trigger_source=job.get("source"), owner=owner,
                                         focus=focus, brands=[b[0] for b in plan_.entities.brands])
@@ -508,7 +508,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     checks_id = await _item(owner, case, CHECKS_ITEM_ID, json.dumps({
         "messageType": plan_.message_type, "entities": plan_.entities.wire(), "checks": [c.wire() for c in plan_.checks],
         "pattern": plan_.pattern, "gaps": plan_.gaps, "issues": [i.wire() for i in issues], "crossSource": cross,
-        "search": {k: v for k, v in searched.items() if k != "answers"}}, ensure_ascii=False, default=str), "TC FlyBy fly-by checks")
+        "search": {k: v for k, v in searched.items() if k != "answers"}}, ensure_ascii=False, default=str), "TC Hawkeye fly-by checks")
     await _mark_read(owner, case_id, read, texts)
 
     response = None
@@ -523,9 +523,9 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     brief_id = None
     if not decision:
         brief_id = await _item(owner, case, BRIEF_ITEM_ID, report.magnum_brief(plan_.checks, [i.wire() for i in issues], unread_sections, plan_.pattern, floor, cross, notes),
-                               "TC FlyBy brief for Magnum DI")
+                               "TC Hawkeye brief for Magnum DI")
 
-    # Material TC FlyBy read in full, and the images whose content it read through the text extracted from them.
+    # Material TC Hawkeye read in full, and the images whose content it read through the text extracted from them.
     by_id = {r["evidence_id"]: r for r in rows}
     settled = {r["evidence_id"] for r in read} | {r["parent_id"] for r in read if (by_id.get(r.get("parent_id") or "") or {}).get("kind") == "image"}
     record = {"version": 3, "ranAt": now_utc().isoformat(), "plan": {"messageType": plan_.message_type, "linkOnly": plan_.link_only,
@@ -550,7 +550,7 @@ _ESTABLISHED = ("concern", "anomaly", "clear", "weak")
 
 
 async def established(owner: str, case_id: str, limit: int = 4) -> list[str]:
-    """What TC FlyBy established about this case, word for word from its check record: live facts only (never ApolloSG
+    """What TC Hawkeye established about this case, word for word from its check record: live facts only (never ApolloSG
     knowledge, never what a lookup didn't find), warning signs first. Kept and shown when Magnum DI couldn't finish."""
     stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
     if not stored or not stored.get("tc_flyby_ciphertext"):
@@ -562,8 +562,8 @@ async def established(owner: str, case_id: str, limit: int = 4) -> list[str]:
 
 
 async def discard_response(owner: str, case: dict) -> None:
-    """TC FlyBy's composed result failed Apollo's validation: Magnum DI takes the case instead, with TC FlyBy's
-    brief and with web search on, since TC FlyBy's conclusion can't be relied on."""
+    """TC Hawkeye's composed result failed Apollo's validation: Magnum DI takes the case instead, with TC Hawkeye's
+    brief and with web search on, since TC Hawkeye's conclusion can't be relied on."""
     case_id = case["case_id"]
     stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
     if not stored or not stored.get("tc_flyby_ciphertext"):
@@ -571,10 +571,10 @@ async def discard_response(owner: str, case: dict) -> None:
     record = repo.dec_json(stored["tc_flyby_ciphertext"])
     checks = [Check.from_wire(c) for c in record["checks"]]
     whole = [{"capability": "reasoning", "evidenceIds": [], "checkId": None,
-              "text": "TC FlyBy's own result didn't pass Apollo's validation, so investigate the whole case."}]
+              "text": "TC Hawkeye's own result didn't pass Apollo's validation, so investigate the whole case."}]
     brief = report.magnum_brief(checks, whole, official.unread_sections(case.get("triage_provider_evidence")), record.get("pattern"), record.get("floor"),
                                 record.get("crossSource"), record.get("history"))
-    record["items"]["brief"] = await _item(owner, case, BRIEF_ITEM_ID, brief, "TC FlyBy brief for Magnum DI")
+    record["items"]["brief"] = await _item(owner, case, BRIEF_ITEM_ID, brief, "TC Hawkeye brief for Magnum DI")
     record.update(response=None, decision=None, magnumSearch=True, issues=None)
     await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$set": {
         "tc_flyby_ciphertext": repo.enc_json(record), "routing.answeredBy": "magnum_di", "routing.tc_flyby.resolved": False,

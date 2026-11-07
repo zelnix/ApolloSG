@@ -24,4 +24,4 @@ export function explainIssue(context: HigginsIssueContext): string {
   return `Here's what Apollo recorded about this — explained from Apollo's own findings, with no new analysis:\n\n${parts.filter(Boolean).join("\n\n")}`;
 }
 
-export const INVESTIGATE_OFFER = "If you'd like more than Apollo's own findings, Apollo can investigate this as a separate check — TC FlyBy first, and Magnum DI only if a deeper look could change the answer. Nothing has started yet.";
+export const INVESTIGATE_OFFER = "If you'd like more than Apollo's own findings, Apollo can investigate this as a separate check — TC Hawkeye first, and Magnum DI only if a deeper look could change the answer. Nothing has started yet.";

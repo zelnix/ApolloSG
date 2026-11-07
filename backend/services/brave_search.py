@@ -1,8 +1,8 @@
-"""Brave Search — the one web search TC FlyBy may run for a case (services/higgins/tc_flyby/search.py).
+"""Brave Search — the one web search TC Hawkeye may run for a case (services/higgins/tc_flyby/search.py).
 
 One request, `GET https://api.search.brave.com/res/v1/web/search`, authenticated with BRAVE_API_KEY in the
 X-Subscription-Token header. The key lives only on the server. No AI is involved: the results are returned exactly as
-Brave sent them (url, title, description, extra snippets) and TC FlyBy reads them deterministically.
+Brave sent them (url, title, description, extra snippets) and TC Hawkeye reads them deterministically.
 
 Spending: every request reserves its price against ApolloSG's daily limits first (services/ai_budget.py) and is
 recorded in the usage log with purpose "tc_flyby_search". A refused or rejected request is not billed and releases its

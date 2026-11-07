@@ -76,7 +76,7 @@ def test_the_devices_page_lists_each_phone_with_its_counts(admin_cookie, phone):
     r = httpx.get(f"{BASE}/admin/device-list?platform=android", cookies=admin_cookie, timeout=30)
     assert r.status_code == 200
     page = r.text
-    for heading in ("Manufacturer", "Model", "OS version", "Country", "Date installed", "App version", "TC FlyBy", "Magnum DI",
+    for heading in ("Manufacturer", "Model", "OS version", "Country", "Date installed", "App version", "TC Hawkeye", "Magnum DI",
                     "Ask Higgins", "Device checks", "Learn with Higgins read", "Scam alerts read"):
         assert f"<th>{heading}</th>" in page
     assert f"title='{device_id}'" in page and "SM-TEST1" in page and "<td>AU</td>" in page
