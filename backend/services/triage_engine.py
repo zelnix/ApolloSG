@@ -634,9 +634,12 @@ async def gather_provider_evidence(evidence: dict) -> dict:
                 for url in sorted_urls:
                     try:
                         url_result = await asyncio.wait_for(check_url_risk(url), timeout=10.0)
-                        if url_result and url_result.get("status") != "error":
+                        if url_result:
+                            # "error" (e.g. insufficient provider credits) is still a failure to surface —
+                            # never silently dropped — but only a clean "ok" answer counts as a used provider.
                             ipqs_url_results[url] = url_result
-                            providers_used.append("ipqs_url")
+                            if url_result.get("status") == "ok":
+                                providers_used.append("ipqs_url")
                     except Exception as url_exc:
                         ipqs_url_results[url] = {"status": "unavailable", "detail": type(url_exc).__name__, "queried_at": ts}
                         _log.debug("ipqs_url_check_failed url=%s error=%s", url[:60], type(url_exc).__name__)

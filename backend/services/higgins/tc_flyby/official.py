@@ -422,11 +422,18 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
         except Exception:  # noqa: BLE001
             pass   # SSL check is best-effort; never block the investigation on network failure
     for url, info in pg["ipqs_urls"].items():
-        if host in url.lower() and info.get("status") == "ok":
+        if host not in url.lower():
+            continue
+        if info.get("status") == "ok":
             flags = [name for name in ("phishing", "malware", "suspicious") if info.get(name)]
             if flags:
                 check.facts.append(fact(f"IPQualityScore flags {host} as {', '.join(flags)} (risk score {info.get('risk_score', '?')}/100).", "weak",
                                         source=source_ref("IPQualityScore", authority="independent", basis="Commercial URL reputation lookup")))
+        elif info.get("status") in ("unavailable", "error") and "ipqs" not in check.provider_failures:
+            # Timed out, errored (including "insufficient credits") or errored after retrying
+            # (urlrisk.MAX_RETRIES) — not "not_configured". Apollo must not treat a failed reputation
+            # check as "nothing to report" (PRD v2.2 S2.5).
+            check.provider_failures.append("ipqs")
     for item in pg["downloads"]:
         if host in (item.get("url") or "").lower():
             check.facts.append(fact(f"The link downloads a file directly ({item.get('filename', 'a file')}).", "weak",
@@ -559,6 +566,9 @@ async def _phone(check: Check, pg: dict, plan_: Plan | None = None) -> None:
                                 + ("; recent abuse is reported" if info.get("recent_abuse") else "") + f" (carrier: {info.get('carrier', 'unknown')}).",
                                 "weak" if risky else "neutral",
                                 source=source_ref("IPQualityScore", authority="independent", basis="Commercial phone reputation lookup")))
+    elif info and info.get("status") == "unavailable" and "ipqs" not in check.provider_failures:
+        # Timed out or errored after retrying (phonerisk.MAX_RETRIES) — not "not_configured".
+        check.provider_failures.append("ipqs")
 
     # If no decisive verdict was established by any of the above checks, apply high-risk
     # international phone intelligence (country-code based classification).

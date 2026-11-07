@@ -52,6 +52,8 @@ def patrol_category(gate: str | None) -> str:
 
 
 def _dog_state(response) -> str:
+    if getattr(response, "technical_failure", False):
+        return "resting"  # a failed safety check established nothing either way — never "growling"
     if response.assessment == "no_concern_found_within_scope" and response.attention == "none":
         return "resting"
     if response.attention in ("urgent", "action_needed"):
@@ -61,17 +63,26 @@ def _dog_state(response) -> str:
 
 #: What an investigation that couldn't decide either way says to do (frontend luddish/present.ts INCONCLUSIVE_TODO).
 NOT_FULLY_CHECKED_TODO = "Nothing found to act on. This isn't confirmation that it's safe."
+#: What a failed reputation check says to do — distinct from NOT_FULLY_CHECKED_TODO: nothing was found
+#: *because the check itself never answered*, not because the evidence was weighed and came up empty.
+TECHNICAL_FAILURE_TODO = "Apollo couldn't finish this investigation. Try again, or check back shortly."
 _RANK = {"resting": 0, "sniffing": 1, "ears_up": 2, "growling": 3, "barking": 4, "biting": 5}
 
 
 def inconclusive(response) -> bool:
     """The investigation couldn't decide either way and left no concrete actionable concern: no urgent or
     action-needed attention, and no decision its briefing (one that passed its Fidelity Check) or Magnum DI's pending
-    question asks the person to make. Mirror of frontend caseBriefing.caseResult notFullyChecked."""
+    question asks the person to make. Mirror of frontend caseBriefing.caseResult notFullyChecked.
+
+    A failed reputation check (technical_failure) counts too: Apollo never reached a Finding to weigh."""
     b = response.briefing if response.briefing is not None and response.briefing.fidelity.status == "PASS" else None
     owed = (b.user_action_required and (b.action_reason or "").strip()) if b is not None else (
         response.completion == "waiting_user" and response.question is not None and (response.question.reason_needed or "").strip())
-    return response.outcome in ("unlikely_scam", "unable_to_determine") and response.attention in ("none", "review") and not owed
+    if owed:
+        return False
+    if getattr(response, "technical_failure", False):
+        return response.attention in ("none", "review")
+    return response.outcome in ("unlikely_scam", "unable_to_determine") and response.attention in ("none", "review")
 
 
 def established_threat(event: dict | None) -> bool:
@@ -176,7 +187,7 @@ async def _project(rows: list[dict]) -> int:
         if not_fully_checked:
             # Kept in history, with what couldn't be established, and never called safe.
             findings = [redact_investigation_secrets(u) for u in response.uncertainties] or findings
-            action = NOT_FULLY_CHECKED_TODO
+            action = TECHNICAL_FAILURE_TODO if getattr(response, "technical_failure", False) else NOT_FULLY_CHECKED_TODO
         elif kept_raised:
             # The threat established apart from the investigation is what the record is about: its own reasons and,
             # when the investigation proposed no step, its own step.

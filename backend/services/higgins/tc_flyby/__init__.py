@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from core.db import db, now_utc
-from services import kb_sources
+from services import admin_alerts, kb_sources
 from services.higgins import evidence as ev
 from services.higgins import knowledge
 from services.higgins import repository as repo
@@ -518,6 +518,13 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
                                for f in check.facts if (f.get("source") or {}).get("kbId")] if e]
         presented = knowledge.present(entries, check.subject)[0] if entries else ""
         response = report.knowledge_answer(check, decision.answered_by, presented, sorted({s for f in check.facts for s in f.get("sourceIds", [])}))
+    elif decision and decision.basis == "technical_issue":
+        failed = deciding.technical_issue(plan_)
+        response = report._with_gaps(report.technical_issue_result(plan_, plan_.checks, failed), plan_)
+        await admin_alerts.log_technical_failure(
+            owner=owner, case_id=case_id, checks=sorted({c.kind for c in failed}),
+            subjects=sorted({c.subject for c in failed if c.subject}),
+            reason="IPQualityScore did not answer after retrying.")
     elif decision:
         response = report.compose(decision, plan_, texts, checks_id)
     brief_id = None

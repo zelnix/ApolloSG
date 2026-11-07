@@ -275,5 +275,6 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
                                scope=model.scope, source_ids=model.source_ids, remaining_evidence_ids=model.remaining_evidence_ids, actions=actions,
                                recommended_action_id=recommended_action_id,
                                question=question, completion=model.completion,
-                               findings_rating=model.findings_rating, findings_rating_breakdown=model.findings_rating_breakdown)
+                               findings_rating=model.findings_rating, findings_rating_breakdown=model.findings_rating_breakdown,
+                               technical_failure=model.technical_failure)
     return response, []

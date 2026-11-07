@@ -24,7 +24,7 @@ from services import reusable_intel
 
 CACHE_TTL = reusable_intel.TTL["url_reputation"]  # URL risk signals change; refresh twice a day
 SITE = "ipqs_url"  # this call site, in the reuse counters
-MAX_RETRIES = 1
+MAX_RETRIES = 2                  # retry up to 2 more times on transient failure, then surface "unavailable"
 RETRY_BACKOFF = 1.0
 
 # ── Download-link detection ─────────────────────────────────────────────────

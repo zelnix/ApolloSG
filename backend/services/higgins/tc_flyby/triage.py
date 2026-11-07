@@ -370,16 +370,20 @@ class Check:
     facts: list[dict] = field(default_factory=list)
     open_issue: str = ""                       # what only Magnum DI can settle
     urls: list[str] = field(default_factory=list)
+    provider_failures: list[str] = field(default_factory=list)  # reputation providers (e.g. "ipqs") that
+    # timed out or errored after retrying while resolving this check — PRD v2.2 §2.5 (decide.technical_issue)
 
     def wire(self) -> dict:
         return {"id": self.id, "kind": self.kind, "subject": self.subject, "question": self.question, "statuses": list(self.statuses),
-                "status": self.status, "route": self.route, "facts": self.facts, "openIssue": self.open_issue, "urls": self.urls}
+                "status": self.status, "route": self.route, "facts": self.facts, "openIssue": self.open_issue, "urls": self.urls,
+                "providerFailures": self.provider_failures}
 
     @classmethod
     def from_wire(cls, data: dict) -> "Check":
         return cls(id=data["id"], kind=data["kind"], subject=data["subject"], question=data.get("question", ""),
                    statuses=tuple(data.get("statuses") or ()), status=data.get("status", "open"), route=data.get("route"),
-                   facts=data.get("facts") or [], open_issue=data.get("openIssue", ""), urls=data.get("urls") or [])
+                   facts=data.get("facts") or [], open_issue=data.get("openIssue", ""), urls=data.get("urls") or [],
+                   provider_failures=data.get("providerFailures") or [])
 
 
 @dataclass

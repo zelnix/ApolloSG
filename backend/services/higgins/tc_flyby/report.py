@@ -1018,6 +1018,30 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
     return final
 
 
+def technical_issue_result(plan_: Plan, checks: list[Check], failed: list[Check]) -> dict:
+    """A reputation-check provider (IPQualityScore) failed or timed out after retrying, with nothing else
+    resolving what it would have covered — PRD v2.2 §2.5. Not a Finding: no outcome, no Findings Rating.
+    Surfaced distinctly so it's never read as "unlikely a scam" or "not a scam"."""
+    kind_label = {"link": "a link", "phone": "a phone number", "email": "an email address"}
+    subjects = sorted({c.subject for c in failed if c.subject})
+    named = ", ".join(subjects[:3]) + ("..." if len(subjects) > 3 else "")
+    what = ", ".join(dict.fromkeys(kind_label.get(c.kind, f"a {c.kind}") for c in failed))
+    overview = f"Apollo couldn't finish checking this. The safety check for {what} ({named}) didn't answer, even after trying again."
+    return {
+        "overview": overview,
+        "explanationMarkdown": f"{overview}\n\n**What this means**\nThis isn't a result — Apollo's own safety check didn't respond, so nothing has "
+                               "been established either way. It is not confirmation that this is safe, and it is not a warning either.\n\n"
+                               "**What to do**\nTry checking this again shortly. If it keeps failing, treat it with the same caution you would give "
+                               "anything unverified — don't act on requests for money, codes or personal details until it can be properly checked.",
+        "assessment": "uncertain", "outcome": None, "attention": "review",
+        "attentionReason": f"The safety check for {named} could not be completed after retrying.",
+        "findings": [], "uncertainties": [f"Apollo couldn't check {s}." for s in subjects[:6]],
+        "scope": _scope(plan_, _routes(checks)), "sourceIds": [], "remainingEvidenceIds": [],
+        "actions": [], "recommendedActionIndex": None, "question": None, "completion": "partial",
+        "technicalFailure": True,
+    }
+
+
 def knowledge_answer(check: Check, route: str, presented: str, source_ids: list[str]) -> dict:
     """A general question answered from Apollo's KB or a targeted search — information, not a finding."""
     if route == "tc_flyby_kb":

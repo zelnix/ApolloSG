@@ -286,11 +286,19 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
     from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
     rules_result = rules_evaluate(plan_)
 
+    issues = magnum_issues(plan_, texts, found)
+
+    # A reputation check (IPQualityScore) genuinely failed or timed out after retrying, and nothing else —
+    # an established concern above, or something Magnum DI could still read and reason about — resolves the
+    # case: Apollo must not proceed to a Findings score on this incomplete evidence (PRD v2.2 S2.5). This is
+    # a technical failure, never a Finding, and is checked before either scoring path below.
+    if not found and not issues and technical_issue(plan_):
+        return Decision(_route(plan_.checks), None, "technical_issue"), []
+
     if not found and rules_result.finding == "not_scam":
         route = _route(plan_.checks)
         return Decision(route, "not_scam", "clear"), []
 
-    issues = magnum_issues(plan_, texts, found)
     if issues:
         return None, issues
     if found:
@@ -301,6 +309,16 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
     # no longer produced here; see finding_rules.evaluate()).
     route = _route(plan_.checks)
     return Decision(route, rules_result.finding, "unknown"), []
+
+
+def technical_issue(plan_: Plan) -> list[Check]:
+    """Checks whose reputation-check provider (IPQualityScore) genuinely failed or timed out after
+    retrying — c.provider_failures — with nothing else (no decisive finding, no clear or concerning
+    signal) resolving what it would have covered. PRD v2.2 S2.5: this is "investigation unable to
+    progress", never a Finding — Apollo does not guess a score from evidence it never actually got."""
+    return [c for c in plan_.checks if c.provider_failures
+            and not any(f.get("decisive") for f in c.facts)
+            and not any(f["signal"] in ("concern", "clear") for f in c.facts)]
 
 
 def decisive(plan_: Plan) -> bool:

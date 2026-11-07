@@ -325,6 +325,10 @@ class HigginsResponse(Wire):
     # (services.higgins.tc_flyby.scoring.ScoreBreakdown.wire()). None for a general question / no Finding.
     findings_rating: Optional[int] = Field(default=None, ge=0, le=100)
     findings_rating_breakdown: Optional[dict] = None
+    # A reputation-check provider (e.g. IPQualityScore) failed or timed out after retrying and nothing
+    # else resolved what it would have covered (PRD v2.2 §2.5, services.higgins.tc_flyby.decide.technical_issue).
+    # True only for that "investigation unable to progress" case — never set alongside a Findings Rating.
+    technical_failure: Optional[bool] = None
 
 
 class Inventory(Wire):
@@ -709,6 +713,10 @@ class ModelResponse(Wire):
     # Magnum DI's model output leaves them null.
     findings_rating: Optional[int] = Field(default=None, ge=0, le=100)
     findings_rating_breakdown: Optional[dict] = None
+    # TC Hawkeye-only: a reputation-check provider failed/timed out after retrying with nothing else
+    # resolving what it would have covered (PRD v2.2 §2.5) — "investigation unable to progress", never a
+    # Finding. The Gemini-facing schema allows but never asks for this; Magnum DI's model output leaves it null.
+    technical_failure: Optional[bool] = None
 
 
 MODEL_RESPONSE_SCHEMA = ModelResponse.model_json_schema(by_alias=True)

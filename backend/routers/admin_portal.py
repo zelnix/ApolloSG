@@ -60,6 +60,7 @@ NAV = [
     ("Official Organisations", "/api/admin/org-directory", "&#127970;"),
     ("Intelligence Reuse", "/api/admin/intel-reuse",   "&#9851;"),
     ("Rule Book",       "/api/admin/rule-book",        "&#128214;"),
+    ("Alerts",          "/api/admin/alerts",           "&#128276;"),
     ("Play Store",      "/api/admin/play-console",     "&#9654;"),
     ("Family Help Test", "/api/admin/family-help-test", "&#128241;"),
     ("Devices",         "/api/admin/device-list",      "&#128242;"),
@@ -2930,6 +2931,54 @@ async def triage_dashboard(request: Request):
     {recent_html}
     """
     return _shell("Triage", "/api/admin/triage", body, admin=adm)
+
+
+@router.get("/admin/alerts", response_class=HTMLResponse)
+async def alerts_dashboard(request: Request):
+    """Technical-failure alerts log: reputation checks (IPQualityScore) that failed or timed out after
+    retrying, so the investigation stopped as "investigation unable to progress" instead of reaching a
+    Findings score (PRD v2.2 §2.5)."""
+    adm = await _admin(request)
+    if not adm:
+        return _login_redirect()
+
+    from services import admin_alerts
+    alerts = await admin_alerts.list_alerts(limit=200)
+    unacked = sum(1 for a in alerts if not a.get("acknowledged"))
+
+    rows = ""
+    for a in alerts:
+        when = _to_local_short(a.get("created_at")) if a.get("created_at") else "—"
+        checks = ", ".join(a.get("checks") or []) or "—"
+        subjects = html_mod.escape(", ".join(a.get("subjects") or [])[:160]) or "—"
+        reason = html_mod.escape(a.get("reason") or "")
+        case_id = html_mod.escape(a.get("case_id") or "")
+        status = '<span style="color:var(--yellow);">Unacknowledged</span>' if not a.get("acknowledged") else '<span style="color:var(--muted);">Acknowledged</span>'
+        rows += f"""<tr>
+            <td>{when}</td>
+            <td><code style="font-size:0.82em;">{case_id}</code></td>
+            <td>{html_mod.escape(checks)}</td>
+            <td style="font-size:0.85em;">{subjects}</td>
+            <td style="font-size:0.85em;">{reason}</td>
+            <td>{status}</td>
+        </tr>"""
+
+    body = f"""
+    <h1>Alerts</h1>
+    <p style="font-size:0.88em;color:var(--muted);margin-bottom:16px;">
+        Investigations that could not progress because a reputation check (IPQualityScore) failed or timed out
+        after retrying (Apollo PRD v2.2 §2.5). None of these reached a Finding — no Findings Rating was produced.
+    </p>
+    <div style="background:var(--card);border-radius:10px;padding:16px;max-width:260px;margin-bottom:20px;">
+        <div style="font-size:2em;font-weight:700;{'color:var(--red);' if unacked else 'color:var(--green);'}">{unacked}</div>
+        <div style="font-size:0.82em;color:var(--muted);">unacknowledged alert{'s' if unacked != 1 else ''}</div>
+    </div>
+    <table>
+        <thead><tr><th>Time</th><th>Case</th><th>Check</th><th>Subject(s)</th><th>Reason</th><th>Status</th></tr></thead>
+        <tbody>{rows or '<tr><td colspan="6" style="color:var(--muted);">No technical-failure alerts recorded</td></tr>'}</tbody>
+    </table>
+    """
+    return _shell("Alerts", "/api/admin/alerts", body, admin=adm)
 
 
 # ── System ───────────────────────────────────────────────────────────────────
