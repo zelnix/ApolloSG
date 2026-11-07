@@ -283,6 +283,52 @@ PATTERNS: tuple[dict, ...] = (
         "consequence": "Remote access lets someone see and control everything on your device, including your banking.",
     },
     {
+        "key": "otp_bypass",
+        "name": "OTP or verification code sharing request (account takeover)",
+        "url": "https://www.scamwatch.gov.au/types-of-scams/account-takeover-scams",
+        "summary": "someone says they have sent you a one-time code and asks you to share or confirm it — but only scammers ask for the code you just received.",
+        "body": ("Scamwatch: \"Scammers can get your one-time passcode or authentication code by … intercepting the message to get the code, or "
+                 "contacting you and pretending to be from a trusted company and asking you to provide them with the OTP you just received. If a "
+                 "stranger asks you to share a one-time passcode or authentication code with them, never do so. Legitimate businesses will never "
+                 "call you and ask you to provide your OTP to them.\" What to do: \"Never share any OTPs or authentication codes with anyone who "
+                 "asks. If you're worried, hang up and call the organisation back on a number you find yourself.\" If you've already shared a "
+                 "code, contact the organisation immediately — they can lock the account."),
+        "hallmarks": [
+            # Someone saying a code was / will be / has been sent to the user, or that the user should/will receive one.
+            ["says a code was or will be sent to your phone",
+             # Pattern A: "we/our team sent CODE to your phone" (the most natural English order)
+             r"\b(?:we|our\s+(?:security\s+|fraud\s+|technical\s+)?(?:team|system|department))\b[^.?!\n]{0,55}?"
+             r"\b(?:sent|send|are\s+sending|have\s+sent|just\s+sent|texted|are\s+about\s+to\s+send)\b[^.?!\n]{0,55}?"
+             r"\b(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|sms\s+code|2fa\s+code|two[- ]?factor\s+(?:code|pin)|code|pin)\b"
+             r"[^.?!\n]{0,30}?\b(?:to\s+(?:you|your)|on\s+your)\b"
+             # Pattern B: "we/our team sent you a CODE" (you first, then the code noun)
+             r"|\b(?:we|our\s+(?:security\s+|fraud\s+|technical\s+)?(?:team|system|department))\b[^.?!\n]{0,55}?"
+             r"\b(?:sent|send|are\s+sending|have\s+sent|just\s+sent|texted|are\s+about\s+to\s+send)\b[^.?!\n]{0,30}?\b(?:you|your)\b"
+             r"[^.?!\n]{0,45}?\b(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|sms\s+code|2fa\s+code|two[- ]?factor\s+(?:code|pin)|code|pin)\b"
+             # Pattern C: "you should have received / just received / will receive a code"
+             r"|\byou\b[^.?!\n]{0,25}?\b(?:should\s+have\s+received?|just\s+received?|will\s+receive|may\s+have\s+received?|have\s+received?|receive)\b[^.?!\n]{0,30}?"
+             r"\b(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|sms\s+code|a\s+code|the\s+code|six[- ]?digit|a\s+\d[- ]?digit)\b"
+             # Pattern D: "a verification code has been sent / will be sent to your phone"
+             r"|\b(?:a|the|your)\s+(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|code)\b[^.?!\n]{0,30}?"
+             r"\b(?:has\s+been\s+sent|was\s+sent|will\s+be\s+sent|is\s+on\s+its\s+way|will\s+arrive|is\s+being\s+sent)\b[^.?!\n]{0,25}?"
+             r"\b(?:to\s+you|to\s+your|on\s+your)\b"],
+        ],
+        # Extended ask — includes "enter", "type", "reply with" which _CODE_ASK omits, plus 2FA-specific vocab.
+        "ask": ["asks you to share, reply with or enter the code you received",
+                r"\b(?:want(?:s|ed)?|ask(?:s|ed|ing)?(?:\s+(?:me|you|us))?(?:\s+(?:for|to\s+(?:give|read(?:\s+out)?|tell|confirm|share|provide|enter|send|repeat|say|type)))?"
+                r"|request(?:s|ed|ing)?|need(?:s|ed)?|give|read(?:\s+out)?|tell|confirm|share|provide|send|repeat|enter|type|reply\s+with)\b[^.?!\n]{0,40}?"
+                r"\b(?:one[- ]time\s+(?:code|password|passcode|pin)|otp|verification\s+code|security\s+code|sms\s+code|text\s+code|2fa\s+code|two[- ]?factor\s+(?:code|pin)"
+                r"|(?:the|my|your|a|that|this|any)\s+code|pin(?:\s+number)?|passcode|password|card\s+(?:number|details)|cvv|bank(?:ing)?\s+details"
+                r"|authentication\s+code|authenticator\s+code)\b"],
+        "opening": False,
+        "requires": [],
+        "impersonates_organisation": True,
+        "advice": [["Never share any code", "Never share, read out or forward any one-time code, verification code or OTP with anyone who contacts you asking for it."],
+                   ["Hang up or stop texting", "End the call or stop replying. If you're worried about your account, call the organisation yourself using a number from their official website or the back of your card."],
+                   ["Report it", "Report it to Scamwatch at scamwatch.gov.au. If you've already shared a code, contact the organisation immediately to lock the account."]],
+        "consequence": "A one-time code or OTP shared with a scammer can be used immediately to access your account, change your password or approve a payment.",
+    },
+    {
         "key": "bank_code_call",
         "name": "bank call scam asking for a code, PIN or password",
         "url": _PHONE_URL,
@@ -380,7 +426,7 @@ PATTERNS: tuple[dict, ...] = (
 _REQUIREMENT_LABEL = {"brand": "names an organisation", "link": "contains a link",
                       "offsite_link": "sends you to a link that isn't the organisation's own website"}
 # Bumped whenever the shipped markers change, so the KB entries are refreshed rather than left stale.
-PATTERN_VERSION = 3
+PATTERN_VERSION = 4
 
 
 async def load() -> int:
