@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { ConfirmDialogHost } from "@/src/components/ConfirmDialogHost";
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { LaunchSplash } from "@/src/components/LaunchSplash";
 import { SafeStartScreen } from "@/src/components/SafeStartScreen";
@@ -136,6 +137,7 @@ export default function RootLayout() {
                 </View>
                 <ShareIntakeListener />
                 <ToastHost />
+                <ConfirmDialogHost />
                 <LaunchSplash />
               </ApolloProvider>
             </KeyboardProvider>
