@@ -1,9 +1,11 @@
 """Findings Rating — classify_finding() boundary tests (Apollo PRD v2.2 §2.1 / §2.5.10).
 
-The four Findings are decided purely by the rating's exact score boundary: 85-100 scam, 60-84
-likely_scam, 25-59 unlikely_scam, 0-24 not_scam. Every boundary value the PRD calls out by name
-(24, 25, 59, 60, 84, 85) is tested explicitly here, plus the out-of-range guard and a scoring-engine
-smoke test per dimension.
+The four Findings are decided by the rating's exact score boundary: 85-100 scam, 60-84 likely_scam,
+25-59 unlikely_scam, 0-24 not_scam — but the 0-24 band also requires verification_established=True
+to read "not_scam" (Developer Instructions: "Clarification of Scoring and Findings Requirements");
+otherwise it reads "unlikely_scam", the same real score under an honest Finding. Every boundary value
+the PRD calls out by name (24, 25, 59, 60, 84, 85) is tested explicitly here, plus the out-of-range
+guard and a scoring-engine smoke test per dimension.
 """
 import pytest
 
@@ -44,6 +46,22 @@ class TestClassifyFindingBoundaries:
         with pytest.raises(ValueError):
             classify_finding(bad)
 
+    def test_24_is_unlikely_scam_when_verification_was_not_established(self):
+        """Developer Instructions correction: a 0-24 score only reads "Not a Scam" when verification
+        was actually established — otherwise it reads "Unlikely a Scam", the same real number under
+        an honest Finding."""
+        assert classify_finding(24, verification_established=False) == "unlikely_scam"
+
+    def test_0_is_unlikely_scam_when_verification_was_not_established(self):
+        assert classify_finding(0, verification_established=False) == "unlikely_scam"
+
+    def test_25_and_above_are_unaffected_by_verification_status(self):
+        """Every boundary at 25 and above is identical whether or not verification was established —
+        missing verification never raises the score, so it can't change anything already above the
+        not_scam/unlikely_scam line."""
+        for score in (25, 59, 60, 84, 85, 100):
+            assert classify_finding(score, verification_established=True) == classify_finding(score, verification_established=False)
+
 
 def _plan(**over) -> Plan:
     base = dict(checks=[], has_message=True, link_only=False, general=False, gaps=[], advisories=[],
@@ -56,12 +74,17 @@ class TestScorePlanMechanics:
     """score_plan() over directly-constructed evidence — the engine's own contract, independent of
     what any particular free-text message happens to extract (that's Higgins Triage's job)."""
 
-    def test_nothing_found_nothing_verified_is_unlikely_scam_at_the_benign_baseline(self):
+    def test_nothing_found_nothing_verified_is_unlikely_scam_at_a_real_zero_score(self):
+        """PRD's own golf-invitation example (Developer Instructions correction): no scam
+        indicators, nothing to check — the score is the real, unmodified dimension sum (0), never
+        an invented floor. Verification completeness alone gates the Finding."""
         plan = _plan()
         breakdown = score_plan(plan, IPDMCChecks())
         assert breakdown.finding == "unlikely_scam"
-        assert breakdown.rating == 28
-        assert breakdown.benign_baseline_applied is True
+        assert breakdown.rating == 0
+        assert breakdown.baseline == 0
+        assert breakdown.verification_established is False
+        assert breakdown.verification_note, "verification context must always be populated, even when it doesn't change the score"
 
     def test_decisive_otp_ask_floors_at_85_regardless_of_other_evidence(self):
         plan = _plan()
@@ -107,13 +130,14 @@ class TestScorePlanMechanics:
 
     def test_unverified_consequential_request_alone_is_unlikely_scam_not_clean(self):
         """A consequential ask through an unverified route is concerning (20/100 just from that
-        dimension), but on its own — no false identity, no pattern, no corroboration — it still isn't
-        enough to cross into "likely a scam"; it should never read as "not a scam" either."""
+        dimension, real and evidence-based) — not enough alone to cross into "likely a scam", but
+        it must never read as "not a scam" either, because verification was never established."""
         plan = _plan()
         ipdmc = IPDMCChecks(consequential_requests=[{"type": "financial", "quote": "please transfer $50 to my new account"}])
         breakdown = score_plan(plan, ipdmc)
         assert breakdown.finding == "unlikely_scam"
-        assert 25 <= breakdown.rating <= 59
+        assert breakdown.rating == 20, "the real dimension score (requested_action alone) is retained, not pushed into a 25-59 band artificially"
+        assert breakdown.verification_established is False
 
     def test_full_kb_pattern_match_with_a_request_is_likely_scam_or_higher(self):
         plan = _plan(pattern={"name": "Hi Mum", "stage": "full", "impersonatesOrganisation": False})
@@ -140,21 +164,31 @@ class TestScorePlanMechanics:
         plan = _plan()
         breakdown = score_plan(plan, IPDMCChecks())
         wire = breakdown.wire()
-        for key in ("rating", "finding", "dimensions", "baseline", "benignBaselineApplied", "benignBaselineTrigger",
+        for key in ("rating", "finding", "dimensions", "baseline", "verificationEstablished", "verificationNote",
                    "legitimacyCredit", "legitimacyReason", "decisiveFloorApplied", "decisiveMechanism"):
             assert key in wire
 
 
-class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
-    """Developer Instructions — "Correct the Benign Baseline Rule": the 28-point floor must not fire
-    just because a message falls short of full legitimacy proof. It must still fire for a genuine
-    informational vacuum (PRD §2.4's own golf-invitation example), but never merely because checks
-    that *did* run came back clean."""
+class TestVerificationCompletenessIsSeparateFromScore:
+    """Developer Instructions — "Clarification of Scoring and Findings Requirements": the six-
+    dimension score reflects only real, evidence-based scam indicators and approved evidence-based
+    adjustments (legitimacy credit, impersonation/decisive floors). Verification completeness is a
+    separate axis (`verification_established` / `verification_note`) that gates whether a genuinely
+    low 0-24 score reads "Not a Scam" (verification actually established) or "Unlikely a Scam" (no
+    scam indicators found, but authenticity also not independently established) — it never adds a
+    single point to `rating` itself."""
 
-    def test_checked_and_clean_evidence_does_not_get_bumped_to_the_floor(self):
-        """The "ABC newsletter" shape: a check actually ran (a link/domain lookup) and came back
-        clean (neutral/clear signals only) with a low but non-zero calculated baseline (e.g. a mild
-        urgency cue). This must stay at its calculated score, not jump to 28."""
+    def test_an_ordinary_message_with_nothing_to_check_scores_zero_not_an_invented_floor(self):
+        plan = _plan()
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.rating == 0, "no artificial benign-baseline adjustment may be added to the score"
+        assert breakdown.baseline == 0
+        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.verification_established is False
+
+    def test_checked_and_clean_evidence_keeps_its_own_real_score(self):
+        """A check actually ran and came back clean, alongside an unrelated, real urgency cue (6
+        points). The score must stay exactly 6 — never bumped, never zeroed, never re-interpreted."""
         from services.higgins.tc_flyby.triage import Entities, Check
 
         clean_fact = {"text": "example.org is registered to a long-established organisation.", "signal": "neutral",
@@ -168,22 +202,20 @@ class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
 
         breakdown = score_plan(plan, IPDMCChecks())
         assert breakdown.baseline == 6, "manipulation_behaviour alone should score 6 for one urgency cue"
-        assert breakdown.benign_baseline_applied is False, "checked-and-clean evidence must not trigger the floor"
-        assert breakdown.rating == 6, "the calculated score must be retained, not bumped to 28"
+        assert breakdown.rating == 6, "a real, evidence-based score must never be replaced by an artificial floor"
+        assert breakdown.finding == "unlikely_scam"
+
+    def test_positively_verified_identity_reads_not_scam_at_a_genuinely_low_score(self):
+        plan = _plan()
+        ipdmc = IPDMCChecks(identity_verified="passed", destinations_verified="passed", genuine_explanation_supported=True)
+        breakdown = score_plan(plan, ipdmc)
+        assert breakdown.verification_established is True
         assert breakdown.finding == "not_scam"
+        assert breakdown.rating <= 24
 
-    def test_genuine_informational_vacuum_still_gets_the_floor(self):
-        """PRD §2.4's own example (the golf invitation): nothing at all to check. The floor must
-        still apply here — this is NOT the case the correction narrows."""
-        plan = _plan()  # checks=[] — nothing was ever checked
-        breakdown = score_plan(plan, IPDMCChecks())
-        assert breakdown.benign_baseline_applied is True
-        assert breakdown.rating == 28
-        assert breakdown.benign_baseline_trigger, "an applied floor must carry a specific, traceable reason"
-
-    def test_missing_unavailable_check_does_not_count_as_clean_evidence(self):
-        """An "unavailable external verification service" (signal="missing") must not, by itself,
-        disable the floor — it is an evidence limitation, not clean proof of legitimacy."""
+    def test_unavailable_check_leaves_the_score_at_its_real_value(self):
+        """An "unavailable external verification service" (signal="missing") is an evidence
+        limitation, never a reason to raise the score."""
         from services.higgins.tc_flyby.triage import Check
 
         missing_fact = {"text": "Google Safe Browsing could not be checked for example.org.", "signal": "missing",
@@ -193,13 +225,14 @@ class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
         plan = _plan(checks=[link_check])
 
         breakdown = score_plan(plan, IPDMCChecks())
-        assert breakdown.benign_baseline_applied is True, "an unavailable check alone must not disable the floor"
-        assert breakdown.rating == 28
+        assert breakdown.rating == 0
+        assert breakdown.finding == "unlikely_scam"
+        assert breakdown.verification_established is False
 
-    def test_unresolved_consequential_request_still_gets_the_floor_even_with_a_clean_link_elsewhere(self):
-        """PRD's delivery-toll shape: a consequential request through an unverified destination must
-        still get the floor even if a *different* link elsewhere in the message checked out clean —
-        a clean link never vouches for a different, unverified payment destination."""
+    def test_unresolved_consequential_request_scores_on_its_own_real_evidence(self):
+        """PRD's delivery-toll shape: a consequential request through an unverified destination
+        scores 20 on its own real evidence (requested_action) — no artificial floor is needed even
+        though a *different* link elsewhere in the message checked out clean."""
         from services.higgins.tc_flyby.triage import Check
 
         clean_fact = {"text": "auspost.com.au is Australia Post's own, official domain.", "signal": "clear",
@@ -211,6 +244,13 @@ class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
                             unverified_destinations=["0412 345 678"])
 
         breakdown = score_plan(plan, ipdmc)
-        assert breakdown.benign_baseline_applied is True
-        assert breakdown.rating == 28
+        assert breakdown.rating == 20
+        assert breakdown.verification_established is False
         assert breakdown.finding == "unlikely_scam"
+
+    def test_verification_note_is_always_populated(self):
+        """The DI tab must always be able to show verification context beside the score — never a
+        contradictory-looking gap between the two (Developer Instructions requirement)."""
+        for ipdmc in (IPDMCChecks(), IPDMCChecks(identity_verified="passed", destinations_verified="passed", genuine_explanation_supported=True)):
+            breakdown = score_plan(_plan(), ipdmc)
+            assert breakdown.verification_note and isinstance(breakdown.verification_note, str)

@@ -45,9 +45,13 @@ export interface FindingsRatingDimension {
  *  renders it verbatim). */
 export interface ScoreCalculationStep { step: string; detail: string; value: number }
 export interface FindingsRatingBreakdown {
-  rating: number; finding: string; dimensions: FindingsRatingDimension[]; baseline: number; benignBaselineApplied: boolean;
-  /** The specific, evidence-backed reason the benign floor fired (empty when it didn't) — never a generic phrase alone. */
-  benignBaselineTrigger: string;
+  rating: number; finding: string; dimensions: FindingsRatingDimension[]; baseline: number;
+  /** Verification completeness — a separate axis from scam risk (Developer Instructions:
+   *  "Clarification of Scoring and Findings Requirements"). Never changes `rating`; only gates
+   *  whether a genuinely low 0-24 score reads "Not a Scam" (true) or "Unlikely a Scam" (false). */
+  verificationEstablished: boolean;
+  /** Always populated — honest context on why/whether authenticity was independently established. */
+  verificationNote: string;
   legitimacyCredit: number; legitimacyReason: string; decisiveFloorApplied: boolean; decisiveMechanism: string | null;
   /** The ordered, human-readable trace of exactly how the 0-100 rating was calculated. */
   calculationTrace: ScoreCalculationStep[];

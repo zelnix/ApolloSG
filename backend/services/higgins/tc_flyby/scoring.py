@@ -15,29 +15,34 @@ dimensions (Apollo PRD v2.2 §2):
                                 ---
                                 100
 
-Final rating = bounded(0, 100, benign_baseline_or(dimension_sum) - legitimacy_credit), then a
-decisive-mechanism floor of 85 is applied last — established critical scam evidence always outranks
-a legitimacy credit (PRD §2.3.D: "Decisive scam evidence takes precedence over general
-sender-authentication credits").
+Final rating = bounded(0, 100, dimension_sum - legitimacy_credit), then an impersonation/
+corroboration floor of 65 and a decisive-mechanism floor of 85 are applied last — established
+critical scam evidence always outranks a legitimacy credit (PRD §2.3.D: "Decisive scam evidence
+takes precedence over general sender-authentication credits"). The rating is **never** adjusted
+upward merely because verification is missing — see the Correction note below.
 
-Classification bands (exact, inclusive boundaries — PRD §2.1):
+Classification bands (exact, inclusive score boundaries — PRD §2.1):
     85-100  scam            "This is a Scam"
     60-84   likely_scam     "This is Likely a Scam"
     25-59   unlikely_scam   "This is Unlikely a Scam"
-    0-24    not_scam        "This is Not a Scam"
+    0-24    not_scam        "This is Not a Scam" — but only when verification was actually
+                             established; otherwise "unlikely_scam" (see Correction below).
 
 Note on calibration: the dimensions below are driven entirely by what Higgins Triage and TC Hawkeye's own
 checks already established (IPDMCChecks, the Plan's pattern match, entities and live evidence) — never
-by new keyword scoring on raw text. A message this scorer has no verified legitimacy evidence for (no
-confirmed identity, no confirmed destination, no matched transaction) gets the ordinary "unlikely a
-scam" baseline, never a false "not a scam": that requires Triage to have actually captured positive
-verification, not just the absence of a request.
+by new keyword scoring on raw text.
 
-Correction (Developer Instructions — "Correct the Benign Baseline Rule"): the benign floor is a floor
-for a genuine informational vacuum, not a penalty for falling short of full legitimacy proof. It fires
-only when nothing was actually checked, or something specific remains unresolved (`_checked_and_clean()`
-below gates this) — never merely because checks that *did* run came back clean. Missing proof of
-legitimacy is not, by itself, evidence of a scam.
+Correction (Developer Instructions — "Clarification of Scoring and Findings Requirements"): a
+message with no substantive scam indicators scores 0-24 on real, evidence-based dimension points
+alone — nothing is ever added to the number just because verification wasn't performed, available
+or necessary (an absence of positive verification is not evidence of malicious activity). What used
+to be a score-inflating "benign baseline" is now a *separate* axis entirely: `verification_established`
+(§_positively_verified) plus a `verification_note` that explains, honestly, why this message's
+authenticity has or hasn't been independently established. `classify_finding()` reads *both* axes: a
+score of 0-24 reads "Not a Scam" only when verification was actually established; otherwise it reads
+"Unlikely a Scam" ("no scam indicators were identified, but authenticity hasn't been independently
+established") — the same real number, never an invented one, under a Finding that no longer silently
+equals "confirmed safe". All four Findings, and every score-boundary rule at 25+, are unchanged.
 """
 from __future__ import annotations
 
@@ -50,13 +55,11 @@ from services.higgins.tc_flyby.triage import Plan
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
-BENIGN_BASELINE = 28   # PRD §2.3.C — the ordinary, unverified default. Nothing concerning found is not
-                        # the same as positively verified, so this never rounds down to "not a scam".
 DECISIVE_FLOOR = 85    # PRD §2.3.A — an established critical scam mechanism is never scored below this.
 IMPERSONATION_FLOOR = 65  # a confirmed false identity (lookalike domain / corroborated impersonation)
                            # is, on its own, already "substantial evidence of fraud" (PRD §2.1's "likely
                            # a scam" bar) — matches the old L1 rule's guarantee that strong impersonation
-                           # alone settles at "likely", never softened down by the benign baseline logic.
+                           # alone settles at "likely", never softened down by verification status.
 
 DIMENSION_MAXIMA = {
     "scam_mechanism": 25, "requested_action": 20, "identity_destination": 20,
@@ -99,21 +102,20 @@ class ScoreBreakdown:
     """Explainable attribution behind one Findings Rating (PRD §2.5.1 / §2.5.8)."""
     dimensions: list[DimensionScore] = field(default_factory=list)
     baseline: int = 0                    # the six-dimension sum, before any adjustment
-    benign_baseline_applied: bool = False
     legitimacy_credit: int = 0
     legitimacy_reason: str = ""
     decisive_floor_applied: bool = False
     decisive_mechanism: str | None = None
     rating: int = 0
     finding: str = "unlikely_scam"
-    # The specific, evidence-backed reason the benign floor fired (empty when it didn't) — never the
-    # generic "nothing was positively verified" phrase alone (Developer Instructions: "Correct the
-    # Benign Baseline Rule"). States exactly what remained unresolved, not merely that full
-    # legitimacy wasn't confirmed.
-    benign_baseline_trigger: str = ""
+    # Verification completeness — a separate axis from scam risk (Developer Instructions:
+    # "Clarification of Scoring and Findings Requirements"). `verification_established` gates the
+    # not_scam/unlikely_scam boundary in `classify_finding()`; it never changes `rating`.
+    verification_established: bool = False
+    verification_note: str = ""
     # Added for DI Scoring Transparency (never recomputed client-side — this *is* the real sequence
-    # score_plan() just ran, PRD §2.3.D order: baseline -> benign floor -> legitimacy credit ->
-    # impersonation/corroboration floor -> decisive floor -> 0-100 clamp).
+    # score_plan() just ran, PRD §2.3.D order: baseline -> legitimacy credit -> impersonation/
+    # corroboration floor -> decisive floor -> 0-100 clamp -> verification-gated classification).
     calculation_trace: list[dict] = field(default_factory=list)
     narrative: str = ""
     content_gaps: list[str] = field(default_factory=list)   # material TC Hawkeye couldn't read at all (PRD §8.4/§5 completeness)
@@ -124,19 +126,25 @@ class ScoreBreakdown:
             "dimensions": [{"key": d.key, "label": d.label, "points": d.points, "max": d.maximum, "why": d.why,
                            "checks": d.checks, "evidence": d.evidence, "missing": d.missing}
                            for d in self.dimensions],
-            "baseline": self.baseline, "benignBaselineApplied": self.benign_baseline_applied,
-            "benignBaselineTrigger": self.benign_baseline_trigger,
+            "baseline": self.baseline,
+            "verificationEstablished": self.verification_established, "verificationNote": self.verification_note,
             "legitimacyCredit": self.legitimacy_credit, "legitimacyReason": self.legitimacy_reason,
             "decisiveFloorApplied": self.decisive_floor_applied, "decisiveMechanism": self.decisive_mechanism,
             "calculationTrace": self.calculation_trace, "narrative": self.narrative, "contentGaps": self.content_gaps,
         }
 
 
-def classify_finding(score: int) -> str:
-    """The four Findings, by exact inclusive score boundary (PRD §2.1 / §2.5.10).
+def classify_finding(score: int, verification_established: bool = True) -> str:
+    """The four Findings, by exact inclusive score boundary (PRD §2.1 / §2.5.10), gated by whether
+    verification was actually established (Developer Instructions correction).
 
-    Boundary contract (must hold exactly): 24→not_scam, 25→unlikely_scam, 59→unlikely_scam,
-    60→likely_scam, 84→likely_scam, 85→scam.
+    Boundary contract (must hold exactly) when verification_established is True (unchanged):
+    24→not_scam, 25→unlikely_scam, 59→unlikely_scam, 60→likely_scam, 84→likely_scam, 85→scam.
+
+    When verification_established is False, the 0-24 band reads "unlikely_scam" instead of
+    "not_scam" — a real, unmodified score under an honest Finding, never an invented point. Every
+    boundary at 25 and above is identical either way: missing verification never raises the score,
+    it only prevents a low, genuinely clean score from being read as "confirmed safe".
     """
     if not 0 <= score <= 100:
         raise ValueError("Findings rating must be between 0 and 100")
@@ -146,8 +154,10 @@ def classify_finding(score: int) -> str:
         return "likely_scam"
     elif score >= 25:
         return "unlikely_scam"
-    else:
+    elif verification_established:
         return "not_scam"
+    else:
+        return "unlikely_scam"
 
 
 # ── The six dimensions ───────────────────────────────────────────────────────
@@ -301,13 +311,6 @@ def _build_calculation_trace(breakdown: ScoreBreakdown) -> list[dict]:
              "detail": " + ".join(f"{d.label} {d.points}" for d in breakdown.dimensions) + f" = {breakdown.baseline}",
              "value": breakdown.baseline}]
     running = breakdown.baseline
-    if breakdown.benign_baseline_applied:
-        trace.append({"step": "Benign baseline applied",
-                     "detail": breakdown.benign_baseline_trigger or
-                               f"No positive verification was established, so the ordinary unverified floor "
-                               f"of {BENIGN_BASELINE} applies instead of the lower {running}.",
-                     "value": BENIGN_BASELINE})
-        running = BENIGN_BASELINE
     if breakdown.legitimacy_credit:
         running = max(0, running - breakdown.legitimacy_credit)
         trace.append({"step": "Legitimacy credit", "detail": f"-{breakdown.legitimacy_credit} ({breakdown.legitimacy_reason})", "value": running})
@@ -315,7 +318,11 @@ def _build_calculation_trace(breakdown: ScoreBreakdown) -> list[dict]:
         trace.append({"step": "Impersonation/corroboration floor", "detail": f"Raised to {breakdown.rating} (PRD \u00a72.3's \u201clikely a scam\u201d floor).", "value": breakdown.rating})
     if breakdown.decisive_floor_applied:
         trace.append({"step": "Decisive mechanism floor", "detail": f"{breakdown.decisive_mechanism} \u2014 never scored below {DECISIVE_FLOOR}.", "value": DECISIVE_FLOOR})
-    trace.append({"step": "Final rating (0-100)", "detail": f"{breakdown.finding}", "value": breakdown.rating})
+    # Verification completeness never changes the number above — shown as its own step so it can
+    # never be mistaken for a score adjustment (Developer Instructions).
+    trace.append({"step": "Verification check (context only \u2014 does not change the score)",
+                 "detail": breakdown.verification_note, "value": breakdown.rating})
+    trace.append({"step": "Final rating (0-100)", "detail": breakdown.finding, "value": breakdown.rating})
     return trace
 
 
@@ -329,11 +336,8 @@ def _build_narrative(breakdown: ScoreBreakdown) -> str:
     if contributing:
         parts.append("That came from: " + "; ".join(f"{d.label} ({d.points}/{d.maximum} \u2014 {d.why})" for d in contributing) + ".")
     else:
-        parts.append("None of the six dimensions found anything concerning.")
-    if breakdown.benign_baseline_applied:
-        parts.append(breakdown.benign_baseline_trigger or
-                     f"Because nothing was positively verified either way, the rating used the ordinary "
-                     f"unverified baseline of {BENIGN_BASELINE} rather than reading as confirmed-safe.")
+        parts.append("No scam indicators were identified.")
+    parts.append(breakdown.verification_note)
     if breakdown.legitimacy_credit:
         parts.append(f"{breakdown.legitimacy_credit} points were credited back: {breakdown.legitimacy_reason}")
     if breakdown.decisive_floor_applied:
@@ -399,21 +403,10 @@ def _decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
 
 
 def _checked_and_clean(plan: Plan, ipdmc: IPDMCChecks) -> bool:
-    """True when nothing about this message remains unresolved, and whatever TC Hawkeye actually
-    checked came back clean — a specific, evidence-backed reason the benign floor must not apply
-    (Developer Instructions: "Correct the Benign Baseline Rule" — missing proof of legitimacy is not,
-    by itself, evidence of a scam when what TC Hawkeye *did* check came back clean). Returns False
-    (the floor may still apply) when any of the following hold, each itself a genuine informational
-    vacuum or an unresolved risk-relevant condition — never merely "short of full legitimacy proof":
-      - a consequential request still points at a destination nobody has verified (PRD's delivery-
-        toll/invoice shape: a clean link elsewhere never vouches for a different, unverified
-        payment destination);
-      - nothing was actually checked at all (no links, phones, emails or brand claims — the genuine
-        informational vacuum PRD §2.4's golf-invitation example still needs the floor for);
-      - any check came back concerning, anomalous, weak, or merely "missing" (looked up, not
-        established — e.g. an unavailable external verification service) — none of these are
-        themselves clean evidence, so they must not disable the floor either.
-    """
+    """Retained as a pure diagnostic predicate (used by `_verification_note` for wording only): true
+    when nothing about this message remains unresolved, and whatever TC Hawkeye actually checked
+    came back clean. No longer gates a score adjustment — verification completeness never changes
+    `rating` (Developer Instructions: "Clarification of Scoring and Findings Requirements")."""
     if ipdmc.consequential_requests and (ipdmc.unverified_destinations or ipdmc.destinations_verified != "passed"):
         return False
     all_facts = [f for c in plan.checks for f in c.facts if f.get("class") == "live_evidence"]
@@ -424,26 +417,22 @@ def _checked_and_clean(plan: Plan, ipdmc: IPDMCChecks) -> bool:
     return any(f["signal"] in ("clear", "neutral") for f in all_facts)
 
 
-def _benign_baseline_trigger_text(plan: Plan, ipdmc: IPDMCChecks, baseline: int) -> str:
-    """The specific, traceable reason the floor fired — states exactly what remained unresolved
-    (Developer Instructions requirement #2: specific trigger, supporting evidence, risk relevance,
-    traceability, rating justification), never the removed standalone phrase "Nothing was positively
-    verified, so the ordinary unverified floor of 28 applies instead of the lower N." alone."""
-    unresolved: list[str] = []
-    if ipdmc.consequential_requests and (ipdmc.unverified_destinations or ipdmc.destinations_verified != "passed"):
-        unresolved.append("this message makes a request through a destination nobody has verified")
+def _verification_note(plan: Plan, ipdmc: IPDMCChecks, verified: bool, score: int) -> str:
+    """Honest, evidence-backed context on verification completeness — a separate axis from scam
+    risk (Developer Instructions). Never implies risk by itself; always populated, so the DI tab can
+    show it beside the (unmodified) score without a contradictory-looking gap between the two."""
+    if verified:
+        return "This message's identity and/or destination were positively verified, with nothing concerning found."
+    if score > 0:
+        # Real scam indicators already contributed to the score above — don't also claim "none found".
+        return "This message's authenticity has not been independently established, separately from the scam indicators already reflected in the score above."
+    base = "No scam indicators were identified, but the message's authenticity has not been independently established."
     if not plan.checks:
-        unresolved.append("no identity, destination or claim in this message had any check available to run")
-    else:
-        unavailable_kinds = sorted({c.kind for c in plan.checks if c.status == "unavailable"})
-        if unavailable_kinds:
-            unresolved.append(f"the {', '.join(unavailable_kinds)} check(s) on it could not be completed")
-    if not unresolved:
-        unresolved.append("no positive evidence of legitimacy was established for its identity or destination")
-    return (f"The calculated six-dimension score ({baseline}/100) is not itself a reason for concern, but it "
-            f"also isn't a confirmed-safe result: {'; and '.join(unresolved)}. An ordinary message with no "
-            f"positive verification either way still carries the baseline unverified risk, so the floor of "
-            f"{BENIGN_BASELINE} applies instead of {baseline}.")
+        return base
+    unavailable_kinds = sorted({c.kind for c in plan.checks if c.status == "unavailable"})
+    if unavailable_kinds:
+        return base + f" The {', '.join(unavailable_kinds)} check(s) on it could not be completed."
+    return base
 
 
 def _legitimacy_credit(plan: Plan, ipdmc: IPDMCChecks) -> tuple[int, str]:
@@ -462,24 +451,15 @@ def _legitimacy_credit(plan: Plan, ipdmc: IPDMCChecks) -> tuple[int, str]:
 
 def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
     """The Findings Rating (0-100) and its four-tier classification, per PRD §2.3.D's sequence:
-    six-dimension baseline → benign floor → legitimacy credit → decisive mechanism floor → bound → classify.
+    six-dimension baseline → legitimacy credit → impersonation/corroboration floor → decisive
+    mechanism floor → bound → verification-gated classification (Developer Instructions
+    correction — verification completeness never changes the number itself).
     """
     dims = [fn(plan, ipdmc) for fn in _DIMENSION_FUNCS]
     baseline = sum(d.points for d in dims)
     breakdown = ScoreBreakdown(dimensions=dims, baseline=baseline)
 
     score = baseline
-    if not _positively_verified(plan, ipdmc) and score < BENIGN_BASELINE and not _checked_and_clean(plan, ipdmc):
-        # PRD §2.3.C — ordinary, unverified communications never read as "not a scam" just because a
-        # handful of ambiguous points happened to add up low: nothing concerning was found, but nothing
-        # was positively verified either, so the floor is "unlikely a scam", not "not a scam".
-        # Developer Instructions correction: this only fires on a genuine informational vacuum (nothing
-        # checked, or something left unresolved) — never merely because checks that *did* run came back
-        # clean (`_checked_and_clean`). Missing proof of legitimacy alone is not evidence of a scam.
-        score = BENIGN_BASELINE
-        breakdown.benign_baseline_applied = True
-        breakdown.benign_baseline_trigger = _benign_baseline_trigger_text(plan, ipdmc, baseline)
-
     credit, reason = _legitimacy_credit(plan, ipdmc)
     if credit:
         score = max(0, score - credit)
@@ -504,7 +484,15 @@ def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
         breakdown.decisive_mechanism = mechanism
 
     breakdown.rating = max(0, min(100, score))
-    breakdown.finding = classify_finding(breakdown.rating)
+
+    # Verification completeness — a separate axis from the score above (Developer Instructions):
+    # missing/unavailable/unnecessary verification is never a reason to raise `rating`. It only
+    # gates whether a genuinely low, evidence-based score of 0-24 reads as "Not a Scam" (verification
+    # actually established) or "Unlikely a Scam" (no scam indicators found, but authenticity also
+    # not independently established).
+    breakdown.verification_established = _positively_verified(plan, ipdmc)
+    breakdown.verification_note = _verification_note(plan, ipdmc, breakdown.verification_established, breakdown.rating)
+    breakdown.finding = classify_finding(breakdown.rating, breakdown.verification_established)
 
     # DI Scoring Transparency — attach the real trace behind the number above; changes nothing already decided.
     _enrich_with_real_evidence(breakdown, plan, ipdmc)
