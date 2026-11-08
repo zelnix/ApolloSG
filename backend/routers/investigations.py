@@ -1079,6 +1079,9 @@ async def device_results(case_id: str, body: DeviceResult, request: Request):
     pending = await db.investigation_device_requests.find_one({"owner_id": owner, "case_id": case_id, "request_id": body.request_id}, {"_id": 0})
     if not pending:
         raise http(409, "conflict", "No outstanding device request with that ID for this investigation.")
+    # Luddish model hypotheses must never enter the ordinary device-observation evidence path.
+    if pending.get("kind") == "slm_advisory":
+        raise http(409, "conflict", "Luddish reasoning must use its advisory-only result path.")
     if pending["request"]["capabilityId"] != body.capability_id:
         raise http(409, "conflict", "The result does not match the requested capability.")
     device = repo.device_profile(case) or {}
@@ -1426,3 +1429,8 @@ async def confirm_commit(case_id: str, request: Request):
     await device_pickup.confirmed(owner, case_id)
     removed_at = now_utc().isoformat() if cleanup_status == "complete" else None  # a failed clean-up is retried; no time is claimed
     return JSONResponse({"purged": True, "status": cleanup_status, "removedAt": removed_at}, headers=NO_STORE)
+
+
+# Reuse the authenticated investigation router; no second server or investigation engine.
+from routers import slm_handoff  # noqa: E402
+router.include_router(slm_handoff.router)
