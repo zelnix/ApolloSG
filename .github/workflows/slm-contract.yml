@@ -6,6 +6,8 @@ on:
     paths:
       - 'frontend/src/domain/slm/**'
       - 'frontend/tests/slm*.test.ts'
+      - 'frontend/tests/slm*.test.cjs'
+      - 'frontend/scripts/slm-verify-gguf.cjs'
       - '.github/workflows/slm-contract.yml'
   pull_request:
     paths:
@@ -36,7 +38,7 @@ jobs:
       - name: Run SLM contract and isolation tests
         working-directory: frontend
         run: |
-          node --test tests/slm.test.ts tests/slmRuntime.test.ts tests/slmNativeBridge.test.ts
+          node --test tests/slm.test.ts tests/slmRuntime.test.ts tests/slmNativeBridge.test.ts tests/slmModelIntegrity.test.cjs
       - name: Type-check SLM source without hiding other project errors
         working-directory: frontend
         run: |
