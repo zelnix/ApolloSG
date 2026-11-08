@@ -1,0 +1,20 @@
+name: GuardDog frozen source checksum reconciliation
+on:
+  push:
+    branches: [slm]
+    paths:
+      - '.github/workflows/guarddog-checksum-reconcile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute unmodified GuardDog source hash
+        working-directory: frontend/packages
+        run: |
+          sha256sum guarddog-expo-module/android/src/main/java/com/guarddog/expo/GuardDogExpoModule.kt
+          echo "Frozen source manifest entry:"
+          grep 'guarddog-expo-module/android/src/main/java/com/guarddog/expo/GuardDogExpoModule.kt' ../../docs/APOLLO_STAGE1B_SHA256_MANIFEST.txt
