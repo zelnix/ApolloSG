@@ -7,7 +7,7 @@ import { apiPost } from "../../api/client.ts";
 import { reasonForCase, type CaseSLMRequest } from "./caseContract.ts";
 import type { SLMAdapter, SLMRole } from "./index.ts";
 
-interface Issued {
+export interface Issued {
   request: CaseSLMRequest;
   expiresAt: string;
 }
@@ -36,6 +36,20 @@ export async function submitAdvisoryForActiveCase(
     "slm_advisory",
     { jobId, caseRevision, role },
   );
+  return submitIssuedAdvisory(caseId, issued, adapter);
+}
+
+/** The investigation coordinator may issue the same request over the
+ * authenticated SSE stream. Do not open a second request or use Gemini.
+ */
+export async function submitIssuedAdvisory(
+  caseId: string,
+  issued: Issued,
+  adapter: SLMAdapter | null,
+): Promise<HandoffResult> {
+  if (!adapter) return { status: "unavailable", reason: "on_device_model_unavailable" };
+  const caseRevision = issued.request.caseRevision;
+  const role = issued.request.role;
   if (issued.request.caseId !== caseId || issued.request.caseRevision !== caseRevision ||
       !issued.request.requestId || issued.request.role !== role ||
       new Date(issued.expiresAt).getTime() <= Date.now()) {
