@@ -1,0 +1,66 @@
+/**
+ * Opt-in backend <-> on-device Luddish pilot using ApolloSG's existing
+ * authenticated API client and egress policy. No new provider or cloud model.
+ * This does not run automatically or attach SLM output to a case verdict.
+ */
+import { apiPost } from "../../api/client.ts";
+import { reasonForCase, type CaseSLMRequest } from "./caseContract.ts";
+import type { SLMAdapter, SLMRole } from "./index.ts";
+
+interface Issued {
+  request: CaseSLMRequest;
+  expiresAt: string;
+}
+interface Receipt {
+  accepted: boolean;
+  advisoryOnly: boolean;
+  caseId: string;
+  requestId: string;
+}
+
+export type HandoffResult =
+  | { status: "accepted"; requestId: string }
+  | { status: "unavailable" | "invalid_output"; reason: string };
+
+export async function submitAdvisoryForActiveCase(
+  caseId: string,
+  jobId: string,
+  caseRevision: number,
+  role: SLMRole,
+  adapter: SLMAdapter | null,
+): Promise<HandoffResult> {
+  // Server chooses the evidence and instructions. This API refuses expired,
+  // superseded or cross-device cases; callers must not substitute evidence.
+  const issued = await apiPost<Issued>(
+    `/investigations/${encodeURIComponent(caseId)}/slm/requests`,
+    "slm_advisory",
+    { jobId, caseRevision, role },
+  );
+  if (issued.request.caseId !== caseId || issued.request.caseRevision !== caseRevision ||
+      !issued.request.requestId || issued.request.role !== role ||
+      new Date(issued.expiresAt).getTime() <= Date.now()) {
+    return { status: "invalid_output", reason: "invalid_server_request" };
+  }
+  const result = await reasonForCase(issued.request, adapter);
+  if (result.status !== "completed") {
+    // No fabricated success and no automatic Gemini fallback.
+    return { status: result.status, reason: result.reason };
+  }
+  const receipt = await apiPost<Receipt>(
+    `/investigations/${encodeURIComponent(caseId)}/slm/results`,
+    "slm_advisory",
+    {
+      caseId: result.caseId,
+      caseRevision: result.caseRevision,
+      requestId: result.requestId,
+      execution: result.execution,
+      modelId: result.modelId,
+      answer: result.answer,
+    },
+  );
+  if (!receipt.accepted || receipt.advisoryOnly !== true ||
+      receipt.caseId !== caseId || receipt.requestId !== result.requestId) {
+    return { status: "invalid_output", reason: "invalid_server_receipt" };
+  }
+  return { status: "accepted", requestId: result.requestId };
+}
