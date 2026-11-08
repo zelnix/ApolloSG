@@ -1041,7 +1041,20 @@ def evaluate_rules(plan: Plan) -> FindingRulesResult:
     # Gaps (unprocessed material) prevent not_scam — an unavailable check is not a successful check.
     has_gaps = bool(plan.gaps) or any(c.status == "unavailable" for c in plan.checks)
     substantive_verification = any(r.rule_id in ("N1", "N2", "N3") and r.passed for r in n_applicable)
-    if n_applicable and all(r.passed for r in n_applicable) and substantive_verification and not has_gaps:
+    # Bug fix (owner report, 2026-11-08 — "this should be Unlikely a Scam"): N2 alone can pass on an
+    # ordinary, unrelated link merely because nobody has flagged it as malicious ("clean listing,
+    # established registration") — that is an absence of badness, never N2's own "verified as
+    # genuinely used by the CLAIMED sender". When nothing in the material actually claims a sender or
+    # a purpose (no named organisation, no request of any kind — e.g. someone forwards a plain,
+    # unrelated news link with no message of their own), N2 passing by itself must never promote the
+    # case to "Not a Scam": there is nothing here to have verified. `has_claimed_context` requires an
+    # actual claim to anchor that verification to — a named identity (claimed_identity, set as soon as
+    # an impersonation check or a recognised brand exists) or an identified purpose/request
+    # (purpose_identified, set as soon as any request exists, which N3's own pass already implies).
+    # N1 passing on its own already guarantees claimed_identity is set, so this never narrows a case
+    # that genuinely verified identity.
+    has_claimed_context = bool(ipdmc.claimed_identity) or ipdmc.purpose_identified
+    if n_applicable and all(r.passed for r in n_applicable) and substantive_verification and not has_gaps and has_claimed_context:
         result.finding = "not_scam"
         result.deciding_rules = [r.rule_id for r in n_passed]
         result.rules_passed = s_passed + n_passed
