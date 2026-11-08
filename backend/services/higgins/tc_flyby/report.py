@@ -1019,6 +1019,16 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
     # Master Scam Taxonomy classification (Apollo PRD v2.2 Phase 2) — None when nothing concerning
     # enough was established to categorise (e.g. a "not a scam" result).
     final["taxonomy"] = taxonomy.classify(plan_, ipdmc, breakdown.decisive_mechanism)
+    # TC Hawkeye Detection Framework (Apollo PRD v2.3 §4/§4.5) — which of the 14 named mechanisms
+    # fired, from the same Plan/IPDMCChecks data already gathered above. Structural output only —
+    # never changes the Findings Rating, which scoring.py alone computes.
+    from services.higgins.tc_flyby import mechanisms, playbook_runner
+    final["mechanisms"] = [m.wire() for m in mechanisms.run_all(plan_, ipdmc)]
+    # Verification Playbooks (PRD v2.3 §7.5) — every playbook that applies to this case's taxonomy
+    # variant code, run against real investigation evidence; a step with no real source is honestly
+    # recorded as "unavailable", never guessed.
+    variant_code = (final["taxonomy"] or {}).get("primary", {}).get("variantCode") if final["taxonomy"] else None
+    final["playbooks"] = playbook_runner.run_applicable(plan_, ipdmc, variant_code)
     # The Higgins Findings Brief (Apollo PRD v2.2 Phase 5) — the same result, under its six headers.
     final["findingsBrief"] = findings_brief.build(final, breakdown, final["taxonomy"])
     return final
