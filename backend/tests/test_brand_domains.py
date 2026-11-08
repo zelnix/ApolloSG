@@ -135,3 +135,25 @@ def test_preview_analysis_and_triage_engine_use_the_same_rule():
     other = _rule_evidence({"source_type": "email", "sender": "eBay <members@members.ebay.com>", "sender_domain": "members.ebay.com",
                             "link_domains": ["ebay-verify.example"], "links": [{"text": "Sign in", "href": "https://ebay-verify.example/login"}]}, [], {})
     assert other["brand_mismatch"] is True
+
+
+def test_read_indicators_never_matches_a_brand_inside_an_unrelated_word():
+    """Bug fix: read_indicators() previously matched a short brand needle (e.g. "ing", "nab", "ato")
+    as a plain substring, with no word boundary — so an ordinary ABC News newsletter ("...your Thursday
+    briefing... you are receiving this because you subscribed...") was falsely read as naming "ING"
+    purely because "briefing"/"receiving" contain the letters "ing". This fed directly into the preview
+    simulator (services.higgins.preview_analysis.analyse), which then fabricated a "Fake Domain: ING"
+    impersonation finding for content that never mentions ING at all. tc_flyby/triage.py's own
+    `extract()` already discards read_indicators()'s brands for its own, correctly-bounded `_brands()`
+    — this is the fix for the other caller, services.higgins.preview_analysis.analyse, which reads
+    read_indicators()'s brands directly."""
+    newsletter = ("ABC News: your Thursday briefing\n\nGood morning,\n\nToday's top stories from ABC News.\n\n"
+                 "Read the full briefing: https://www.abc.net.au/news/briefing\n\n"
+                 "You are receiving this because you subscribed. Unsubscribe any time.")
+    assert read_indicators(newsletter).brands == []
+
+    # Other short brand keys are just as vulnerable to the same bug (nab/kebab, ato/potato, anz/stanza) —
+    # the fix is in the general matching rule, not a special case for "ing".
+    assert read_indicators("I had a kebab for dinner.").brands == []
+    assert read_indicators("I grew potatoes and tomatoes in the garden.").brands == []
+    assert read_indicators("NAB: your account statement is ready.").brands == [("NAB", "nab.com.au")], "a real whole-word mention must still match"

@@ -133,8 +133,15 @@ def read_indicators(text: str) -> Indicators:
     low = text.lower()
     ind = Indicators()
 
+    # A whole-word match only — "ing" (ING) must never match inside "briefing" or "receiving", "anz"
+    # (ANZ) never inside "stanza", and so on. A plain substring check here previously let the preview
+    # simulator (services.higgins.preview_analysis.analyse) fabricate an impersonation finding naming
+    # a brand that never actually appears in the material — e.g. an ordinary newsletter mentioning
+    # "briefing"/"receiving" being flagged as an "ING" impersonation attempt. tc_flyby/triage.py's own
+    # _brands() already applies the same boundary and is what production TC Hawkeye actually uses;
+    # this fixes the one other caller (the preview simulator) that reads ind.brands directly.
     for needle, (name, official) in BRANDS.items():
-        if needle in low and (name, official) not in ind.brands:
+        if re.search(rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])", low) and (name, official) not in ind.brands:
             ind.brands.append((name, official))
 
     hosts = [_host(u) for u in URL_RE.findall(text)]
