@@ -62,12 +62,14 @@ export class LocalLlamaRuntime implements SLMAdapter {
   private loading: Promise<LlamaContext> | null = null;
   private queue: Promise<void> = Promise.resolve();
   private closed = false;
+  private readonly initLlama: InitLlama;
+  private readonly nCtx: number;
 
   constructor(
     modelPath: string,
     modelId: string,
-    private readonly initLlama: InitLlama,
-    private readonly nCtx = 4096,
+    initLlama: InitLlama,
+    nCtx = 4096,
   ) {
     if (!/^file:\/\/\//.test(modelPath) || !/\.gguf$/i.test(modelPath)) {
       throw new Error("SLM model must be a device-local file:// GGUF");
@@ -77,6 +79,8 @@ export class LocalLlamaRuntime implements SLMAdapter {
     }
     this.modelPath = modelPath;
     this.modelId = modelId;
+    this.initLlama = initLlama;
+    this.nCtx = nCtx;
   }
   private readonly modelPath: string;
 
