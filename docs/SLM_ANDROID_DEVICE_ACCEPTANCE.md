@@ -1,6 +1,6 @@
 # ApolloSG SLM — controlled Android device acceptance
 
-**Branch:** `slm`. **Production:** unchanged. **Current behaviour:** the SLM remains unregistered and disabled. Installing the APK alone does NOT enable model inference or prove shared SLM functionality.
+**Branch:** `slm`. **Production:** unchanged. **Current behaviour:** development builds attempt local admission at startup ONLY when the exact model exists in app-private documents. Release builds stay disabled. Installing the APK alone does NOT install weights or prove real inference.
 
 ## 1. Get an installable test build
 
@@ -18,13 +18,15 @@ Use the model filename and **published** SHA-256 identified in `docs/SLM_MODEL_B
 node frontend/scripts/slm-verify-gguf.cjs /secure/local/qwen2.5-0.5b-instruct-q4_k_m.gguf 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db
 ```
 
-Never fetch model weights at runtime from an unverified URL, commit them to GitHub, or assume an external-storage copy is safe. A private-app-storage provisioning path and on-device SHA-256 verification must be implemented before actual model admission; these do not yet exist.
+Never fetch model weights automatically, commit them to GitHub, or treat shared storage as approved. The development-only private-file installation function is `installPrivateLuddishForTest(localFileUri)`, and startup checks the fixed filename in `Paths.document`. A model must come from an explicitly selected local file, or be copied into the debug app's private files directory for controlled testing. No public model-picker UI is enabled. The first candidate's publisher digest has not yet been independently reconfirmed from a downloaded file.
 
 ## 3. Activate shared runtime, only after admission
 
-Once a verified private file URI, trusted identity and device admission decision exist, the native application bootstrap can create a single `LocalLlamaRuntime` from `llamaRnBinding.native.ts` and register it through `setSharedSLM()`.
+In development builds only, `frontend/app/_layout.tsx` calls `startSharedLuddish()`. The native bootstrap checks `Paths.document/qwen2.5-0.5b-instruct-q4_k_m.gguf`, requires at least 3 GiB of reported total RAM, streams a SHA-256 over the entire private file using 128 KiB chunks (without loading the weights into JS memory), and compares the result to the pinned candidate digest. Only then does it construct the shared `LocalLlamaRuntime` and register it with `setSharedSLM()`. Both Ask Higgins and stage-specific investigations obtain this one instance via `getSharedSLM()`.
 
-**Not done yet:** App bootstrap, streamed SHA-256 verification on the phone, native model lifecycle cleanup, device RAM admission, and a test-device local GGUF provisioner. The current bridge rejects setup without explicit admission. Do not mark these complete merely because Android compilation passes.
+For a dedicated Android *debug* device, developers may copy the verified GGUF into the app's private documents using their normal development tools (for example, Android Debug Bridge `run-as` for a debuggable installation), then restart the app. The exact package name and private path must be determined from the installed build; never guess them or enable shared storage access in production.
+
+**Implemented in code, not yet physically verified:** fail-closed startup, bounded-memory SHA-256 verification with standard test vectors, conservative RAM admission, single shared runtime registration, explicit dev-only local-file import function and runtime release function. **Still outstanding:** on-device installation of the actual weights, physical memory/latency testing, automatic shutdown lifecycle integration, model provenance audit, and any user-visible installation flow. A passing CI test must not be treated as proof of a real device inference. The candidate remains disabled in release builds.
 
 The **same** runtime must be used by Ask Higgins and all four investigator roles. No secondary model instance, model download service, or Gemini fallback.
 
