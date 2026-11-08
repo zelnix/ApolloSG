@@ -13,6 +13,9 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
+import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +108,25 @@ class ApolloSlmModule : Module() {
         "text" to text, "engine" to "gemini_nano_mlkit", "modelName" to baseModelName(), "osVersion" to osVersion(),
         "elapsedMs" to (SystemClock.elapsedRealtime() - started),
       )
+    }
+
+    // SHA-256 of a downloaded fallback model, streamed so a 1 GB file never sits in memory. Null if it can't be read.
+    AsyncFunction("sha256File") Coroutine { path: String ->
+      try {
+        val file = File(path.removePrefix("file://"))
+        val digest = MessageDigest.getInstance("SHA-256")
+        FileInputStream(file).use { input ->
+          val buffer = ByteArray(1 shl 20)
+          while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            digest.update(buffer, 0, n)
+          }
+        }
+        digest.digest().joinToString("") { "%02x".format(it) }
+      } catch (e: Exception) {
+        null
+      }
     }
 
     OnDestroy {

@@ -59,7 +59,7 @@ export function OnDeviceAiNote({ text, signals, settled, onFullCheck, testID = "
           ) : null}
         </View>
       ) : null}
-      <Text style={s.foot}>Written by the AI built into this phone{model ? ` (${slmModelLabel(model)})` : ""}. Nothing left the phone, and Apollo&apos;s result above is unchanged.</Text>
+      <Text style={s.foot}>Written by AI running on this phone{model ? ` (${slmModelLabel(model)})` : ""}. Nothing left the phone, and Apollo&apos;s result above is unchanged.</Text>
     </Card>
   );
 }

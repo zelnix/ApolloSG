@@ -162,6 +162,9 @@ module.exports = {
       ["expo-audio", { microphonePermission: false, enableBackgroundPlayback: false }],
       ["expo-build-properties", { android: { minSdkVersion: 26 }, ios: { deploymentTarget: "16.4" } }],
       "expo-ocr-kit",
+      // On-device fallback model runtime (llama.cpp). iOS memory entitlements stay off until the App ID has them;
+      // the fallback models are sized to run without them.
+      ["llama.rn", { enableEntitlements: false, enableOpenCL: false }],
     ],
 
     // ── Updates (EAS Update) ─────────────────────────────────────────────

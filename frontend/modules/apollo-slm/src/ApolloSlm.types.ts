@@ -1,8 +1,8 @@
 /** What the phone's own small language model can do right now. Read from the OS on every call, never cached. */
 export type SlmAvailability = "available" | "downloadable" | "downloading" | "unavailable";
 
-/** The OS-provided model behind the module. ApolloSG ships no model weights of its own. */
-export type SlmEngine = "gemini_nano_mlkit" | "apple_foundation_models" | "none";
+/** The OS-provided model behind the module, or "llama_cpp" for ApolloSG's downloaded fallback (see src/slm/models.ts). */
+export type SlmEngine = "gemini_nano_mlkit" | "apple_foundation_models" | "llama_cpp" | "none";
 
 export interface SlmNativeStatus {
   availability: SlmAvailability;

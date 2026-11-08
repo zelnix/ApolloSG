@@ -22,6 +22,8 @@ import { clauses, negated } from "../domain/requestSignals.ts";
 
 export const SLM_MAX_INPUT_CHARS = 4000;
 export const SLM_TIMEOUT_MS = 12_000;
+/** The downloaded model runs on the CPU of a mid-range phone, so it is given longer. */
+export const SLM_FALLBACK_TIMEOUT_MS = 30_000;
 
 // ── Input preparation ─────────────────────────────────────────────────────────
 
@@ -238,7 +240,7 @@ export function checkExplanation(raw: string, r: SettledResult): ExplainCheck {
 
 /** Which model answered: the OS picks and updates it, so ApolloSG records it rather than pinning it. */
 export interface SlmModelInfo {
-  engine: "gemini_nano_mlkit" | "apple_foundation_models" | "none";
+  engine: "gemini_nano_mlkit" | "apple_foundation_models" | "llama_cpp" | "none";
   /** Android: the Gemini Nano version AICore reports. iOS: null (Apple publishes none; osVersion identifies it). */
   modelName: string | null;
   osVersion: string | null;
@@ -248,10 +250,11 @@ export function slmModelLabel(m: SlmModelInfo): string {
   const os = m.osVersion ? ` · ${m.osVersion}` : "";
   if (m.engine === "gemini_nano_mlkit") return `Gemini Nano${m.modelName ? ` (${m.modelName})` : " (version not reported)"}${os}`;
   if (m.engine === "apple_foundation_models") return `Apple on-device model${os}`;
+  if (m.engine === "llama_cpp") return `${m.modelName ?? "Downloaded model"} (downloaded by ApolloSG)${os}`;
   return "No on-device model";
 }
 
-export type SlmPurpose = "explain" | "pre_screen";
+export type SlmPurpose = "explain" | "pre_screen" | "benchmark";
 
 /** One on-device call, as kept in the phone's local record. Never the message, the prompt or the answer. */
 export interface SlmCallRecord extends SlmModelInfo {

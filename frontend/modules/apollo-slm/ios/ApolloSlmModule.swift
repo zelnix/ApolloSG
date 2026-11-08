@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import CryptoKit
 import Foundation
 #if canImport(FoundationModels)
 import FoundationModels
@@ -57,6 +58,20 @@ public class ApolloSlmModule: Module {
     // iOS downloads and updates its model itself; this only reports where it stands.
     AsyncFunction("requestDownload") { () -> [String: Any?] in
       self.readStatus()
+    }
+
+    // SHA-256 of a downloaded fallback model, streamed so a 1 GB file never sits in memory. Nil if it can't be read.
+    AsyncFunction("sha256File") { (path: String) -> String? in
+      let url = path.hasPrefix("file://") ? URL(string: path) : URL(fileURLWithPath: path)
+      guard let fileUrl = url, let handle = try? FileHandle(forReadingFrom: fileUrl) else { return nil }
+      defer { try? handle.close() }
+      var hasher = SHA256()
+      while true {
+        let chunk = handle.readData(ofLength: 1 << 20)
+        if chunk.isEmpty { break }
+        hasher.update(data: chunk)
+      }
+      return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     AsyncFunction("generate") { (input: SlmGenerateInput) async throws -> [String: Any] in
