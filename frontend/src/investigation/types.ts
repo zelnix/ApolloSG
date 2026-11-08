@@ -92,6 +92,7 @@ export interface Submission { clientItemId: string; kind: "text" | "url"; value:
 export interface CreateCase { gate: Gate | null; question: string; submissions: Submission[]; initialFindingRefs: string[]; initialFindings: string[]; deviceProfile: DeviceProfile | null; origin?: CaseOrigin; /** The check's own Threats record: the case updates it, never files a second one. */ patrolEventId?: string | null }
 
 export type InvestigationEvent =
+  | { sequence: number; jobId: string; caseId: string; revision: number; at: string; type: "slm_advisory_request"; payload: import("../domain/slm/slmTransport.ts").Issued }
   | { sequence: number; jobId: string; caseId: string; revision: number; at: string; type: "progress"; payload: { phase: "ingest" | "observe" | "research" | "assess" | "respond"; message: string } }
   | { sequence: number; jobId: string; caseId: string; revision: number; at: string; type: "device_request"; payload: DeviceRequest }
   | { sequence: number; jobId: string; caseId: string; revision: number; at: string; type: "question"; payload: Question }
