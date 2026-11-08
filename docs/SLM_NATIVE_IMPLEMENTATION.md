@@ -7,18 +7,20 @@ Branch: `slm`. The shared interface lives in `frontend/src/domain/slm/index.ts`;
 `llama.rn` native `initLlama()` / `completion()` / `release()` API.
 
 **Not enabled in the application. No physical-device tests have been run.**
-No model weights, model downloader, native dependency or native builds have
-been added. The native plugin is staged behind an explicit non-production
-`APOLLO_SLM_NATIVE=on` build-time switch, but MUST NOT be switched on until
-a compatible `llama.rn` dependency has been installed and lockfile generated.
-The native binding admission gate is in `frontend/src/domain/slm/nativeBridge.ts`. This avoids changing the production app or its lockfile without
-a reproducible native installation and device compatibility check.
+`llama.rn@0.12.9` is pinned with a Yarn-generated lockfile on `slm`.
+No model weights, model downloader or native device builds have been added.
+The native plugin is staged behind the non-production `APOLLO_SLM_NATIVE=on`
+build-time switch, and remains off pending native device acceptance.
+The native binding admission gate is in `frontend/src/domain/slm/nativeBridge.ts`.
+The real SDK adapter is `frontend/src/domain/slm/llamaRnBinding.native.ts`.
+Neither is yet wired into production case processing.
 
 ## Native integration gate
 
-1. From `frontend/`, select and pin a tested stable `llama.rn` version.
-   Install via the repository's Yarn v1 workflow, committing the resulting
-   `package.json` **and** `yarn.lock` in one change.
+1. **Completed:** Pinned stable `llama.rn@0.12.9` with repository Yarn v1.
+   `frontend/package.json` and `frontend/yarn.lock` were generated together
+   and committed to the `slm` branch by the branch-only lock workflow.
+   Native binaries have not yet been built or tested.
 2. The `llama.rn` Expo config plugin has been staged in the existing authoritative
    `frontend/app.config.js`, disabled unless `APOLLO_SLM_NATIVE=on` in a
    non-production build. Existing config plugins and device permissions are intact.
@@ -31,7 +33,7 @@ a reproducible native installation and device compatibility check.
    Make the model available as an explicitly selected, device-local
    `file://...`. Do not download arbitrary user-supplied remote models.
 5. Wire the native binding explicitly from a native-only mobile entry point:
-   `createNativeSLM({modelUri: localModelUri, modelId: verifiedModelId, initLlama, deviceAdmitted: true})`;
+   `createLuddishOnDevice({modelUri: localModelUri, modelId: verifiedModelId, deviceAdmitted: true})`;
    then `await runSLM(caseScopedRequest, runtime)`.
    Device admission checks must establish sufficient free disk, memory and
    actual model compatibility before loading. Release when unused.
@@ -71,7 +73,7 @@ physical-device proof**. Validate in the repository's configured Node version.
 
 ## Outstanding work
 
-Native dependency + reproducible lockfile; approved GGUF model; activate opt-in Expo plugin;
+Approved GGUF model; activate opt-in Expo plugin;
 Android/iOS build and measurements; real app lifecycle wiring; stage-specific
 integration; warranted Gemini extension; full regression/acceptance testing.
 
@@ -79,8 +81,8 @@ integration; warranted Gemini extension; full regression/acceptance testing.
 
 Expo SDK 57 uses React Native 0.86.3 / New Architecture. `llama.rn`
 provides an Expo config plugin, and its v0.13.0-rc.9 prerelease exists.
-A version has **not** been installed or pinned: available execution access
-cannot run Yarn against the package registry to generate a trustworthy lockfile.
-Recent native compatibility reports warrant physical Android and iOS QA.
-Do not manually fabricate `yarn.lock` entries or activate the build flag
-before native dependency installation and acceptance.
+`llama.rn@0.12.9` is pinned in `frontend/package.json` and the generated
+Yarn lockfile on `slm`. The branch-only GitHub Actions package-lock run
+succeeded. Version 0.13.0 is still a prerelease. Actual native installation
+and build compatibility remain **unproven**. Do not activate the build flag
+until Android and iOS native acceptance has succeeded.
