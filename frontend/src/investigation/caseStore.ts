@@ -16,6 +16,8 @@ import { canResubmit } from "./resubmit";
 import * as api from "./client";
 import { safeUUID } from "./client";
 import { observe } from "./deviceBroker";
+import { getSharedSLM } from "@/src/domain/slm/sharedRuntime";
+import { submitIssuedAdvisory } from "@/src/domain/slm/slmTransport";
 import { appendManagedOperation, cancelManagedOperation, expireOperation, managedOperation, retryManagedOperation,
   settleManagedOperation, startManagedOperation, subscribeManagedOperation, type ManagedOperation } from "./transferManager";
 import type { CreateCase, DeviceResult, Failure, HigginsResponse, InvestigationCase, InvestigationEvent, Job, Question, SourceReference, TurnCommit } from "./types";
@@ -76,6 +78,7 @@ export function useInvestigation(boundOperationId?: string | null) {
   const generation = useRef(0);
   const pendingCancellation = useRef<{ caseId: string; jobId: string } | null>(null);
   const pendingDeviceResult = useRef<{ caseId: string; result: DeviceResult; job: Job; after: number } | null>(null);
+  const attemptedAdvisoryRequests = useRef(new Set<string>());
   const cancelAction = useRef<() => Promise<void>>(async () => undefined);
   // When attach() is in control, adoptManaged must not fight it by setting state or calling follow.
   const attachOwns = useRef(false);
@@ -139,6 +142,20 @@ export function useInvestigation(boundOperationId?: string | null) {
       if (!live() || event.caseId !== caseId || event.jobId !== job.id) return;
       if (event.type === "progress") update((previous) => ({ progress: [...previous.progress.slice(-6), event.payload.message] }));
       else if (event.type === "response") update({ response: event.payload.response, sources: event.payload.sources, question: event.payload.response.question });
+      else if (event.type === "slm_advisory_request") {
+        // Separate non-terminal Luddish advisory task. No SLM is bundled with
+        // the app by default, so do nothing until a verified local runtime is
+        // installed. Failures must never mark the investigation as failed.
+        const adapter = getSharedSLM();
+        const issued = event.payload;
+        if (adapter && issued.request.caseId === caseId &&
+            issued.request.caseRevision === event.revision &&
+            issued.request.requestId && !attemptedAdvisoryRequests.current.has(issued.request.requestId)) {
+          if (attemptedAdvisoryRequests.current.size > 256) attemptedAdvisoryRequests.current.clear();
+          attemptedAdvisoryRequests.current.add(issued.request.requestId);
+          void submitIssuedAdvisory(caseId, issued, adapter).catch(() => undefined);
+        }
+      }
       else if (event.type === "retry_scheduled") update((previous) => ({ progress: [...previous.progress.slice(-6), event.payload.failure.message], phase: "working" }));
       else if (event.type === "device_request") {
         update({ phase: "waiting_device" });
