@@ -1,33 +1,52 @@
 """TC Hawkeye — executes a Verification Playbook's steps against a real investigation (PRD v2.3 §7.5).
 
-Never invents a result, and never represents a detection result as independent external
-verification. Two different kinds of answer back a step, and each step's `status` says honestly
-which one it got:
+Never invents a result, and never represents a detection result — or a weak/incomplete lookup — as
+independent external verification. Two different kinds of answer back a step, and each step's
+`status` says honestly which one it got:
   - `verified`   — an already-integrated, independent, authoritative check (company/abn/acn registry,
-                   link/domain reputation, phone/email/licence/person cross-reference) found real
-                   evidence. These come from `official.py`'s own lookups (RDAP, Google Safe Browsing,
-                   ABR/ASIC check-digit algorithms, Apollo's org-contact directory) — `plan`/`IPDMCChecks`
-                   facts carrying `class == "live_evidence"`.
+                   link/domain reputation, phone/email/licence/person cross-reference) actually
+                   produced a meaningful, evidence-backed result: one of `official.py`'s own facts
+                   (`class == "live_evidence"`) whose `signal` is `concern`, `anomaly`, `clear` or
+                   `neutral` — a real determination, favourable or not. `clear` and `concern` keep
+                   their own meaning here: `verified` only says the check ran and produced a real
+                   answer, never that the answer was reassuring. Every live-evidence fact found
+                   (not only the ones that qualified the step as `verified`) is joined into the
+                   evidence text, so a genuine authoritative contradiction — one source clearing an
+                   item while another flags it — stays fully visible rather than collapsed into a
+                   single, possibly reassuring, line.
   - `inferred`   — ApolloSG's own detection logic (a matched KB scam pattern, an extracted claim/
                    urgency phrase, a consequential request, an OTP-style ask) found a hit. This is a
                    real signal TC Hawkeye's own scoring already uses, but it is Apollo's pattern-match
                    or text extraction — not a third party confirming anything — and must never be
                    presented as if an external source verified it.
-  - `inconclusive` — the relevant check or detector ran and found nothing either way.
+  - `inconclusive` — the relevant check or detector ran and found nothing meaningful either way. This
+                   also covers a check that only produced `weak` or `missing` signal facts: by
+                   `official.py`'s own signal vocabulary, `weak` "alone ... never [settles anything],
+                   only the corroboration a warning sign or impersonation needs" and `missing` means
+                   "looked up, not established" — neither is a completed verification by itself, so
+                   neither is ever promoted to `verified`. Their text is still surfaced here (nothing
+                   is thrown away), just never mislabelled as a successful check.
   - `unavailable`  — no source ApolloSG has today answers this step at all (PRD §8.5: "a lookup that
                    fails is recorded as unavailable — never as safe").
   - `not_applicable` — this case has nothing of the kind this step looks at (e.g. no links at all for
                    `link_reputation`), so the step was never run.
-Every step also carries `evidenceSource` (`external_verification`, `internal_detection` or `none`) so
-a result's provenance is explicit even without reading the status string. This module never changes
-the Findings Rating — it reads the exact same `Plan`/`IPDMCChecks` data `scoring.score_plan()` already
-gathered, never recomputes it.
+Every step also carries `evidenceSource` (`external_verification`, `internal_detection` or `none`),
+derived from the step's own `status` — never from which resolver ran — so a step that found nothing
+can never imply external verification occurred just because its resolver belongs to the external-
+lookup family. This module never changes the Findings Rating — it reads the exact same
+`Plan`/`IPDMCChecks` data `scoring.score_plan()` already gathered, never recomputes it.
 """
 from __future__ import annotations
 
 from services.higgins.tc_flyby import playbooks as pb
 from services.higgins.tc_flyby.finding_rules import IPDMCChecks
 from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Plan
+
+# official.py's own signal vocabulary: a fact carrying one of these signals is real evidence that was
+# already read, but is explicitly never a standalone, completed verification outcome — `weak` only
+# corroborates something else, `missing` means a lookup ran and found nothing to report. Everything
+# else (`concern`, `anomaly`, `clear`, `neutral`) is a genuine, evidence-backed determination.
+_NON_VERIFYING_SIGNALS = {"weak", "missing"}
 
 
 def _facts_of(plan: Plan, kinds: tuple[str, ...]) -> tuple[list[dict], list]:
@@ -37,11 +56,18 @@ def _facts_of(plan: Plan, kinds: tuple[str, ...]) -> tuple[list[dict], list]:
 
 
 def _registry_like(plan: Plan, ipdmc: IPDMCChecks, kinds: tuple[str, ...]) -> tuple[str, str | None]:
-    """External, authoritative sources only (`official.py`'s own lookups) — a hit here is `verified`,
-    never `inferred`: nothing about these checks is Apollo's own pattern-matching."""
+    """External, authoritative sources only (`official.py`'s own lookups) — never Apollo's own
+    pattern-matching. `verified` requires at least one fact with a meaningful signal (`concern`,
+    `anomaly`, `clear` or `neutral`); `weak`/`missing`-only evidence is real but inconclusive on its
+    own, so it is reported as `inconclusive`, not promoted to a completed verification."""
     facts, checks = _facts_of(plan, kinds)
-    if facts:
+    meaningful = [f for f in facts if f.get("signal") not in _NON_VERIFYING_SIGNALS]
+    if meaningful:
+        # All live-evidence facts are joined, not just the meaningful ones — a weak corroborating
+        # detail next to a real finding, or a contradictory second finding, is never hidden.
         return "verified", "; ".join(f["text"] for f in facts)
+    if facts:
+        return "inconclusive", "; ".join(f["text"] for f in facts)
     if not checks:
         return "not_applicable", None
     if any(c.status == "unavailable" for c in checks):
@@ -120,22 +146,16 @@ _STEP_RESOLVERS = {
     "otp_request_check": _otp_request_check, "unavailable_source": _unavailable_source,
 }
 
-# Which kind of source a resolver *can* produce evidence from — independent of whether this
-# particular step found anything. Carried on every step's result so a reader never has to infer
-# provenance from the status word alone.
-_STEP_EVIDENCE_SOURCE = {
-    "company_registry": "external_verification", "link_reputation": "external_verification",
-    "contact_crossref": "external_verification", "licence_check": "external_verification",
-    "person_crossref": "external_verification", "scam_pattern_match": "internal_detection",
-    "claims_and_urgency": "internal_detection", "consequential_request": "internal_detection",
-    "otp_request_check": "internal_detection", "unavailable_source": "none",
-}
+# Evidence provenance by the step's own *outcome*, never by which resolver ran: a step that found
+# nothing (not_applicable/inconclusive/unavailable) must never claim external verification or
+# internal detection just because its resolver belongs to that family.
+_EVIDENCE_SOURCE_BY_STATUS = {"verified": "external_verification", "inferred": "internal_detection"}
 
 
 def run_step(step: pb.PlaybookStep, plan: Plan, ipdmc: IPDMCChecks) -> dict:
     status, evidence = _STEP_RESOLVERS[step.resolver](plan, ipdmc)
     return {"order": step.order, "description": step.description, "sourceIds": list(step.source_ids),
-            "status": status, "evidenceSource": _STEP_EVIDENCE_SOURCE[step.resolver], "evidence": evidence}
+            "status": status, "evidenceSource": _EVIDENCE_SOURCE_BY_STATUS.get(status, "none"), "evidence": evidence}
 
 
 def run_playbook(playbook: pb.Playbook, plan: Plan, ipdmc: IPDMCChecks) -> dict:

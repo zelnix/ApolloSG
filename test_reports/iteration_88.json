@@ -1,0 +1,38 @@
+{
+  "summary": "Backend-only verification of Round 2 fix to backend/services/higgins/tc_flyby/playbook_runner.py (_registry_like() signal classification + status-derived evidenceSource). Code review confirms the implementation matches the described fix exactly. Ran tests/test_playbook_runner.py (17 new unit tests) and tests/test_calibration_reference_library.py (55-case regression suite) together: 52 passed, 23 skipped, 0 failed — exactly matching the required 35 passed/23 skipped/0 failed outcome for calibration plus all 17 new unit tests green.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests/test_reusable_intel.py::test_the_kb_retrieval_benchmark_reproduces_its_baseline", "issue": "Pre-existing, unrelated flaky test: KB retrieval benchmark drifted (top3 0.875 vs recorded 0.893). Not related to playbook_runner.py; needs scripts/kb_benchmark.py --record or investigation separately."},
+      {"endpoint": "tests/test_ai_adapters.py::test_the_gateway_calls_only_the_selected_models_adapter", "issue": "Fails with ProviderFailure('budget_limit') for claude/gpt/gemini adapters — pre-existing environment/LLM-budget issue, unrelated to this fix."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "backend/tests/test_playbook_runner.py",
+    "backend/tests/test_calibration_reference_library.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No action needed on playbook_runner.py — fix verified correct and regression-safe.",
+    "(Unrelated, informational) The KB retrieval benchmark and AI-adapter budget-limit test failures are pre-existing environment issues, not caused by this change; flagging for awareness only, not blocking this fix."
+  ],
+  "critical_code_review_comments": [
+    "_registry_like() now correctly computes `meaningful = facts with signal not in {weak, missing}`; status is 'verified' only if meaningful facts exist, 'inconclusive' if only weak/missing facts exist, matching PRD requirement exactly.",
+    "Evidence string always joins ALL live_evidence fact texts (not just meaningful ones) in both verified and inconclusive branches — nothing is dropped, satisfying BUG FIX 2/3.",
+    "run_step() now derives evidenceSource purely from the step's own status via _EVIDENCE_SOURCE_BY_STATUS = {'verified': 'external_verification', 'inferred': 'internal_detection'}, defaulting to 'none' for any other status — satisfies BUG FIX 4, no longer resolver-name-keyed.",
+    "run_playbook()'s escalation formula and scoring.py/decide.py were not touched — confirmed via code inspection and by calibration suite passing with the exact same 23 skipped case IDs."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% for targeted scope (test_playbook_runner.py + test_calibration_reference_library.py); broader full-suite run hit 2 pre-existing unrelated failures (LLM budget limit, KB benchmark drift) not touching playbook_runner.py"},
+  "seed_data_creation": "None — no DB writes, pure unit/logic tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Round 2 fix to playbook_runner.py is verified correct: targeted test files (test_playbook_runner.py, test_calibration_reference_library.py) give 52 passed/23 skipped/0 failed exactly as required (35p/23s for calibration + 17 new unit tests). A full-suite run (1994 tests) hits 2 unrelated pre-existing issues unrelated to this file: (1) test_reusable_intel.py KB retrieval benchmark drift, (2) test_ai_adapters.py failing with ProviderFailure('budget_limit') for all 3 model adapters — looks like the LLM gateway's spending limit is currently exhausted in this environment, unrelated to this code review task. Full xdist run also tends to stall near 95-99% completion within the available time budget, likely due to a slow/retry-heavy network-dependent test; did not chase further since out of scope for this review.",
+  "rca_of_issue": "N/A — no bug found in the reviewed fix. Pre-existing unrelated issues (KB benchmark drift, LLM budget_limit) exist in the environment but are not caused by and not in scope of this playbook_runner.py change."
+}

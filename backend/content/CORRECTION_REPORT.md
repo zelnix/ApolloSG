@@ -134,3 +134,72 @@ changed — confirmed by the calibration suite's own 32/32 tier-match count bein
   instead of implying otherwise.
 - The three pre-existing failures above (rulebook stamp drift, KB benchmark baseline drift, flaky
   tombstone test) are untouched, as they are unrelated to the three scoped corrections.
+
+---
+
+# Follow-up — Verification Playbook Evidence Classification (Round 2)
+
+Scope: a GitHub code review flagged that the previous round's `playbook_runner.py` fix still
+misclassified weak/incomplete evidence as a completed verification, and derived `evidenceSource` from
+the resolver's type rather than what it actually found. Fixed in the same file only.
+
+## Root cause
+
+**`_registry_like()` (used by `company_registry`, `link_reputation`, `contact_crossref`,
+`licence_check`, `person_crossref`)**: the function returned `"verified"` whenever *any* fact with
+`class == "live_evidence"` existed, with no regard to the fact's `signal`. `official.py` itself
+attaches `class == "live_evidence"` to **every** signal, including `weak` (e.g. "example.com was
+registered 4 days ago") and `missing` (e.g. "Google Safe Browsing could not be checked for
+example.com") — both of which `official.py`'s own docstring already defines as *not* a standalone
+verification outcome ("weak … alone … never [settles anything], only the corroboration a warning sign
+or impersonation needs"; "missing (looked up, not established)"). So a check that only ever produced a
+weak hint, or one that couldn't even complete its lookup, was reported exactly the same as a check that
+got a real `clear`/`concern` answer from an authoritative source — `verified` either way.
+
+**`_STEP_EVIDENCE_SOURCE` / `run_step()`**: `evidenceSource` was a static lookup keyed by the
+resolver's *name* (`"link_reputation" → "external_verification"`, etc.), applied unconditionally —
+even to a step that resolved as `not_applicable`, `inconclusive` or `unavailable` (i.e. found nothing).
+A step with zero evidence could still claim `evidenceSource: "external_verification"`.
+
+## Fix
+
+- `_registry_like()` now splits a check's `live_evidence` facts into **meaningful**
+  (`concern`/`anomaly`/`clear`/`neutral`) and **non-verifying** (`weak`/`missing`) signals. `"verified"`
+  requires at least one meaningful fact. A check with only weak/missing facts now returns
+  `"inconclusive"` — the facts' text is still surfaced (nothing is thrown away), just no longer
+  mislabelled as a completed check. `concern` and `anomaly` facts are never downgraded or reworded;
+  when `"verified"` is returned, **every** live-evidence fact for that kind (meaningful or not) is
+  joined into the evidence string, so a weak corroborating detail next to a real finding — or two
+  checks that genuinely disagree (one `clear`, one `concern`) — both stay fully visible.
+- `run_step()` now derives `evidenceSource` from the step's own returned `status`
+  (`"verified" → "external_verification"`, `"inferred" → "internal_detection"`, anything else →
+  `"none"`), replacing the static per-resolver map entirely. A step with no qualifying evidence can
+  no longer claim either kind of verification occurred.
+- No scoring, Finding, Magnum DI routing/escalation threshold, taxonomy or playbook-selection logic
+  was touched — `run_playbook()`'s escalation formula is byte-identical; only individual steps'
+  `status`/`evidenceSource` values became more accurate (a weak-only step that used to count as settled
+  evidence now correctly counts toward the existing `unavailable`/`inconclusive` escalation signal,
+  with no change to the threshold itself).
+
+## Tests added
+
+New file `backend/tests/test_playbook_runner.py` (17 tests, direct unit coverage using the real
+`Plan`/`Check`/`fact()` structures — no new evidence structures): clear, concern (confirms a verified
+concern is never presented as reassuring), anomaly, neutral, weak-only (regression target），
+missing-only (regression target), unavailable, not_applicable, resolved-with-no-facts, mixed
+meaningful+weak evidence (both stay visible), a genuine cross-check contradiction (clear + concern both
+visible), and `evidenceSource` correctness for verified/inferred/not_applicable/unavailable outcomes.
+
+## Test results
+
+- `test_playbook_runner.py`: **17 passed**.
+- `test_calibration_reference_library.py`: **35 passed, 23 skipped, 0 failed** — identical to before
+  this round; no case's Finding, score or Magnum DI routing changed.
+- Full backend suite (now 1994 tests) re-run in 4 chunks: all green except the same **3 pre-existing,
+  unrelated failures already documented above** (rulebook-stamp drift on `decide.py`, KB-benchmark
+  baseline drift ×2) — no new failures, no change in which tests fail.
+
+## Remaining limitations
+
+- None new. The same pre-existing, unrelated issues from the previous round (rulebook stamp,
+  KB-benchmark baseline, flaky tombstone-sweep test) remain outside this correction's scope.
