@@ -233,3 +233,47 @@ class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
         assert breakdown.benign_baseline_applied is True
         assert breakdown.rating == 28
         assert breakdown.finding == "unlikely_scam"
+
+
+class TestBreakdownSaysNothingTwice:
+    """Owner, 2026-11-08 (DI Scoring Breakdown): an unavailable check was listed under "Checks performed" and
+    again under "Missing evidence", and the Evidence Corroboration row repeated the check and evidence lines
+    Scam Mechanism and Identity & Destination had already shown. Each line appears once in a breakdown."""
+
+    def _lookalike_plan(self):
+        from services.higgins.tc_flyby.triage import Check
+
+        lookalike = {"text": "commbank-cancel.co carries CommBank's name, but it is not CommBank's domain (commbank.com.au).",
+                     "signal": "concern", "decisive": False, "class": "live_evidence", "topic": "brand_domain", "source": None}
+        link_check = Check(id="c1", kind="link", subject="commbank-cancel.co", urls=["https://commbank-cancel.co/stop"])
+        link_check.facts.append(lookalike)
+        link_check.status = "unavailable"
+        imp_check = Check(id="c2", kind="impersonation", subject="CommBank")
+        imp_check.status = "not_needed"
+        return _plan(checks=[link_check, imp_check]), lookalike["text"]
+
+    def test_an_unavailable_check_is_listed_once_under_missing_evidence(self):
+        plan, _ = self._lookalike_plan()
+        breakdown = score_plan(plan, IPDMCChecks(identity_is_false=True, unverified_destinations=["commbank-cancel.co"]))
+        by_key = {d.key: d for d in breakdown.dimensions}
+        mech = by_key["scam_mechanism"]
+        assert mech.missing == ["link check on commbank-cancel.co: unavailable"]
+        assert all(c["status"] != "unavailable" for c in mech.checks), "an unavailable check belongs under missing evidence only"
+        assert {"kind": "impersonation", "subject": "CommBank", "status": "not_needed"} in mech.checks
+
+    def test_evidence_corroboration_repeats_nothing_the_rows_above_showed(self):
+        plan, lookalike_text = self._lookalike_plan()
+        breakdown = score_plan(plan, IPDMCChecks(identity_is_false=True, unverified_destinations=["commbank-cancel.co"],
+                                                 identity_evidence=[lookalike_text], mechanism_evidence=[lookalike_text]))
+        dims = breakdown.dimensions
+        corroboration = next(d for d in dims if d.key == "evidence_corroboration")
+        above = [d for d in dims if d.key != "evidence_corroboration"]
+        shown_evidence = {e for d in above for e in d.evidence}
+        shown_checks = {(c["kind"], c["subject"]) for d in above for c in d.checks}
+        shown_missing = {m for d in above for m in d.missing}
+        assert lookalike_text in shown_evidence, "Scam Mechanism / Identity & Destination show the lookalike line"
+        assert not set(corroboration.evidence) & shown_evidence
+        assert not {(c["kind"], c["subject"]) for c in corroboration.checks} & shown_checks
+        assert not set(corroboration.missing) & shown_missing
+        # Its points and reason are untouched: the one concern signal is still counted.
+        assert corroboration.points == 3

@@ -261,7 +261,10 @@ _DIMENSION_CHECK_KINDS: dict[str, tuple[str, ...]] = {
 
 
 def _check_summaries(plan: Plan, kinds: tuple[str, ...]) -> list[dict]:
-    return [{"kind": c.kind, "subject": c.subject, "status": c.status} for c in plan.checks if c.kind in kinds]
+    """The checks that ran (or weren't needed). An unavailable check is listed once, under missing evidence —
+    never under "checks performed" as well (owner, 2026-11-08)."""
+    return [{"kind": c.kind, "subject": c.subject, "status": c.status} for c in plan.checks
+            if c.kind in kinds and c.status != "unavailable"]
 
 
 def _missing_checks(plan: Plan, kinds: tuple[str, ...]) -> list[str]:
@@ -274,7 +277,10 @@ def _enrich_with_real_evidence(breakdown: ScoreBreakdown, plan: Plan, ipdmc: IPD
     Higgins Triage and TC Hawkeye already gathered for it — nothing here changes a single point or
     a single `why` sentence; it only exposes the real trace behind them (PRD's DI Scoring
     Transparency requirements 3 and 5: missing evidence is listed as missing, never as "confirmed
-    clean")."""
+    clean").
+
+    Evidence Corroboration counts the warning signals the rows above already show, so it lists only
+    what those rows didn't — the same line is never printed twice in one breakdown (owner, 2026-11-08)."""
     evidence_by_key = {
         "scam_mechanism": list(dict.fromkeys(ipdmc.mechanism_evidence)),
         "requested_action": list(dict.fromkeys(ipdmc.destination_evidence)),
@@ -287,11 +293,22 @@ def _enrich_with_real_evidence(breakdown: ScoreBreakdown, plan: Plan, ipdmc: IPD
             if f.get("class") == "live_evidence" and f.get("signal") in ("concern", "anomaly") and f.get("text")
         )),
     }
+    shown_evidence: set[str] = set()
+    shown_checks: set[tuple[str, str]] = set()
+    shown_missing: set[str] = set()
     for d in breakdown.dimensions:
         kinds = _DIMENSION_CHECK_KINDS.get(d.key, ())
-        d.checks = _check_summaries(plan, kinds)
-        d.evidence = evidence_by_key.get(d.key, [])
-        d.missing = _missing_checks(plan, kinds)
+        checks = _check_summaries(plan, kinds)
+        evidence = evidence_by_key.get(d.key, [])
+        missing = _missing_checks(plan, kinds)
+        if d.key == "evidence_corroboration":
+            checks = [c for c in checks if (c["kind"], c["subject"]) not in shown_checks]
+            evidence = [e for e in evidence if e not in shown_evidence]
+            missing = [m for m in missing if m not in shown_missing]
+        d.checks, d.evidence, d.missing = checks, evidence, missing
+        shown_checks.update((c["kind"], c["subject"]) for c in checks)
+        shown_evidence.update(evidence)
+        shown_missing.update(missing)
 
 
 def _build_calculation_trace(breakdown: ScoreBreakdown) -> list[dict]:
