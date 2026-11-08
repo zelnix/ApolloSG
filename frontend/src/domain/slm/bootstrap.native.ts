@@ -5,7 +5,7 @@
 import * as Device from "expo-device";
 import { File, FileMode, Paths } from "expo-file-system";
 import { CANDIDATE_FILE, verifyPrivateGGUF } from "./modelAdmission.ts";
-import { createLuddishOnDevice } from "./llamaRnBinding.native.ts";
+
 import { getSharedSLM, setSharedSLM } from "./sharedRuntime.ts";
 import type { LocalLlamaRuntime } from "./llamaRnRuntime.ts";
 
@@ -24,6 +24,9 @@ export function startSharedLuddish(): Promise<boolean> {
       open: () => file.open(FileMode.ReadOnly),
     }, Device.totalMemory ?? null);
     if (!admitted.available) return false;
+    // Never resolve the llama.rn native binding until the entire local model
+    // has passed checksum and device admission.
+    const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
     const created = createLuddishOnDevice({
       modelUri: admitted.uri, modelId: admitted.modelId,
       deviceAdmitted: true,
