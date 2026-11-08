@@ -125,6 +125,11 @@ module.exports = {
       "./plugins/withEasAppExtensionsDedupe",
       "./plugins/withNativeDependencyGuard",
       "./modules/apollo-family-assist/plugin/withApolloFamilyAssist",
+      // SLM development builds only: requires pinned llama.rn native dependency and verified device QA.
+      // Disabled by default; never enable in store builds before native acceptance.
+      ...(process.env.APOLLO_SLM_NATIVE === "on" && appEnvironment !== "production"
+        ? [["llama.rn", { enableEntitlements: false, forceCxx20: true, enableOpenCL: false }]]
+        : []),
       "expo-router",
       ["expo-notifications", { sounds: ["./assets/sounds/apollo_bark.wav", "./assets/sounds/apollo_chime.wav"] }],
       // Native splash on white, the same white as the full-screen launch artwork (src/components/LaunchSplash.tsx) that follows it on phones and tablets.
