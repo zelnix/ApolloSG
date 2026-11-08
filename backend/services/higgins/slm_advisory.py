@@ -8,7 +8,6 @@ trusted as facts, scores, findings or final-case verdicts.
 from __future__ import annotations
 
 import os
-from datetime import datetime
 
 from core.db import db, now_utc
 from services.higgins import repository as repo
@@ -41,41 +40,41 @@ async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> di
         return None
     if job.get("status") not in ("queued", "investigating") or job.get("epoch") != case.get("epoch"):
         return None
-    candidate = await db.investigation_device_requests.find_one({
+    cursor = db.investigation_device_requests.find({
         "owner_id": owner, "case_id": case_id, "job_id": job_id,
         "kind": "slm_advisory", "fulfilled": True,
         "submission.state": "advisory_received",
         "expires_at": {"$gt": now_utc()},
-    }, {"_id": 0}, sort=[("created_at", -1)])
-    if not candidate:
-        return None
-    try:
-        original = SLMReasoningRequest.model_validate(repo.dec_json(candidate["request_ciphertext"]))
-        if original.role != role or original.case_id != case_id or original.case_revision != revision:
-            return None
-        if candidate.get("epoch") != case.get("epoch"):
-            return None
-        response = SLMReasoningResult.model_validate({
-            "caseId": case_id, "caseRevision": revision,
-            "requestId": original.request_id,
-            "execution": "on_device",
-            "modelId": candidate["submission"]["model_id"],
-            "answer": repo.dec_json(candidate["submission"]["result_ciphertext"]),
-        })
-        answer = accept_advisory_reasoning(original, response)
-        return {
-            "role": role,
-            "requestId": original.request_id,
-            "modelId": response.model_id,
-            "observations": [item.wire() for item in answer.observations],
-            "contradictions": [item.wire() for item in answer.contradictions],
-            "alternativeExplanations": [item.wire() for item in answer.alternative_explanations],
-            "verificationSuggestions": [item.wire() for item in answer.verification_suggestions],
-            "draftExplanation": answer.draft_explanation,
-            "classification": "unverified_slm_advisory",
-        }
-    except (KeyError, TypeError, ValueError):
-        return None
+    }, {"_id": 0}).sort("created_at", -1).limit(16)
+    for candidate in await cursor.to_list(16):
+        try:
+            original = SLMReasoningRequest.model_validate(repo.dec_json(candidate["request_ciphertext"]))
+            if original.role != role or original.case_id != case_id or original.case_revision != revision:
+                continue
+            if candidate.get("epoch") != case.get("epoch"):
+                continue
+            response = SLMReasoningResult.model_validate({
+                "caseId": case_id, "caseRevision": revision,
+                "requestId": original.request_id,
+                "execution": "on_device",
+                "modelId": candidate["submission"]["model_id"],
+                "answer": repo.dec_json(candidate["submission"]["result_ciphertext"]),
+            })
+            answer = accept_advisory_reasoning(original, response)
+            return {
+                "role": role,
+                "requestId": original.request_id,
+                "modelId": response.model_id,
+                "observations": [item.wire() for item in answer.observations],
+                "contradictions": [item.wire() for item in answer.contradictions],
+                "alternativeExplanations": [item.wire() for item in answer.alternative_explanations],
+                "verificationSuggestions": [item.wire() for item in answer.verification_suggestions],
+                "draftExplanation": answer.draft_explanation,
+                "classification": "unverified_slm_advisory",
+            }
+        except (KeyError, TypeError, ValueError):
+            continue
+    return None
 
 
 def advisory_verification_questions(snapshot: dict | None) -> list[str]:
