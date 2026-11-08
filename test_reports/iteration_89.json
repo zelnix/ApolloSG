@@ -1,0 +1,29 @@
+{
+  "summary": "Backend-only regression for ApolloSG PRD v2.3 round 3 (Higgins explanation-quality narrative enhancement). Reviewed services/higgins/explain/facts.py (new classify()/CHECK_RULES entries, connecting_knowledge(), two-pass build()) and words.py (SIGNIFICANCE, CONNECTIONS, 5 new GLOSSARY entries) - code is clean, well-documented, deterministic, and correctly wires the one-sentence addition into the existing authoritative facts.meaning BEFORE the final _rebuild_core() so Fidelity Check treats it as authoritative. Ran the exact mandated regression suite: tests/test_higgins_explanation_narrative.py, test_plain_english.py, test_case_briefing.py, test_higgins_briefing_acceptance.py, test_luddish_parity.py, test_chain_invariants.py, test_di_trace.py, test_calibration_reference_library.py, test_playbook_runner.py, test_rulebook.py together = 264 passed, 23 skipped (0 failed). Counts match exactly what was expected: 11/11 new narrative tests pass, 27/27 rulebook tests pass, 17/17 playbook_runner tests pass, 35 passed/23 skipped (expected) for calibration_reference_library. Also ran a broader tests/ pass (excluding the 3 pre-flagged environmental exclusions) which reproduced only the pre-existing, confirmed-unrelated KB-retrieval-benchmark baseline drift (2 cases, test_reusable_intel.py) noted in the agent-to-agent context as pre-existing and not caused by this round; a full un-truncated run of the entire tests/ directory repeatedly got cut off around 60-70% progress inside this sandbox (likely an unrelated long-running/resource-bound test or environment limitation reproducible even with nohup/disown), so I did not force a complete run of the entire unrelated test tree beyond the mandated suite list plus this confirmatory pass - no new failures were observed in any portion that did complete. Sanity-checked the offline dev-only evaluator: scripts/explanation_quality_evaluator.py and EMERGENT_LLM_KEY usage are not imported anywhere in server.py or any backend/*.py route file (grep confirmed), content/EXPLANATION_QUALITY_EVALUATION.md and content/HIGGINS_EXPLANATION_QUALITY_REPORT.md exist with sensible before/after scored content - correctly isolated from production and the pytest gate.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {},
+  "test_report_links": [
+    "/app/backend/tests/test_higgins_explanation_narrative.py",
+    "/app/test_reports/pytest/higgins_explain_round3.xml"
+  ],
+  "action_items": [
+    "No action items - all mandated suites pass with exact expected counts, no regressions found attributable to this round's change.",
+    "Optional/non-blocking: the full tests/ directory run (several hundred tests across unrelated subsystems) consistently stalled/terminated around 60-70% progress in this sandbox even when backgrounded with nohup+disown; this appears to be a sandbox/process-management limitation (consistent with pre-existing flaky/order-dependent test notes already called out in the agent-to-agent context), not something introduced by this change - a CI runner without this tool's foreground 120s cutoff pattern should be unaffected."
+  ],
+  "critical_code_review_comments": [
+    "connecting_knowledge() correctly restricts itself to material, non-neutral findings only and returns at most one sentence (CONNECTIONS checked before SIGNIFICANCE, most-specific-first ordering in the CONNECTIONS list) - matches the 'never both at once' requirement.",
+    "The two-pass build()/_rebuild_core() sequencing is correct: facts.meaning is appended to before the final _rebuild_core(), so the added sentence is included in facts.core and therefore authoritative for the (unmodified) Fidelity Check - no bypass.",
+    "New CHECK_RULES/RESULT_KINDS entries (email_authentication, payment_procedure, sandbox_behavior, malware_signature, file_disguise, pattern_match) and the RECENT registration distinction are regex-classification only; they do not touch verdict/score/taxonomy, consistent with the PRD's Decision 1 scope limitation.",
+    "Good test design in test_higgins_explanation_narrative.py: explicitly negative-asserts against invented facts (e.g. 'command-and-control', 'account was compromised', 'verified') that the renderer must never add, not just positive-asserts on the new sentence."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (264/264 non-skipped tests across the mandated suite list; 23 calibration skips are expected/by-design)", "frontend": "not tested (out of scope per request)"},
+  "seed_data_creation": "None - all tests use synthetic in-memory HigginsResponse/Finding objects, no database writes.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Round 3 (Higgins explanation-quality narrative) fully verified and green. Pre-existing, unrelated issues confirmed still present and NOT caused by this round: test_ai_adapters.py LLM-gateway budget_limit failures (environmental), test_reusable_intel.py KB-retrieval-benchmark baseline drift (2 cases), and order-dependent flakiness in test_tombstone_sweep.py/test_recovery_fencing.py. These were explicitly excluded from this round's pass/fail judgment per the agent-to-agent context note and reproduced identically here.",
+  "rca_of_issue": "No bug found in this round's code. Only note: attempts to run the ENTIRE backend tests/ directory (not just the mandated suite) in one shot repeatedly got truncated around 60-70% of test collection inside this testing sandbox, even with nohup+disown backgrounding - almost certainly a sandbox resource/foreground-timeout interaction unrelated to the code under review, since the specific mandated suites all completed cleanly and quickly (27s) with exact expected pass/skip counts."
+}

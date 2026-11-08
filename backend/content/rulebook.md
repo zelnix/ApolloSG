@@ -766,7 +766,7 @@ Luddish L1 is the one language layer everywhere Higgins speaks on the phone: che
 **Step 1: the facts.** Built only from the validated result and the case's own records: what Higgins Triage and TC Hawkeye did, what Magnum DI was sent, and the registered sources the result relied on. Nothing is recomputed, re-scored or reinterpreted. The facts are split into parts:
 - **The result:** the outcome's label, then the result's overview, sentence by sentence.
 - **Each finding:** its words, who established it, and how firmly.
-- **What it means:** the result's explanation. A "what was found" line that isn't one of the findings is still a fact and is kept here.
+- **What it means:** the result's explanation. A "what was found" line that isn't one of the findings is still a fact and is kept here. When the material findings match one of Apollo's fixed, named combinations, or — if none match — when exactly one material finding has a fixed "why it matters" sentence of its own, one sentence of Apollo's own general knowledge connecting or explaining them is added here too: never a new field, never a caption on one finding, never about a case's own identifier, and never both a combination sentence and a single-finding one at once.
 - **Why it matters:** the result's reason for its attention level.
 - **What to do:** every step, one for one with the actions on the screen.
 - **What isn't certain**, and **how Apollo checked** (the method and what was in scope).
@@ -800,9 +800,9 @@ Luddish L1 is the one language layer everywhere Higgins speaks on the phone: che
 
 How firmly: **High confidence**, **Medium confidence**, **Low confidence — supporting context only**.
 
-**Plain-English Renderer rules (10)**
+**Plain-English Renderer rules (11)**
 
-**EXPLAIN** (10)
+**EXPLAIN** (11)
 - **PER-01** · The evidence lock: no fact, identifier, certainty, severity, step or attribution is added, dropped or changed
 - **PER-02** · The facts come only from the validated result and the case's own records
 - **PER-03** · Identifiers survive word for word
@@ -813,6 +813,7 @@ How firmly: **High confidence**, **Medium confidence**, **Low confidence — sup
 - **PER-08** · Formal words are swapped only from the fixed list
 - **PER-09** · Each point is said once, and every finding is always listed
 - **PER-10** · Jargon is explained once per result, in Apollo's fixed words
+- **PER-11** · Connecting knowledge about why findings matter or how they relate is fixed, bounded, added only to what it means, and never both a combination and a single-finding sentence at once
 
 **What the renderer may change, and only this**
 - **Markdown** is removed: headings, bold, italics, code marks and bullets. A link keeps its address in brackets.
@@ -905,6 +906,11 @@ How firmly: **High confidence**, **Medium confidence**, **Low confidence — sup
 | remote access | Remote access lets someone else control your device from somewhere else. |
 | spoofing | Spoofing makes a call or message look like it comes from someone it doesn't. |
 | cryptocurrency | A cryptocurrency payment is very hard to trace or get back. |
+| email authentication | SPF, DKIM and DMARC are checks that confirm a message really travelled through the domain it claims to be from — they don't confirm who personally wrote it. |
+| YARA | YARA matching compares a file against patterns already known from real malware. |
+| sandbox | A sandbox is a safe, isolated test area where a file can be run without risk to a real device. |
+| PowerShell | PowerShell is a Windows tool for running commands — a legitimate tool that malware often misuses. |
+| credential-harvesting pattern | A credential-harvesting pattern is a message or page structure built to collect logins or passwords, matched against patterns already on file — not a guess about this specific sender. |
 
 ### Fidelity Check {#fidelity-check}
 

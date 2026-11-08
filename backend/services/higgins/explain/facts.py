@@ -172,8 +172,34 @@ CHECK_RULES: tuple[tuple[str, re.Pattern], ...] = (
     ("redirect", re.compile(r"\bredirect(?:s|ed|ing)?\b", re.I)),
     ("registration_number", re.compile(r"\bcheck-digit\b", re.I)),
     ("free_email", re.compile(r"\bfree (?:personal )?email\b", re.I)),
+    # Added for Higgins' explanation-quality pass (ApolloSG PRD v2.3): finding wording the renderer
+    # previously had no check name for at all, so every one of these fell into the generic "stated"
+    # bucket and stayed polarity-neutral however concerning or reassuring it actually read. None of
+    # these change what a finding says — only how the explanation layer classifies and connects it.
+    ("email_authentication", re.compile(r"\bSPF\b|\bDKIM\b|\bDMARC\b", re.I)),
+    ("payment_procedure", re.compile(r"\bpayment instructions?\b|\b(?:bypass(?:es|ed|ing)?|skips?|skipped)\b[^.]{0,40}\b(?:procedure|process|approval)s?\b", re.I)),
+    ("sandbox_behavior", re.compile(r"\bsandbox\b|\blaunch(?:es|ed)? (?:a |an )?powershell\b|\b(?:attempts?|tries|tried) (?:an? )?(?:external|outbound) connection\b", re.I)),
+    ("malware_signature", re.compile(r"\bYARA\b|\bmalware signature\b|\bsuspicious (?:YARA )?match(?:es)?\b", re.I)),
+    ("file_disguise", re.compile(r"\.pdf\.exe\b|\bdisguised? as\b|\bdouble[- ]extension\b|\bfilename (?:that )?ends? in\b", re.I)),
+    ("pattern_match", re.compile(r"\b(?:credential[- ]harvest\w*|phishing|scam) pattern\b", re.I)),
 )
 _NEG = re.compile(r"\b(?:not|no|never|none|nothing|without)\b|n't\b", re.I)
+# A "registered ... <small number> hours/days/weeks ago" is a materially different, more concerning
+# reading than "registered" alone (PRD scenario A: "connect the domain age ... to the concern") — but
+# only when the duration is genuinely short; "registered 900 days ago" must stay a neutral REGISTERED.
+_RECENT_REGISTRATION = re.compile(r"\bregistered\b[^.]{0,40}?(\d+(?:\.\d+)?)\s*(hour|day|week)s?\b", re.I)
+_RECENT_DAYS_CEILING = 30
+
+
+def _recently_registered(t: str) -> bool:
+    m = _RECENT_REGISTRATION.search(t)
+    if not m:
+        return False
+    n, unit = float(m.group(1)), m.group(2).lower()
+    days = n / 24 if unit == "hour" else n * 7 if unit == "week" else n
+    return days <= _RECENT_DAYS_CEILING
+
+
 # The four "nothing established" results, which must never be mixed up.
 RESULT_KINDS: tuple[tuple[str, re.Pattern], ...] = (
     ("unavailable", re.compile(r"\bunavailable\b|\b(?:couldn't|can't|wasn't|weren't|isn't|aren't|not)\s+(?:be\s+|been\s+)?(?:checked|reached|looked up|read|completed?)\b"
@@ -184,8 +210,8 @@ RESULT_KINDS: tuple[tuple[str, re.Pattern], ...] = (
                             r"|\b(?:isn't|wasn't|aren't|weren't|not) (?:found|listed|named|flagged|mentioned)\b|\bfound no(?:thing)?\b"
                             r"|\bnothing (?:was )?found\b|\bhas nothing on\b|\bnever (?:been )?(?:listed|flagged|named)\b", re.I)),
 )
-REASSURING = {"OFFICIAL", "NOT_LISTED", "VALID"}
-CONCERNING = {"NOT_OFFICIAL", "LISTED", "FAILED"}
+REASSURING = {"OFFICIAL", "NOT_LISTED", "VALID", "PASS"}
+CONCERNING = {"NOT_OFFICIAL", "LISTED", "FAILED", "RECENT", "BYPASSED", "OBSERVED", "MATCHED", "DISGUISED"}
 
 _ORG_NAME = r"([A-Z][\w&.-]*(?: (?:[A-Z][\w&.-]*|of|and|&)){0,4})"
 _ORG = (re.compile(rf"\bpublished {_ORG_NAME} (?:customer|contact|support|enquir|help|email|address)"),
@@ -226,13 +252,27 @@ def classify(text: str) -> tuple[str, str]:
     if check == "reputation":
         return check, "NOT_LISTED" if neg or "no_match" in kinds else "LISTED"
     if check == "registration":
-        return check, "NO_MATCH" if "no_match" in kinds else "REGISTERED"
+        if "no_match" in kinds:
+            return check, "NO_MATCH"
+        return check, "RECENT" if _recently_registered(t) else "REGISTERED"
     if check == "redirect":
         return check, "REDIRECTS"
     if check == "risk_score":
         return check, "SCORED"
     if check == "registration_number":
         return check, "FAILED" if "failed" in kinds else "VALID"
+    if check == "email_authentication":
+        return check, "FAILED" if neg or "failed" in kinds else "PASS"
+    if check == "payment_procedure":
+        return check, "BYPASSED"
+    if check == "sandbox_behavior":
+        return check, "OBSERVED"
+    if check == "malware_signature":
+        return check, "NO_MATCH" if neg or "no_match" in kinds else "MATCHED"
+    if check == "file_disguise":
+        return check, "DISGUISED"
+    if check == "pattern_match":
+        return check, "NO_MATCH" if neg or "no_match" in kinds else "MATCHED"
     return check, "FAILED" if "failed" in kinds else "NO_MATCH" if "no_match" in kinds else "STATED"
 
 
@@ -311,6 +351,25 @@ def case_subject(findings: list[dict], gates: tuple[str, ...] | list[str]) -> Op
     # organisation_claimed: the organisation is only named (the subject isn't its), so it is never called its owner.
     return {"value": lead["subject"], "type": lead["subjectType"], "organisation": named["organisation"] if named else None,
             "organisation_claimed": bool(named and named["organisationClaimed"])}
+
+
+def connecting_knowledge(findings: list[dict]) -> list[str]:
+    """Apollo's own fixed, general knowledge weaving the material findings into one line of reasoning — the same
+    kind of bounded addition as a jargon definition (words.GLOSSARY), just about how findings relate or why one
+    matters, never about a case-specific identifier. At most one sentence: a named combination of (check, result)
+    pairs when the material findings form one of the known ones (words.CONNECTIONS), else why the single most
+    material concern matters on its own (words.SIGNIFICANCE). Never both — one sentence is a connected thought,
+    not a second caption. Nothing here reads a case's identifiers, so it can never invent a case-specific fact."""
+    from services.higgins.explain import words as W
+    pairs = frozenset((f["check"], f["result"]) for f in findings if f["materiality"] == "material" and f["polarity"] != "neutral")
+    if not pairs:
+        return []
+    connection = W.pick_connection(pairs)
+    if connection:
+        return [connection]
+    lead = next((f for f in findings if f["materiality"] == "material" and (f["check"], f["result"]) in W.SIGNIFICANCE), None)
+    return [W.SIGNIFICANCE[(lead["check"], lead["result"])]] if lead else []
+
 
 
 # ── The authoritative findings ───────────────────────────────────────────────
@@ -438,16 +497,32 @@ def build(response: HigginsResponse, *, answered_by: Optional[str], routing: dic
     for s in method + sentences(facts.scope):
         if normal(s) not in {normal(h) for h in facts.how}:
             facts.how.append(s)
-    authoritative = (facts.verdict + [f["text"] for f in findings] + [p for _, p in meaning_paras] + [t for t, _ in meaning_paras if t]
-                     + method + facts.uncertainties + [facts.scope, facts.attention_reason or ""]
-                     + [f"{a['label']} {a['instruction']}" for a in actions] + routes + [outcomes.LABELS.get(facts.outcome or "", "")])
-    facts.core = "\n".join(t for t in authoritative if t)
-    facts.corpus = "\n".join([facts.core, *(f"{s['title']} {s['url']}" for s in relied)])
-    facts.entities = entities(facts.core)
-    facts.allowed = entities(facts.corpus)
-    facts.contradictions = [s for text in (facts.verdict + [f["text"] for f in findings] + [p for _, p in meaning_paras] + facts.uncertainties)
-                            for s in sentences(text) if CONTRAST.search(s)]
+
+    def _rebuild_core() -> None:
+        """`facts.core`/`facts.corpus`: every authoritative sentence, joined. Run twice — once before the
+        findings are structured (so `case_candidates` has something to read) and once after any connecting
+        knowledge is added to `facts.meaning`, so that sentence is authoritative too, exactly like everything
+        else here. Never touches a fact's own wording, only which sentences are joined together."""
+        authoritative = (facts.verdict + [f["text"] for f in findings] + [p for _, p in facts.meaning] + [t for t, _ in facts.meaning if t]
+                         + method + facts.uncertainties + [facts.scope, facts.attention_reason or ""]
+                         + [f"{a['label']} {a['instruction']}" for a in actions] + routes + [outcomes.LABELS.get(facts.outcome or "", "")])
+        facts.core = "\n".join(t for t in authoritative if t)
+        facts.corpus = "\n".join([facts.core, *(f"{s['title']} {s['url']}" for s in relied)])
+
+    _rebuild_core()
     candidates = case_candidates(facts.core)
     facts.findings = [structure_finding(f, candidates, facts.outcome) for f in findings]
     facts.subject = case_subject(facts.findings, gates)
+    # Higgins' explanation-quality pass (ApolloSG PRD v2.3): one coherent addition to the existing "What it
+    # means" prose — never a new field, never a per-finding caption — connecting the material findings or
+    # explaining the single most material concern, in Apollo's own fixed, general wording only (words.py).
+    # Added to facts.meaning (an existing, already-authoritative field) BEFORE the final _rebuild_core(), so
+    # the Fidelity Check sees it as authoritative like everything else here — nothing bypasses it.
+    for sentence in connecting_knowledge(facts.findings):
+        facts.meaning.append((None, sentence))
+    _rebuild_core()
+    facts.entities = entities(facts.core)
+    facts.allowed = entities(facts.corpus)
+    facts.contradictions = [s for text in (facts.verdict + [f["text"] for f in findings] + [p for _, p in facts.meaning] + facts.uncertainties)
+                            for s in sentences(text) if CONTRAST.search(s)]
     return facts
