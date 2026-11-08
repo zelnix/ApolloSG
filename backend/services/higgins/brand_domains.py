@@ -63,8 +63,9 @@ SHARED_SERVICES = frozenset({
 _OPEN_COUNTRY_ENDINGS = frozenset({"co", "me", "io", "tv", "cc", "ws", "tk", "ml", "ga", "cf", "gq", "ly", "to", "sh", "ai", "gg",
                                    "vc", "la", "fm", "am", "so", "su", "nu", "pw", "ac", "im", "bz", "li", "st", "sx", "cx", "cm"})
 
-SIGN_WORDS = {"added_words": "the name has other words added to it",
-              "misspelt": "the name is spelt to look like it",
+# What gives a lookalike away, said after the mismatch — only where it adds something the address doesn't already
+# show. "added_words" (commbank-cancel.co) has no entry: the added words are plain from the address itself.
+SIGN_WORDS = {"misspelt": "the name is spelt to look like it",
               "inside": "the name sits in front of someone else's address",
               "other_ending": "the name is on a different web ending"}
 

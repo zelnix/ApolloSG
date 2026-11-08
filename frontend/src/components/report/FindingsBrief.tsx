@@ -32,14 +32,31 @@ export interface BriefFinding { text: string; findingId?: string; category?: str
 const MAX_BRIEF_FINDINGS = 5;
 
 // ── Narrative part types ──────────────────────────────────────────────────────
-/** A single bullet: an optional bold label plus the body text. */
-interface NarrativeBullet { label: string | null; body: string }
+/** A single bullet: an optional bold label, the body text, and (for an action) its sub-points. */
+interface NarrativeBullet { label: string | null; body: string; sub?: string[] }
 
-/** One block in the narrative: prose paragraph, section header, or a list of bullets. */
+/** One block in the narrative: prose paragraph, a stand-alone instruction, section header, or a list of bullets. */
 type NarrativePart =
   | { kind: 'para'; text: string }
+  | { kind: 'callout'; text: string }
   | { kind: 'header'; text: string }
   | { kind: 'bullets'; items: NarrativeBullet[] }
+
+/** "Don't click or open that link." — an instruction, shown on its own line after the conclusion (owner's
+ *  example, 2026-11-08), never buried mid-paragraph. */
+const IMPERATIVE = /^(?:don't|do not|never)\b/i;
+
+/** "Status: Origin: Australia (domestic landline)" — a labelled field from a structured section, not a sentence.
+ *  It belongs to the DI tab's full report, never to the opening paragraph. */
+const FIELD_LINE = /^(?:[A-Z][\w'/-]*\s?){1,4}:\s/;
+
+/** Ordinary first words that read on from a label in lowercase ("Fake Domain: the address…"). */
+const ORDINARY_STARTS = new Set(["the", "this", "that", "these", "those", "a", "an", "it", "its", "there", "no", "none", "nothing",
+  "your", "you", "one", "some", "several", "both", "each", "all", "every", "what", "when", "where", "who", "how", "someone", "something"]);
+function afterLabel(text: string): string {
+  const first = text.match(/^[A-Za-z']+/)?.[0] ?? "";
+  return ORDINARY_STARTS.has(first.toLowerCase()) ? first.toLowerCase() + text.slice(first.length) : text;
+}
 
 // ── Tone-driven section header text ──────────────────────────────────────────
 /** "Here is why…" section header based on the verdict's tone. */
@@ -219,21 +236,41 @@ class NarrativeSaid {
   }
 }
 
-// ── Guidance composer ─────────────────────────────────────────────────────────
-/** Org-specific actions as a natural guidance paragraph.
- *  "If you already X: Y" → "If you have already X, Y".
- *  Threat tones get a "For your safety, " opener. */
-function composeGuidance(actions: string[] | undefined, tone: string): string | null {
-  if (!actions?.length) return null;
-  const cleaned = actions.map((a) =>
-    a.replace(/^(If you (?:already |have )?[^:]{4,80}):\s+(.+)$/i,
-      (_m, cond: string, rest: string) =>
-        `${cond.replace(/\balready\b/, "have already")}, ${rest.charAt(0).toLowerCase()}${rest.slice(1)}`),
-  );
-  if (tone === "barking" || tone === "ears_up") {
-    cleaned[0] = "For your safety, " + cleaned[0].charAt(0).toLowerCase() + cleaned[0].slice(1);
-  }
-  return cleaned.join(" ");
+// ── What to do next ───────────────────────────────────────────────────────────
+/** What the case is about, from the words of the report itself — the action labels follow it. */
+function caseKind(report: Report): "link" | "call" | "message" {
+  const text = [...report.answer, ...report.found.map((f) => f.text)].join(" ").toLowerCase();
+  if (/\b(?:caller|phone call|called you|call back|this call|the call)\b/.test(text)) return "call";
+  if (/\b(?:link|web address|website|url|domain)\b/.test(text)) return "link";
+  return "message";
+}
+
+const NOT_ACTED: Record<ReturnType<typeof caseKind>, { label: string; body: string }> = {
+  link: { label: "If you haven't clicked it", body: "Delete the message or email immediately, and don't open the link." },
+  message: { label: "If you haven't replied", body: "Delete the message immediately — don't reply or open anything in it." },
+  call: { label: "If you haven't acted on it", body: "Hang up. Don't call back on the number that called you." },
+};
+const ACTED_LABEL: Record<ReturnType<typeof caseKind>, string> = {
+  link: "If you clicked it or entered details",
+  message: "If you replied or entered details",
+  call: "If you gave any details or codes",
+};
+
+/** Organisation-specific steps as labelled bullets (owner's example, 2026-11-08): what to do if you haven't acted,
+ *  what to do if you have (the organisation's own contact, one sub-point per sentence when there are several),
+ *  and where to report it. Only on a scam or likely-scam verdict: a genuine message needs none of this. */
+function actionBullets(report: Report, tone: string): NarrativeBullet[] {
+  const org = report.detectedOrg;
+  if (!org || (tone !== "barking" && tone !== "ears_up")) return [];
+  const kind = caseKind(report);
+  const compromised = sentences(org.ifCompromised).map((s) => s.trim()).filter(Boolean);
+  return [
+    { label: NOT_ACTED[kind].label, body: NOT_ACTED[kind].body },
+    compromised.length > 1
+      ? { label: ACTED_LABEL[kind], body: "", sub: compromised }
+      : { label: ACTED_LABEL[kind], body: org.ifCompromised },
+    { label: "Report it", body: org.reportScam },
+  ];
 }
 
 // ── Shield icon by verdict tone ───────────────────────────────────────────────
@@ -315,11 +352,15 @@ function briefNarrative(
     if (openSentences.length >= 2) break;
   }
 
-  // Supplement from means if still thin
+  // Supplement from means if still thin (prose only — a labelled field or instruction line isn't a sentence, and a
+  // sentence that restates a finding is left to the findings list, where it belongs)
   if (openSentences.length < 2) {
+    const findingsSaid = new NarrativeSaid();
+    for (const f of r.found) findingsSaid.add(f.text);
     for (const m of r.means) {
+      if (FIELD_LINE.test(m.trim())) continue;
       for (const s of sentences(m)) {
-        if (isNoise(s)) continue;
+        if (isNoise(s) || FIELD_LINE.test(s) || findingsSaid.repeats(s)) continue;
         const cleaned = scrubMessage(s);
         if (cleaned && !said.repeats(cleaned) && cleaned.split(/\s+/).length >= 5) {
           openSentences.push(cleaned);
@@ -344,7 +385,11 @@ function briefNarrative(
   }
 
   if (openSentences.length) {
-    parts.push({ kind: "para", text: openSentences.join(" ") });
+    // The conclusion first, then the instruction ("Don't click or open that link.") on its own line.
+    const statements = openSentences.filter((s) => !IMPERATIVE.test(s));
+    const instructions = openSentences.filter((s) => IMPERATIVE.test(s));
+    if (statements.length) parts.push({ kind: "para", text: statements.join(" ") });
+    if (instructions.length) parts.push({ kind: "callout", text: instructions.join(" ") });
   }
 
   // ── BLOCK 2: Evidence section — header + bullets ──────────────────────────
@@ -356,9 +401,9 @@ function briefNarrative(
   const bulletItems: NarrativeBullet[] = [];
   for (const f of deduped) {
     if (!isNoise(f.text) && !said.repeats(f.text)) {
-      // Start body with lowercase so "Label: body text" reads naturally
-      const body = f.text.charAt(0).toLowerCase() + f.text.slice(1);
-      bulletItems.push({ label: f.category ?? null, body });
+      // After a label the body starts lowercase so "Label: the address…" reads naturally — only when the first word
+      // is an ordinary one; a name ("Google Safe Browsing lists…") keeps its capital, as does a bare bullet.
+      bulletItems.push({ label: f.category ?? null, body: f.category ? afterLabel(f.text) : f.text });
       said.add(f.text);
     }
   }
@@ -372,8 +417,9 @@ function briefNarrative(
 }
 
 // ── Helpers for copy text serialisation ──────────────────────────────────────
-function bulletString(item: NarrativeBullet): string {
-  return item.label ? `• ${item.label}: ${item.body}` : `• ${item.body}`;
+function bulletString(item: NarrativeBullet): string[] {
+  const head = item.label ? (item.body ? `• ${item.label}: ${item.body}` : `• ${item.label}:`) : `• ${item.body}`;
+  return [head, ...(item.sub ?? []).map((s) => `    ◦ ${s}`)];
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -427,13 +473,23 @@ const useStyles = makeStyles((c) => ({
     lineHeight: 26,
     color: c.onSurfaceSecondary,
   },
-  // Bold label portion inside a bullet: "Fake URL: "
+  // Bold label portion inside a bullet: "Fake Domain: "
   bulletLabel: {
     fontFamily: fonts.textSemibold,
     fontSize: 16,
     lineHeight: 26,
     color: c.onSurface,
   },
+  // A stand-alone instruction under the conclusion: "Don't click or open that link."
+  callout: {
+    fontFamily: fonts.textSemibold,
+    fontSize: 16,
+    lineHeight: 26,
+    color: c.onSurface,
+  },
+  // Sub-points of an action bullet, indented under their label
+  subList: { gap: spacing.xs, marginTop: spacing.xs },
+  subRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, paddingLeft: spacing.md },
   actionText: { fontFamily: fonts.text, fontSize: 16, lineHeight: 26, color: c.onSurface },
   actionLink: { flexDirection: "row", alignItems: "center", gap: spacing.xs, minHeight: 44 },
   actionLinkText: {
@@ -486,16 +542,12 @@ export function FindingsBrief({
 
   const ShieldIcon = SHIELD_ICON[verdict.tone];
 
-  // Org-specific actions or investigation steps
-  const orgActions = report.orgActions ?? [];
-  const showSteps = !orgActions.length && steps.length > 0;
-  const guidanceText = useMemo(
-    () => composeGuidance(orgActions, verdict.tone),
-    [orgActions, verdict.tone],
-  );
+  // Organisation-specific action bullets on a scam / likely-scam verdict; else the investigation's own steps.
+  const actions = useMemo(() => actionBullets(report, verdict.tone), [report, verdict.tone]);
+  const showSteps = !actions.length && steps.length > 0;
 
   // Action section header (only shown when there is content below it)
-  const hasAction = !!guidanceText || showSteps;
+  const hasAction = actions.length > 0 || showSteps;
   const actionHeaderText = ACTION_HEADER[verdict.tone] ?? "What to do next";
 
   // Plain text for the clipboard
@@ -508,11 +560,11 @@ export function FindingsBrief({
       // Extra blank line before headers and before the first bullet (but not between bullets)
       if (part.kind === "header") {
         lines.push(`${part.text}:`);
-      } else if (part.kind === "para") {
+      } else if (part.kind === "para" || part.kind === "callout") {
         if (prevKind !== null) lines.push(""); // blank separator
         lines.push(part.text);
       } else if (part.kind === "bullets") {
-        for (const item of part.items) lines.push(bulletString(item));
+        for (const item of part.items) lines.push(...bulletString(item));
       }
       prevKind = part.kind;
     }
@@ -520,15 +572,45 @@ export function FindingsBrief({
     if (hasAction) {
       lines.push("");
       lines.push(`${actionHeaderText}:`);
-      if (guidanceText) lines.push(guidanceText);
+      for (const item of actions) lines.push(...bulletString(item));
       if (showSteps) steps.forEach((st) => lines.push(`• ${st.text}`));
     }
     return lines.join("\n");
-  }, [heading, parts, hasAction, actionHeaderText, guidanceText, steps, showSteps]);
+  }, [heading, parts, hasAction, actionHeaderText, actions, steps, showSteps]);
 
   const handleCopy = useCallback(async () => {
     try { await Clipboard.setStringAsync(copyText); } catch { /* ignore */ }
   }, [copyText]);
+
+  const bulletList = (items: NarrativeBullet[], testID: string, itemId: (j: number) => string) => (
+    <View style={s.bulletList} testID={testID}>
+      {items.map((item, j) => (
+        <View key={j}>
+          <View style={s.bulletRow}>
+            <Text style={s.bulletMark}>•</Text>
+            <Text style={s.bulletText} testID={itemId(j)}>
+              {item.label ? (
+                <>
+                  <Text style={s.bulletLabel}>{item.label}{item.body ? ": " : ":"}</Text>
+                  {item.body}
+                </>
+              ) : item.body}
+            </Text>
+          </View>
+          {item.sub?.length ? (
+            <View style={s.subList}>
+              {item.sub.map((line, k) => (
+                <View key={k} style={s.subRow}>
+                  <Text style={s.bulletMark}>◦</Text>
+                  <Text style={s.bulletText} testID={`${itemId(j)}-sub-${k}`}>{line}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
 
   return (
     <View style={s.card} testID={`${ids}-brief`}>
@@ -546,7 +628,7 @@ export function FindingsBrief({
         </View>
       ) : null}
 
-      {/* ── Narrative parts: prose paragraphs, section headers, bullet lists ── */}
+      {/* ── Narrative parts: prose paragraphs, the instruction, section headers, bullet lists ── */}
       {parts.map((part, i) => {
         if (part.kind === "para") {
           return (
@@ -555,6 +637,14 @@ export function FindingsBrief({
               style={s.prose}
               testID={i === 0 ? `${ids}-answer` : `${ids}-prose-${i}`}
             >
+              {part.text}
+            </Text>
+          );
+        }
+
+        if (part.kind === "callout") {
+          return (
+            <Text key={`c${i}`} style={s.callout} testID={i === 0 ? `${ids}-answer` : `${ids}-instruction`}>
               {part.text}
             </Text>
           );
@@ -569,40 +659,20 @@ export function FindingsBrief({
         }
 
         if (part.kind === "bullets") {
-          return (
-            <View key={`bl${i}`} style={s.bulletList} testID={`${ids}-bullets-${i}`}>
-              {part.items.map((item, j) => (
-                <View key={j} style={s.bulletRow}>
-                  <Text style={s.bulletMark}>•</Text>
-                  <Text style={s.bulletText} testID={`${ids}-bullet-${j}`}>
-                    {item.label ? (
-                      <>
-                        <Text style={s.bulletLabel}>{item.label}: </Text>
-                        {item.body}
-                      </>
-                    ) : item.body}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          );
+          return <React.Fragment key={`bl${i}`}>{bulletList(part.items, `${ids}-bullets-${i}`, (j) => `${ids}-bullet-${j}`)}</React.Fragment>;
         }
 
         return null;
       })}
 
-      {/* ── Action section: header + guidance prose ── */}
+      {/* ── Action section: header + organisation-specific bullets, or the investigation's steps ── */}
       {hasAction ? (
         <Text style={s.narrativeHeader} testID={`${ids}-action-header`}>
           {actionHeaderText}
         </Text>
       ) : null}
 
-      {guidanceText ? (
-        <Text style={s.prose} testID={`${ids}-guidance`}>
-          {guidanceText}
-        </Text>
-      ) : null}
+      {actions.length ? bulletList(actions, `${ids}-guidance`, (j) => `${ids}-guidance-${j}`) : null}
 
       {/* ── Investigation steps (tappable) ── */}
       {showSteps ? steps.map((step) => {

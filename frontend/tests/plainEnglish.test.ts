@@ -42,7 +42,8 @@ test("a passed plain English is shown: answer, severity, every finding with who 
   assert.deepEqual(plainReport({ ...shown, subject: "What it is: the ANZ link anz-secure-login.co." }).answer,
     [plain.result, "What it is: the ANZ link anz-secure-login.co."], "the subject line is never dropped");
   assert.equal(r.severity, plain.severity);
-  assert.deepEqual(r.found, [{ text: plain.established[0].text, detail: plain.established[0].detail, explain: plain.established[0].explain, category: null }]);
+  // "registered 3 days ago" is a Domain Age finding (findingCategorizer) — the category is the finding's on-screen title.
+  assert.deepEqual(r.found, [{ text: plain.established[0].text, detail: plain.established[0].detail, explain: plain.established[0].explain, category: "Domain Age" }]);
   assert.deepEqual(r.means, [...plain.means, ...plain.matters]);
   assert.deepEqual(r.uncertain, plain.uncertain);
   assert.deepEqual(r.how, [plain.how.join(" ")]);

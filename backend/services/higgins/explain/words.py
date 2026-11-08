@@ -122,11 +122,19 @@ SIGNIFICANCE: dict[tuple[str, str], str] = {
     ("sandbox_behavior", "OBSERVED"): "What a file does when it's run is a direct observation, not a guess; it doesn't by itself establish who controls the address it tried to reach, or what they intended.",
     ("file_disguise", "DISGUISED"): "A file made to look like one kind of document while actually being a program has no legitimate reason to be made that way.",
     ("pattern_match", "MATCHED"): "A pattern match is a direct comparison against known scam structures already on file, not a guess about intent.",
+    ("pressure_words", "PRESSURE"): "Words like these in an address are there to make you act before you check it; an organisation's own addresses have no need of them.",
+    # Favourable (check, result) pairs — added for the "ordinary newsletter"-style case, where the material
+    # findings are clean rather than concerning. Worded so a real, favourable check is never overstated into a
+    # guarantee: each one supports confidence without claiming to prove genuineness or safety on its own.
+    ("official_domain", "OFFICIAL"): "Confirming an address is the organisation's own genuinely supports a message being genuine, though it doesn't rule out that same address or account being misused by someone else.",
+    ("official_contact", "OFFICIAL"): "Confirming a contact detail is the organisation's own published one genuinely supports a message being genuine, though it doesn't rule out that detail being misused by someone else.",
+    ("reputation", "NOT_LISTED"): "Not appearing on a threat list is a real, favourable check, but it only means nothing has been reported yet — it isn't a guarantee that nothing is wrong.",
+    ("tls_certificate", "VALID"): "A valid certificate confirms the connection to that address is encrypted and matches its name; it doesn't, by itself, establish who owns or runs that address.",
 }
 # CONNECTIONS: fixed sentences for specific, named combinations of (check, result) pairs that are more telling
 # read together than apart. A list, most specific first: the first whose pairs are all present among the
 # material findings wins, so a 3-way combination is preferred over a 2-way subset of it. At most one of these
-# (or one SIGNIFICANCE sentence, never both) is ever added to a single result.
+# (or one generic synthesis, or one SIGNIFICANCE sentence — never two of the three) is ever added to a single result.
 CONNECTIONS: list[tuple[frozenset[tuple[str, str]], str]] = [
     (frozenset({("impersonation", "NOT_OFFICIAL"), ("registration", "RECENT"), ("pattern_match", "MATCHED")}),
      "Together, these point the same way: an address that only carries the organisation's name, a destination set "
@@ -144,6 +152,9 @@ CONNECTIONS: list[tuple[frozenset[tuple[str, str]], str]] = [
      "Together, an address that only carries the organisation's name and a message structure that matches a "
      "known credential-harvesting pattern point the same way: this fits a page built to collect logins, not a "
      "genuine mistake."),
+    (frozenset({("impersonation", "NOT_OFFICIAL"), ("pressure_words", "PRESSURE")}),
+     "Together, an address that only carries the organisation's name and wording in that same address that presses "
+     "you to act point the same way: this address was made to alarm you into using it, not to be the organisation's own."),
     (frozenset({("file_disguise", "DISGUISED"), ("sandbox_behavior", "OBSERVED")}),
      "Together, a file disguised as a document and a program that then tried to run further commands and reach "
      "outside the device once opened point the same way: the disguise exists to get a harmful program run."),
@@ -160,6 +171,19 @@ def pick_connection(pairs: frozenset) -> str | None:
     """The one fixed sentence (if any) for the most specific known combination of material (check, result) pairs
     present. At most one is ever returned — never stacked, never built from a case's own identifiers."""
     return next((sentence for required, sentence in CONNECTIONS if required <= pairs), None)
+
+
+# Generic synthesis, used only when two or more material findings share a direction but form no named
+# combination above. This is what keeps the connecting mechanism general rather than limited to the
+# combinations anticipated so far. Each is one fixed sentence about how findings relate — never about a
+# case-specific identifier, never a verdict, never stronger or safer than Apollo's own result.
+GENERIC_CONCERN_SYNTHESIS = ("Taken together, these findings point the same way: each one on its own might have an innocent "
+                             "explanation, but they agree with each other rather than cancel each other out.")
+GENERIC_CLEAR_SYNTHESIS = ("Taken together, these checks agree: each looked at a different thing, and none of them turned up a "
+                           "warning sign. That supports the result, though no set of checks can rule out everything.")
+# Independent of the synthesis above: a check that couldn't be completed is never, by itself, a warning sign.
+UNAVAILABLE_CAVEAT = ("A check that couldn't be completed isn't a warning sign in itself: it means Apollo has less to go on, "
+                      "not that something was found.")
 
 
 # ── The Higgins Case Briefing: Apollo's fixed words for its short forms ─────

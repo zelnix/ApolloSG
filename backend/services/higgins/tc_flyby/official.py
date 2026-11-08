@@ -9,6 +9,7 @@ No AI is involved. A lookup that fails is recorded as unavailable — never as s
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime, timezone
 
 from services import kb_sources
@@ -326,6 +327,34 @@ def _host_of(url: str) -> str:
     return url.split("//")[-1].split("/")[0].split("?")[0].split("#")[0].split("@")[-1].lower()
 
 
+# Words in a web address itself that press the reader to act (owner, 2026-11-08: "Urgency Tactics"). Read from the
+# address alone, no AI, never from the page. Counted in the host's own labels always; in the path only when the host
+# carries an organisation's name (a lookalike or shared-service address), so "news-site.com/stop-press" is never a
+# signal while "commbank-cancel.co/stop" is. A weak signal like any other: alone or together never a scam, only the
+# corroboration an impersonation or another warning sign needs. Never on an official domain.
+PRESSURE_WORDS = frozenset({
+    "cancel", "cancelled", "cancellation", "stop", "suspend", "suspended", "suspension", "locked", "unlock", "restricted",
+    "blocked", "expire", "expired", "expires", "expiry", "overdue", "urgent", "urgently", "verify", "verification",
+    "confirm", "reactivate", "deactivate", "deactivated", "penalty", "unpaid",
+})
+
+
+def _pressure_words(host: str, urls: list[str], branded: bool) -> tuple[list[str], str]:
+    """(the pressure words the address itself carries, in order and once each; the address as shown) — PRESSURE_WORDS."""
+    words = [w for w in re.findall(r"[a-z]+", host.lower()) if w in PRESSURE_WORDS]
+    shown = host
+    if branded:
+        for url in urls[:2]:
+            rest = url.split("//")[-1].split("?")[0].split("#")[0]
+            path = rest[len(rest.split("/")[0]):]
+            found = [w for w in re.findall(r"[a-z]+", path.lower()) if w in PRESSURE_WORDS]
+            if found:
+                words += found
+                shown = host + path.rstrip("/")
+                break
+    return list(dict.fromkeys(words)), shown
+
+
 async def _link(check: Check, pg: dict, plan_: Plan) -> None:
     host = check.subject
     owner = official_domain(host)
@@ -334,6 +363,14 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
         check.facts.append(fact(f"{host} is {publisher}'s official domain.", "clear", decisive=True, topic="official_domain",
                                 source=source_ref("ApolloSG official-domain register", authority="official", basis=basis)))
     urls = check.urls or [f"https://{host}/"]
+    if not owner:
+        branded = any(brand_domains.classify(name, host)[0] in ("lookalike", "shared_service") for name, *_ in plan_.entities.brands)
+        words, shown = _pressure_words(host, urls, branded)
+        if words:
+            quoted = " and ".join(f"“{w}”" for w in words[:3])
+            check.facts.append(fact(f"The web address itself uses the word{'s' if len(words) > 1 else ''} {quoted} ({shown}) — "
+                                    "wording that presses you to act.", "weak", topic="pressure_words",
+                                    source=source_ref("ApolloSG address analysis", authority="independent", basis="The words in the address itself")))
     checked_any = False
     for url in urls[:2]:
         chain = (pg["redirects"].get(url) or {}).get("chain") or []
@@ -464,10 +501,14 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
 
 def _mismatch(name: str, official: str, place: str, kind: str, detail: str) -> tuple[str, str]:
     """(text, topic) for an address that isn't one of the organisation's own. Only a lookalike sign or a shared
-    service is a warning sign by itself; an address that doesn't carry the name needs something independent."""
+    service is a warning sign by itself; an address that doesn't carry the name needs something independent.
+    A lookalike names what gives it away only where that adds something (brand_domains.SIGN_WORDS): that extra
+    words were added is already plain from the address itself, so that sign is stated as the mismatch alone
+    (owner, 2026-11-08)."""
     if kind == "lookalike":
-        return (f"{place} carries {name}'s name, but it is not {name}'s domain ({official}) — "
-                f"{brand_domains.SIGN_WORDS[detail]}.", "lookalike")
+        sign = brand_domains.SIGN_WORDS.get(detail)
+        return (f"{place} carries {name}'s name, but it is not {name}'s domain ({official})" + (f" — {sign}." if sign else "."),
+                "lookalike")
     if kind == "shared_service":
         return (f"{place} puts {name}'s name in front of {detail}, a link or website service anyone can use, "
                 f"not on {name}'s own domain ({official}).", "shared_service")

@@ -225,7 +225,7 @@ EXPLAIN_RULES: dict[str, tuple[str, str, str]] = {
     "PER-08": ("plain-english-renderer", "Formal words are swapped only from the fixed list", "services.higgins.explain.words:PLAIN_SWAPS"),
     "PER-09": ("plain-english-renderer", "Each point is said once, and every finding is always listed", "services.higgins.explain.render:repeats"),
     "PER-10": ("plain-english-renderer", "Jargon is explained once per result, in Apollo's fixed words", "services.higgins.explain.words:GLOSSARY"),
-    "PER-11": ("plain-english-renderer", "Connecting knowledge about why findings matter or how they relate is fixed, bounded, added only to what it means, and never both a combination and a single-finding sentence at once",
+    "PER-11": ("plain-english-renderer", "Connecting knowledge about why findings matter or how they relate is fixed, bounded, added only to what it means, and the unavailable-check caveat is always independent of the overall synthesis sentence",
                "services.higgins.explain.facts:connecting_knowledge"),
     "FID-01": ("fidelity-check", "The plain English is shown only when nothing was lost, added or changed", "services.higgins.explain:explain_case"),
     "FID-02": ("fidelity-check", "At most 2 checks run on each result: plain, then repaired, then Apollo's own wording", "services.higgins.explain:MAX_ATTEMPTS"),

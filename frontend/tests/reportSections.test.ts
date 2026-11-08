@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildReport } from "../src/domain/reportSections.ts";
+import { CATEGORY_LABELS, categorize } from "../src/domain/findingCategorizer.ts";
 import { sentences } from "../src/domain/luddish/patterns.ts";
 
 // The Linkt check from the preview, exactly as TC Hawkeye settled it.
@@ -60,7 +61,7 @@ test("a negation is never merged into the statement it contradicts", () => {
 
 test("a finding the answer doesn't state is listed, with how it was established", () => {
   const r = buildReport({ ...linkt, findings: [...linkt.findings, { id: "f2", text: "The domain was registered 3 days ago.", basis: "observation", confidence: "high", evidenceIds: [], sourceIds: [] }] });
-  assert.deepEqual(r.found, [{ text: "The domain was registered 3 days ago.", detail: "Observed · High confidence", findingId: "f2", category: "Fake URL" }]);
+  assert.deepEqual(r.found, [{ text: "The domain was registered 3 days ago.", detail: "Observed · High confidence", findingId: "f2", category: "Domain Age" }]);
 });
 
 test("a threat with no investigation uses what Apollo recorded, still once each", () => {
@@ -69,6 +70,28 @@ test("a threat with no investigation uses what Apollo recorded, still once each"
   assert.deepEqual(r.found, [{ text: "The address is on Apollo's blocklist.", detail: null, category: "Known Threat" }]);
   assert.deepEqual(r.means, ["Nothing reached your device from it."]);
   assert.deepEqual(r.how, []);
+});
+
+test("a finding's label follows its result: a clean check never gets an alarming label, a failed one never a reassuring one", () => {
+  // The MyGov link check (8 Nov): a favourable "official domain" finding was labelled "Fake URL" and a clean
+  // blocklist result "Known Threat". The label must read right whichever way the finding went.
+  assert.equal(categorize("servicesaustralia.gov.au is Services Australia's official domain."), "Official Domain");
+  assert.equal(categorize("The sender address newsletter@abc.net.au uses abc.net.au, which is the ABC's official domain."), "Official Domain");
+  assert.equal(categorize("commbank-cancel.co carries CommBank's name, but it isn't CommBank's domain (commbank.com.au)."), "Fake Domain");
+  assert.equal(categorize("The material names CommBank, but commbank-cancel.co is not CommBank's domain (commbank.com.au)."), "Fake Domain");
+  assert.equal(categorize("servicesaustralia.gov.au isn't listed by Apollo's blocklist, Google Safe Browsing, PhishTank, OpenPhish, Spamhaus DROP, ASIC's investor alert list and ACMA's blocked gambling list."), "Not on Threat Lists");
+  assert.equal(categorize("No scam warnings were found for this number."), "Not on Threat Lists");
+  assert.equal(categorize("Google Safe Browsing lists this domain as a phishing site."), "Known Threat");
+  assert.equal(categorize("ASIC's investor alert list names example-shop.test as a known scam."), "Known Threat");
+  assert.equal(categorize("Google Safe Browsing was unavailable for this link."), "Check Not Completed");
+  assert.equal(categorize("example.test was registered on 2026-06-01 (4 days before this check)."), "Domain Age");
+  assert.equal(categorize("The web address itself uses the words “cancel” and “stop” (commbank-cancel.co/stop) — wording that presses you to act."), "Urgency Tactics");
+  assert.equal(categorize("The TLS certificate for servicesaustralia.gov.au is issued for servicesaustralia.gov.au by Let's Encrypt and is valid."), "Valid Certificate");
+  assert.equal(categorize("The TLS certificate for example.co doesn't match its name and has expired."), "Certificate Problem");
+  assert.equal(categorize("Every link in the email goes to abc.net.au."), null);
+  for (const label of ["Fake URL", "Link Check", "Threat List Check", "Urgency & Threats"]) {
+    assert.ok(!CATEGORY_LABELS.includes(label), `${label} is no longer a finding label`);
+  }
 });
 
 test("other sections an investigation writes keep their heading; sources are the ones it used", () => {

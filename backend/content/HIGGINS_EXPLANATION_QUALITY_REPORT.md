@@ -24,7 +24,7 @@ pathway (services/higgins/explain/): nothing about scoring, routing, verdicts or
   words.py are rule files the project tracks for drift.
 - tests/test_higgins_explanation_narrative.py (new) - the four primary scenarios plus the seven
   additional regression cases, all run through the real pathway.
-- scripts/explanation_quality_evaluator.py (new, offline/dev-only) - the optional AI-assisted
+- tests/explanation_quality_evaluator.py (new, offline/dev-only) - the optional AI-assisted
   reviewer, section 5.
 - backend/.env - added EMERGENT_LLM_KEY, used only by the offline script above.
 
@@ -90,7 +90,7 @@ differently - all four were already present before this change, confirmed by run
 
 ## 5. Offline AI-assisted explanation-quality review (optional, per section 5B)
 
-scripts/explanation_quality_evaluator.py - NOT part of the pipeline, NOT a pytest gate, run
+tests/explanation_quality_evaluator.py - NOT part of the pipeline, NOT a pytest gate, run
 manually. Uses Claude Sonnet 5.5 via the Emergent LLM key to score six criteria (1-5) on the real
 before/after text for each of the four primary scenarios. Full transcript and scores:
 content/EXPLANATION_QUALITY_EVALUATION.md. Summary of the final run (after the glossary and

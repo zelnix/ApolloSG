@@ -112,7 +112,10 @@ async def test_a_mismatch_without_a_lookalike_sign_is_not_a_warning_on_its_own()
 async def test_a_real_lookalike_is_still_a_warning_sign():
     plan = await _run_stage_one("eBay: confirm your account at https://signin-ebay.com.au/verify")
     found = [f for _, f in signals(plan)]
-    assert any(f.get("topic") == "lookalike" and "the name has other words added to it" in f["text"] for f in found)
+    # The added words are plain from the address itself, so the finding states the mismatch alone (owner, 2026-11-08).
+    lookalike = next(f for f in found if f.get("topic") == "lookalike")
+    assert lookalike["text"] == "signin-ebay.com.au carries eBay's name, but it is not eBay's domain (ebay.com)."
+    assert "other words added" not in lookalike["text"]
     # "concerning" was the legacy outcome string; the current system uses "likely_scam"
     # (outcomes.py: "concerning → likely_scam (historical records only)").
     assert provisional(plan).outcome == "likely_scam"

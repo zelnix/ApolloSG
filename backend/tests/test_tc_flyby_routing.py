@@ -520,6 +520,23 @@ async def test_a_lookalike_bare_link_follows_the_same_rule(monkeypatch):
     assert response["overview"] == "Do not click or open that link."
 
 
+async def test_a_lookalike_bare_link_with_pressure_words_lists_both_findings_and_connects_them(monkeypatch):
+    """The owner's CommBank case (2026-11-08): http://commbank-cancel.co/stop. The lookalike and the words of the
+    address itself are both findings; the weak signal doesn't lift the Finding; the plain English joins them in
+    one line of reasoning rather than captioning each."""
+    calls = _gateway(monkeypatch)
+    _lookups(monkeypatch)
+    _owner, case, response, _ = await _case([("url", "http://commbank-cancel.co/stop")], message="Is this link safe?")
+    assert calls == [] and response["outcome"] == "likely_scam"
+    texts = [f["text"] for f in response["findings"]]
+    assert any("commbank-cancel.co carries CommBank's name, but it is not CommBank's domain (commbank.com.au)." == t for t in texts), texts
+    assert any(t.startswith("The web address itself uses the words “cancel” and “stop” (commbank-cancel.co/stop)") for t in texts), texts
+    assert not any("other words added" in t for t in texts)
+    plain = response["plainEnglish"]
+    assert plain["fidelity"]["status"] == "PASS"
+    assert any("presses you to act" in m and "organisation's name" in m for m in plain["means"]), plain["means"]
+
+
 async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini(monkeypatch):
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch, age_days=6)

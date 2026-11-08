@@ -95,7 +95,7 @@ def test_corroborated_impersonation_says_only_what_was_established():
     assert (found.outcome, found.basis) == ("likely_scam", "impersonation"), "settlement unchanged"
     result = report.compose(found, plan, MATERIAL, "flyby-1")
     assert _means(result) == ("commbank-notice.net isn't one of CommBank's published domains, and a separate check on that address backs up "
-                              "the concern. That's enough to treat it as concerning without weighing up the wording.")
+                              "the concern. That's enough to treat it as a scam without weighing up the wording.")
     assert result["attentionReason"] == ("Anything typed into that link goes to whoever runs commbank-notice.net, which isn't one of CommBank's "
                                          "published domains.")
     assert "no reason to send you" not in result["explanationMarkdown"] and ", not CommBank." not in result["attentionReason"]

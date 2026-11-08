@@ -1,12 +1,13 @@
 """Higgins explanation quality & edge-case validation (ApolloSG PRD v2.3 - Higgins Luddish).
 
-Covers the four primary edge-case scenarios (A-D) and the seven additional regression cases from the
-developer instructions. Every case is run through the real, shared explanation pathway
+Covers the four primary edge-case scenarios (A-D), the seven additional regression cases from the
+developer instructions, and the ABC News newsletter taken through five evidence states (legitimate,
+lookalike sender, confirmed scam, contradictory, incomplete). Every case is run through the real, shared explanation pathway
 (services.higgins.explain: facts.build -> render.render -> fidelity.check) with synthetic, locked
 findings - never through a second engine, never with the verdict/score recomputed here.
 
 Two mandatory evaluation categories, both deterministic (no LLM calls in this file - see
-scripts/explanation_quality_evaluator.py for the optional, offline-only AI-assisted review):
+tests/explanation_quality_evaluator.py for the optional, offline-only AI-assisted review):
   A. Evidence Fidelity - the Fidelity Check itself (status == "PASS") plus targeted extra checks for
      verdict/finding/entity/uncertainty/contradiction/action integrity.
   B. Explanation Quality - structural, deterministic checks for: leading with the conclusion,
@@ -304,3 +305,163 @@ def test_several_independent_findings_reinforcing_the_same_conclusion_are_all_ke
     # Avoids unnecessary repetition: at most one connecting/significance sentence is added, never one per finding.
     assert len(connecting) <= 1
     assert connecting, plain.means
+
+
+# ── The ABC News newsletter (ApolloSG PRD v2.3 edge case): favourable evidence synthesised gracefully ──
+# The same real-world subject taken through five evidence states. The one line of reasoning Higgins adds must
+# read like a knowledgeable person explaining the investigation whichever way the evidence went — never a list
+# of captions, never two syntheses at once, and never a check that couldn't run read as a warning sign.
+SYNTHESES = (W.GENERIC_CONCERN_SYNTHESIS, W.GENERIC_CLEAR_SYNTHESIS, *W.SIGNIFICANCE.values(), *(s for _, s in W.CONNECTIONS))
+
+
+def _one_synthesis_at_most(plain) -> list[str]:
+    added = [m for m in plain.means if m in SYNTHESES]
+    assert len(added) <= 1, plain.means
+    return added
+
+
+def _abc_official_sender():
+    return Finding(id="f1", text="The sender address newsletter@abc.net.au uses abc.net.au, which is the ABC's official domain.",
+                   basis="observation", confidence="high", evidence_ids=["e1"])
+
+
+def _abc_authenticated():
+    return Finding(id="f2", text="SPF, DKIM and DMARC all pass for this message.", basis="observation", confidence="high", evidence_ids=["e1"])
+
+
+def test_abc_newsletter_legitimate_favourable_evidence_is_synthesised_not_listed():
+    resp = _response(
+        findings=[
+            _abc_official_sender(), _abc_authenticated(),
+            Finding(id="f3", text="Every link in the email goes to abc.net.au.", basis="observation", confidence="high", evidence_ids=["e1"]),
+            Finding(id="f4", text="abc.net.au isn't listed by Google Safe Browsing, PhishTank or Apollo's blocklist.", basis="observation", confidence="high", evidence_ids=["e1"]),
+            Finding(id="f5", text="The email asks for nothing: no login, no payment and no urgent action.", basis="observation", confidence="high", evidence_ids=["e1"]),
+        ],
+        overview="This is the ABC's own newsletter: it was sent from the ABC's official domain, its links go there too, and it asks for nothing.",
+        explanation_markdown=("**What it means**\nNothing here points away from the ABC: the sender, the links and the message itself all line up.\n\n"
+                              "**How ApolloSG checked**\nTC Hawkeye checked the submitted material using official source checks."),
+        outcome="not_scam", assessment="no_concern_found_within_scope", attention="none")
+    plain = _explain(resp)
+    assert plain.fidelity.status == "PASS"
+    assert plain.result.startswith("This is not a scam.")
+    assert len(plain.established) == 5  # every favourable finding stays visible, none collapsed into the verdict
+    # Three favourable checks (official domain, authentication, clean listing) share a direction but form no named
+    # combination: the one generic "these agree" sentence connects them, instead of a caption per finding.
+    assert _one_synthesis_at_most(plain) == [W.GENERIC_CLEAR_SYNTHESIS]
+    assert W.UNAVAILABLE_CAVEAT not in plain.means
+    full_text = " ".join([_without_verdict_label(plain.result), *[f.text for f in plain.established], *plain.means]).lower()
+    for word in ("suspicious", "malicious", "likely a scam", "warning sign:"):
+        assert word not in full_text, word
+    assert plain.todo == []
+
+
+def test_abc_newsletter_lookalike_sender_connects_the_name_and_the_new_address():
+    resp = _response(
+        findings=[
+            Finding(id="f1", text="The sender address news@abc-newsletters.info uses abc-newsletters.info, which isn't the ABC's domain (abc.net.au).",
+                    basis="observation", confidence="high", evidence_ids=["e1"]),
+            Finding(id="f2", text="abc-newsletters.info was registered 9 days ago.", basis="observation", confidence="high", evidence_ids=["e1"]),
+            Finding(id="f3", text="The email asks you to confirm your subscription by signing in through its link.", basis="observation", confidence="high", evidence_ids=["e1"]),
+        ],
+        overview="This carries the ABC's name, but it wasn't sent from the ABC's domain, and the address it uses was set up 9 days ago. Don't sign in through its link.",
+        explanation_markdown=("**What it means**\nThe ABC's name is on the message, but nothing about where it came from is the ABC's.\n\n"
+                              "**How ApolloSG checked**\nTC Hawkeye checked the submitted material using official source checks."),
+        outcome="likely_scam", assessment="concern_found", attention="action_needed",
+        attention_reason="Anything typed into that sign-in page goes to whoever runs abc-newsletters.info, not the ABC.",
+        uncertainties=["Apollo is unable to confirm who actually sent this."],
+        actions=[ActionProposal(id="a1", kind="instruction", label="Don't sign in through the link", instruction="Do not sign in through the link in this email."),
+                 ActionProposal(id="a2", kind="instruction", label="Go to the ABC yourself", instruction="Manage your subscription by typing abc.net.au into your browser yourself.")],
+        recommended_action_id="a1")
+    plain = _explain(resp)
+    assert plain.fidelity.status == "PASS"
+    assert plain.result.startswith("This is likely a scam.")
+    assert "isn't ABC's" in plain.subject  # the ABC is only named — never called the owner of a lookalike
+    [connecting] = _one_synthesis_at_most(plain)
+    assert "Together" in connecting and "organisation's name" in connecting and "set up shortly before" in connecting
+    assert "confirmed" not in plain.result.lower() and "verified" not in plain.result.lower()
+    assert plain.uncertain == ["Apollo can't confirm who actually sent this."]
+    assert plain.todo[0] == "Don't sign in through the link in this email."
+
+
+def test_abc_newsletter_confirmed_scam_leads_with_the_listing_and_keeps_the_inference_marked():
+    resp = _response(
+        findings=[
+            Finding(id="f1", text="The sender address news@abc-newsletters.info uses abc-newsletters.info, which isn't the ABC's domain (abc.net.au).",
+                    basis="observation", confidence="high", evidence_ids=["e1"]),
+            Finding(id="f2", text="Google Safe Browsing lists abc-newsletters.info as a phishing site.", basis="observation", confidence="high", evidence_ids=["e1"]),
+            Finding(id="f3", text="The investigation identified a credential-harvesting pattern.", basis="inference", confidence="medium", evidence_ids=["e1"]),
+        ],
+        overview="This is a scam: it carries the ABC's name, but the address behind it is already listed as a phishing site. Don't use the link.",
+        explanation_markdown=("**What it means**\nA site already listed as phishing, sent under a name that isn't its own, is built to collect logins.\n\n"
+                              "**How ApolloSG checked**\nTC Hawkeye checked the submitted material using official source checks."),
+        outcome="scam", assessment="concern_found", attention="urgent",
+        attention_reason="Anything entered on abc-newsletters.info goes to whoever runs that phishing site.",
+        actions=[ActionProposal(id="a1", kind="instruction", label="Don't use the link", instruction="Do not open abc-newsletters.info and do not enter anything on it.")],
+        recommended_action_id="a1")
+    plain = _explain(resp)
+    assert plain.fidelity.status == "PASS"
+    assert plain.result.startswith("This is a scam.")
+    texts = [f.text for f in plain.established]
+    assert any("lists abc-newsletters.info as a phishing site" in t for t in texts)
+    # Evidence types stay distinguishable: the pattern match is marked as TC Hawkeye's reading, not a direct observation.
+    pattern = next(f for f in plain.established if "credential-harvesting" in f.text)
+    assert "reading of the evidence" in pattern.detail and "Medium confidence" in pattern.detail
+    [connecting] = _one_synthesis_at_most(plain)
+    assert "Together" in connecting and "credential-harvesting" in connecting
+    assert plain.todo == ["Don't open abc-newsletters.info and don't enter anything on it."]
+
+
+def test_abc_newsletter_contradictory_evidence_keeps_both_sides_and_the_concern_drives_the_reasoning():
+    resp = _response(
+        findings=[
+            _abc_official_sender(), _abc_authenticated(),
+            Finding(id="f3", text="One link in the email goes to abc-prizes.top, which isn't the ABC's domain (abc.net.au).", basis="observation", confidence="high", evidence_ids=["e1"]),
+            Finding(id="f4", text="abc-prizes.top was registered 4 days ago.", basis="observation", confidence="high", evidence_ids=["e1"]),
+        ],
+        overview="The email itself came from the ABC's domain, but one of its links goes to abc-prizes.top, which isn't the ABC's and was set up 4 days ago. Don't use that link.",
+        explanation_markdown=("**What it means**\nA message can come from a real sender and still carry a link that isn't theirs; the sender checks and the link checks point different ways here.\n\n"
+                              "**How ApolloSG checked**\nTC Hawkeye checked the submitted material using official source checks."),
+        outcome="likely_scam", assessment="concern_found", attention="action_needed",
+        attention_reason="Anything entered at abc-prizes.top goes to whoever runs it, not the ABC.",
+        uncertainties=["Apollo is unable to say whether the ABC's own sending account was misused or the link was added another way."],
+        actions=[ActionProposal(id="a1", kind="instruction", label="Don't use that link", instruction="Do not open abc-prizes.top.")],
+        recommended_action_id="a1")
+    plain = _explain(resp)
+    assert plain.fidelity.status == "PASS"  # CONTRADICTION_DROPPED would fail this if either side vanished
+    assert plain.result.startswith("This is likely a scam.")
+    texts = [f.text for f in plain.established]
+    assert any("is the ABC's official domain" in t for t in texts) and any("SPF, DKIM and DMARC all pass" in t for t in texts)
+    assert any("isn't the ABC's domain" in t for t in texts) and any("registered 4 days ago" in t for t in texts)
+    assert any("point different ways" in m for m in plain.means)  # Apollo's own reading of the conflict is kept
+    # The favourable sender checks never produce a second, favourable synthesis beside the concern: one line of reasoning.
+    [connecting] = _one_synthesis_at_most(plain)
+    assert "Together" in connecting and "set up shortly before" in connecting
+    assert W.GENERIC_CLEAR_SYNTHESIS not in plain.means
+    assert any("misused" in u for u in plain.uncertain)
+
+
+def test_abc_newsletter_incomplete_checks_are_a_caveat_beside_the_favourable_evidence_not_a_warning():
+    resp = _response(
+        findings=[
+            _abc_official_sender(),
+            Finding(id="f2", text="Google Safe Browsing was unavailable for the links in this email.", basis="observation", confidence="medium", evidence_ids=["e1"]),
+            Finding(id="f3", text="The email's registration record couldn't be read.", basis="observation", confidence="medium", evidence_ids=["e1"]),
+        ],
+        overview="The sender is the ABC's official domain, but two of Apollo's checks on the links couldn't be completed, so this isn't a full answer.",
+        explanation_markdown=("**What it means**\nWhat could be checked points to the ABC; what couldn't be checked is simply unknown, not a warning sign.\n\n"
+                              "**How ApolloSG checked**\nTC Hawkeye checked the submitted material using official source checks."),
+        outcome="unlikely_scam", assessment="uncertain", attention="review",
+        attention_reason="Without the link checks, Apollo can't rule out a problem with the links.",
+        uncertainties=["Apollo could not complete the reputation check for the links in this email."])
+    plain = _explain(resp)
+    assert plain.fidelity.status == "PASS"
+    assert len(plain.established) == 3
+    # The two additions are independent (PER-11): why the one completed check matters, and that the two that
+    # couldn't run are not warning signs. Both appear; neither is a caption on a finding.
+    assert _one_synthesis_at_most(plain) == [W.SIGNIFICANCE[("official_domain", "OFFICIAL")]]
+    assert W.UNAVAILABLE_CAVEAT in plain.means
+    assert not any(f.explain and f.explain in SYNTHESES for f in plain.established)
+    full_text = " ".join([_without_verdict_label(plain.result), *[f.text for f in plain.established], *plain.means]).lower()
+    for word in ("suspicious", "malicious", "likely a scam", "this is a scam"):
+        assert word not in full_text, word
+    assert plain.uncertain == ["Apollo couldn't complete the reputation check for the links in this email."]

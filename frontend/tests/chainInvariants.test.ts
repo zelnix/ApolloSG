@@ -25,12 +25,12 @@ import type { PatrolEvent } from "../src/domain/types.ts";
 const OUTCOMES = ["confirmed_threat", "likely_scam", "concerning", "unable_to_determine", "no_scam_indicators"] as const;
 const ATTENTION = ["urgent", "action_needed", "review", "none"] as const;
 const LABEL: Record<string, string> = {
-  confirmed_threat: "Confirmed scam or threat", likely_scam: "Likely scam", concerning: "Concerning",
-  unable_to_determine: "Unable to determine", no_scam_indicators: "No scam indicators found",
+  confirmed_threat: "This is a scam", likely_scam: "This is likely a scam", concerning: "This is likely a scam",
+  unable_to_determine: "We are unable to determine if this is a scam", no_scam_indicators: "This is not a scam",
 };
 /** What the Home hero says for each verdict (homeHeroBrief). */
 const HERO: Record<string, string> = {
-  confirmed_threat: "detected as a confirmed scam or threat", likely_scam: "detected as a likely scam", concerning: "detected as concerning",
+  confirmed_threat: "detected as a scam", likely_scam: "detected as a likely scam", concerning: "detected as a likely scam",
   unable_to_determine: "not confirmed safe", no_scam_indicators: "no scam signs found",
 };
 const SEVERITY: Record<string, string> = { urgent: "barking", action_needed: "barking", review: "growling", none: "resting" };
@@ -209,7 +209,7 @@ test("every screen says the case result's verdict and severity — for every out
       settledReason: null, higgins: { status: "PASS", mode: "plain", attempts: 1 } }, records: [], triage: null, hasCase: true,
     presented: { verdict: brief.label, risk: brief.risk?.label ?? null } });
     const lock = steps.find((s) => s.id === "lock")!;
-    assert.equal(lock.details[0], `Locked verdict: ${r.verdict}${riskPill(r.severity) ? ` · ${riskPill(r.severity)!.label}` : ""}`, at);
+    assert.equal(lock.details[0], `Recorded verdict: ${r.verdict}${riskPill(r.severity) ? ` · ${riskPill(r.severity)!.label}` : ""}`, at);
   }
 });
 
@@ -233,13 +233,19 @@ test("no screen reads the result's outcome or attention directly, or maps them t
     assert.doesNotMatch(src, /\b(stateFromOutcome|stateFromAssessment|investigationState|caseSeverity)\(/, `${path} works out a severity itself`);
   }
   // The screens show the threat's result through the one reader.
-  assert.match(read("../app/patrol/[id].tsx"), /threatResult\(event, investigation\?\.response \?\? null\)/);
+  const threat = read("../app/patrol/[id].tsx");
+  assert.match(threat, /const result = threatResult\(event, response\);/);
+  assert.match(threat, /threatVerdict\(event, investigation\?\.response \?\? null, status\)/);
   assert.match(read("../src/components/InvestigationView.tsx"), /investigationVerdict\(/);
   assert.match(read("../src/domain/investigationCaseUpdate.ts"), /caseResult\(response\)/);
 });
 
 test("DI and History are handed the same verdict the Findings Brief shows", () => {
-  const src = read("../app/patrol/[id].tsx");
-  assert.match(src, /<HistoryContent [^>]*verdict=\{result \? verdict\.label : null\}/);
-  assert.match(src, /presented=\{result \? \{ verdict: verdict\.label, risk: verdict\.risk\?\.label \?\? null \} : null\}/);
+  // A threat hands its verdict to the shared InvestigationView, which shows it on the Findings Brief and passes the
+  // same object to DI (`presented`).
+  assert.match(read("../app/patrol/[id].tsx"), /overrideVerdict=\{verdict\}/);
+  const view = read("../src/components/InvestigationView.tsx");
+  assert.match(view, /const verdict = overrideVerdict \?\? computedVerdict;/);
+  assert.match(view, /<FindingsBrief report=\{report\} verdict=\{verdict\}/);
+  assert.match(view, /presented=\{verdict \? \{ verdict: verdict\.label, risk: verdict\.risk\?\.label \?\? null \} : null\}/);
 });

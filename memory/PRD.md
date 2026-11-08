@@ -1,5 +1,33 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Findings Brief verification + test repair (2026-11-08, fork session)
+**Owner's choices:** fix the test break → verify the layout in the preview → run both suites; screenshots + pytest + node tests only (no testing agent).
+- Verified in the preview (real pipeline, Sample Checks): CommBank lookalike link → "This is likely a scam", conclusion, "Don't click or
+  open that link." on its own line, "Here is why this is a scam" with **Fake Domain:** / **Urgency Tactics:** bullets, "What to do next"
+  with CommBank's own steps. myGov link → "This is not a scam", "Here is why this appears genuine", **Official Domain:** / **Not on Threat
+  Lists:** / **Valid Certificate:** bullets. +61 3 9345 2000 → "This is a scam", three plain bullets, the investigation's own steps.
+- Fixed while verifying (FindingsBrief.tsx / reportSections.ts): a labelled field line from the backend's structured section ("Status:
+  Origin: Australia (domestic landline)") was being pulled into the opening paragraph (`FIELD_LINE`); a sentence that restates a finding
+  is left to the findings list; a bullet without a label kept a lowercase first letter (now only an ordinary first word after a label is
+  lowercased — "Known Threat: Google Safe Browsing…" keeps its capital); the organisation for "what to do next" was read from "What it
+  means" prose too, so a landline check got Telstra's steps because the backend text said "pretending to be from Telstra" as an example —
+  now read from the answer and findings only. New categorizer labels: Valid Certificate / Certificate Problem.
+- Fixed: `/call-guard?sample=…` fired before the device identity loaded (403 "That device_id does not belong to this device") — the
+  sample effect now waits for `ready`, like the repeat-caller effect.
+- Fixed: Home hero said "detected as this is a scam" for the new verdict labels — `STATUS_FINDING` maps the four Findings
+  ("detected as a scam", "detected as a likely scam", "no scam signs found", "not confirmed safe"); old labels still mapped.
+- Tests: `@/src` value imports in evidencePresentation.ts and inertEmail.ts broke the node runner (relative imports now) — restores
+  chainInvariants, evidencePresentation, emailRecord, caseSourceSummary, evidencePackHtml, homeHeroBrief, endedInvestigation,
+  urlPresentation, inertEmail. chainInvariants expectations updated to the four Finding labels, "Recorded verdict", and the Threat
+  Case's `overrideVerdict` path. plainEnglish expects "Domain Age". Rule book re-stamped (official.py/facts.py/words.py).
+- Results: frontend 1425/1448 — the 23 failures are pre-existing at HEAD (alwaysOnVpn manifest, brandAssets, caseHistory, caseOrigin,
+  diTrace ×3, higginsBehavioural ×11, howApolloChecks, investigationCaseUpdate, messageGuardrails, phase2Hub, phoneIdentityAcceptance);
+  none new. Backend 1975 passed, 6 failed for environment reasons: test_ai_adapters ×3 (`budget_limit` — the preview's $5 daily AI
+  budget was fully held by the day's runs), test_reusable_intel KB benchmark ×2 (preview DB state), test_tombstone_sweep (shared DB).
+  tsc: 48 lines of pre-existing errors (app-check.tsx, capability/[id].tsx), unchanged.
+- Observed, NOT changed: a clear link's opening reads "That settles who the address belongs to…" because render.py removes the
+  verdict sentence the first finding already states (by design); the finding sits in the bullet right below.
+
 ## Findings Screen Redesign — Shield Heading + Flowing Prose (P0) — 2026-11-05
 
 ### What was done

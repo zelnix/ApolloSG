@@ -11,7 +11,7 @@ import { detectOrg, type OrgEntry } from "./orgDirectory.ts";
 import { compactUrls } from "./urlPresentation.ts";
 
 /** `explain`: Apollo's fixed explanation of a jargon word in the finding — explanatory, never evidence.
- *  `category`: semantic label assigned by the finding categorizer (e.g. "Fake URL", "Panic Tactics"). */
+ *  `category`: label from the finding categorizer, following the finding's result (e.g. "Fake Domain", "Official Domain"). */
 export interface ReportFinding { text: string; detail: string | null; explain?: string | null; findingId?: string; category?: string | null }
 export interface ReportSection { title: string; paragraphs: string[] }
 export interface Report {
@@ -26,10 +26,8 @@ export interface Report {
   sources: SourceReference[];
   /** Higgins Luddish L1's plain notes beside the answer: approved dictionary meanings, never evidence. */
   notes?: string[];
-  /** The impersonated organisation detected from the findings (null when none detected). */
+  /** The organisation the report names (from the findings), when ApolloSG's directory knows it. */
   detectedOrg?: OrgEntry | null;
-  /** Organisation-specific recommended actions (empty when no org detected). */
-  orgActions?: string[];
 }
 
 export interface ReportInput {
@@ -216,26 +214,7 @@ export function buildReport(input: ReportInput): Report {
   const used = new Set(input.sourceIds ?? []);
   const report = presented({ answer, found, means, more, uncertain, how: how.length ? [how.join(" ")] : [], sources: (input.sources ?? []).filter((s) => used.has(s.id)) }, input.evidence);
 
-  // Post-processing: categorize findings and detect impersonated organisation
-  const allText = [...report.answer, ...report.found.map((f) => f.text), ...report.means].join(" ");
-  const org = detectOrg(allText);
-
-  // Apply semantic labels to findings
-  for (const f of report.found) {
-    f.category = categorize(f.text);
-  }
-
-  // Generate organisation-specific actions
-  if (org) {
-    report.detectedOrg = org;
-    report.orgActions = [
-      `Do not click any links or enter your details.`,
-      `Report the message: ${org.reportScam}`,
-      `If you already clicked or entered credentials: ${org.ifCompromised}`,
-    ];
-  }
-
-  return report;
+  return categorized(report);
 }
 
 /** What people read: web addresses shortened in the prose, and "How ApolloSG checked" naming each item it refers to in
@@ -251,6 +230,17 @@ function presented(report: Report, evidence?: readonly EvidenceRef[]): Report {
     uncertain: report.uncertain.map(compactUrls),
     how: report.how.map((p) => compactUrls(plainEvidenceRefs(p, evidence))),
   };
+}
+
+/** Each finding labelled by what it found (findingCategorizer), and the organisation the report is about, if any.
+ *  The Findings Brief turns the organisation into its own "what to do next" steps on a scam or likely-scam verdict.
+ *  Read from the answer and the findings only: "What it means" prose may name organisations as examples
+ *  ("pretending to be from Telstra, your bank…") without the case being about any of them. */
+function categorized(report: Report): Report {
+  for (const f of report.found) f.category = categorize(f.text);
+  const org = detectOrg([...report.answer, ...report.found.map((f) => f.text)].join(" "));
+  if (org) report.detectedOrg = org;
+  return report;
 }
 
 /** Higgins' plain English, only when it passed its Fidelity Check. Otherwise null, and Apollo's own wording is shown. */
@@ -277,24 +267,7 @@ export function plainReport(plain: PlainEnglish, sources?: SourceReference[], so
     sources: (sources ?? []).filter((s) => used.has(s.id)),
   }, evidence);
 
-  // Post-processing: categorize findings and detect impersonated organisation
-  const allText = [...report.answer, ...report.found.map((f) => f.text), ...report.means].join(" ");
-  const org = detectOrg(allText);
-
-  for (const f of report.found) {
-    f.category = categorize(f.text);
-  }
-
-  if (org) {
-    report.detectedOrg = org;
-    report.orgActions = [
-      `Do not click any links or enter your details.`,
-      `Report the message: ${org.reportScam}`,
-      `If you already clicked or entered credentials: ${org.ifCompromised}`,
-    ];
-  }
-
-  return report;
+  return categorized(report);
 }
 
 /** A step of what to do: in Higgins' plain English when it's shown, else Apollo's own wording. */

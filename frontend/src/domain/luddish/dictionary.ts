@@ -57,6 +57,13 @@ export const DICTIONARY: readonly LuddishTerm[] = [
   { id: "remote_access", term: "remote access", category: "device", match: "remote(?:-| )access", meaning: "Remote access lets someone else control your device from somewhere else." },
   { id: "spoofing", term: "spoofing", category: "phone", match: "spoof\\w*", meaning: "Spoofing makes a call or message look like it comes from someone it doesn't." },
   { id: "cryptocurrency", term: "cryptocurrency", category: "scam", match: "crypto(?:currency|currencies)?", meaning: "A cryptocurrency payment is very hard to trace or get back." },
+  { id: "email_authentication", term: "email authentication", category: "email", match: "email authentication",
+    meaning: "SPF, DKIM and DMARC are checks that confirm a message really travelled through the domain it claims to be from — they don't confirm who personally wrote it." },
+  { id: "yara", term: "YARA", category: "cyber", match: "YARA", exactCase: true, meaning: "YARA matching compares a file against patterns already known from real malware." },
+  { id: "sandbox", term: "sandbox", category: "cyber", match: "sandbox(?:ed|ing)?", meaning: "A sandbox is a safe, isolated test area where a file can be run without risk to a real device." },
+  { id: "powershell", term: "PowerShell", category: "device", match: "PowerShell", exactCase: true, meaning: "PowerShell is a Windows tool for running commands — a legitimate tool that malware often misuses." },
+  { id: "credential_harvesting", term: "credential-harvesting pattern", category: "scam", match: "credential[- ]harvest\\w*",
+    meaning: "A credential-harvesting pattern is a message or page structure built to collect logins or passwords, matched against patterns already on file — not a guess about this specific sender." },
 
   // ── Plain swaps: these mean exactly the same, so the plain words are used instead ──
   { id: "url", term: "URL", category: "web", match: "URLs?", exactCase: true, plain: { one: "web address", many: "web addresses" }, meaning: "A web address is what you type or tap to open a website." },

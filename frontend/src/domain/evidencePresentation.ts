@@ -6,8 +6,8 @@
 // reaction and comment counts) is deliberately absent: the Evidence tab shows evidence, never a
 // reconstruction of the app it came from.
 
-import { decodeHtmlEntities } from "@/src/utils/decodeHtmlEntities";
-import type { OriginalSource } from "@/src/store/originalSource";
+import { decodeHtmlEntities } from "../utils/decodeHtmlEntities.ts";
+import type { OriginalSource } from "../store/originalSource";
 
 export type EvidenceLayout = "email" | "screenshot" | "message" | "chat" | "post";
 

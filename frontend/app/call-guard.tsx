@@ -217,16 +217,17 @@ export default function CheckNumber() {
     void runInvestigation(String(params.number));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, params.repeat, params.number]);
-  // Sample Check: real production processing with sample_check provenance.
+  // Sample Check: real production processing with sample_check provenance. Waits for the device identity to load
+  // (`ready`) — before that the body would claim device "local" and the server rejects it.
   const sampleRan = useRef(false);
   useEffect(() => {
-    if (!params.sample || sampleRan.current) return;
+    if (!params.sample || !ready || sampleRan.current) return;
     const prodSample = findSampleCall(params.sample);
     if (!prodSample) return;
     sampleRan.current = true;
     void runInvestigation(prodSample.number, false, "sample_check");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.sample]);
+  }, [params.sample, ready]);
 
   const reportWarning = () => { setCarrierWarning("potential_fraud"); inputRef.current?.focus(); };
 

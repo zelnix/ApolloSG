@@ -17,7 +17,7 @@ wording, the verdict, the uncertainties, the actions) is identical in both, beca
 this change set touches rendered text.
 
 Usage:
-    cd /app/backend && python scripts/explanation_quality_evaluator.py
+    cd /app/backend && python tests/explanation_quality_evaluator.py
 Requires EMERGENT_LLM_KEY in backend/.env (already present). Writes
 content/EXPLANATION_QUALITY_EVALUATION.md.
 """

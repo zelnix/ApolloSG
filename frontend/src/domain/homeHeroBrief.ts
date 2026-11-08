@@ -89,6 +89,12 @@ function identify(e: PatrolEvent, kept: KeptIdentifiers | null, room: BriefRoom)
 
 /** The finding, said as the case recorded it: its Case Briefing's status, else what Apollo itself recorded. */
 const STATUS_FINDING: Record<string, string> = {
+  // The four Findings (messageVoice.outcomeLabel).
+  "this is a scam": "detected as a scam",
+  "this is likely a scam": "detected as a likely scam",
+  "this is not a scam": "no scam signs found",
+  "we are unable to determine if this is a scam": "not confirmed safe",
+  // Labels recorded on this device by earlier versions.
   "likely scam": "detected as a likely scam",
   "confirmed scam or threat": "detected as a confirmed scam or threat",
   concerning: "detected as concerning",

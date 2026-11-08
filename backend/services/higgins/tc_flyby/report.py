@@ -825,13 +825,13 @@ def impersonation_result(plan_: Plan, checks: list[Check], material: dict[str, s
             means = (
                 f"{place} isn't one of {brand}'s published domains, "
                 f"and a separate check on that address backs up the concern. "
-                f"That's enough to treat it as concerning without weighing up the wording."
+                f"That's enough to treat it as a scam without weighing up the wording."
             )
         else:
             overview = (
                 f"This uses {brand}'s name, but its link goes to {place}, which isn't {brand}'s domain. "
                 f"The domain name carries {brand}'s name but was not registered by {brand} — "
-                f"that alone is enough to treat it as concerning. "
+                f"that alone is enough to treat it as a scam. "
                 f"Don't use the link — go to {brand} directly through their official app or website."
             )
             means = (

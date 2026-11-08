@@ -61,7 +61,7 @@ colspan rowspan nowrap alt role span start type value checked selected disabled 
 frame rules hspace vspace clear noshade compact reversed cols rows multiple maxlength open datetime text link vlink alink char charoff
 axis bordercolor`.split(/\s+/));
 
-import { decodeHtmlEntities as decodeEntities } from "@/src/utils/decodeHtmlEntities";
+import { decodeHtmlEntities as decodeEntities } from "../utils/decodeHtmlEntities.ts";
 export { decodeEntities };
 
 const escapeText = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

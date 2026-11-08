@@ -170,6 +170,8 @@ CHECK_RULES: tuple[tuple[str, re.Pattern], ...] = (
                               r"|\breputation\b|\bflag(?:s|ged)?\b|\b(?:lists|listed)\b", re.I)),
     ("registration", re.compile(r"\bregistered (?:on|in|less than|\d)|\bregistration record\b|\bRDAP\b", re.I)),
     ("redirect", re.compile(r"\bredirect(?:s|ed|ing)?\b", re.I)),
+    # The words of a web address itself pressing the reader to act (tc_flyby/official.py PRESSURE_WORDS).
+    ("pressure_words", re.compile(r"\bpresses you to act\b|\bpressure words?\b", re.I)),
     ("registration_number", re.compile(r"\bcheck-digit\b", re.I)),
     ("free_email", re.compile(r"\bfree (?:personal )?email\b", re.I)),
     # Added for Higgins' explanation-quality pass (ApolloSG PRD v2.3): finding wording the renderer
@@ -182,6 +184,7 @@ CHECK_RULES: tuple[tuple[str, re.Pattern], ...] = (
     ("malware_signature", re.compile(r"\bYARA\b|\bmalware signature\b|\bsuspicious (?:YARA )?match(?:es)?\b", re.I)),
     ("file_disguise", re.compile(r"\.pdf\.exe\b|\bdisguised? as\b|\bdouble[- ]extension\b|\bfilename (?:that )?ends? in\b", re.I)),
     ("pattern_match", re.compile(r"\b(?:credential[- ]harvest\w*|phishing|scam) pattern\b", re.I)),
+    ("tls_certificate", re.compile(r"\b(?:TLS|SSL) certificates?\b", re.I)),
 )
 _NEG = re.compile(r"\b(?:not|no|never|none|nothing|without)\b|n't\b", re.I)
 # A "registered ... <small number> hours/days/weeks ago" is a materially different, more concerning
@@ -211,7 +214,7 @@ RESULT_KINDS: tuple[tuple[str, re.Pattern], ...] = (
                             r"|\bnothing (?:was )?found\b|\bhas nothing on\b|\bnever (?:been )?(?:listed|flagged|named)\b", re.I)),
 )
 REASSURING = {"OFFICIAL", "NOT_LISTED", "VALID", "PASS"}
-CONCERNING = {"NOT_OFFICIAL", "LISTED", "FAILED", "RECENT", "BYPASSED", "OBSERVED", "MATCHED", "DISGUISED"}
+CONCERNING = {"NOT_OFFICIAL", "LISTED", "FAILED", "RECENT", "BYPASSED", "OBSERVED", "MATCHED", "DISGUISED", "INVALID", "PRESSURE"}
 
 _ORG_NAME = r"([A-Z][\w&.-]*(?: (?:[A-Z][\w&.-]*|of|and|&)){0,4})"
 _ORG = (re.compile(rf"\bpublished {_ORG_NAME} (?:customer|contact|support|enquir|help|email|address)"),
@@ -257,6 +260,8 @@ def classify(text: str) -> tuple[str, str]:
         return check, "RECENT" if _recently_registered(t) else "REGISTERED"
     if check == "redirect":
         return check, "REDIRECTS"
+    if check == "pressure_words":
+        return check, "PRESSURE"
     if check == "risk_score":
         return check, "SCORED"
     if check == "registration_number":
@@ -273,6 +278,8 @@ def classify(text: str) -> tuple[str, str]:
         return check, "DISGUISED"
     if check == "pattern_match":
         return check, "NO_MATCH" if neg or "no_match" in kinds else "MATCHED"
+    if check == "tls_certificate":
+        return check, "INVALID" if neg or "failed" in kinds else "VALID"
     return check, "FAILED" if "failed" in kinds else "NO_MATCH" if "no_match" in kinds else "STATED"
 
 
@@ -356,19 +363,38 @@ def case_subject(findings: list[dict], gates: tuple[str, ...] | list[str]) -> Op
 def connecting_knowledge(findings: list[dict]) -> list[str]:
     """Apollo's own fixed, general knowledge weaving the material findings into one line of reasoning — the same
     kind of bounded addition as a jargon definition (words.GLOSSARY), just about how findings relate or why one
-    matters, never about a case-specific identifier. At most one sentence: a named combination of (check, result)
-    pairs when the material findings form one of the known ones (words.CONNECTIONS), else why the single most
-    material concern matters on its own (words.SIGNIFICANCE). Never both — one sentence is a connected thought,
-    not a second caption. Nothing here reads a case's identifiers, so it can never invent a case-specific fact."""
+    matters, never about a case-specific identifier. Nothing here reads a case's identifiers, so it can never
+    invent a case-specific fact. Up to two sentences, each independently justified, never per-finding captions:
+      1. One overall synthesis, in priority order: a named combination of (check, result) pairs when the
+         material findings form one of the known ones (words.CONNECTIONS, either favourable or concerning) ·
+         else a generic "these agree" sentence when two or more material findings share a direction that has
+         no named combination yet (words.GENERIC_CONCERN_SYNTHESIS / GENERIC_CLEAR_SYNTHESIS) — this is what
+         keeps the mechanism general rather than limited to the combinations anticipated so far · else why the
+         single most material finding matters on its own (words.SIGNIFICANCE).
+      2. Independently: a check that couldn't be completed is never, by itself, a warning sign
+         (words.UNAVAILABLE_CAVEAT) — this can appear alongside sentence 1, or alone, or not at all."""
     from services.higgins.explain import words as W
-    pairs = frozenset((f["check"], f["result"]) for f in findings if f["materiality"] == "material" and f["polarity"] != "neutral")
-    if not pairs:
-        return []
-    connection = W.pick_connection(pairs)
-    if connection:
-        return [connection]
-    lead = next((f for f in findings if f["materiality"] == "material" and (f["check"], f["result"]) in W.SIGNIFICANCE), None)
-    return [W.SIGNIFICANCE[(lead["check"], lead["result"])]] if lead else []
+    material = [f for f in findings if f["materiality"] == "material"]
+    concern_pairs = frozenset((f["check"], f["result"]) for f in material if f["polarity"] == "concern")
+    clear_pairs = frozenset((f["check"], f["result"]) for f in material if f["polarity"] == "clear")
+    sentences: list[str] = []
+
+    named = W.pick_connection(concern_pairs | clear_pairs)
+    if named:
+        sentences.append(named)
+    elif len(concern_pairs) >= 2:
+        sentences.append(W.GENERIC_CONCERN_SYNTHESIS)
+    elif len(clear_pairs) >= 2:
+        sentences.append(W.GENERIC_CLEAR_SYNTHESIS)
+    else:
+        lead = next((f for f in material if f["polarity"] != "neutral" and (f["check"], f["result"]) in W.SIGNIFICANCE), None)
+        if lead:
+            sentences.append(W.SIGNIFICANCE[(lead["check"], lead["result"])])
+
+    if any(f["result"] in ("UNAVAILABLE", "NOT_APPLICABLE") for f in material):
+        sentences.append(W.UNAVAILABLE_CAVEAT)
+
+    return sentences
 
 
 
