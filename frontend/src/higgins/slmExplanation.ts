@@ -3,8 +3,8 @@
  * runtime used by investigators. This is an optional language refinement,
  * never a new source of factual claims, device state or scam verdicts.
  */
-import { differences } from "../luddish/fidelity.ts";
-import { runSLM, type SLMAdapter } from "../slm/index.ts";
+import { differences } from "../domain/luddish/fidelity.ts";
+import { runSLM, type SLMAdapter } from "../domain/slm/index.ts";
 import type { HigginsChatReply } from "./chatClient.ts";
 
 const QUOTED = new Set([
