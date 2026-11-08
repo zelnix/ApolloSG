@@ -13,8 +13,8 @@ from pydantic import Field, model_validator
 
 from services.higgins.contracts import Wire
 
-SLMRole = Literal["higgins_triage", "tc_hawkeye", "magnum_di", "luddish"]
-SLMOperation = Literal["investigation_readiness", "evidence_reasoning", "explanation"]
+SLMRole = Literal["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins"]
+SLMOperation = Literal["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation"]
 
 
 class SLMReference(Wire):
