@@ -1,0 +1,52 @@
+# One-time branch-only lockfile generation for ApolloSG's on-device SLM.
+# Uses Yarn itself, rather than fabricating dependency integrity hashes.
+# This workflow is intentionally scoped to its own path on `slm`.
+name: SLM native dependency lock
+
+on:
+  push:
+    branches: [slm]
+    paths:
+      - '.github/workflows/slm-dependency-lock.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apollosg-slm-dependency-lock
+  cancel-in-progress: false
+
+jobs:
+  lock:
+    if: github.ref == 'refs/heads/slm'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Enable the existing package manager
+        run: corepack enable && corepack prepare yarn@1.22.22 --activate
+      - name: Generate an exact dependency and integrity-verified lockfile
+        run: |
+          yarn add --exact llama.rn@0.12.9 --ignore-scripts --non-interactive
+          yarn install --frozen-lockfile --ignore-scripts --non-interactive
+          git diff --check
+          node -e "const p=require('./package.json');if(p.dependencies['llama.rn']!=='0.12.9')process.exit(1)"
+      - name: Commit only the dependency manifest and Yarn lock on slm
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json yarn.lock
+          if git diff --cached --quiet; then
+            echo "Already locked; no changes."
+            exit 0
+          fi
+          git commit -m "build(slm): pin llama.rn 0.12.9 with generated Yarn lockfile"
+          git push origin HEAD:slm
