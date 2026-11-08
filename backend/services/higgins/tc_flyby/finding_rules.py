@@ -1103,17 +1103,18 @@ def evaluate(plan: Plan) -> FindingRulesResult:
     return result
 
 
-def evaluate_for_magnum(plan: Plan, magnum_outcome: str | None) -> FindingRulesResult:
-    """Map a Magnum DI outcome to the new finding codes using the same rules.
-    Magnum DI selects its own outcome via the AI model, but this function ensures
-    the same finding criteria are applied."""
-    # First evaluate the TC Hawkeye evidence with the rules
-    rules_result = evaluate(plan)
-
-    # If Magnum DI provided an outcome, validate it against the rules
-    if magnum_outcome:
-        # Magnum DI's outcome is trusted if it's consistent with the rules
-        # or if it has additional evidence TC Hawkeye didn't have
-        pass
-
-    return rules_result
+# Unified Evidence Classification PRD §7.4 — Phase 2 investigation note (8 Nov 2026): a prior
+# `evaluate_for_magnum(plan, magnum_outcome)` placeholder lived here, claiming to "map a Magnum DI
+# outcome to the new finding codes using the same rules" but its reconciliation branch was an empty
+# `pass` and it was never called anywhere in the pipeline (confirmed by a full-repo search before
+# removal). The real, working mechanism for "Magnum DI's result re-enters the same evidence
+# resolver, no model-confidence-only overrides" already exists and is exercised on every Magnum DI
+# turn: decide.floor() turns TC Hawkeye's own provisional/established Decision into a
+# {outcome, established, minimum, findings} contract, carried in report.magnum_brief() (so the model
+# is told the floor) and enforced by validation.floor_errors() (so an answer that tries to go below
+# it — or claims "scam"/"likely_scam" on only low-confidence findings — is rejected outright, never
+# silently accepted). That mechanism is intentionally different in shape from this module's S/N/L
+# waterfall + scoring.reconcile() (Magnum's output is a qualitative AI judgement with no
+# six-dimension rating attached — response_schema.py's findingsRating/findingsRatingBreakdown/
+# taxonomy/mechanisms/playbooks are explicitly TC-Hawkeye-only and null on every Magnum-answered
+# response), so it is deliberately left in validation.py/decide.py rather than rebuilt here.
