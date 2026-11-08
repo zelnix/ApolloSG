@@ -1,0 +1,22 @@
+name: SLM isolated preview leakage diagnosis
+on:
+  push:
+    branches: [slm]
+    paths:
+      - '.github/workflows/slm-simulation-diagnosis.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate any production-reachable literal preview marker
+        run: |
+          echo 'Literal marker references (paths and line numbers only):'
+          grep -Rnl 'commbank-cancel.co' frontend/app frontend/src --include='*.ts' --include='*.tsx' --include='*.js' || true
+          echo 'References outside the preview-only simulation folder:'
+          find frontend/app frontend/src -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' \) ! -path '*/src/simulation/*' -print0 | xargs -0 grep -nH 'commbank-cancel.co' || true
+          echo 'Direct imports of preview simulation internals:'
+          grep -REn 'from ["\x27][^"\x27]*/simulation/' frontend/app frontend/src --include='*.ts' --include='*.tsx' || true
