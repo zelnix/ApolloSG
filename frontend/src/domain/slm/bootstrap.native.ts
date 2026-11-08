@@ -3,7 +3,7 @@
  * The one instance services Ask Higgins and all investigation roles.
  */
 import * as Device from "expo-device";
-import { File, Paths } from "expo-file-system";
+import { File, FileMode, Paths } from "expo-file-system";
 import { CANDIDATE_FILE, verifyPrivateGGUF } from "./modelAdmission.ts";
 import { createLuddishOnDevice } from "./llamaRnBinding.native.ts";
 import { getSharedSLM, setSharedSLM } from "./sharedRuntime.ts";
@@ -19,7 +19,10 @@ export function startSharedLuddish(): Promise<boolean> {
   if (startup) return startup;
   startup = (async () => {
     const file = new File(Paths.document, CANDIDATE_FILE);
-    const admitted = await verifyPrivateGGUF(file, Device.totalMemory ?? null);
+    const admitted = await verifyPrivateGGUF({
+      uri: file.uri, exists: file.exists, size: file.size,
+      open: () => file.open(FileMode.ReadOnly),
+    }, Device.totalMemory ?? null);
     if (!admitted.available) return false;
     const created = createLuddishOnDevice({
       modelUri: admitted.uri, modelId: admitted.modelId,
