@@ -33,11 +33,29 @@ confirmed identity, no confirmed destination, no matched transaction) gets the o
 scam" baseline, never a false "not a scam": that requires Triage to have actually captured positive
 verification, not just the absence of a request.
 
-Correction (Developer Instructions — "Correct the Benign Baseline Rule"): the benign floor is a floor
-for a genuine informational vacuum, not a penalty for falling short of full legitimacy proof. It fires
-only when nothing was actually checked, or something specific remains unresolved (`_checked_and_clean()`
-below gates this) — never merely because checks that *did* run came back clean. Missing proof of
-legitimacy is not, by itself, evidence of a scam.
+Correction (ApolloSG Developer Instructions — "Correct Benign Baseline Invocation and Mandatory Magnum
+DI Escalation"): the benign floor is restricted to exactly two approved, evidence-backed criteria
+(`benign_trigger()` below) — never merely an absence of positive verification:
+
+  1. Investigation failure — a technical, verification-service, evidence-processing, evidence-integrity
+     or investigation-execution failure genuinely prevented a required check from completing or being
+     processed reliably (`_investigation_failure()`): a check TC Hawkeye planned stayed "unavailable",
+     an optional provider failed on something nothing else already resolved (the same test
+     decide.technical_issue() applies), or submitted evidence couldn't be extracted/processed at all
+     (`plan.gaps`).
+  2. Conflicting investigative results — materially contradictory findings TC Hawkeye could not
+     reliably reconcile (`ipdmc.has_contradictions`, already gathered by finding_rules.gather_ipdmc from
+     an unresolved "Conflict" open_issue or a scam-pattern match beside the organisation's own routes).
+
+A successfully completed check that simply found nothing (`not_found`), or an ordinary message with
+nothing to check and nothing wrong, never qualifies on its own — that's an informational vacuum, not a
+failure, and is scored on its own (ordinarily calculated) merits. Decisive scam evidence is never diluted
+by the floor either way: the floor only ever raises a lower calculated score, never lowers a higher one
+(`score < BENIGN_BASELINE` below), so an established threat always still wins.
+
+Whenever the floor actually fires, decide.py mandates handing the case to Magnum DI (never resolving it
+at TC Hawkeye alone) — see decide.evaluate()'s use of this module's `benign_trigger`/`ScoreBreakdown.
+benign_baseline_applied`.
 """
 from __future__ import annotations
 
@@ -475,57 +493,82 @@ def _established_by_rules(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
     return f"{reason[0].lower()}{reason[1:]} (rule {rule.rule_id})"
 
 
-def _checked_and_clean(plan: Plan, ipdmc: IPDMCChecks) -> bool:
-    """True when nothing about this message remains unresolved, and whatever TC Hawkeye actually
-    checked came back clean — a specific, evidence-backed reason the benign floor must not apply
-    (Developer Instructions: "Correct the Benign Baseline Rule" — missing proof of legitimacy is not,
-    by itself, evidence of a scam when what TC Hawkeye *did* check came back clean). Returns False
-    (the floor may still apply) when any of the following hold, each itself a genuine informational
-    vacuum or an unresolved risk-relevant condition — never merely "short of full legitimacy proof":
-      - a consequential request still points at a destination nobody has verified (PRD's delivery-
-        toll/invoice shape: a clean link elsewhere never vouches for a different, unverified
-        payment destination);
-      - nothing was actually checked at all (no links, phones, emails or brand claims — the genuine
-        informational vacuum PRD §2.4's golf-invitation example still needs the floor for);
-      - any check came back concerning, anomalous, weak, or merely "missing" (looked up, not
-        established — e.g. an unavailable external verification service) — none of these are
-        themselves clean evidence, so they must not disable the floor either.
-    """
-    if ipdmc.consequential_requests and (ipdmc.unverified_destinations or ipdmc.destinations_verified != "passed"):
-        return False
-    all_facts = [f for c in plan.checks for f in c.facts if f.get("class") == "live_evidence"]
-    if (getattr(plan.entities, "explicit_no_request", False) and not ipdmc.consequential_requests
-            and not any(f["signal"] in ("concern", "anomaly") for f in all_facts)):
-        # The material itself affirmatively states it carries no payment/link/information request, and
-        # nothing anywhere in it contradicts that — a positive, evidence-backed statement, not silence.
-        return True
-    if not all_facts:
-        return False
-    if any(f["signal"] in ("concern", "anomaly", "weak", "missing") for f in all_facts):
-        return False
-    return any(f["signal"] in ("clear", "neutral") for f in all_facts)
+def _unresolved(check) -> bool:
+    """A check's own facts didn't already establish or clear what it would have covered — the same test
+    decide.technical_issue() applies to a provider failure, reused here (ApolloSG Developer Instructions
+    §2, Criterion 1: "An optional or redundant service failure that has no effect on investigative
+    reliability must not automatically invoke Benign")."""
+    return not any(f.get("decisive") for f in check.facts) and not any(f["signal"] in ("concern", "clear") for f in check.facts)
 
 
-def _benign_baseline_trigger_text(plan: Plan, ipdmc: IPDMCChecks, baseline: int) -> str:
-    """The specific, traceable reason the floor fired — states exactly what remained unresolved
-    (Developer Instructions requirement #2: specific trigger, supporting evidence, risk relevance,
-    traceability, rating justification), never the removed standalone phrase "Nothing was positively
-    verified, so the ordinary unverified floor of 28 applies instead of the lower N." alone."""
-    unresolved: list[str] = []
-    if ipdmc.consequential_requests and (ipdmc.unverified_destinations or ipdmc.destinations_verified != "passed"):
-        unresolved.append("this message makes a request through a destination nobody has verified")
-    if not plan.checks:
-        unresolved.append("no identity, destination or claim in this message had any check available to run")
-    else:
-        unavailable_kinds = sorted({c.kind for c in plan.checks if c.status == "unavailable"})
-        if unavailable_kinds:
-            unresolved.append(f"the {', '.join(unavailable_kinds)} check(s) on it could not be completed")
-    if not unresolved:
-        unresolved.append("no positive evidence of legitimacy was established for its identity or destination")
+def _investigation_failure(plan: Plan) -> list[str]:
+    """Criterion 1 — Investigation Failure (Developer Instructions §2): a technical, verification-service,
+    evidence-processing, evidence-integrity or investigation-execution failure genuinely prevented a
+    required investigative operation from completing or being processed reliably. A successfully
+    completed check that simply found nothing (status "not_found") is never a failure — only a check
+    that stayed "unavailable", a sub-service within an otherwise-resolved check that could not be
+    reached (e.g. "Google Safe Browsing could not be checked for …" — services.higgins.tc_flyby.
+    official.answer — a "missing" fact on a check that isn't itself "not_found"), a provider failure
+    nothing else already resolved, or evidence TC Hawkeye submitted but couldn't extract/decode/parse/
+    analyse (`plan.gaps`) qualify."""
+    reasons = [(next((f["text"] for f in c.facts if f["signal"] == "missing"), None)
+               or f"the {c.kind} check on {c.subject} could not be completed")
+              for c in plan.checks if c.status == "unavailable" and _unresolved(c)]
+    reasons += [f"IPQualityScore timed out or failed after retrying while checking {c.subject}, with nothing else "
+               f"resolving it" for c in plan.checks if c.provider_failures and c.status != "unavailable" and _unresolved(c)]
+    reasons += [f["text"] for c in plan.checks for f in c.facts
+               if f["signal"] == "missing" and c.status not in ("unavailable", "not_found") and _unresolved(c)]
+    reasons += [f"{g['item']} could not be reliably processed ({g['what']})" for g in (plan.gaps or [])]
+    return reasons
+
+
+def _conflicting_results(ipdmc: IPDMCChecks) -> list[str]:
+    """Criterion 2 — Conflicting Investigative Results (Developer Instructions §2): materially
+    contradictory investigative findings TC Hawkeye could not reliably reconcile — already gathered by
+    finding_rules.gather_ipdmc (an unresolved "Conflict" open_issue, e.g. a register entry under a
+    related-but-different name, or a scam-pattern match beside the organisation's own, genuine routes).
+    Excludes a contradiction finding_rules.gather_ipdmc itself already reconciled with a genuine
+    explanation (`genuine_explanation_supported` — identity and destinations both positively verified,
+    with nothing else concerning) — that one was successfully reconciled, not left unresolved.
+    Where the contradiction itself already establishes deception, an S-rule/decisive mechanism applies
+    its own floor (never below 85) regardless of this one, so it is never diluted by the benign floor —
+    the two floors only ever raise a score with `max()`, never lower it."""
+    if not ipdmc.has_contradictions or ipdmc.genuine_explanation_supported:
+        return []
+    return list(ipdmc.contradiction_details)
+
+
+def benign_trigger(plan: Plan, ipdmc: IPDMCChecks) -> tuple[str, list[str]] | None:
+    """Whether the Benign Baseline may fire at all, restricted to exactly the two approved criteria
+    (Developer Instructions §2/§6) — never merely because nothing was positively verified either way.
+    Returns (category, reasons) or None. `category`: "investigation_failure" | "conflicting_results".
+    The single source of truth for Benign eligibility: decide.py reads the same result (via this
+    module's ScoreBreakdown.benign_baseline_applied) to mandate Magnum DI escalation, rather than
+    re-deciding eligibility on its own."""
+    failures = _investigation_failure(plan)
+    if failures:
+        return "investigation_failure", failures
+    conflicts = _conflicting_results(ipdmc)
+    if conflicts:
+        return "conflicting_results", conflicts
+    return None
+
+
+def _benign_baseline_trigger_text(trigger: tuple[str, list[str]], baseline: int) -> str:
+    """The specific, traceable reason the floor fired — states exactly what failed or conflicted
+    (Developer Instructions §2: specific trigger, supporting evidence, traceability, rating
+    justification), never a generic "nothing was positively verified" phrase — and states plainly that
+    the investigation has been handed over to Magnum DI (Developer Instructions §3: mandatory
+    escalation), not left as TC Hawkeye's own, final word."""
+    category, reasons = trigger
+    what = ("TC Hawkeye could not reliably complete or process part of this investigation" if category == "investigation_failure"
+           else "TC Hawkeye found materially contradictory investigative results it could not reliably reconcile")
+    joined = "; ".join(r.rstrip(". ") for r in reasons)
     return (f"The calculated six-dimension score ({baseline}/100) is not itself a reason for concern, but it "
-            f"also isn't a confirmed-safe result: {'; and '.join(unresolved)}. An ordinary message with no "
-            f"positive verification either way still carries the baseline unverified risk, so the floor of "
-            f"{BENIGN_BASELINE} applies instead of {baseline}.")
+            f"also isn't a confirmed-safe result: {what} — {joined}. Because of this, the "
+            f"investigation has been handed over to Magnum DI to look into the whole case — this {BENIGN_BASELINE}-"
+            f"point floor is provisional, not confirmation of a scam, and Magnum DI may remove it with evidence "
+            f"that resolves it, or confirm a higher rating the evidence supports.")
 
 
 def _legitimacy_credit(plan: Plan, ipdmc: IPDMCChecks) -> tuple[int, str]:
@@ -551,16 +594,15 @@ def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
     breakdown = ScoreBreakdown(dimensions=dims, baseline=baseline)
 
     score = baseline
-    if not _positively_verified(plan, ipdmc) and score < BENIGN_BASELINE and not _checked_and_clean(plan, ipdmc):
-        # PRD §2.3.C — ordinary, unverified communications never read as "not a scam" just because a
-        # handful of ambiguous points happened to add up low: nothing concerning was found, but nothing
-        # was positively verified either, so the floor is "unlikely a scam", not "not a scam".
-        # Developer Instructions correction: this only fires on a genuine informational vacuum (nothing
-        # checked, or something left unresolved) — never merely because checks that *did* run came back
-        # clean (`_checked_and_clean`). Missing proof of legitimacy alone is not evidence of a scam.
+    trigger = benign_trigger(plan, ipdmc)
+    if trigger and score < BENIGN_BASELINE:
+        # Developer Instructions §2/§6 — the floor fires on exactly the two approved criteria
+        # (benign_trigger: a genuine investigation failure, or an unresolved material contradiction),
+        # never merely because nothing was positively verified either way. It only ever raises a lower
+        # calculated score, never lowers a higher one, so established scam evidence is never diluted.
         score = BENIGN_BASELINE
         breakdown.benign_baseline_applied = True
-        breakdown.benign_baseline_trigger = _benign_baseline_trigger_text(plan, ipdmc, baseline)
+        breakdown.benign_baseline_trigger = _benign_baseline_trigger_text(trigger, baseline)
 
     credit, reason = _legitimacy_credit(plan, ipdmc)
     if credit:

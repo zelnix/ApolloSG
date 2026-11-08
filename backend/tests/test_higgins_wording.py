@@ -151,32 +151,42 @@ def _bare_link(*facts: dict, unavailable: bool = False) -> triage.Plan:
     return plan
 
 
-def _undetermined(plan: triage.Plan) -> dict:
+def test_weak_signal_alone_is_not_scam_with_no_overclaim(): 
+    """Correction (ApolloSG Developer Instructions §6 — "Correct Benign Baseline Invocation"): a weak
+    signal that isn't itself a concern, with nothing else unresolved or contradictory, is no longer
+    floored to "unlikely_scam" purely for lacking verification — it settles as "not_scam" directly,
+    still carefully worded (never claiming the site is proven safe)."""
+    plan = _bare_link(_listed_clean("fresh-deals.shop"), _registered("fresh-deals.shop", young=True))
     decision, issues = decide.evaluate(plan, MATERIAL, final=True)
-    assert issues == [] and decision.outcome == "unlikely_scam", "settlement unchanged"
+    assert issues == [] and decision.outcome == "not_scam", "settlement unchanged"
     result = report.compose(decision, plan, MATERIAL, "flyby-1")
-    assert result["attention"] == "review" and result["outcome"] == "unlikely_scam"
-    return result
-
-
-def test_unable_to_determine_with_only_weak_signals_names_no_gap():
-    result = _undetermined(_bare_link(_listed_clean("fresh-deals.shop"), _registered("fresh-deals.shop", young=True)))
-    assert result["overview"].startswith("ApolloSG couldn't establish enough about fresh-deals.shop to say either way. It found no warning "
-                                         "signs, only a weak signal that isn't a concern on its own, but that isn't the same as it being safe")
-    assert _means(result) == "A weak signal can't settle it either way, so the available evidence can't establish more."
-    assert result["attentionReason"] == "What ApolloSG found can't show whether it's safe or not."
-    assert "couldn't be checked" not in result["explanationMarkdown"] and "Nothing it found raises a concern" not in result["overview"]
+    assert result["attention"] == "none" and result["outcome"] == "not_scam"
+    assert result["overview"] == ("Nothing Apollo checked raises a concern about fresh-deals.shop. That isn't proof the site is safe — "
+                                  "only that these checks found nothing.")
 
 
 def test_unable_to_determine_names_the_gap_when_something_couldnt_be_checked():
-    result = _undetermined(_bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing")))
+    """Developer Instructions §2/§3: a genuine Criterion 1 failure (a sub-service — here Google Safe
+    Browsing — that couldn't be checked) now mandates Magnum DI escalation rather than TC Hawkeye
+    settling it alone (see test_benign_baseline_invocation.py for the routing-level coverage). This
+    test exercises report.compose()'s wording layer directly, on a manually-built "unlikely_scam"
+    Decision, to keep the gap-naming wording itself covered."""
+    from services.higgins.tc_flyby.decide import Decision
+
+    plan = _bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing"))
+    decision, issues = decide.evaluate(plan, MATERIAL, final=True)
+    assert decision is None and issues, "a genuine investigation failure must now escalate to Magnum DI, not settle alone"
+
+    manual_decision = Decision(decide._route(plan.checks), "unlikely_scam", "clear")
+    result = report.compose(manual_decision, plan, MATERIAL, "flyby-1")
     assert "It found no warning signs, but that isn't the same as it being safe" in result["overview"]
     assert _means(result) == "Some of what would settle this couldn't be checked, so the available evidence can't establish more."
     assert result["attentionReason"] == "Something ApolloSG couldn't fully check may still be unsafe."
 
-    both = _undetermined(_bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing"),
-                                    _registered("fresh-deals.shop", young=True),
-                                    fact("The link redirects to another site.", "weak", topic="redirect")))
+    both_plan = _bare_link(fact("Google Safe Browsing could not be checked for fresh-deals.shop.", "missing", topic="listing"),
+                           _registered("fresh-deals.shop", young=True),
+                           fact("The link redirects to another site.", "weak", topic="redirect"))
+    both = report.compose(Decision(decide._route(both_plan.checks), "unlikely_scam", "clear"), both_plan, MATERIAL, "flyby-1")
     assert "only weak signals that aren't a concern on their own" in both["overview"]
     assert _means(both) == ("Some of what would settle this couldn't be checked and weak signals can't settle it either way, so the available "
                             "evidence can't establish more.")

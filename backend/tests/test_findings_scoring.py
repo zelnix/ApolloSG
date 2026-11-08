@@ -56,12 +56,15 @@ class TestScorePlanMechanics:
     """score_plan() over directly-constructed evidence — the engine's own contract, independent of
     what any particular free-text message happens to extract (that's Higgins Triage's job)."""
 
-    def test_nothing_found_nothing_verified_is_unlikely_scam_at_the_benign_baseline(self):
+    def test_nothing_found_nothing_checked_is_not_scam_not_benign(self):
+        """ApolloSG Developer Instructions §6 — "Correct Benign Baseline Invocation": an ordinary
+        message with nothing to check and nothing wrong must never get the floor merely for lacking
+        verification (PRD §2.4's golf-invitation shape) — it is scored on its own calculated merits."""
         plan = _plan()
         breakdown = score_plan(plan, IPDMCChecks())
-        assert breakdown.finding == "unlikely_scam"
-        assert breakdown.rating == 28
-        assert breakdown.benign_baseline_applied is True
+        assert breakdown.finding == "not_scam"
+        assert breakdown.rating == 0
+        assert breakdown.benign_baseline_applied is False
 
     def test_decisive_otp_ask_floors_at_85_regardless_of_other_evidence(self):
         plan = _plan()
@@ -124,15 +127,20 @@ class TestScorePlanMechanics:
         assert breakdown.rating <= 24
         assert breakdown.legitimacy_credit > 0
 
-    def test_unverified_consequential_request_alone_is_unlikely_scam_not_clean(self):
+    def test_unverified_consequential_request_alone_scores_only_its_own_dimension(self):
         """A consequential ask through an unverified route is concerning (20/100 just from that
-        dimension), but on its own — no false identity, no pattern, no corroboration — it still isn't
-        enough to cross into "likely a scam"; it should never read as "not a scam" either."""
+        dimension), but on its own — no false identity, no pattern, no corroboration, no genuine
+        investigation failure or contradiction — the Benign Baseline no longer applies (Developer
+        Instructions §6: absence of verification alone must not invoke it). In the real pipeline this
+        shape still always reaches Magnum DI, via decide.py's existing unverified-request "reasoning"
+        issue (services.higgins.tc_flyby.decide._all_issues) — this is a unit test of score_plan() in
+        isolation, not the end-to-end routing decision."""
         plan = _plan()
         ipdmc = IPDMCChecks(consequential_requests=[{"type": "financial", "quote": "please transfer $50 to my new account"}])
         breakdown = score_plan(plan, ipdmc)
-        assert breakdown.finding == "unlikely_scam"
-        assert 25 <= breakdown.rating <= 59
+        assert breakdown.benign_baseline_applied is False
+        assert breakdown.rating == 20
+        assert breakdown.finding == "not_scam"
 
     def test_full_kb_pattern_match_with_a_request_is_likely_scam_or_higher(self):
         plan = _plan(pattern={"name": "Hi Mum", "stage": "full", "impersonatesOrganisation": False})
@@ -165,10 +173,10 @@ class TestScorePlanMechanics:
 
 
 class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
-    """Developer Instructions — "Correct the Benign Baseline Rule": the 28-point floor must not fire
-    just because a message falls short of full legitimacy proof. It must still fire for a genuine
-    informational vacuum (PRD §2.4's own golf-invitation example), but never merely because checks
-    that *did* run came back clean."""
+    """ApolloSG Developer Instructions — "Correct Benign Baseline Invocation and Mandatory Magnum DI
+    Escalation": the 28-point floor fires on exactly two approved criteria — a genuine investigation
+    failure, or an unresolved material contradiction — never merely because a message falls short of
+    full legitimacy proof, and never merely because nothing was positively verified either way."""
 
     def test_checked_and_clean_evidence_does_not_get_bumped_to_the_floor(self):
         """The "ABC newsletter" shape: a check actually ran (a link/domain lookup) and came back
@@ -191,34 +199,100 @@ class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
         assert breakdown.rating == 6, "the calculated score must be retained, not bumped to 28"
         assert breakdown.finding == "not_scam"
 
-    def test_genuine_informational_vacuum_still_gets_the_floor(self):
-        """PRD §2.4's own example (the golf invitation): nothing at all to check. The floor must
-        still apply here — this is NOT the case the correction narrows."""
-        plan = _plan()  # checks=[] — nothing was ever checked
+    def test_ordinary_message_with_nothing_to_check_does_not_get_the_floor(self):
+        """Developer Instructions §6's own example ("Hi David, are we still meeting for golf tomorrow
+        at 10 AM?"): nothing was submitted that needed checking, and nothing failed. This is NOT a
+        genuine investigation failure or an unresolved contradiction, so the floor must not fire —
+        reversing the previous (incorrect) behaviour where an informational vacuum alone triggered it."""
+        plan = _plan()  # checks=[] — nothing was ever checked, nothing is wrong
         breakdown = score_plan(plan, IPDMCChecks())
-        assert breakdown.benign_baseline_applied is True
-        assert breakdown.rating == 28
-        assert breakdown.benign_baseline_trigger, "an applied floor must carry a specific, traceable reason"
+        assert breakdown.benign_baseline_applied is False
+        assert breakdown.rating == 0
+        assert breakdown.finding == "not_scam"
 
-    def test_missing_unavailable_check_does_not_count_as_clean_evidence(self):
-        """An "unavailable external verification service" (signal="missing") must not, by itself,
-        disable the floor — it is an evidence limitation, not clean proof of legitimacy."""
+    # ── Criterion 1: Investigation Failure ────────────────────────────────
+
+    def test_an_unavailable_check_is_a_genuine_investigation_failure_and_gets_the_floor(self):
+        """A required check TC Hawkeye planned stayed "unavailable" (e.g. a timed-out API, an
+        unreachable registry) — a genuine Criterion 1 failure, distinct from a successful lookup that
+        simply found nothing."""
         from services.higgins.tc_flyby.triage import Check
 
-        missing_fact = {"text": "Google Safe Browsing could not be checked for example.org.", "signal": "missing",
-                        "decisive": False, "class": "live_evidence", "topic": "listing", "source": None}
         link_check = Check(id="c1", kind="link", subject="example.org", urls=["https://example.org/"])
-        link_check.facts.append(missing_fact)
+        link_check.status = "unavailable"
         plan = _plan(checks=[link_check])
 
         breakdown = score_plan(plan, IPDMCChecks())
-        assert breakdown.benign_baseline_applied is True, "an unavailable check alone must not disable the floor"
+        assert breakdown.benign_baseline_applied is True
+        assert breakdown.rating == 28
+        assert breakdown.finding == "unlikely_scam"
+        assert "could not be completed" in breakdown.benign_baseline_trigger
+
+    def test_a_provider_timeout_with_nothing_else_resolving_it_gets_the_floor(self):
+        """A reputation-check provider (e.g. IPQualityScore) failed/timed out after retrying, with
+        nothing else already established for that check — decide.technical_issue()'s own test,
+        reused here as a Criterion 1 trigger."""
+        from services.higgins.tc_flyby.triage import Check
+
+        link_check = Check(id="c1", kind="link", subject="fresh-deals.shop", urls=["https://fresh-deals.shop/"])
+        link_check.provider_failures = ["ipqs"]
+        plan = _plan(checks=[link_check])
+
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.benign_baseline_applied is True
         assert breakdown.rating == 28
 
-    def test_unresolved_consequential_request_still_gets_the_floor_even_with_a_clean_link_elsewhere(self):
-        """PRD's delivery-toll shape: a consequential request through an unverified destination must
-        still get the floor even if a *different* link elsewhere in the message checked out clean —
-        a clean link never vouches for a different, unverified payment destination."""
+    def test_unprocessable_evidence_is_an_investigation_failure_and_gets_the_floor(self):
+        """Submitted evidence that could not be extracted/decoded/parsed/analysed reliably (a scanned
+        page with no text layer, a corrupted attachment) — a Criterion 1 evidence-processing failure."""
+        plan = _plan(gaps=[{"evidenceId": "e1", "item": "page 2 of the statement", "magnum": True,
+                            "what": "a scanned page with no text layer, so its text couldn't be extracted"}])
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.benign_baseline_applied is True
+        assert breakdown.rating == 28
+        assert "could not be reliably processed" in breakdown.benign_baseline_trigger
+
+    def test_a_successful_lookup_that_found_nothing_is_not_a_failure(self):
+        """A check genuinely ran and came back "not_found" (no record either way) — this is a
+        successfully completed investigative operation, not a failure, so it must not invoke Benign
+        on its own (Developer Instructions §2/§6)."""
+        from services.higgins.tc_flyby.triage import Check
+
+        not_found_fact = {"text": "TC Hawkeye's search found no record for 0412 345 678.", "signal": "missing",
+                          "decisive": False, "class": "live_evidence", "topic": None, "source": None}
+        phone_check = Check(id="c1", kind="phone", subject="0412 345 678")
+        phone_check.facts.append(not_found_fact)
+        phone_check.status = "not_found"
+        plan = _plan(checks=[phone_check])
+
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.benign_baseline_applied is False
+        assert breakdown.finding == "not_scam"
+
+    def test_an_unrelated_optional_service_failure_with_no_bearing_does_not_get_the_floor(self):
+        """A provider failure on a check whose subject was already independently established (clear or
+        concern) by something else has no effect on investigative reliability, so it must not
+        automatically invoke Benign (Developer Instructions §2: "An optional or redundant service
+        failure that has no effect on investigative reliability must not automatically invoke
+        Benign.") — the same `_unresolved()` test decide.technical_issue() already applies."""
+        from services.higgins.tc_flyby.triage import Check
+
+        clear_fact = {"text": "Google Safe Browsing lists example.org as safe.", "signal": "clear",
+                     "decisive": False, "class": "live_evidence", "topic": "listing", "source": None}
+        link_check = Check(id="c1", kind="link", subject="example.org", urls=["https://example.org/"])
+        link_check.facts.append(clear_fact)
+        link_check.provider_failures = ["ipqs"]   # a different, redundant provider failed — irrelevant
+        plan = _plan(checks=[link_check])
+
+        breakdown = score_plan(plan, IPDMCChecks())
+        assert breakdown.benign_baseline_applied is False
+
+    def test_a_consequential_request_through_an_unverified_destination_alone_no_longer_floors(self):
+        """Developer Instructions §6 correction: an unverified destination, by itself, is an absence
+        of verification — not a genuine investigation failure or contradiction — so it no longer
+        invokes Benign on its own (see TestScorePlanMechanics for the full rationale, including why
+        the real pipeline still reaches Magnum DI for this shape regardless, via decide.py's existing
+        unverified-request issue)."""
         from services.higgins.tc_flyby.triage import Check
 
         clean_fact = {"text": "auspost.com.au is Australia Post's own, official domain.", "signal": "clear",
@@ -230,9 +304,68 @@ class TestBenignBaselineRequiresAnEvidenceBackedTrigger:
                             unverified_destinations=["0412 345 678"])
 
         breakdown = score_plan(plan, ipdmc)
+        assert breakdown.benign_baseline_applied is False
+        assert breakdown.rating == 20
+
+    # ── Criterion 2: Conflicting Investigative Results ────────────────────
+
+    def test_an_unresolved_register_conflict_gets_the_floor(self):
+        """A register entry under a related-but-different name — gather_ipdmc's own "Conflict"
+        open_issue — is a materially contradictory result TC Hawkeye could not reconcile."""
+        ipdmc = IPDMCChecks(has_contradictions=True,
+                            contradiction_details=["Conflict: ABN 12 345 678 901 is registered to a related but different "
+                                                   "name than Example Pty Ltd, the name in the material."])
+        breakdown = score_plan(_plan(), ipdmc)
         assert breakdown.benign_baseline_applied is True
         assert breakdown.rating == 28
-        assert breakdown.finding == "unlikely_scam"
+        assert "contradictory" in breakdown.benign_baseline_trigger
+
+    def test_a_reconciled_contradiction_does_not_get_the_floor(self):
+        """Once TC Hawkeye reconciles a contradiction (gather_ipdmc never set has_contradictions, or a
+        later check cleared it), there is nothing left to float to the floor for."""
+        ipdmc = IPDMCChecks(has_contradictions=False, contradiction_details=[])
+        breakdown = score_plan(_plan(), ipdmc)
+        assert breakdown.benign_baseline_applied is False
+
+    def test_a_pattern_match_explained_by_the_organisations_own_official_routes_does_not_get_the_floor(self):
+        """Developer Instructions §8 test 6 — "contradictory findings are successfully reconciled by TC
+        Hawkeye": a message matches a scam pattern, but every route in it is the named organisation's own
+        — gather_ipdmc's own `genuine_explanation_supported` (identity and destinations both positively
+        verified, nothing else concerning). This was reconciled, not left materially unresolved."""
+        ipdmc = IPDMCChecks(has_contradictions=True, genuine_explanation_supported=True,
+                            contradiction_details=["The material matches a scam pattern but the links belong to the named organisation."])
+        breakdown = score_plan(_plan(), ipdmc)
+        assert breakdown.benign_baseline_applied is False
+
+    def test_a_contradiction_that_itself_establishes_deception_is_never_diluted_by_benign(self):
+        """Developer Instructions §2: "Where a contradiction itself establishes deception, retain that
+        evidence for normal scam scoring. Do not use Benign to dilute an established threat." A false
+        identity used deceptively already floors the score at 85 — the benign floor (28) never lowers
+        it, and `benign_baseline_applied` correctly stays False since it was never needed."""
+        ipdmc = IPDMCChecks(claimed_identity="myGov", identity_is_false=True, purpose_is_deceptive=True,
+                            has_contradictions=True, contradiction_details=["Conflict: some unresolved detail."])
+        breakdown = score_plan(_plan(), ipdmc)
+        assert breakdown.rating >= 85
+        assert breakdown.finding == "scam"
+        assert breakdown.benign_baseline_applied is False, "the floor was never needed — established evidence already outranks it"
+
+    def test_higher_established_evidence_is_never_reduced_by_the_floor(self):
+        """A false identity alone is already "likely a scam" (>= 65) — far above the 28-point floor,
+        which only ever raises a lower score, never lowers one."""
+        ipdmc = IPDMCChecks(identity_is_false=True, has_contradictions=True,
+                            contradiction_details=["Conflict: some unresolved detail."])
+        breakdown = score_plan(_plan(), ipdmc)
+        assert breakdown.rating >= 65
+        assert breakdown.benign_baseline_applied is False
+
+    def test_the_four_finding_labels_and_thresholds_are_unaffected(self):
+        """The correction only narrows when the floor fires — it changes no classification boundary."""
+        assert classify_finding(24) == "not_scam"
+        assert classify_finding(25) == "unlikely_scam"
+        assert classify_finding(59) == "unlikely_scam"
+        assert classify_finding(60) == "likely_scam"
+        assert classify_finding(84) == "likely_scam"
+        assert classify_finding(85) == "scam"
 
 
 class TestBreakdownSaysNothingTwice:

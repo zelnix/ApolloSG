@@ -117,7 +117,11 @@ CASES: list[ReferenceCase] = [
                       gt("link", "startrack-redirect.info", text="startrack-redirect.info was registered 3 days ago.", signal="weak", topic="registration")],
     ),
     ReferenceCase(
-        id="009", scenario="Ordinary unverified parcel arrival notice", category="benign", target_score=28, target_finding="unlikely_scam",
+        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — an
+        # ordinary message with nothing to check and nothing wrong is not_scam/0, not the PRD's original
+        # illustrative unlikely_scam/28: that depended on the since-removed "absence of verification"
+        # Benign trigger. See services/higgins/tc_flyby/scoring.py::benign_trigger.
+        id="009", scenario="Ordinary unverified parcel arrival notice", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Your parcel from Kmart has arrived at the Auspost locker at Westfield Hornsby. It will be held for 48 hours.",
     ),
@@ -153,7 +157,8 @@ CASES: list[ReferenceCase] = [
                   "to stop the transfer before it processes."),
     ),
     ReferenceCase(
-        id="014", scenario="Ordinary unverified banking reminder", category="benign", target_score=29, target_finding="unlikely_scam",
+        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
+        id="014", scenario="Ordinary unverified banking reminder", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Reminder: your ANZ credit card payment of $120.00 is due in 3 days. Log in to the ANZ app to view your statement.",
     ),
@@ -191,14 +196,16 @@ CASES: list[ReferenceCase] = [
                   "once it's sorted, please don't tell anyone else about this."),
     ),
     ReferenceCase(
-        id="030", scenario="Unverified ordinary family message", category="benign", target_score=28, target_finding="unlikely_scam",
+        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
+        id="030", scenario="Unverified ordinary family message", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Hey, running 10 minutes late to dinner, see you soon! Can you grab some bread on the way?",
     ),
 
     # ── 061-070 — Social Engineering (romance) & Financial/Crypto Fraud ─────
     ReferenceCase(
-        id="061", scenario="Ordinary golf invitation", category="benign", target_score=28, target_finding="unlikely_scam",
+        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
+        id="061", scenario="Ordinary golf invitation", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Keen for golf Saturday morning? Tee off at 7am, I'll book us in at the usual course.",
     ),
@@ -254,7 +261,8 @@ CASES: list[ReferenceCase] = [
                   "wallet will be drained within the hour."),
     ),
     ReferenceCase(
-        id="069", scenario="Ordinary unverified investment seminar invitation", category="benign", target_score=30, target_finding="unlikely_scam",
+        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
+        id="069", scenario="Ordinary unverified investment seminar invitation", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="You're invited to a free investment seminar at the local library next Thursday 6pm, covering super and shares basics. All welcome.",
     ),
@@ -288,7 +296,8 @@ CASES: list[ReferenceCase] = [
                   "withdrawals after your first task set, deposit a refundable $150 activation fee in cryptocurrency to get started."),
     ),
     ReferenceCase(
-        id="074", scenario="Ordinary unverified job interview invitation", category="benign", target_score=28, target_finding="unlikely_scam",
+        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
+        id="074", scenario="Ordinary unverified job interview invitation", category="benign", target_score=0, target_finding="not_scam",
         question="Is this a scam?",
         material="Hi, thanks for applying — we'd like to invite you for an interview Tuesday at 10am at our office. Please confirm if that time works.",
     ),

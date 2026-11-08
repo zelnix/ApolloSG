@@ -502,6 +502,16 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     _settle(plan_, issues)
     magnum_search = False if decision else deciding.magnum_needs_search(plan_, issues)
     floor = None if decision else deciding.floor(plan_, deciding.provisional(plan_))
+    # A reputation-check provider (IPQualityScore) genuinely failed or timed out after retrying, with
+    # nothing else resolving what it would have covered — a Criterion 1 Investigation Failure (Developer
+    # Instructions §2) that now mandatorily escalates to Magnum DI (decide.evaluate()) rather than TC
+    # Hawkeye resolving it alone; still logged to the admin Alerts console for visibility either way.
+    failed_checks = deciding.technical_issue(plan_)
+    if failed_checks:
+        await admin_alerts.log_technical_failure(
+            owner=owner, case_id=case_id, checks=sorted({c.kind for c in failed_checks}),
+            subjects=sorted({c.subject for c in failed_checks if c.subject}),
+            reason="IPQualityScore did not answer after retrying.")
 
     await _register_sources(owner, case_id, plan_.checks)
     unread_sections = official.unread_sections(case.get("triage_provider_evidence"))
@@ -518,13 +528,6 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
                                for f in check.facts if (f.get("source") or {}).get("kbId")] if e]
         presented = knowledge.present(entries, check.subject)[0] if entries else ""
         response = report.knowledge_answer(check, decision.answered_by, presented, sorted({s for f in check.facts for s in f.get("sourceIds", [])}))
-    elif decision and decision.basis == "technical_issue":
-        failed = deciding.technical_issue(plan_)
-        response = report._with_gaps(report.technical_issue_result(plan_, plan_.checks, failed), plan_)
-        await admin_alerts.log_technical_failure(
-            owner=owner, case_id=case_id, checks=sorted({c.kind for c in failed}),
-            subjects=sorted({c.subject for c in failed if c.subject}),
-            reason="IPQualityScore did not answer after retrying.")
     elif decision:
         response = report.compose(decision, plan_, texts, checks_id)
     brief_id = None

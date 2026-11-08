@@ -28,6 +28,13 @@ rests on could reverse it. Established threat evidence is never overridden.
 Weak signals (a redirect to another site, a newly registered domain, a direct download, a third-party reputation
 warning, text found copied elsewhere) never make a case Concerning, alone or together. They count only as the
 independent corroboration an impersonation or another warning sign needs.
+
+Mandatory Magnum DI escalation (Developer Instructions §3): whenever the Findings Rating's Benign Baseline
+actually fires (services.higgins.tc_flyby.scoring.benign_trigger — a genuine investigation failure, e.g. an
+unavailable check or unprocessable evidence, or an unresolved material contradiction, never merely an absence
+of verification), TC Hawkeye never resolves the case alone on that provisional 28-point floor: `evaluate()`
+always hands it to Magnum DI with the full case evidence, not scope-limited to the triggering issue — see
+`_mandatory_magnum_issue()`.
 """
 from __future__ import annotations
 
@@ -273,6 +280,22 @@ def _complete(plan_: Plan) -> bool:
     return True
 
 
+def _mandatory_magnum_issue(rating_breakdown: dict, texts: dict[str, str]) -> Issue:
+    """Developer Instructions §3 — mandatory Magnum DI escalation: whenever the Findings Rating actually
+    applied the Benign Baseline (scoring.benign_trigger — a genuine investigation failure or an
+    unresolved material contradiction, never merely an absence of verification), TC Hawkeye hands the
+    whole case to Magnum DI rather than resolving it alone on that provisional floor. `evidence_ids`
+    carries every text item so Magnum DI investigates the full case, not only the triggering issue
+    (Developer Instructions §4) — this is additive to whatever else `magnum_issues()` already sent."""
+    trigger = rating_breakdown.get("benignBaselineTrigger") or (
+        "TC Hawkeye could not reliably complete or reconcile part of this investigation.")
+    return Issue("reasoning", f"{trigger} Investigate the whole case freely, not just this one issue — confirm or "
+                             "correct TC Hawkeye's findings with whatever evidence settles it. If you resolve it, "
+                             "report your own evidence-based outcome; if you cannot, the outcome should not read "
+                             "as \u201cThis is Not a Scam\u201d, since nothing here has been positively confirmed safe.",
+                list(texts))
+
+
 def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decision | None, list[Issue]]:
     """(TC Hawkeye's decision, []) when the case is resolved; (None, issues) when Magnum DI could change it.
     Before the last stage only a decisive official result (or an answered general question) stops TC Hawkeye —
@@ -300,22 +323,31 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
     # If the rules engine says not_scam (all N rules pass), TC Hawkeye settles it here.
     from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
     rules_result = rules_evaluate(plan_)
+    breakdown = rules_result.rating_breakdown or {}
 
     issues = magnum_issues(plan_, texts, found)
 
-    # A reputation check (IPQualityScore) genuinely failed or timed out after retrying, and nothing else —
-    # an established concern above, or something Magnum DI could still read and reason about — resolves the
-    # case: Apollo must not proceed to a Findings score on this incomplete evidence (PRD v2.2 S2.5). This is
-    # a technical failure, never a Finding, and is checked before either scoring path below.
-    if not found and not issues and technical_issue(plan_):
-        return Decision(_route(plan_.checks), None, "technical_issue"), []
+    # Developer Instructions §3 — mandatory Magnum DI escalation: a genuine investigation failure or an
+    # unresolved material contradiction (scoring.benign_trigger, surfaced here as the Findings Rating's
+    # own benignBaselineApplied) always hands the case to Magnum DI, never resolving it at TC Hawkeye
+    # alone on that provisional floor. `technical_issue(plan_)` is kept as a defensive fallback for the
+    # rare case where something else already pushed the score past the floor before it could fire.
+    if not found and not issues and (breakdown.get("benignBaselineApplied") or technical_issue(plan_)):
+        issues = [_mandatory_magnum_issue(breakdown, texts)]
+
+    # Whatever Magnum DI could still change always takes precedence over any shortcut below — including
+    # the "not_scam" one: under the previous, overly broad Benign Baseline this ordering never mattered
+    # (almost any concerning signal already floored the score past 25 before "not_scam" was reachable),
+    # but narrowing Benign to its two approved criteria (Developer Instructions §2/§6) makes "not_scam"
+    # reachable on the raw dimension score alone even while a genuine unresolved issue (an unverified
+    # consequential request, a conflict, unread content) still stands — that issue must still win.
+    if issues:
+        return None, issues
 
     if not found and rules_result.finding == "not_scam":
         route = _route(plan_.checks)
         return Decision(route, "not_scam", "clear"), []
 
-    if issues:
-        return None, issues
     if found:
         return found, []           # a concern outcome nothing unresolved could change: the protective action stands
 
@@ -329,8 +361,11 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
 def technical_issue(plan_: Plan) -> list[Check]:
     """Checks whose reputation-check provider (IPQualityScore) genuinely failed or timed out after
     retrying — c.provider_failures — with nothing else (no decisive finding, no clear or concerning
-    signal) resolving what it would have covered. PRD v2.2 S2.5: this is "investigation unable to
-    progress", never a Finding — Apollo does not guess a score from evidence it never actually got."""
+    signal) resolving what it would have covered. Never a Finding TC Hawkeye reaches on its own: this
+    is exactly a Criterion 1 Investigation Failure (Developer Instructions §2), so `evaluate()` now
+    mandatorily hands the case to Magnum DI rather than reporting "investigation unable to progress"
+    itself — `report.technical_issue_result()` remains available only for the genuine fallback where
+    Magnum DI's own call is also unavailable or fails, which this module does not decide."""
     return [c for c in plan_.checks if c.provider_failures
             and not any(f.get("decisive") for f in c.facts)
             and not any(f["signal"] in ("concern", "clear") for f in c.facts)]

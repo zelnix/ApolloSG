@@ -185,13 +185,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "unlikely_scam",
-      "targetFinding": "unlikely_scam",
-      "actualScore": 28,
-      "targetScore": 28,
+      "actualFinding": "not_scam",
+      "targetFinding": "not_scam",
+      "actualScore": 0,
+      "targetScore": 0,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "010",
@@ -251,13 +251,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "unlikely_scam",
-      "targetFinding": "unlikely_scam",
-      "actualScore": 28,
-      "targetScore": 29,
-      "scoreDelta": -1,
+      "actualFinding": "not_scam",
+      "targetFinding": "not_scam",
+      "actualScore": 0,
+      "targetScore": 0,
+      "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "015",
@@ -329,13 +329,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "unlikely_scam",
-      "targetFinding": "unlikely_scam",
-      "actualScore": 28,
-      "targetScore": 28,
+      "actualFinding": "not_scam",
+      "targetFinding": "not_scam",
+      "actualScore": 0,
+      "targetScore": 0,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "061",
@@ -343,13 +343,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "unlikely_scam",
-      "targetFinding": "unlikely_scam",
-      "actualScore": 28,
-      "targetScore": 28,
+      "actualFinding": "not_scam",
+      "targetFinding": "not_scam",
+      "actualScore": 0,
+      "targetScore": 0,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "062",
@@ -449,13 +449,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "unlikely_scam",
-      "targetFinding": "unlikely_scam",
-      "actualScore": 28,
-      "targetScore": 30,
-      "scoreDelta": -2,
+      "actualFinding": "not_scam",
+      "targetFinding": "not_scam",
+      "actualScore": 0,
+      "targetScore": 0,
+      "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "070",
@@ -513,13 +513,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "unlikely_scam",
-      "targetFinding": "unlikely_scam",
-      "actualScore": 28,
-      "targetScore": 28,
+      "actualFinding": "not_scam",
+      "targetFinding": "not_scam",
+      "actualScore": 0,
+      "targetScore": 0,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "075",

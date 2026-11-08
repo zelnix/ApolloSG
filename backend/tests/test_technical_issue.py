@@ -65,12 +65,18 @@ async def test_a_provider_timeout_never_blocks_a_clear_result_from_another_sourc
     assert decide.technical_issue(plan_) == [], "Safe Browsing clearing it is itself a usable result"
 
 
-# ── decide.evaluate() halts before scoring ──────────────────────────────────
-async def test_evaluate_halts_before_scoring_when_a_check_timed_out(monkeypatch):
+# ── decide.evaluate() mandates Magnum DI escalation instead of halting ──────
+async def test_evaluate_escalates_to_magnum_di_instead_of_halting_when_a_check_timed_out(monkeypatch):
+    """ApolloSG Developer Instructions §3 — "Mandatory Magnum DI Escalation": a genuine Criterion 1
+    investigation failure (a provider that timed out after retrying, with nothing else resolving it)
+    no longer lets TC Hawkeye resolve the case alone as an unexplained "technical issue" — it always
+    hands the case to Magnum DI, with the full case evidence, not scope-limited to the failed check."""
     plan_ = await _plan_with_failed_ipqs(monkeypatch)
     decision, issues = decide.evaluate(plan_, ["Check this out: https://fresh-deals.shop/deal"], final=True)
-    assert issues == []
-    assert decision is not None and decision.outcome is None and decision.basis == "technical_issue"
+    assert decision is None, "TC Hawkeye must not resolve this case on its own"
+    assert len(issues) == 1 and issues[0].capability == "reasoning"
+    assert "IPQualityScore" in issues[0].text and "timed out" in issues[0].text
+    assert issues[0].evidence_ids == ["Check this out: https://fresh-deals.shop/deal"], "the whole case's evidence, not just the failed check"
 
 
 async def test_evaluate_does_not_halt_mid_investigation(monkeypatch):
