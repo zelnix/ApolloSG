@@ -7,7 +7,10 @@ on:
       - 'frontend/src/domain/slm/**'
       - 'frontend/src/higgins/slmExplanation.ts'
       - 'frontend/src/higgins/chatClient.ts'
-      - 'backend/services/higgins/slm_contract.py'
+      - 'backend/services/higgins/slm_contract.py services/higgins/slm_advisory.py services/higgins/coordinator.py'
+      - 'backend/services/higgins/slm_advisory.py'
+      - 'backend/services/higgins/coordinator.py'
+      - 'backend/tests/test_slm_advisory_stage.py'
       - 'backend/tests/test_slm_contract.py'
       - 'backend/routers/slm_handoff.py'
       - 'backend/routers/investigations.py'
@@ -74,4 +77,5 @@ jobs:
         working-directory: backend
         run: |
           PYTHONPATH=. python tests/test_slm_contract.py
+          PYTHONPATH=. python tests/test_slm_advisory_stage.py
           python -m py_compile routers/slm_handoff.py routers/investigations.py services/higgins/slm_contract.py
