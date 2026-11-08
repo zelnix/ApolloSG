@@ -258,80 +258,6 @@ PATTERNS: tuple[dict, ...] = (
         "consequence": "Money sent to a scam investment is rarely recovered.",
     },
     {
-        # PRD v2.3 §4.2 D11 extension — "fake endorsements" (a personal "mentor"/"expert" vouching is an
-        # informal endorsement) combined with the guaranteed-returns hallmark and an unsolicited invite to
-        # start. This is the "pig butchering" shape: a personal contact introduces a trading figure, then
-        # offers a link/contact to begin — distinct from `investment_returns`' own-platform pitch.
-        "key": "investment_mentor_referral",
-        "name": "investment scam using a personal \u201ctrading mentor\u201d or referral to guarantee returns",
-        "url": "https://www.scamwatch.gov.au/types-of-scams/investment-scams",
-        "summary": "a personal contact introduces a trading mentor, expert or broker who guarantees high returns, then offers to send a link or contact to get started.",
-        "body": ("Scamwatch warning signs: \u201cEmails, websites or ads with testimonials and over-the-top promises of big returns.\u201d "
-                 "\u201cA fraudster pretending to be a friend, admirer or love interest to build trust before introducing a fake investment "
-                 "opportunity (sometimes called 'pig butchering').\u201d What to do: \u201cCheck the company or website is not named on "
-                 "the Moneysmart investor alert list. Ensure the person offering you financial products or advice has an Australian "
-                 "financial services (AFS) licence.\u201d"),
-        "hallmarks": [
-            ["introduces a trading mentor, expert, broker or advisor who guarantees returns",
-             r"\b(?:my|a|our|this)\s+(?:trading\s+)?(?:mentor|expert|broker|advisor|adviser|analyst|guru)\b[^.?!\n]{0,60}?"
-             r"\b(?:guarantee[ds]?|is\s+guaranteed|guarantees)\b"
-             r"|\b(?:mentor|expert|broker|advisor|adviser|analyst|guru)\b[^.?!\n]{0,60}?\bguarantee[ds]?\s+(?:\w+\s+){0,2}(?:returns?|profits?|income)\b"],
-            ["promises guaranteed or very high returns",
-             r"guarantee[ds]?\s+(?:\w+\s+){0,2}(?:returns?|profits?|income|interest|payouts?)"
-             r"|\b\d{1,3}(?:\.\d+)?\s?%\s*(?:(?:per|a|each|every)\s+)?(?:day|daily|week|weekly|month|monthly|returns?|profit|interest|roi)\b"],
-        ],
-        "ask": ["offers to send a link, contact or group to get started",
-                r"\b(?:send|share|give)\s+(?:you\s+)?(?:the\s+|a\s+|my\s+)?(?:link|contact|details|group|channel)\b[^.?!\n]{0,40}?"
-                r"\b(?:started?|sign\s*up|signup|join|begin)\b"
-                r"|\b(?:message|contact|join|add)\s+(?:us|me|our\s+(?:group|team|channel))\s+on\s+(?:whatsapp|telegram|signal)\b"],
-        "opening": False,
-        "requires": [],
-        "impersonates_organisation": False,
-        "advice": [["Don't follow the referral", "Don't send money, click the link or join the group a personal contact refers you to for this."],
-                   ["Check Moneysmart", "Check the company isn't on Moneysmart's Investor Alert List and holds an Australian financial services licence."],
-                   ["Report it", "Report it to Scamwatch at scamwatch.gov.au. If you've already paid, contact your bank now."]],
-        "consequence": "Money sent through a personal referral like this follows the same path as any other investment scam — it is rarely recovered.",
-    },
-    {
-        # PRD v2.3 §4.2 D12 — Relationship Grooming, the one taxonomy gap the Phase 1 Capability Review
-        # identified as entirely missing. Scamwatch's dating-and-romance-scam hallmarks: quick romantic
-        # connection after an unexpected first contact, reasons the person can never meet or video call, and
-        # (eventually) a request for money framed as a personal crisis.
-        "key": "romance_grooming",
-        "name": "romance or relationship-grooming scam",
-        "url": "https://www.scamwatch.gov.au/types-of-scams/dating-and-romance-scams",
-        "summary": "someone builds a romantic connection quickly after an unexpected first contact, avoids meeting in person, and asks for money for a personal crisis.",
-        "body": ("Scamwatch: \u201cA fraudster uses fake profiles to build an emotional connection with you before asking for money.\u201d "
-                 "\u201cThey take the time to build what may feel like a genuine, loving relationship with you.\u201d Warning signs: "
-                 "\u201cThey profess strong feelings for you very quickly.\u201d \u201cThey ask to leave the dating site/app you met on and "
-                 "use personal email, messaging or phone instead.\u201d \u201cThey always have a reason why they can't video chat or meet "
-                 "in person.\u201d \u201cThey ask you for money, gifts, or your bank/credit card details.\u201d"),
-        "hallmarks": [
-            ["professes strong romantic feelings very quickly after an unexpected first contact",
-             r"\b(?:my\s+)?(?:love|darling|dear(?:est)?|sweetheart|soulmate|my\s+(?:queen|king|heart))\b[^.?!\n]{0,60}?\b(?:love|miss|need)\s+you\b"
-             r"|\bi\s+(?:love|adore)\s+you\s+(?:so\s+much\s+)?already\b|\bfeel\s+(?:a\s+)?(?:deep\s+)?connection\s+(?:with|to)\s+you\b"
-             r"|\bwant\s+a\s+(?:serious\s+)?relationship\s+with\s+you\b|\bcan'?t\s+wait\s+to\s+(?:finally\s+)?meet\s+you\s+in\s+person\b"],
-            ["gives a reason it can never meet, video call or be reached directly",
-             r"\b(?:can'?t|cannot|unable\s+to)\s+(?:video\s+call|video\s+chat|meet(?:\s+in\s+person)?|call\s+you)\b[^.?!\n]{0,40}?"
-             r"\b(?:because|as|since|right\s+now)\b"
-             r"|\b(?:deployed|stationed|working)\s+(?:overseas|abroad|on\s+an?\s+(?:oil\s+rig|ship|platform))\b"
-             r"|\bstuck\s+(?:in|at)\s+(?:customs|the\s+airport|a\s+(?:military|work)\s+(?:base|site))\b"],
-        ],
-        "ask": ["asks for money, gift cards or crypto for a personal crisis or to finally meet",
-                r"\b(?:send|transfer|pay|wire)\b[^.?!\n]{0,40}?(?:\$\s?\d[\d,]*|\bmoney\b|\bfunds\b|\bcash\b)[^.?!\n]{0,40}?"
-                r"\b(?:urgently|please|now|today|so\s+i\s+can|to\s+(?:get|come|fly))\b"
-                r"|\b(?:customs|airport|medical|hospital|visa|flight|ticket|bail|legal)\s+(?:fee|bill|charge|cost)s?\b[^.?!\n]{0,40}?"
-                r"\b(?:pay|send|transfer|cover)\b"
-                r"|\bbuy\s+(?:me\s+)?(?:a\s+)?(?:gift\s?cards?|itunes|google\s+play)\b"],
-        "opening": True,
-        "requires": [],
-        "impersonates_organisation": False,
-        "advice": [["Don't send money or gifts", "Don't send money, gift cards or cryptocurrency to someone you haven't met in person."],
-                   ["Slow down and verify independently", "Do a reverse image search of their photos and ask to video call unexpectedly — a scammer will always have a reason to say no."],
-                   ["Report it", "Report it to Scamwatch at scamwatch.gov.au. If you've already paid, contact your bank now."]],
-        "consequence": "Money sent to someone you've only met online, who always has a reason not to meet in person, is almost never recovered.",
-    },
-    {
         "key": "remote_access",
         "name": "remote access or tech support scam",
         "url": "https://www.scamwatch.gov.au/types-of-scams/phone-scams",
@@ -500,7 +426,7 @@ PATTERNS: tuple[dict, ...] = (
 _REQUIREMENT_LABEL = {"brand": "names an organisation", "link": "contains a link",
                       "offsite_link": "sends you to a link that isn't the organisation's own website"}
 # Bumped whenever the shipped markers change, so the KB entries are refreshed rather than left stale.
-PATTERN_VERSION = 5
+PATTERN_VERSION = 4
 
 
 async def load() -> int:

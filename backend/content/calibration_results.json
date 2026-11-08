@@ -2,7 +2,7 @@
   "about": "ApolloSG PRD v2.3 Findings Calibration \u2014 synthetic reference-library run, see tests/fixtures/reference_cases.py and tests/test_calibration_reference_library.py.",
   "totalCases": 55,
   "settled": 28,
-  "tierMatches": 14,
+  "tierMatches": 11,
   "results": [
     {
       "id": "001",
@@ -55,13 +55,13 @@
       "scenario": "Suspicious account recovery with substantial indicators",
       "settled": true,
       "category": "suspicious",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 6,
+      "actualScore": 28,
       "targetScore": 79,
-      "scoreDelta": -73,
+      "scoreDelta": -51,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "006",
@@ -91,39 +91,39 @@
       "scenario": "Confirmed delivery redirection credential theft",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "scam",
-      "actualScore": 21,
+      "actualScore": 28,
       "targetScore": 96,
-      "scoreDelta": -75,
+      "scoreDelta": -68,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "009",
       "scenario": "Ordinary unverified parcel arrival notice",
       "settled": true,
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 28,
+      "targetScore": 28,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "010",
       "scenario": "Delivery message with suspicious payment link",
       "settled": true,
       "category": "suspicious",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 0,
+      "actualScore": 28,
       "targetScore": 77,
-      "scoreDelta": -77,
+      "scoreDelta": -49,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "011",
@@ -153,26 +153,26 @@
       "scenario": "Suspicious bank callback request",
       "settled": true,
       "category": "suspicious",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 6,
+      "actualScore": 28,
       "targetScore": 81,
-      "scoreDelta": -75,
+      "scoreDelta": -53,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "014",
       "scenario": "Ordinary unverified banking reminder",
       "settled": true,
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
-      "scoreDelta": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 28,
+      "targetScore": 29,
+      "scoreDelta": -1,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "015",
@@ -229,26 +229,26 @@
       "scenario": "Unverified ordinary family message",
       "settled": true,
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 28,
+      "targetScore": 28,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "061",
       "scenario": "Ordinary golf invitation",
       "settled": true,
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 28,
+      "targetScore": 28,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "062",
@@ -275,13 +275,13 @@
       "scenario": "Wrong-number conversation to investment solicitation",
       "settled": true,
       "category": "suspicious",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 6,
+      "actualScore": 28,
       "targetScore": 80,
-      "scoreDelta": -74,
+      "scoreDelta": -52,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "065",
@@ -318,26 +318,26 @@
       "scenario": "Confirmed cryptocurrency wallet-draining request",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "scam",
-      "actualScore": 10,
+      "actualScore": 28,
       "targetScore": 99,
-      "scoreDelta": -89,
+      "scoreDelta": -71,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "069",
       "scenario": "Ordinary unverified investment seminar invitation",
       "settled": true,
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
-      "scoreDelta": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 28,
+      "targetScore": 30,
+      "scoreDelta": -2,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "070",
@@ -354,26 +354,26 @@
       "scenario": "Confirmed fake online store",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "scam",
-      "actualScore": 6,
+      "actualScore": 28,
       "targetScore": 94,
-      "scoreDelta": -88,
+      "scoreDelta": -66,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "072",
       "scenario": "Suspicious marketplace advance-payment request",
       "settled": true,
       "category": "suspicious",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 0,
+      "actualScore": 28,
       "targetScore": 76,
-      "scoreDelta": -76,
+      "scoreDelta": -48,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "073",
@@ -390,26 +390,26 @@
       "scenario": "Ordinary unverified job interview invitation",
       "settled": true,
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 28,
+      "targetScore": 28,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "075",
       "scenario": "Confirmed money mule recruitment",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "scam",
-      "actualScore": 6,
+      "actualScore": 28,
       "targetScore": 95,
-      "scoreDelta": -89,
+      "scoreDelta": -67,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "076",
@@ -426,13 +426,13 @@
       "scenario": "Confirmed ransomware payment demand",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "scam",
-      "actualScore": 6,
+      "actualScore": 28,
       "targetScore": 99,
-      "scoreDelta": -93,
+      "scoreDelta": -71,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "078",
@@ -578,26 +578,26 @@
       "scenario": "Verified legitimate Uber arrival notification",
       "settled": true,
       "category": "verified_legitimate",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "not_scam",
-      "actualScore": 0,
+      "actualScore": 28,
       "targetScore": 5,
-      "scoreDelta": -5,
+      "scoreDelta": 23,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "102",
       "scenario": "Verified legitimate courier notification",
       "settled": true,
       "category": "verified_legitimate",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "not_scam",
-      "actualScore": 6,
+      "actualScore": 28,
       "targetScore": 7,
-      "scoreDelta": -1,
+      "scoreDelta": 21,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "103",
@@ -617,13 +617,13 @@
       "scenario": "Verified legitimate employer interview confirmation",
       "settled": true,
       "category": "verified_legitimate",
-      "actualFinding": "not_scam",
+      "actualFinding": "unlikely_scam",
       "targetFinding": "not_scam",
-      "actualScore": 0,
+      "actualScore": 28,
       "targetScore": 6,
-      "scoreDelta": -6,
+      "scoreDelta": 22,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "105",

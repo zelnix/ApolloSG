@@ -336,10 +336,6 @@ class HigginsResponse(Wire):
     # The Higgins Findings Brief (PRD v2.2 Phase 5, services.higgins.tc_flyby.findings_brief) — the
     # same Finding re-presented under its six required headers. None for no Finding.
     findings_brief: Optional[dict] = None
-    # The 14 named Detection Mechanisms (PRD v2.3 §4) and the Verification Playbooks run for this case
-    # (PRD v2.3 §7.5, services.higgins.tc_flyby.mechanisms / playbook_runner). None for no Finding.
-    mechanisms: Optional[list[dict]] = None
-    playbooks: Optional[list[dict]] = None
 
 
 class Inventory(Wire):
@@ -734,12 +730,6 @@ class ModelResponse(Wire):
     # DI's model output leaves them null.
     taxonomy: Optional[dict] = None
     findings_brief: Optional[dict] = None
-    # TC Hawkeye-only: the 14 named Detection Mechanisms (PRD v2.3 §4) and the Verification Playbooks
-    # run for this case (PRD v2.3 §7.5) — both attached to report.compose()'s dict before validation,
-    # same as taxonomy/findings_brief above. The Gemini-facing schema allows but never asks for these;
-    # Magnum DI's model output leaves them null.
-    mechanisms: Optional[list[dict]] = None
-    playbooks: Optional[list[dict]] = None
 
 
 MODEL_RESPONSE_SCHEMA = ModelResponse.model_json_schema(by_alias=True)

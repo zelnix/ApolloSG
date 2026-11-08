@@ -161,12 +161,6 @@ def response_schema(*, evidence_ids: list[str] = (), source_ids: list[str] = (),
             "findingsBrief": {"type": "object", "nullable": True,
                              "description": "TC Hawkeye-only: the Higgins Findings Brief under its six required headers "
                                             "(PRD v2.2 Phase 5); the model never sets this."},
-            "mechanisms": {"type": "array", "nullable": True, "items": {"type": "object"},
-                          "description": "TC Hawkeye-only: which of the 14 named Detection Mechanisms (PRD v2.3 §4, "
-                                         "D01-D14) fired; the model never sets this."},
-            "playbooks": {"type": "array", "nullable": True, "items": {"type": "object"},
-                         "description": "TC Hawkeye-only: the Verification Playbooks run for this case (PRD v2.3 §7.5); "
-                                        "the model never sets this."},
         },
         "required": ["overview", "explanationMarkdown", "assessment", "outcome", "attention", "attentionReason", "findings",
                      "uncertainties", "scope", "sourceIds", "remainingEvidenceIds", "actions", "recommendedActionIndex",

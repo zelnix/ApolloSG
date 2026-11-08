@@ -282,12 +282,7 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
         return None, []
 
     # Check the rules engine FIRST for not_scam before generating magnum issues
-    # If the rules engine says not_scam (all N rules pass) AND nothing is still unresolved that
-    # Magnum DI could change (reading/reasoning/relating — this module's own contract above),
-    # TC Hawkeye settles it here. A "Not a Scam" score must never short-circuit a genuinely
-    # unresolved case (unread content, an unclear pattern match, a contradiction that could
-    # reverse it) — those still need Magnum DI regardless of the score (Developer Instructions
-    # correction to the scoring layer must not weaken this module's own escalation contract).
+    # If the rules engine says not_scam (all N rules pass), TC Hawkeye settles it here.
     from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
     rules_result = rules_evaluate(plan_)
 
@@ -300,7 +295,7 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
     if not found and not issues and technical_issue(plan_):
         return Decision(_route(plan_.checks), None, "technical_issue"), []
 
-    if not found and not issues and rules_result.finding == "not_scam":
+    if not found and rules_result.finding == "not_scam":
         route = _route(plan_.checks)
         return Decision(route, "not_scam", "clear"), []
 

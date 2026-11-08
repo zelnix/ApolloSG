@@ -53,7 +53,6 @@ const useStyles = makeStyles((c) => ({
   // Scoring breakdown
   scoreHeadline: { fontFamily: fonts.displayBold, fontSize: 20, color: c.onSurface },
   scoreNarrative: { fontFamily: fonts.text, fontSize: 13, lineHeight: 19, color: c.onSurfaceSecondary, marginTop: spacing.xs, marginBottom: spacing.sm },
-  verificationRow: { backgroundColor: c.surfaceSecondary, borderRadius: 8, padding: spacing.sm, marginBottom: spacing.sm, gap: 4 },
   scoreDimRow: { borderTopWidth: 1, borderTopColor: c.divider, paddingVertical: spacing.sm },
   scoreDimHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   scoreDimLabel: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface, flex: 1 },
@@ -131,13 +130,6 @@ function ScoreBreakdown({ breakdown }: { breakdown: FindingsRatingBreakdown }) {
         {breakdown.rating} / 100 {"\u2014"} {FINDING_RATING_LABELS[breakdown.finding] ?? breakdown.finding}
       </Text>
       {breakdown.narrative ? <Text style={s.scoreNarrative} selectable testID="tc-di-score-narrative">{breakdown.narrative}</Text> : null}
-
-      {breakdown.verificationNote ? (
-        <View style={s.verificationRow} testID="tc-di-score-verification">
-          <Text style={s.scoreSubLabel}>Verification {"\u2014"} separate from the risk score above</Text>
-          <Text style={s.stepDetail} selectable>{breakdown.verificationNote}</Text>
-        </View>
-      ) : null}
 
       {dimensions.map((d) => <ScoreDimensionRow key={d.key} dim={d} />)}
 

@@ -563,7 +563,7 @@ The Site Gate has no catalogue rules of its own. Its blocking is ENFORCE: it blo
 **TC Hawkeye's stages end here only for a decisive concern → This is a scam.** The deciding test still applies.
 
 #### Stage 2: ApolloSG Knowledge Base (no AI)
-- **Scam patterns.** There are 15 patterns from Scamwatch: family "new number" ("Hi Mum"), organisation phishing, delivery/toll, government threat, unexpected money or prize, job/paid task, investment returns, a personal "trading mentor" or referral guaranteeing returns (pig butchering), romance/relationship grooming, remote access/tech support, and OTP or verification code sharing request (account takeover); and four for phone calls only: a bank or card provider asking for a code, PIN, password or card details; government or police impersonation asking you to pay, move money or hand over details; tech support or an internet provider asking you to install an app, share your screen or give remote access; and a delivery or parcel company asking for a fee or card details.
+- **Scam patterns.** There are 13 patterns from Scamwatch: family "new number" ("Hi Mum"), organisation phishing, delivery/toll, government threat, unexpected money or prize, job/paid task, investment returns, remote access/tech support, and OTP or verification code sharing request (account takeover); and four for phone calls only: a bank or card provider asking for a code, PIN, password or card details; government or police impersonation asking you to pay, move money or hand over details; tech support or an internet provider asking you to install an app, share your screen or give remote access; and a delivery or parcel company asking for a fee or card details.
   - **Full match:** every defining indicator plus the ask. Organisation phishing also needs an organisation named and a link that isn't its own. Delivery/toll needs a link that isn't official.
   - **Phone calls:** a case opened from a call check is a call to assess, never a general question. The call is compared as the person described it (who the caller said they were, what they asked for, and anything typed), against all the patterns that need no link, and the four phone-call patterns are compared with calls only. They are matching rules, never a library answer to a general question. A call described only in the question goes to Magnum DI (Reasoning).
   - **Opening:** every indicator but no ask yet. This applies to the family pattern only.
@@ -1017,23 +1017,8 @@ the boundaries are exact and inclusive:
 |---|---|---|
 | **This is a scam** | 85–100 | An authoritative source names this exact link, number, address or company as a scam or threat; or the investigation has established a fake identity, a deceptive activity, or a complete corroborated scam pattern. |
 | **This is likely a scam** | 60–84 | Strong signs of impersonation, a strong scam-pattern match, or several independent scam indicators — but an important part of the evidence remains unverified. |
-| **This is unlikely a scam** | 25–59 | A scam-adjacent signal was found (a consequential request through an unverified route, a weak signal, an impersonation mention) but not enough, alone, to call it concerning. |
-| **This is not a scam** | 0–24 | The six-dimension score itself found nothing substantive — *at whatever real score it actually earns* (an ordinary message with nothing to check scores 0, not an inflated floor). This is **not** proof it's safe, and it is never described as safe; it is decided from the score alone (see the verification note below). |
-
-**Verification completeness is a separate, purely informational axis from the score (Developer
-Instructions — "Clarification of Scoring and Findings Requirements" — then reverted on direct
-instruction so the Finding is score-only again).** `scoring._positively_verified` /
-`verification_note` record, honestly, whether TC Hawkeye actually established positive verification
-or only found nothing concerning — this is always shown in the DI tab next to the score, but it
-never gates or changes which of the four Findings applies. For example, "Hi David, are we still
-meeting for golf tomorrow at 10 AM?" scores **0/100** (no dimension finds anything to score), gets
-no artificial adjustment, and reads **"This is not a scam"** — the same real score as a message
-whose identity *was* independently verified; `verificationNote` still honestly records that nothing
-was positively verified here, it just doesn't change the Finding. `decide.py`'s own escalation
-contract is unaffected by this axis: a "Not a scam" score never short-circuits a case that still has
-an unresolved reading/reasoning/relating issue only Magnum DI could settle (unread content, an
-unclear pattern match, a contradiction that could reverse it) — those still escalate regardless of
-score.
+| **This is unlikely a scam** | 25–59 | A benign or routine communication without meaningful scam indicators, but without enough positive verification to call it genuine — the normal finding for ordinary, unverified communications. The case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. (Replaces the earlier "Unable to determine" outcome, now fully merged into this tier.) |
+| **This is not a scam** | 0–24 | The investigation verified the identity, destinations, purpose and resolved all scam warnings. This is **not** proof it's safe, and it is never described as safe. |
 
 A reputation-check provider (IPQualityScore, for a link or phone number) that fails or times out, even
 after retrying, never produces a Findings Rating or any of the four outcomes above on its own: when

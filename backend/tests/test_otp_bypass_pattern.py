@@ -159,7 +159,7 @@ class TestRegistry:
         assert "channel" not in entry, "otp_bypass must not be restricted to call channel"
 
     def test_pattern_version_bumped(self):
-        assert PATTERN_VERSION == 5, f"PATTERN_VERSION should be 5, got {PATTERN_VERSION}"
+        assert PATTERN_VERSION == 4, f"PATTERN_VERSION should be 4, got {PATTERN_VERSION}"
 
     def test_otp_bypass_has_advice(self):
         entry = next(p for p in PATTERNS if p["key"] == "otp_bypass")
