@@ -72,6 +72,26 @@ SIGN_WORDS = {"misspelt": "the name is spelt to look like it",
 # The Official Organisation Directory's counted domains per organisation (filled by services/org_directory.load()).
 DIRECTORY: dict[str, tuple[str, ...]] = {}
 
+# Well-established, genuinely safe domains that ApolloSG recognises for the narrow "a message
+# contains nothing but a link to a well-known, correctly-matched domain, with nothing else present"
+# carve-out (Unified Evidence Classification PRD §4, owner confirmation 2026-11-08). Deliberately
+# NOT added to BRANDS: BRANDS drives impersonation-matching against arbitrary message text (a short
+# keyword like "abc" would false-match all sorts of unrelated mentions), whereas this list is only
+# ever consulted against an already-extracted link's own host — never scanned for in free text.
+# These are major, unambiguous, non-impersonation-target organisations (news, public broadcasters) —
+# never a bank, government payment service or anything scammers actually impersonate; those stay in
+# BRANDS/the Official Organisation Directory, where the stronger impersonation-aware checks apply.
+RECOGNISED_SAFE_DOMAINS = frozenset({
+    "abc.net.au",   # Australian Broadcasting Corporation
+})
+
+
+def is_recognised_safe_domain(host: str) -> bool:
+    """A link's own host is one of RECOGNISED_SAFE_DOMAINS or an organisation's published domain
+    (brand_domains.owner()) — genuinely known to ApolloSG's registers, not merely "nothing flagged it
+    as bad"."""
+    return registrable(host) in RECOGNISED_SAFE_DOMAINS or bool(owner(host))
+
 
 def official_domains(name: str) -> tuple[str, ...]:
     """The organisation's published domains, main one first: ApolloSG's own register, then the Official Organisation

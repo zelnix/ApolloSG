@@ -153,6 +153,14 @@ def _unverified_requests(plan: Plan) -> list[dict]:
     return unverified_requests(plan)
 
 
+def _is_recognised_safe_link(host: str) -> bool:
+    """Thin wrapper over brand_domains.is_recognised_safe_domain() — a link check's own host is an
+    organisation's published domain or the narrow curated list of major, non-impersonation-target
+    destinations, never merely "nothing flagged it as bad" (N2's own, weaker pass)."""
+    from services.higgins.brand_domains import is_recognised_safe_domain
+    return is_recognised_safe_domain(host)
+
+
 # ── Named decisive mechanisms (PRD §2.3.A / §8) ─────────────────────────────
 # A handful of critical exploit mechanisms are, on the request's own quoted wording, already both
 # the specific deceptive action S3 requires AND the evidence of what's false — waiting for a
@@ -1053,7 +1061,20 @@ def evaluate_rules(plan: Plan) -> FindingRulesResult:
     # (purpose_identified, set as soon as any request exists, which N3's own pass already implies).
     # N1 passing on its own already guarantees claimed_identity is set, so this never narrows a case
     # that genuinely verified identity.
-    has_claimed_context = bool(ipdmc.claimed_identity) or ipdmc.purpose_identified
+    #
+    # Narrow carve-out (owner confirmation, 2026-11-08): when the material contains nothing but a
+    # link to a domain ApolloSG itself recognises as a genuine, well-established organisation's own
+    # (brand_domains.is_recognised_safe_domain() — an organisation's published domain, or the small
+    # curated list of major, unambiguous, non-impersonation-target destinations), that recognition
+    # IS the established context, even with no explicit sender claim in the material naming that
+    # organisation. This is deliberately narrower than N2's ordinary "clean listing" pass (which
+    # only means nobody has flagged it as bad, never that ApolloSG actually knows who it belongs to):
+    # it requires every link check present to resolve to a specifically recognised domain.
+    _link_checks = [c for c in plan.checks if c.kind == "link"]
+    recognised_links_only = bool(_link_checks) and all(
+        _is_recognised_safe_link(c.subject) for c in _link_checks
+    )
+    has_claimed_context = bool(ipdmc.claimed_identity) or ipdmc.purpose_identified or recognised_links_only
     if n_applicable and all(r.passed for r in n_applicable) and substantive_verification and not has_gaps and has_claimed_context:
         result.finding = "not_scam"
         result.deciding_rules = [r.rule_id for r in n_passed]

@@ -674,20 +674,72 @@ def test_abc_news_newsletter_classifies_as_not_scam_with_why_safe_report():
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# TEST 14b — Bare, unclaimed link (no sender named, no request) → UNLIKELY A SCAM,
-#            never a false "Not a Scam" (owner report, 2026-11-08: "this should be
-#            Unlikely a Scam", a benign abc.net.au link share was reading as 'Not a Scam')
+# TEST 14b — Bare, unclaimed link to an UNRECOGNISED domain (no sender named, no
+#            request) → UNLIKELY A SCAM, never a false "Not a Scam" (owner report,
+#            2026-11-08: "this should be Unlikely a Scam" for a benign link share)
 # ════════════════════════════════════════════════════════════════════════════════
 
 def test_bare_unclaimed_clean_link_is_unlikely_scam_not_a_false_not_scam():
-    """A plain link to an ordinary, clean domain — nobody named as the sender, nothing asked for —
-    must read 'This is Unlikely a Scam' (25/100), never 'This is Not a Scam' (0/100): N2 passing
-    on a merely-clean, unrelated destination is an absence of badness, not a positively verified
-    claim, because here there is no claim (no named organisation, no request) for it to verify.
-    Mirrors reference_cases.py #104 ('nothing established' bucket) but through a link rather than
-    plain text — the exact shape of the reported bug (a forwarded abc.net.au link, unrelated to any
-    claimed sender)."""
+    """A plain link to an ordinary, clean, but UNRECOGNISED domain — nobody named as the sender,
+    nothing asked for, and the domain isn't one ApolloSG itself recognises as a genuine
+    organisation's own — must read 'This is Unlikely a Scam' (25/100), never 'This is Not a Scam'
+    (0/100): N2 passing on a merely-clean, unrelated destination is an absence of badness, not a
+    positively verified claim, because here there is no claim (no named organisation, no request,
+    no recognised domain) for it to verify. Mirrors reference_cases.py #104 ('nothing established'
+    bucket) but through a link rather than plain text."""
     from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
+
+    sb_clear = _live("example-random-site.com is not listed by Google Safe Browsing.",
+                     "clear", decisive=False, topic="listing")
+    rdap_neutral = _live("example-random-site.com is registered (registered: 2020, expires: 2027).",
+                         "neutral", decisive=False, topic="registration")
+    link_check = _link_check("example-random-site.com", sb_clear, rdap_neutral, resolved=True)
+
+    # No brand named, no impersonation check, no request, no recognised domain — nothing in the
+    # material claims a sender or a purpose; the clean link is the only thing TC Hawkeye has to go on.
+    plan = _make_plan(brands=[], hosts=["example-random-site.com"], requests=[], checks=[link_check])
+
+    result = rules_evaluate(plan)
+    assert result.finding == "unlikely_scam", (
+        f"A bare, unclaimed clean link to an unrecognised domain should be 'unlikely_scam'; got {result.finding!r}."
+    )
+    assert result.rating == 25
+    assert result.rating_breakdown.get("adjustmentReason"), "expected the raw 0/100 score to be raised to the unlikely_scam band floor (25)"
+
+    # The genuinely claimed ABC News case (TEST 14 above) must still resolve 'not_scam' — this fix
+    # must not regress the case where a sender IS actually named and its link matches.
+    abc_sb_clear = _live("abc.net.au is not listed by Google Safe Browsing.",
+                         "clear", decisive=False, topic="listing")
+    abc_rdap_neutral = _live("abc.net.au is registered to Australian Broadcasting Corporation Ltd "
+                             "(registered: 1996, expires: 2027).",
+                             "neutral", decisive=False, topic="registration")
+    abc_link_check = _link_check("abc.net.au", abc_sb_clear, abc_rdap_neutral, resolved=True)
+    imp_check = _imp_check("ABC News", "abc.net.au")
+    plan_claimed = _make_plan(
+        brands=[("ABC News", "abc.net.au")], hosts=["abc.net.au"], requests=[],
+        checks=[imp_check, abc_link_check],
+    )
+    assert rules_evaluate(plan_claimed).finding == "not_scam"
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TEST 14c — Bare, unclaimed link to a RECOGNISED safe domain (no sender named, no
+#            request) → NOT A SCAM (owner confirmation, 2026-11-08: a message
+#            containing nothing but a link to a well-known, correctly-matched,
+#            safe domain, with nothing else present, is confident enough on its own)
+# ════════════════════════════════════════════════════════════════════════════════
+
+def test_bare_link_to_recognised_safe_domain_is_not_scam():
+    """A plain link to abc.net.au (ApolloSG's narrow RECOGNISED_SAFE_DOMAINS list — the Australian
+    Broadcasting Corporation's own domain), with no sender claimed and nothing else present, is
+    confident enough on its own to read 'This is Not a Scam' — the domain itself IS the recognised,
+    well-established destination, distinct from TEST 14b's unrecognised random domain."""
+    from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
+    from services.higgins.brand_domains import is_recognised_safe_domain
+
+    assert is_recognised_safe_domain("abc.net.au")
+    assert is_recognised_safe_domain("www.abc.net.au")
+    assert not is_recognised_safe_domain("example-random-site.com")
 
     sb_clear = _live("abc.net.au is not listed by Google Safe Browsing.",
                      "clear", decisive=False, topic="listing")
@@ -696,25 +748,12 @@ def test_bare_unclaimed_clean_link_is_unlikely_scam_not_a_false_not_scam():
                          "neutral", decisive=False, topic="registration")
     link_check = _link_check("abc.net.au", sb_clear, rdap_neutral, resolved=True)
 
-    # No brand named, no impersonation check, no request — nothing in the material claims a sender
-    # or a purpose; the clean link is the only thing TC Hawkeye has to go on.
     plan = _make_plan(brands=[], hosts=["abc.net.au"], requests=[], checks=[link_check])
-
     result = rules_evaluate(plan)
-    assert result.finding == "unlikely_scam", (
-        f"A bare, unclaimed clean link should be 'unlikely_scam'; got {result.finding!r}."
+    assert result.finding == "not_scam", (
+        f"A bare link to the recognised abc.net.au domain, with nothing else present, should be 'not_scam'; got {result.finding!r}."
     )
-    assert result.rating == 25
-    assert result.rating_breakdown.get("adjustmentReason"), "expected the raw 0/100 score to be raised to the unlikely_scam band floor (25)"
-
-    # The genuinely claimed ABC News case (TEST 14 above) must still resolve 'not_scam' — this fix
-    # must not regress the case where a sender IS actually named and its link matches.
-    imp_check = _imp_check("ABC News", "abc.net.au")
-    plan_claimed = _make_plan(
-        brands=[("ABC News", "abc.net.au")], hosts=["abc.net.au"], requests=[],
-        checks=[imp_check, link_check],
-    )
-    assert rules_evaluate(plan_claimed).finding == "not_scam"
+    assert result.rating == 0
 
 
 # ════════════════════════════════════════════════════════════════════════════════

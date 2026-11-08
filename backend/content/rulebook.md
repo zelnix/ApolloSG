@@ -618,6 +618,8 @@ If any S rule passes and no unresolved reliable information undermines it → **
 
 All applicable N rules must pass. Unknown cannot be treated as passed. Gaps (unprocessed material) prevent "This is not a scam".
 
+N2 passing on its own — a link simply not flagged as malicious — is never enough by itself: that is an absence of badness, not a positive claim verified. "This is not a scam" additionally requires either a named sender/organisation, an identified request or purpose, **or** every link present resolving to a domain ApolloSG itself recognises as a genuine organisation's own (its register of organisation domains, or the small curated list of major, unambiguous, non-impersonation-target destinations such as abc.net.au). An ordinary message with nothing established at all — no claim, no request, and a link to an otherwise-unknown domain that merely wasn't flagged as bad — reads as "This is unlikely a scam" instead (owner confirmation, 2026-11-08).
+
 **Likely-scam rules (L1–L3) — any one passing → "This is likely a scam":**
 1. **L1 — Strong signs of impersonation:** the communication claims an identity, at least one detail (including a lookalike domain) conflicts with it, and another independent finding supports the possibility that the identity is being misused. A third-party sending service alone, or an unfamiliar domain alone, does not qualify.
 2. **L2 — Strong scam-pattern match:** the material matches a recognised pattern, the central scam behaviour is present, and the request matches — but an important part of the suspected deception remains unverified. If every element and supporting evidence is established, S4 applies instead.
