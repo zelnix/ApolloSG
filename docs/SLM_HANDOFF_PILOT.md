@@ -16,12 +16,16 @@ Status: coded only on the `slm` branch, disabled by default. The native device m
 
 The server gate is `APOLLO_SLM_HANDOFF=on`. It is **off** by default; do not enable in production. This is a development pilot only. Client code requires a real admitted `SLMAdapter` and will not automatically call Gemini.
 
+## Current coordinator checkpoint integration
+
+The existing `services/higgins/coordinator.py` now reads pre-accepted, revalidated, case/job/revision-bound advisory results at four checkpoints: Higgins Triage, TC Hawkeye, Magnum DI and Luddish. The code in `services/higgins/slm_advisory.py` rejects cancelled/stale/expired cases, other devices, unrecognised evidence citations and wrong roles. Only per-role counts and an explicitly `advisoryOnly` status are recorded in the existing case routing metadata. **No model text is treated as authoritative facts, score inputs, evidence or Luddish-approved wording.** The stage checks are non-blocking and do not initiate an SLM request, wait for one, trigger Gemini or change a verdict. There is no guarantee a phone supplied an answer before a checkpoint.
+
 ## Still necessary before live integration
 
 1. Select and validate the actual model on physical Android/iOS devices, including memory, prompt-output integrity and latency.
-2. Add stage-specific dispatch at the existing coordinator's safe yield points, rather than on arbitrary app screens. Ensure the backend initiates the request at an appropriate time and waits or proceeds honestly when unavailable.
+2. The coordinator checkpoints are now present, but actual backend-initiated request scheduling, device pickup and timing remain outstanding. Design these with the existing job lease/cancellation/recovery rules, without a new worker or investigation engine.
 3. Add definitive case/job fencing and cleanup tests under concurrency, cancellation, expiry, device disconnect and app restart.
 4. Consume **only validated advisory suggestions**, with independent verification by TC Hawkeye / Magnum DI and no verdict/score or Evidence Lock changes.
 5. Preserve verified provenance, exact source identifiers and Luddish explanation fidelity; Gemini stays a warranted Magnum DI extension, not a failed-SLM fallback.
 
-The two pilot endpoints demonstrate a real HTTP transport path only when explicitly activated. They do not automatically feed Luddish's output to the production investigation pipeline, do not prove genuine model execution and do not constitute an end-to-end device acceptance test.
+The two pilot endpoints and coordinator checkpoints demonstrate an opt-in HTTP handoff and read-only stage-aware intake. They do **not** yet put Luddish's output into substantive investigative planning, prove genuine model execution, or constitute an end-to-end device acceptance test.
