@@ -7,6 +7,9 @@ on:
       - 'frontend/src/domain/slm/**'
       - 'backend/services/higgins/slm_contract.py'
       - 'backend/tests/test_slm_contract.py'
+      - 'backend/routers/slm_handoff.py'
+      - 'backend/routers/investigations.py'
+      - 'frontend/src/domain/privacy.ts'
       - 'frontend/tests/slm*.test.ts'
       - 'frontend/tests/slm*.test.cjs'
       - 'frontend/scripts/slm-verify-gguf.cjs'
@@ -67,4 +70,6 @@ jobs:
         run: python -m pip install 'pydantic>=2,<3' 'pytest>=8,<10' 'pytest-xdist>=3,<5'
       - name: Test backend case correlation and evidence integrity
         working-directory: backend
-        run: PYTHONPATH=. python tests/test_slm_contract.py
+        run: |
+          PYTHONPATH=. python tests/test_slm_contract.py
+          python -m py_compile routers/slm_handoff.py routers/investigations.py services/higgins/slm_contract.py
