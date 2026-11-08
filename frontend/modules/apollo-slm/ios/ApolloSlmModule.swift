@@ -18,8 +18,14 @@ struct SlmGenerateInput: Record {
 public class ApolloSlmModule: Module {
   private func now() -> String { ISO8601DateFormatter().string(from: Date()) }
 
+  /// Apple publishes no version for its on-device model; it ships with the OS, so the iOS version identifies it.
+  private func osVersion() -> String {
+    let v = ProcessInfo.processInfo.operatingSystemVersion
+    return "iOS \(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+  }
+
   private func status(_ availability: String, _ reason: String?, engine: String = "apple_foundation_models") -> [String: Any?] {
-    ["availability": availability, "engine": engine, "reason": reason, "observedAt": now()]
+    ["availability": availability, "engine": engine, "reason": reason, "modelName": nil, "osVersion": osVersion(), "observedAt": now()]
   }
 
   private func readStatus() -> [String: Any?] {
@@ -65,8 +71,8 @@ public class ApolloSlmModule: Module {
           let options = GenerationOptions(temperature: input.temperature,
                                           maximumResponseTokens: min(max(input.maxOutputTokens, 16), 512))
           let response = try await session.respond(to: input.prompt, options: options)
-          return ["text": response.content, "engine": "apple_foundation_models",
-                  "elapsedMs": Int(Date().timeIntervalSince(started) * 1000)]
+          return ["text": response.content, "engine": "apple_foundation_models", "modelName": NSNull(),
+                  "osVersion": self.osVersion(), "elapsedMs": Int(Date().timeIntervalSince(started) * 1000)]
         } catch {
           throw Exception(name: "SLM_FAILED", description: String(describing: type(of: error)))
         }

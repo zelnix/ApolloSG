@@ -11,8 +11,8 @@ interface NativeModule {
 
 const notInstalled = async (): Promise<never> => { throw new Error("On-device AI needs an installed ApolloSG mobile build."); };
 const absent: NativeModule = {
-  getStatus: async () => ({ availability: "unavailable", engine: "none", reason: "not_in_this_build", observedAt: new Date().toISOString() }),
-  requestDownload: async () => ({ availability: "unavailable", engine: "none", reason: "not_in_this_build", observedAt: new Date().toISOString() }),
+  getStatus: async () => ({ availability: "unavailable", engine: "none", reason: "not_in_this_build", modelName: null, osVersion: null, observedAt: new Date().toISOString() }),
+  requestDownload: async () => ({ availability: "unavailable", engine: "none", reason: "not_in_this_build", modelName: null, osVersion: null, observedAt: new Date().toISOString() }),
   generate: notInstalled,
 };
 

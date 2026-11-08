@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  advisoryFor, checkExplanation, extractJsonObject, locateQuote, parsePreScreen, prepareSlmInput, SLM_MAX_INPUT_CHARS,
-  type SettledResult,
+  advisoryFor, appendCallRecord, checkExplanation, extractJsonObject, locateQuote, parsePreScreen, prepareSlmInput,
+  slmModelLabel, summariseCallLog, SLM_CALL_LOG_LIMIT, SLM_MAX_INPUT_CHARS,
+  type SettledResult, type SlmCallRecord,
 } from "../src/slm/core.ts";
 
 const MSG = "CommBank: Your account is locked. Verify within 24 hours or it will be closed. Pay the $2 fee at commbank-help.xyz and reply with the code we sent.";
@@ -90,4 +91,32 @@ test("new links, new numbers and dismissals are rejected", () => {
   assert.deepEqual(checkExplanation("Call CommBank on 13 22 21.", SETTLED), { ok: false, reason: "new_number" });
   assert.deepEqual(checkExplanation("You can ignore this warning.", SETTLED), { ok: false, reason: "dismissal" });
   assert.deepEqual(checkExplanation("   ", SETTLED), { ok: false, reason: "empty" });
+});
+
+
+test("model label names the Gemini Nano version, or the iOS version for Apple's model", () => {
+  assert.equal(slmModelLabel({ engine: "gemini_nano_mlkit", modelName: "nano-v3", osVersion: "Android 16 (API 36)" }), "Gemini Nano (nano-v3) · Android 16 (API 36)");
+  assert.equal(slmModelLabel({ engine: "gemini_nano_mlkit", modelName: null, osVersion: null }), "Gemini Nano (version not reported)");
+  assert.equal(slmModelLabel({ engine: "apple_foundation_models", modelName: null, osVersion: "iOS 26.1.0" }), "Apple on-device model · iOS 26.1.0");
+  assert.equal(slmModelLabel({ engine: "none", modelName: null, osVersion: null }), "No on-device model");
+});
+
+const rec = (outcome: string, at = "2026-11-08T10:00:00Z"): SlmCallRecord => ({ at, purpose: "explain", engine: "gemini_nano_mlkit", modelName: "nano-v3", osVersion: "Android 16 (API 36)", elapsedMs: 900, outcome });
+
+test("call record keeps only its own fields (no text can ride along), newest first, capped", () => {
+  const sneaky = { ...rec("ok"), text: "Your code is 123456", prompt: "secret" } as unknown as SlmCallRecord;
+  const log = appendCallRecord([], sneaky);
+  assert.deepEqual(Object.keys(log[0]).sort(), ["at", "elapsedMs", "engine", "modelName", "osVersion", "outcome", "purpose"]);
+  let long: SlmCallRecord[] = [];
+  for (let i = 0; i < SLM_CALL_LOG_LIMIT + 5; i++) long = appendCallRecord(long, rec("ok", `t${i}`));
+  assert.equal(long.length, SLM_CALL_LOG_LIMIT);
+  assert.equal(long[0].at, `t${SLM_CALL_LOG_LIMIT + 4}`);
+});
+
+test("call log summary counts shown / rejected / not run and names the model", () => {
+  assert.equal(summariseCallLog([]), null);
+  assert.equal(
+    summariseCallLog([rec("ok"), rec("ok_2_kept_0_dropped"), rec("rejected_reassurance"), rec("timeout")]),
+    "Last 4 on-device calls: 2 shown, 1 rejected, 1 not run. Model: Gemini Nano (nano-v3) · Android 16 (API 36).",
+  );
 });

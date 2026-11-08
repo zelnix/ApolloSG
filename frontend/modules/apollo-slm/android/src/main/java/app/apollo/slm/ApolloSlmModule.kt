@@ -1,5 +1,6 @@
 package app.apollo.slm
 
+import android.os.Build
 import android.os.SystemClock
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
@@ -43,12 +44,24 @@ class ApolloSlmModule : Module() {
 
   private fun client(): GenerativeModel = model ?: Generation.getClient().also { model = it }
 
-  private fun status(availability: String, reason: String?, engine: String = "gemini_nano_mlkit"): Map<String, Any?> =
-    mapOf("availability" to availability, "engine" to engine, "reason" to reason, "observedAt" to Instant.now().toString())
+  private fun osVersion(): String = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+
+  /** The Gemini Nano version AICore runs on this phone (e.g. a nano-v2/v3 name), or null if it can't be read. */
+  private suspend fun baseModelName(): String? = try {
+    client().getBaseModelName().takeIf { it.isNotBlank() }
+  } catch (e: Exception) {
+    null
+  }
+
+  private fun status(availability: String, reason: String?, engine: String = "gemini_nano_mlkit", modelName: String? = null): Map<String, Any?> =
+    mapOf(
+      "availability" to availability, "engine" to engine, "reason" to reason,
+      "modelName" to modelName, "osVersion" to osVersion(), "observedAt" to Instant.now().toString(),
+    )
 
   private suspend fun readStatus(): Map<String, Any?> = try {
     when (client().checkStatus()) {
-      FeatureStatus.AVAILABLE -> status("available", null)
+      FeatureStatus.AVAILABLE -> status("available", null, modelName = baseModelName())
       FeatureStatus.DOWNLOADABLE -> status("downloadable", "model_not_downloaded")
       FeatureStatus.DOWNLOADING -> status("downloading", "model_downloading")
       else -> status("unavailable", "device_not_eligible")
@@ -88,7 +101,10 @@ class ApolloSlmModule : Module() {
       } catch (e: Exception) {
         throw SlmFailedException(e.javaClass.simpleName)
       }
-      mapOf("text" to text, "engine" to "gemini_nano_mlkit", "elapsedMs" to (SystemClock.elapsedRealtime() - started))
+      mapOf(
+        "text" to text, "engine" to "gemini_nano_mlkit", "modelName" to baseModelName(), "osVersion" to osVersion(),
+        "elapsedMs" to (SystemClock.elapsedRealtime() - started),
+      )
     }
 
     OnDestroy {

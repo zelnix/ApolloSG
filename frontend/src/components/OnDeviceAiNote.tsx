@@ -10,7 +10,7 @@ import React, { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { Body, Card } from "@/src/components/ui";
-import { hintLine, type FixedSignalsView, type SettledResult, type SlmAdvisory } from "@/src/slm/core";
+import { hintLine, slmModelLabel, type FixedSignalsView, type SettledResult, type SlmAdvisory, type SlmModelInfo } from "@/src/slm/core";
 import { explainSettledResult, isSlmEnabled, preScreenMessage } from "@/src/slm/onDeviceSlm";
 import { fonts, makeStyles, spacing } from "@/src/theme";
 
@@ -27,6 +27,7 @@ export function OnDeviceAiNote({ text, signals, settled, onFullCheck, testID = "
   const s = useStyles();
   const [explanation, setExplanation] = useState<string | null>(null);
   const [advisory, setAdvisory] = useState<SlmAdvisory | null>(null);
+  const [model, setModel] = useState<SlmModelInfo | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,9 +35,9 @@ export function OnDeviceAiNote({ text, signals, settled, onFullCheck, testID = "
       if (!(await isSlmEnabled())) return;
       // One call each, one after the other: the phone's model runs a single session at a time.
       const ex = await explainSettledResult(settled);
-      if (!cancelled && ex.ok) setExplanation(ex.value);
+      if (!cancelled && ex.ok) { setExplanation(ex.value); setModel(ex.model); }
       const pre = await preScreenMessage(text, signals);
-      if (!cancelled && pre.ok) setAdvisory(pre.value);
+      if (!cancelled && pre.ok) { setAdvisory(pre.value); setModel(pre.model); }
     })();
     return () => { cancelled = true; };
     // Run once per checked message.
@@ -58,7 +59,7 @@ export function OnDeviceAiNote({ text, signals, settled, onFullCheck, testID = "
           ) : null}
         </View>
       ) : null}
-      <Text style={s.foot}>Written by the AI built into this phone. Nothing left the phone, and Apollo&apos;s result above is unchanged.</Text>
+      <Text style={s.foot}>Written by the AI built into this phone{model ? ` (${slmModelLabel(model)})` : ""}. Nothing left the phone, and Apollo&apos;s result above is unchanged.</Text>
     </Card>
   );
 }

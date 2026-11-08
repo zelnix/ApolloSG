@@ -9,6 +9,11 @@ export interface SlmNativeStatus {
   engine: SlmEngine;
   /** Why it isn't available, in the OS's terms (e.g. device_not_eligible, apple_intelligence_off, model_not_ready). */
   reason: string | null;
+  /** Android: the Gemini Nano version AICore reports (GenerativeModel.getBaseModelName). iOS: always null — Apple
+   *  publishes no model version; the model ships with the OS, so osVersion identifies it. */
+  modelName: string | null;
+  /** e.g. "Android 16 (API 36)" or "iOS 26.1.0". */
+  osVersion: string | null;
   observedAt: string;
 }
 
@@ -24,6 +29,9 @@ export interface SlmGenerateInput {
 export interface SlmNativeResult {
   text: string;
   engine: SlmEngine;
+  /** The model version that answered this call (see SlmNativeStatus). */
+  modelName: string | null;
+  osVersion: string | null;
   /** Milliseconds the on-device call took. */
   elapsedMs: number;
 }

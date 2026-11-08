@@ -233,3 +233,53 @@ export function checkExplanation(raw: string, r: SettledResult): ExplainCheck {
   }
   return { ok: true, text };
 }
+
+// ── Model identity ───────────────────────────────────────────────────────────
+
+/** Which model answered: the OS picks and updates it, so ApolloSG records it rather than pinning it. */
+export interface SlmModelInfo {
+  engine: "gemini_nano_mlkit" | "apple_foundation_models" | "none";
+  /** Android: the Gemini Nano version AICore reports. iOS: null (Apple publishes none; osVersion identifies it). */
+  modelName: string | null;
+  osVersion: string | null;
+}
+
+export function slmModelLabel(m: SlmModelInfo): string {
+  const os = m.osVersion ? ` · ${m.osVersion}` : "";
+  if (m.engine === "gemini_nano_mlkit") return `Gemini Nano${m.modelName ? ` (${m.modelName})` : " (version not reported)"}${os}`;
+  if (m.engine === "apple_foundation_models") return `Apple on-device model${os}`;
+  return "No on-device model";
+}
+
+export type SlmPurpose = "explain" | "pre_screen";
+
+/** One on-device call, as kept in the phone's local record. Never the message, the prompt or the answer. */
+export interface SlmCallRecord extends SlmModelInfo {
+  at: string;
+  purpose: SlmPurpose;
+  elapsedMs: number | null;
+  /** "ok", or why nothing was shown: timeout, failed, rejected_reassurance, … */
+  outcome: string;
+}
+
+export const SLM_CALL_LOG_LIMIT = 50;
+
+/** Newest first, capped. Drops any field that isn't part of the record so text can't leak in. */
+export function appendCallRecord(log: SlmCallRecord[], rec: SlmCallRecord): SlmCallRecord[] {
+  const clean: SlmCallRecord = {
+    at: rec.at, purpose: rec.purpose, engine: rec.engine, modelName: rec.modelName, osVersion: rec.osVersion,
+    elapsedMs: rec.elapsedMs, outcome: String(rec.outcome).slice(0, 40),
+  };
+  return [clean, ...log].slice(0, SLM_CALL_LOG_LIMIT);
+}
+
+/** One line for Settings: how the recent on-device calls went, and which model(s) answered them. */
+export function summariseCallLog(log: SlmCallRecord[]): string | null {
+  if (!log.length) return null;
+  const shown = log.filter((r) => r.outcome.startsWith("ok")).length;
+  const rejected = log.filter((r) => r.outcome.startsWith("rejected_")).length;
+  const other = log.length - shown - rejected;
+  const models = [...new Set(log.filter((r) => r.engine !== "none").map((r) => slmModelLabel(r)))];
+  const parts = [`${shown} shown`, rejected ? `${rejected} rejected` : "", other ? `${other} not run` : ""].filter(Boolean).join(", ");
+  return `Last ${log.length} on-device ${log.length === 1 ? "call" : "calls"}: ${parts}.${models.length ? ` Model: ${models.join("; ")}.` : ""}`;
+}
