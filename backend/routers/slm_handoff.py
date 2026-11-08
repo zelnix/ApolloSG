@@ -86,35 +86,61 @@ async def _source_evidence(owner: str, case_id: str) -> list[SLMReference]:
     return gathered
 
 
-@router.post("/investigations/{case_id}/slm/requests", status_code=201)
-async def request_advisory(case_id: str, body: AdvisoryStart, request: Request):
-    """Server issues a short-lived, case-scoped advisory request to the phone."""
-    _enabled()
-    owner = request.state.device["device_id"]
-    if body.role not in QUESTIONS:
-        raise http(422, "invalid_input", "Unsupported Luddish reasoning role.")
-    case, _job = await _active_case_job(owner, case_id, body.job_id, body.case_revision)
+async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: int, role: str) -> dict | None:
+    """Issue one optional server-authored, case-scoped advisory per job/role.
+
+    The coordinator calls this only with the existing authenticated case owner
+    and active job. No device event is published if the pilot is disabled, the
+    device is not native or there is no admissible submitted evidence.
+    """
+    if os.getenv("APOLLO_SLM_HANDOFF", "").strip().lower() != "on" or role not in QUESTIONS:
+        return None
+    case, _job = await _active_case_job(owner, case_id, job_id, revision)
     device = repo.device_profile(case) or {}
     if device.get("evidenceOrigin") != "native" or device.get("platform") not in ("android", "ios"):
-        raise http(409, "conflict", "This on-device pilot requires a native Android or iOS case.")
+        return None
+    existing = await db.investigation_device_requests.find_one({
+        "owner_id": owner, "case_id": case_id, "job_id": job_id,
+        "kind": "slm_advisory", "role": role, "epoch": case.get("epoch"),
+    }, {"_id": 0, "request_ciphertext": 1, "expires_at": 1})
+    if existing:
+        if repo.utc(existing["expires_at"]) <= now_utc():
+            return None
+        return {"request": repo.dec_json(existing["request_ciphertext"]),
+                "expiresAt": repo.utc(existing["expires_at"]).isoformat()}
     evidence = await _source_evidence(owner, case_id)
     if not evidence:
-        raise http(409, "conflict", "No available submitted text or link for local reasoning.")
+        return None
     issued = SLMReasoningRequest(
-        case_id=case_id, case_revision=body.case_revision, request_id=str(uuid.uuid4()),
-        role=body.role, operation=OPERATION[body.role], question=QUESTIONS[body.role], evidence=evidence,
+        case_id=case_id, case_revision=revision, request_id=str(uuid.uuid4()),
+        role=role, operation=OPERATION[role], question=QUESTIONS[role],
+        evidence=evidence,
     )
     expires = min(repo.utc(case["expires_at"]), now_utc() + timedelta(minutes=5))
+    if expires <= now_utc():
+        return None
     await db.investigation_device_requests.insert_one({
-        "owner_id": owner, "case_id": case_id, "job_id": body.job_id,
-        "request_id": issued.request_id, "kind": "slm_advisory",
+        "owner_id": owner, "case_id": case_id, "job_id": job_id,
+        "request_id": issued.request_id, "kind": "slm_advisory", "role": role,
         "request": {"capabilityId": CAPABILITY, "expiresAt": expires.isoformat()},
         "request_ciphertext": repo.enc_json(issued.wire()),
         "expires_at": expires, "submission": None, "fulfilled": False,
         "created_at": now_utc(), "epoch": case.get("epoch"),
     })
-    return JSONResponse({"request": issued.wire(), "expiresAt": expires.isoformat()},
-                        status_code=201, headers=NO_STORE)
+    return {"request": issued.wire(), "expiresAt": expires.isoformat()}
+
+
+@router.post("/investigations/{case_id}/slm/requests", status_code=201)
+async def request_advisory(case_id: str, body: AdvisoryStart, request: Request):
+    """Manual pilot request, using the same server-owned stage issuer."""
+    _enabled()
+    owner = request.state.device["device_id"]
+    if body.role not in QUESTIONS:
+        raise http(422, "invalid_input", "Unsupported Luddish reasoning role.")
+    issued = await issue_stage_request(owner, case_id, body.job_id, body.case_revision, body.role)
+    if not issued:
+        raise http(409, "conflict", "No current native-device Luddish request is available.")
+    return JSONResponse(issued, status_code=201, headers=NO_STORE)
 
 
 @router.post("/investigations/{case_id}/slm/results", status_code=202)
