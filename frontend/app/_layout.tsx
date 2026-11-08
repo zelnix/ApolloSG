@@ -27,7 +27,7 @@ import { loadPersonalData } from "@/src/store/personalDataStore";
 import { startDeviceProtectionMonitor } from "@/src/store/deviceProtectionStore";
 import { useTheme } from "@/src/theme";
 import { installTwelveHourClock } from "@/src/utils/twelveHourClock";
-import { startSharedLuddish } from "@/src/domain/slm/bootstrap";
+import { SharedLuddishStartup } from "@/src/domain/slm/SharedLuddishStartup";
 
 // Every time Apollo shows is on the 12-hour clock, in this device's own time zone.
 installTwelveHourClock();
@@ -87,9 +87,6 @@ export default function RootLayout() {
     "Geist-600": require("../assets/fonts/Geist-600.ttf"),
   });
   useEffect(() => { if (loaded) void SplashScreen.hideAsync().catch(() => {}); }, [loaded]);
-  // A private, hash-verified GGUF enables the one shared native Luddish context.
-  // No model, insufficient RAM, or unsupported platform => existing behaviour.
-  useEffect(() => { if (!SECURITY_BOOT_ERROR) void startSharedLuddish().catch(() => undefined); }, []);
   // Pre-load the user's personal data into memory so the redaction engine can use it synchronously.
   useEffect(() => { void loadPersonalData().catch(() => undefined); }, []);
   // Device Protections: read and compare this device's settings on open and on return to Apollo.
@@ -143,6 +140,7 @@ export default function RootLayout() {
                 <ToastHost />
                 <ConfirmDialogHost />
                 <LaunchSplash />
+                <SharedLuddishStartup />
               </ApolloProvider>
             </KeyboardProvider>
           </SafeAreaProvider>
