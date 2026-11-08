@@ -5,8 +5,8 @@
  * advisory: investigation, scoring, Evidence Lock and user-visible verdicts stay in
  * their existing authoritative components.
  */
-export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish";
-export type SLMOperation = "investigation_readiness" | "evidence_reasoning" | "explanation";
+export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins";
+export type SLMOperation = "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation";
 
 export interface SLMReference {
   /** Only references supplied to this invocation may be cited by the model. */
@@ -49,8 +49,8 @@ export type SLMRun =
   | { status: "completed"; execution: "on_device"; modelId: string; answer: SLMAnswer }
   | { status: "unavailable" | "invalid_output"; execution: "none"; reason: string };
 
-const ROLES: readonly SLMRole[] = ["higgins_triage", "tc_hawkeye", "magnum_di", "luddish"];
-const OPERATIONS: readonly SLMOperation[] = ["investigation_readiness", "evidence_reasoning", "explanation"];
+const ROLES: readonly SLMRole[] = ["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins"];
+const OPERATIONS: readonly SLMOperation[] = ["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation"];
 const MAX_EVIDENCE = 64;
 const MAX_CHARS = 120_000;
 const MAX_OBSERVATIONS = 24;
