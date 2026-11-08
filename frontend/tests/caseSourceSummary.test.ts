@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { detectionFacts, emptyPreview, originHeading, previewFromEvent, previewFromEvidence, previewFromOriginal, shortenMiddle, sourceOf, withoutLinks } from "../src/domain/caseSourceSummary.ts";
+import { detectionFacts, emptyPreview, originHeading, previewFromEvent, previewFromEvidence, previewFromOriginal, shortenMiddle, sourceKind, sourceOf, withoutLinks } from "../src/domain/caseSourceSummary.ts";
 import type { EvidenceItem } from "../src/investigation/types";
 import type { OriginalSource } from "../src/store/originalSource";
 import type { PatrolEvent } from "../src/domain/types";
@@ -231,4 +231,21 @@ test("every case says where it came from, 'Not provided' where nothing does", ()
   assert.equal(sourceOf(null, { origin: "this_device" }), "Sent from this device for checking");
   assert.equal(sourceOf(bareEvent("message")), "Not provided");
   assert.equal(sourceOf(null, null), "Not provided");
+});
+
+test("the Findings Brief is told what the case recorded its material as — an email is never 'the message or email'", () => {
+  const ev = (patch: Partial<PatrolEvent>) => ({ event_id: "e", category: "message", source_metadata: {} , ...patch }) as unknown as PatrolEvent;
+  // The record decides: the kept original, the event's type, or the case's Gate.
+  assert.equal(sourceKind(ev({ category: "message" }), [], EMAIL), "email");
+  assert.equal(sourceKind(ev({ category: "email" }), null, null), "email");
+  assert.equal(sourceKind(ev({ category: "message", source_metadata: { type: "email" } as PatrolEvent["source_metadata"] }), null, null), "email");
+  assert.equal(sourceKind(null, ["email"], null), "email");
+  assert.equal(sourceKind(ev({ category: "message", source_metadata: { type: "sms" } as PatrolEvent["source_metadata"] }), null, null), "text");
+  assert.equal(sourceKind(null, ["text"], null), "text");
+  assert.equal(sourceKind(ev({ category: "call" }), null, null), "call");
+  assert.equal(sourceKind(ev({ category: "link" }), null, null), "link");
+  assert.equal(sourceKind(null, ["site"], null), "link");
+  // A file check is filed under the Link Gate's category: it is not a link, and nothing is guessed.
+  assert.equal(sourceKind(ev({ category: "link", evidence_profile: { type: "file" } as PatrolEvent["evidence_profile"] }), ["link"], null), null);
+  assert.equal(sourceKind(null, [], null), null);
 });

@@ -36,6 +36,7 @@ import { RelatedCases } from "@/src/components/report/RelatedCases";
 import { investigationVerdict } from "@/src/domain/briefVerdict";
 import { SourceList } from "@/src/components/report/SourceList";
 import { SourceSummaryCard } from "@/src/components/report/SourceSummaryCard";
+import { sourceKind } from "@/src/domain/caseSourceSummary";
 import { ServerCopyNote } from "@/src/components/ServerCopyNote";
 import { PhoneIdentityCard } from "@/src/components/PhoneIdentityCard";
 import { callNumberOf } from "@/src/domain/numberDetails";
@@ -727,6 +728,9 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     return () => { live = false; off(); };
   }, [eventId, caseData?.id]);
 
+  // What the case recorded as its material (an email, a text, a link, a call): the Findings Brief's "what to do next"
+  // words follow it. The kept original knows its kind even when the event and the case's Gates don't say.
+  const source = useMemo(() => sourceKind(event, caseData?.gates, originalSource), [event, caseData?.gates, originalSource]);
   const phoneNumber = useMemo(() => {
     // 1. Explicit call check — uses the kept original and the PatrolEvent
     const fromCall = callNumberOf(originalSource, event);
@@ -798,7 +802,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {/* ━━━━ TAB 1: FINDINGS BRIEF — what the investigation concluded, from the Evidence Lock ━━━━ */}
       {activeTab === "overview" ? (
         <View style={{ gap: spacing.md }} testID="inv-tab-overview-content">
-          {report && verdict ? <View testID="inv-overview"><FindingsBrief report={report} verdict={verdict} steps={steps} ids="inv" caseId={caseData?.id} /></View> : null}
+          {report && verdict ? <View testID="inv-overview"><FindingsBrief report={report} verdict={verdict} steps={steps} ids="inv" caseId={caseData?.id} source={source} /></View> : null}
           {response?.findingsBrief ? <DetailedFindingsBrief brief={response.findingsBrief} ids="inv" /> : null}
           {response?.history?.length ? <RelatedCases event={event} response={response} ids="inv" /> : null}
         <Card style={[s.card, { gap: spacing.md }]} testID="inv-overview-more">

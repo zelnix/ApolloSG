@@ -1,6 +1,18 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Findings Brief: "what to do next" names the recorded material (2026-11-08)
+- Owner: an email case said "Delete the message or email" — the app knows it's an email. The steps no longer guess from the report's
+  words: `caseSourceSummary.sourceKind(event, gates, original)` reads the case's own record (kept original's kind, the event's type,
+  the case's Gate) → email | text | link | call; InvestigationView passes it to `FindingsBrief` (`source` prop; the Threat Case renders
+  through the same view). Words: email → "Delete the email, and don't open any link or attachment in it." / "Forward the email…";
+  text → "Delete the text message — don't reply, and don't open the link in it." / "Forward the text message…"; bare link → "If you
+  haven't opened it: Don't open the link. Delete whatever it arrived in."; call unchanged. The organisation's report step is reworded
+  to the same noun (`reportStep`). Only when the record doesn't say is the kind read from the report text (now with email/text words).
+  A file check (filed under the Link Gate) is never called a link. Verified in the preview: PayPal email sample and CommBank text
+  sample. Test added to caseSourceSummary.test.ts; frontend 1426/1449 (same 23 pre-existing failures).
+
 ## Findings Brief verification + test repair (2026-11-08, fork session)
+
 **Owner's choices:** fix the test break → verify the layout in the preview → run both suites; screenshots + pytest + node tests only (no testing agent).
 - Verified in the preview (real pipeline, Sample Checks): CommBank lookalike link → "This is likely a scam", conclusion, "Don't click or
   open that link." on its own line, "Here is why this is a scam" with **Fake Domain:** / **Urgency Tactics:** bullets, "What to do next"

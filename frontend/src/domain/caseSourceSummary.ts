@@ -235,6 +235,21 @@ function eventType(event: PatrolEvent): string {
   return event.evidence_profile?.type === "file" ? "file" : event.source_metadata?.type ?? event.category;
 }
 
+/** What the person is being told to act on, as the case recorded it: an email, a text message, a bare link or a call.
+ *  Read from the record (the event's type, its Gate) — never guessed from the report's words — so the Findings Brief
+ *  says "delete the email" for an email and never "the message or email". Null when the record doesn't say. */
+export type SourceKind = "email" | "text" | "link" | "call";
+export function sourceKind(event?: PatrolEvent | null, gates?: readonly string[] | null, original?: Pick<OriginalSource, "kind"> | null): SourceKind | null {
+  if (isEmailCase(event, original, gates)) return "email";
+  const type = event ? eventType(event) : null;
+  if (original?.kind === "text" || (type && MESSAGE_TYPES.has(type)) || event?.category === "message" || gates?.includes("text")) return "text";
+  if (original?.kind === "call" || type === "call" || event?.category === "call" || gates?.includes("call")) return "call";
+  // A file check is filed under the Link Gate's category: it isn't a link.
+  if (type === "file" || original?.kind === "file") return null;
+  if (original?.kind === "link" || type === "link" || type === "website" || event?.category === "link" || gates?.includes("link") || gates?.includes("site")) return "link";
+  return null;
+}
+
 /** What the case recorded at intake about its material — the sender, subject, link, number and text — when no
  *  original is kept. */
 export function previewFromEvent(event: PatrolEvent): SourcePreview {

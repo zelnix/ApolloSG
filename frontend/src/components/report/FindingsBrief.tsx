@@ -17,6 +17,7 @@ import { Pressable, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 
 import type { BriefVerdict } from "@/src/domain/briefVerdict";
+import type { SourceKind } from "@/src/domain/caseSourceSummary";
 import { luddishReport, luddishText } from "@/src/domain/luddish";
 import { sentences } from "@/src/domain/luddish/patterns";
 import { scrubMessage } from "@/src/domain/messageVoice";
@@ -237,39 +238,56 @@ class NarrativeSaid {
 }
 
 // ── What to do next ───────────────────────────────────────────────────────────
-/** What the case is about, from the words of the report itself — the action labels follow it. */
-function caseKind(report: Report): "link" | "call" | "message" {
+/** What the person is told to act on. The recorded source (the case's own record of an email, text, link or call)
+ *  decides; only when the record doesn't say is it read from the words of the report itself. */
+type ActKind = SourceKind | "message";
+function caseKind(report: Report, source: SourceKind | null | undefined): ActKind {
+  if (source) return source;
   const text = [...report.answer, ...report.found.map((f) => f.text)].join(" ").toLowerCase();
   if (/\b(?:caller|phone call|called you|call back|this call|the call)\b/.test(text)) return "call";
+  if (/\b(?:this email|the email|email address|sender address)\b/.test(text)) return "email";
+  if (/\b(?:text message|sms)\b/.test(text)) return "text";
   if (/\b(?:link|web address|website|url|domain)\b/.test(text)) return "link";
   return "message";
 }
 
-const NOT_ACTED: Record<ReturnType<typeof caseKind>, { label: string; body: string }> = {
-  link: { label: "If you haven't clicked it", body: "Delete the message or email immediately, and don't open the link." },
-  message: { label: "If you haven't replied", body: "Delete the message immediately — don't reply or open anything in it." },
+const NOT_ACTED: Record<ActKind, { label: string; body: string }> = {
+  email: { label: "If you haven't clicked it", body: "Delete the email, and don't open any link or attachment in it." },
+  text: { label: "If you haven't replied", body: "Delete the text message — don't reply, and don't open the link in it." },
+  link: { label: "If you haven't opened it", body: "Don't open the link. Delete whatever it arrived in." },
+  message: { label: "If you haven't replied", body: "Delete the message — don't reply or open anything in it." },
   call: { label: "If you haven't acted on it", body: "Hang up. Don't call back on the number that called you." },
 };
-const ACTED_LABEL: Record<ReturnType<typeof caseKind>, string> = {
-  link: "If you clicked it or entered details",
+const ACTED_LABEL: Record<ActKind, string> = {
+  email: "If you clicked it or entered details",
+  text: "If you replied or entered details",
+  link: "If you opened it or entered details",
   message: "If you replied or entered details",
   call: "If you gave any details or codes",
 };
 
+/** The organisation's reporting step, naming the material the case recorded ("Forward the email…", "Forward the text
+ *  message…") rather than a generic "message"; a bare link has nothing to forward, so the step says what to report. */
+function reportStep(text: string, kind: ActKind): string {
+  const noun = kind === "email" ? "email" : kind === "text" ? "text message" : null;
+  if (!noun) return text;
+  return text.replace(/\b(Forward|Report) the (?:message|text)\b/, `$1 the ${noun}`).replace(/\bdelete the (?:message|text)\b/, `delete the ${noun}`);
+}
+
 /** Organisation-specific steps as labelled bullets (owner's example, 2026-11-08): what to do if you haven't acted,
  *  what to do if you have (the organisation's own contact, one sub-point per sentence when there are several),
  *  and where to report it. Only on a scam or likely-scam verdict: a genuine message needs none of this. */
-function actionBullets(report: Report, tone: string): NarrativeBullet[] {
+function actionBullets(report: Report, tone: string, source: SourceKind | null | undefined): NarrativeBullet[] {
   const org = report.detectedOrg;
   if (!org || (tone !== "barking" && tone !== "ears_up")) return [];
-  const kind = caseKind(report);
+  const kind = caseKind(report, source);
   const compromised = sentences(org.ifCompromised).map((s) => s.trim()).filter(Boolean);
   return [
     { label: NOT_ACTED[kind].label, body: NOT_ACTED[kind].body },
     compromised.length > 1
       ? { label: ACTED_LABEL[kind], body: "", sub: compromised }
       : { label: ACTED_LABEL[kind], body: org.ifCompromised },
-    { label: "Report it", body: org.reportScam },
+    { label: "Report it", body: reportStep(org.reportScam, kind) },
   ];
 }
 
@@ -520,6 +538,7 @@ export function FindingsBrief({
   steps,
   ids,
   caseId,
+  source,
 }: {
   report: Report;
   verdict: BriefVerdict;
@@ -528,6 +547,8 @@ export function FindingsBrief({
   ids: string;
   /** Case ID — kept in the interface for callers that provide it. */
   caseId?: string;
+  /** What the case recorded as its material (caseSourceSummary.sourceKind): the "what to do next" words follow it. */
+  source?: SourceKind | null;
 }) {
   const s = useStyles();
   const { colors } = useTheme();
@@ -543,7 +564,7 @@ export function FindingsBrief({
   const ShieldIcon = SHIELD_ICON[verdict.tone];
 
   // Organisation-specific action bullets on a scam / likely-scam verdict; else the investigation's own steps.
-  const actions = useMemo(() => actionBullets(report, verdict.tone), [report, verdict.tone]);
+  const actions = useMemo(() => actionBullets(report, verdict.tone, source), [report, verdict.tone, source]);
   const showSteps = !actions.length && steps.length > 0;
 
   // Action section header (only shown when there is content below it)
