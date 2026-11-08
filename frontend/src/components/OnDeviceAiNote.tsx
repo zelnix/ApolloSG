@@ -35,7 +35,8 @@ export function OnDeviceAiNote({ text, signals, settled, onFullCheck, testID = "
       if (!(await isSlmEnabled())) return;
       // One call each, one after the other: the phone's model runs a single session at a time.
       const ex = await explainSettledResult(settled);
-      if (!cancelled && ex.ok) { setExplanation(ex.value); setModel(ex.model); }
+      if (cancelled) return;  // closed or moved on: don't hold the model for a note nobody will see
+      if (ex.ok) { setExplanation(ex.value); setModel(ex.model); }
       const pre = await preScreenMessage(text, signals);
       if (!cancelled && pre.ok) { setAdvisory(pre.value); setModel(pre.model); }
     })();

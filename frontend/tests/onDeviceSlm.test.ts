@@ -120,3 +120,23 @@ test("call log summary counts shown / rejected / not run and names the model", (
     "Last 4 on-device calls: 2 shown, 1 rejected, 1 not run. Model: Gemini Nano (nano-v3) · Android 16 (API 36).",
   );
 });
+
+// ── Review fixes (2026-11-08) ──
+
+test("a re-wording that contradicts the settled result is rejected", () => {
+  const biting: SettledResult = { stateName: "Biting", verdict: "Apollo blocked a known scam site.", why: ["Known scam site"], recommendation: "Don't reply or open the link." };
+  assert.deepEqual(checkExplanation("Apollo is patrolling. This message looks fine and it's okay to reply.", biting), { ok: false, reason: "reassurance" });
+  assert.deepEqual(checkExplanation("Apollo is patrolling, so nothing more is needed.", biting), { ok: false, reason: "wrong_state" });
+  assert.equal(checkExplanation("It's okay to reply to this one.", biting).ok, false);
+  assert.deepEqual(checkExplanation("You can tap the link.", biting), { ok: false, reason: "permission" });
+  assert.deepEqual(checkExplanation("This is not a scam.", biting), { ok: false, reason: "reassurance" });
+  // Negated forms keep the meaning and pass.
+  assert.equal(checkExplanation("Apollo is biting: it blocked a known scam site. It isn't okay to reply, and it's not fine to open the link.", biting).ok, true);
+});
+
+test("a request quote that runs across a sentence boundary is dropped, not counted", () => {
+  const text = "CommBank will never ask you to share a code. Your statement is ready.";
+  const r = parsePreScreen(JSON.stringify({ requests: [{ kind: "share_code", quote: "share a code. Your statement" }] }), text);
+  assert.equal(r.hints.length, 0);
+  assert.equal(r.dropped, 1);
+});

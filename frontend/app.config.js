@@ -164,7 +164,7 @@ module.exports = {
       "expo-ocr-kit",
       // On-device fallback model runtime (llama.cpp). iOS memory entitlements stay off until the App ID has them;
       // the fallback models are sized to run without them.
-      ["llama.rn", { enableEntitlements: false, enableOpenCL: false }],
+      ["llama.rn", { enableEntitlements: false, enableOpenCLAndHexagon: false }],
     ],
 
     // ── Updates (EAS Update) ─────────────────────────────────────────────

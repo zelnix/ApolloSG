@@ -51,7 +51,7 @@ export interface BenchmarkSummary {
   rejections: Record<string, number>;
 }
 
-export function summarise(model: string, pre: CaseScore[], explain: Array<{ raw: string | null; settled: SettledResult }>, timingsMs: number[]): BenchmarkSummary {
+export function summarise(model: string, pre: CaseScore[], explain: { raw: string | null; settled: SettledResult }[], timingsMs: number[]): BenchmarkSummary {
   const tp = pre.reduce((n, s) => n + s.truePositives, 0);
   const fp = pre.reduce((n, s) => n + s.falsePositives, 0);
   const fn = pre.reduce((n, s) => n + s.missed, 0);

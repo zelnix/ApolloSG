@@ -35,7 +35,7 @@ import { MessagingSdk } from "@/src/security/messagingSdk";
 import type { NotificationStatus } from "@/src/push/notifications";
 import { useApollo } from "@/src/store/ApolloContext";
 import { setShowResultReasons, useShowResultReasons } from "@/src/store/resultReasonsStore";
-import { getSlmCallLog, getSlmStatus, isSlmEnabled, requestSlmDownload, setSlmEnabled, slmStatusLine } from "@/src/slm/onDeviceSlm";
+import { getSlmCallLog, getSlmStatus, isSlmEnabled, setSlmEnabled, slmStatusLine } from "@/src/slm/onDeviceSlm";
 import { summariseCallLog } from "@/src/slm/core";
 import { installedFallback } from "@/src/slm/fallbackModel";
 import type { SlmNativeStatus } from "@/modules/apollo-slm";
@@ -105,8 +105,8 @@ export default function SettingsScreen() {
   useEffect(() => { void isSlmEnabled().then(setSlmOn); void getSlmStatus().then(setSlmStatus); void getSlmCallLog().then((log) => setSlmCalls(summariseCallLog(log))); void installedFallback().then((m) => setSlmFallback(m?.label ?? null)); }, []);
   const toggleSlm = async (on: boolean) => {
     setSlmOn(on);
+    // Turning it on never downloads anything: downloads start only from a Download button, on Wi-Fi.
     await setSlmEnabled(on);
-    if (on && slmStatus?.availability === "downloadable") setSlmStatus(await requestSlmDownload());
   };
 
   // ── Linked email accounts ──

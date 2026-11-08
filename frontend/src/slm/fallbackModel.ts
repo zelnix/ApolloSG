@@ -40,7 +40,7 @@ async function writeState(s: StoredState | null): Promise<void> {
 }
 
 /** Each model with whether this phone can take it, for the model list. */
-export async function fallbackOptions(): Promise<Array<{ model: FallbackModel; fit: ModelFit }>> {
+export async function fallbackOptions(): Promise<{ model: FallbackModel; fit: ModelFit }[]> {
   let free: number | null = null;
   try { free = await FS.getFreeDiskStorageAsync(); } catch { free = null; }
   const memory = Device.totalMemory ?? null;
@@ -57,8 +57,10 @@ export async function installedFallback(): Promise<FallbackModel | null> {
 }
 
 let active: FS.DownloadResumable | null = null;
+let cancelRequested = false;
 
-/** Downloads and verifies one model, replacing any other. Progress is 0..1. */
+/** Downloads and verifies one model. Any model already installed stays in place, and keeps working, until the new
+ *  one has downloaded and passed its checksum; only then is it replaced. Progress is 0..1. */
 export async function downloadFallback(id: FallbackModelId, onProgress: (p: number) => void): Promise<FallbackState> {
   const model = modelById(id);
   const source = MODEL_SOURCES[id];
@@ -68,38 +70,44 @@ export async function downloadFallback(id: FallbackModelId, onProgress: (p: numb
   const net = await Network.getNetworkStateAsync().catch(() => null);
   if (net?.type !== Network.NetworkStateType.WIFI) return { kind: "failed", id, reason: "needs_wifi" };
 
-  await deleteFallback();
   await FS.makeDirectoryAsync(DIR, { intermediates: true }).catch(() => undefined);
-  const target = fileFor(id);
-  await writeState({ id, verified: false });
-  active = FS.createDownloadResumable(source.url, target, {}, (p) => {
+  const part = `${fileFor(id)}.part`;
+  await FS.deleteAsync(part, { idempotent: true }).catch(() => undefined);
+  cancelRequested = false;
+  active = FS.createDownloadResumable(source.url, part, {}, (p) => {
     const total = p.totalBytesExpectedToWrite > 0 ? p.totalBytesExpectedToWrite : source.bytes;
     onProgress(Math.min(1, p.totalBytesWritten / total));
   });
   try {
     const res = await active.downloadAsync();
+    if (cancelRequested) throw new Error("cancelled");
     if (!res || res.status !== 200) throw new Error(`http_${res?.status ?? "none"}`);
   } catch (e) {
-    await FS.deleteAsync(target, { idempotent: true });
-    await writeState(null);
+    await FS.deleteAsync(part, { idempotent: true }).catch(() => undefined);
+    if (cancelRequested) return { kind: "none" };
     return { kind: "failed", id, reason: e instanceof Error && e.message.startsWith("http_") ? e.message : "download_failed" };
   } finally {
     active = null;
   }
-  const actual = await ApolloSlm.sha256File(target).catch(() => null);
+  const actual = await ApolloSlm.sha256File(part).catch(() => null);
   if (!hashMatches(source.sha256, actual)) {
-    await FS.deleteAsync(target, { idempotent: true });
-    await writeState(null);
+    await FS.deleteAsync(part, { idempotent: true }).catch(() => undefined);
     return { kind: "failed", id, reason: "checksum_mismatch" };
   }
+  // Verified: now swap it in. The old model's context is released before its file goes.
+  await releaseContext();
+  const previous = await readState();
+  if (previous && previous.id !== id) await FS.deleteAsync(fileFor(previous.id), { idempotent: true }).catch(() => undefined);
+  await FS.deleteAsync(fileFor(id), { idempotent: true }).catch(() => undefined);
+  await FS.moveAsync({ from: part, to: fileFor(id) });
   await writeState({ id, verified: true });
   return { kind: "ready", id };
 }
 
+/** Stops a download in progress. The installed model, if any, is left as it was. */
 export async function cancelFallbackDownload(): Promise<void> {
+  cancelRequested = true;
   try { await active?.pauseAsync(); } catch { /* already finished */ }
-  active = null;
-  await deleteFallback();
 }
 
 export async function deleteFallback(): Promise<void> {
@@ -109,30 +117,46 @@ export async function deleteFallback(): Promise<void> {
 }
 
 // ── Running it ─────────────────────────────────────────────────────────────
+// Calls never overlap: onDeviceSlm.generateRaw lets only one model call run at a time, so there is one context,
+// one completion and one idle timer.
 
 let ctx: { id: FallbackModelId; context: LlamaContext } | null = null;
+let loading: Promise<LlamaContext> | null = null;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-async function releaseContext(): Promise<void> {
+function clearIdle(): void {
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+}
+
+async function releaseContext(): Promise<void> {
+  clearIdle();
   const c = ctx; ctx = null;
   if (c) await c.context.release().catch(() => undefined);
 }
 
 async function contextFor(model: FallbackModel): Promise<LlamaContext> {
   if (ctx?.id === model.id) return ctx.context;
-  await releaseContext();
-  // Loaded only here: llama.rn reads its native module at import, which web and Expo Go don't have.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { initLlama } = require("llama.rn") as typeof import("llama.rn");
-  const context = await initLlama({
-    model: fileFor(model.id).replace(/^file:\/\//, ""),
-    n_ctx: model.contextTokens,
-    n_gpu_layers: 0,   // CPU only: predictable on the mid-range phones this fallback is for.
-    use_mlock: false,
-  });
-  ctx = { id: model.id, context };
-  return context;
+  if (loading) return loading;
+  loading = (async () => {
+    await releaseContext();
+    // Loaded only here: llama.rn reads its native module at import, which web and Expo Go don't have.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { initLlama } = require("llama.rn") as typeof import("llama.rn");
+    const context = await initLlama({
+      model: fileFor(model.id).replace(/^file:\/\//, ""),
+      n_ctx: model.contextTokens,
+      n_gpu_layers: 0,   // CPU only: predictable on the mid-range phones this fallback is for.
+      use_mlock: false,
+    });
+    ctx = { id: model.id, context };
+    return context;
+  })();
+  try { return await loading; } finally { loading = null; }
+}
+
+/** Stops the completion in progress, if any (used when a call runs past its time limit). */
+export async function stopFallbackCompletion(): Promise<void> {
+  await ctx?.context.stopCompletion().catch(() => undefined);
 }
 
 export interface FallbackResult { text: string; elapsedMs: number; modelId: FallbackModelId }
@@ -142,8 +166,8 @@ export async function generateWithFallback(instructions: string, prompt: string,
   const model = await installedFallback();
   if (!model) throw Object.assign(new Error("no_fallback_model"), { code: "SLM_UNAVAILABLE" });
   const started = Date.now();
+  clearIdle();
   const context = await contextFor(model);
-  if (idleTimer) clearTimeout(idleTimer);
   try {
     const res = await context.completion({
       messages: [{ role: "system", content: instructions }, { role: "user", content: prompt }],
@@ -153,6 +177,7 @@ export async function generateWithFallback(instructions: string, prompt: string,
     });
     return { text: res.content || res.text || "", elapsedMs: Date.now() - started, modelId: model.id };
   } finally {
+    clearIdle();
     idleTimer = setTimeout(() => { void releaseContext(); }, IDLE_RELEASE_MS);
   }
 }

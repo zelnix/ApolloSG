@@ -13,9 +13,10 @@
  * prompts or answers, and is not sent anywhere.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Network from "expo-network";
 import { ApolloSlm, type SlmNativeStatus } from "@/modules/apollo-slm";
 
-import { installedFallback } from "./fallbackModel.ts";
+import { generateWithFallback, installedFallback, stopFallbackCompletion } from "./fallbackModel.ts";
 
 import {
   EXPLAIN_INSTRUCTIONS, PRE_SCREEN_INSTRUCTIONS, SLM_FALLBACK_TIMEOUT_MS, SLM_TIMEOUT_MS,
@@ -42,9 +43,12 @@ export async function getSlmStatus(): Promise<SlmNativeStatus> {
   catch { return { availability: "unavailable", engine: "none", reason: "status_unreadable", modelName: null, osVersion: null, observedAt: new Date().toISOString() }; }
 }
 
-export async function requestSlmDownload(): Promise<SlmNativeStatus> {
-  try { return await ApolloSlm.requestDownload(); }
-  catch { return getSlmStatus(); }
+/** Asks the OS to fetch its built-in model. Only from the person's tap, and only on Wi-Fi (as the privacy text says). */
+export async function requestSlmDownload(): Promise<{ status: SlmNativeStatus; refused: "needs_wifi" | null }> {
+  const net = await Network.getNetworkStateAsync().catch(() => null);
+  if (net?.type !== Network.NetworkStateType.WIFI) return { status: await getSlmStatus(), refused: "needs_wifi" };
+  try { return { status: await ApolloSlm.requestDownload(), refused: null }; }
+  catch { return { status: await getSlmStatus(), refused: null }; }
 }
 
 /** The phone's local record of on-device calls, newest first. */
@@ -97,24 +101,32 @@ export async function generateRaw(purpose: SlmPurpose, instructions: string, pro
   const planned: SlmModelInfo = engine.kind === "system"
     ? { engine: engine.status.engine, modelName: engine.status.modelName, osVersion: os }
     : { engine: "llama_cpp", modelName: engine.modelId, osVersion: os };
+  // One model call at a time. The phone's model runs a single session, and a call that runs past its time limit keeps
+  // running natively, so the lock is held until the model itself finishes, not until the timer fires. A call that
+  // arrives meanwhile is refused as "busy" (nothing extra is shown) instead of colliding with it.
+  if (inFlight) return fail("busy", planned);
   let timer: ReturnType<typeof setTimeout> | undefined;
   // A downloaded model on a mid-range phone is slower than the built-in ones, so it gets longer.
   const limit = engine.kind === "system" ? SLM_TIMEOUT_MS : SLM_FALLBACK_TIMEOUT_MS;
+  const call: Promise<RawCall> = engine.kind === "system"
+    ? ApolloSlm.generate({ instructions, prompt, maxOutputTokens, temperature: 0.1 }).then((res) => ({ ok: true as const, text: res.text, elapsedMs: res.elapsedMs, model: { engine: res.engine, modelName: res.modelName ?? planned.modelName, osVersion: res.osVersion ?? os } }))
+    : generateWithFallback(instructions, prompt, maxOutputTokens, 0.1, opts.json).then((res) => ({ ok: true as const, text: res.text, elapsedMs: res.elapsedMs, model: { engine: "llama_cpp" as const, modelName: res.modelId, osVersion: os } }));
+  inFlight = call.catch(() => undefined).finally(() => { inFlight = null; });
   try {
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("timeout")), limit); });
-    if (engine.kind === "system") {
-      const res = await Promise.race([ApolloSlm.generate({ instructions, prompt, maxOutputTokens, temperature: 0.1 }), timeout]);
-      return { ok: true, text: res.text, elapsedMs: res.elapsedMs, model: { engine: res.engine, modelName: res.modelName ?? planned.modelName, osVersion: res.osVersion ?? os } };
-    }
-    const res = await Promise.race([generateWithFallback(instructions, prompt, maxOutputTokens, 0.1, opts.json), timeout]);
-    return { ok: true, text: res.text, elapsedMs: res.elapsedMs, model: { engine: "llama_cpp", modelName: res.modelId, osVersion: os } };
+    return await Promise.race([call, timeout]);
   } catch (e) {
+    const timedOut = e instanceof Error && e.message === "timeout";
+    // llama.cpp can be told to stop; the OS models can't, so their call finishes in the background under the lock.
+    if (timedOut && engine.kind === "fallback") void stopFallbackCompletion();
     const code = (e as { code?: string })?.code;
-    return fail(e instanceof Error && e.message === "timeout" ? "timeout" : code ?? "failed", planned);
+    return fail(timedOut ? "timeout" : code ?? "failed", planned);
   } finally {
     if (timer) clearTimeout(timer);
   }
 }
+
+let inFlight: Promise<unknown> | null = null;
 
 const runOnce = (purpose: SlmPurpose, instructions: string, prompt: string, maxOutputTokens: number, json: boolean) =>
   generateRaw(purpose, instructions, prompt, maxOutputTokens, { json, record: true, requireEnabled: true });

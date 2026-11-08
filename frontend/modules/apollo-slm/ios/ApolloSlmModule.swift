@@ -66,10 +66,13 @@ public class ApolloSlmModule: Module {
       guard let fileUrl = url, let handle = try? FileHandle(forReadingFrom: fileUrl) else { return nil }
       defer { try? handle.close() }
       var hasher = SHA256()
-      while true {
-        let chunk = handle.readData(ofLength: 1 << 20)
-        if chunk.isEmpty { break }
-        hasher.update(data: chunk)
+      // Each chunk is released before the next is read, so memory stays at about 1 MB however big the file is.
+      var done = false
+      while !done {
+        autoreleasepool {
+          let chunk = handle.readData(ofLength: 1 << 20)
+          if chunk.isEmpty { done = true } else { hasher.update(data: chunk) }
+        }
       }
       return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }

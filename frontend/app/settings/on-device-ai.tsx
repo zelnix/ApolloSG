@@ -16,7 +16,7 @@ import { slmModelLabel } from "@/src/slm/core";
 import { cancelFallbackDownload, deleteFallback, downloadFallback, fallbackOptions, installedFallback } from "@/src/slm/fallbackModel";
 import { FIT_TEXT, formatBytes, MODEL_SOURCES, type FallbackModel, type ModelFit } from "@/src/slm/models";
 import { APACHE_2_0_LICENSE, BUILT_WITH_LLAMA, LLAMA_3_2_LICENSE, LLAMA_3_2_NOTICE } from "@/src/slm/licences";
-import { getSlmStatus } from "@/src/slm/onDeviceSlm";
+import { getSlmStatus, requestSlmDownload } from "@/src/slm/onDeviceSlm";
 import { fonts, makeStyles, spacing, useTheme } from "@/src/theme";
 import { goBackOrHome } from "@/src/utils/navigation";
 
@@ -49,7 +49,7 @@ const useStyles = makeStyles((c) => ({
 export default function OnDeviceAiScreen() {
   const s = useStyles(); const insets = useSafeAreaInsets(); const router = useRouter(); const { colors } = useTheme();
   const [status, setStatus] = useState<SlmNativeStatus | null>(null);
-  const [options, setOptions] = useState<Array<{ model: FallbackModel; fit: ModelFit }>>([]);
+  const [options, setOptions] = useState<{ model: FallbackModel; fit: ModelFit }[]>([]);
   const [installed, setInstalled] = useState<FallbackModel | null>(null);
   const [downloading, setDownloading] = useState<{ id: string; progress: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -100,7 +100,13 @@ export default function OnDeviceAiScreen() {
       <Card testID="on-device-ai-builtin">
         {status ? <>
           <Text style={s.name}>{builtInReady ? slmModelLabel(status) : "None ready"}</Text>
-          <Text style={s.meta}>{builtInReady ? "ApolloSG uses this one first." : "This phone has no built-in model ApolloSG can use. You can download one below."}</Text>
+          <Text style={s.meta}>{builtInReady ? "ApolloSG uses this one first."
+            : status.availability === "downloadable" ? "This phone can get its built-in model. The phone downloads it, not ApolloSG."
+            : status.availability === "downloading" ? "The phone is getting its built-in model ready."
+            : "This phone has no built-in model ApolloSG can use. You can download one below."}</Text>
+          {status.availability === "downloadable" ? (
+            <Button testID="on-device-ai-builtin-download" variant="secondary" label="Get the built-in model (Wi-Fi)" onPress={() => void requestSlmDownload().then((r) => { setStatus(r.status); if (r.refused) setMessage(FAIL_TEXT.needs_wifi); })} />
+          ) : null}
         </> : <ActivityIndicator />}
       </Card>
 

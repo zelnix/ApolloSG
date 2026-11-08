@@ -102,14 +102,15 @@ export function preScreenPrompt(preparedText: string): string {
   return `Message:\n"""${preparedText}"""`;
 }
 
-/** The clause holding the quote, and whether a negation governs it ("No one will ever ask you to send …"). */
+/** Whether a request quote can't be counted: a negation governs it ("No one will ever ask you to send …"), or it runs
+ *  across a sentence or clause boundary, so the negation check can't be applied to it — dropped either way. */
 function quoteIsNegated(text: string, quote: string): boolean {
   const q = norm(quote);
   for (const clause of clauses(text)) {
     const at = norm(clause).indexOf(q);
     if (at >= 0) return negated(norm(clause), at);
   }
-  return false;
+  return true;
 }
 
 export function parsePreScreen(raw: string, preparedText: string): SlmPreScreen {
@@ -121,7 +122,7 @@ export function parsePreScreen(raw: string, preparedText: string): SlmPreScreen 
   const keep = (h: SlmHint) => { const k = JSON.stringify(h).toLowerCase(); if (!seen.has(k)) { seen.add(k); hints.push(h); } };
 
   const reqs = Array.isArray(obj.requests) ? obj.requests.slice(0, 8) : [];
-  for (const r of reqs as Array<Record<string, unknown>>) {
+  for (const r of reqs as Record<string, unknown>[]) {
     const kind = String(r?.kind ?? "") as SlmRequestKind;
     const quote = String(r?.quote ?? "").trim();
     if (!SLM_REQUEST_KINDS.includes(kind) || locateQuote(preparedText, quote) < 0 || quoteIsNegated(preparedText, quote)) { dropped++; continue; }
@@ -210,11 +211,28 @@ export function explainPrompt(r: SettledResult): string {
   return `Result: ${r.stateName}\nWhat Apollo found: ${r.verdict}\nWhy:\n${why}\nWhat to do: ${r.recommendation}`;
 }
 
-const REASSURANCE = /\b(safe|safely|harmless|genuine|legit(?:imate)?|trustworthy|authentic|nothing to worry|no need to worry|no risk|risk[- ]free|guarantee[ds]?|100\s?%|definitely fine|all clear|you can trust)\b/i;
+const REASSURANCE = /\b(safe|safely|harmless|genuine|legit(?:imate)?|trustworthy|authentic|fine|okay|ok|alright|all right|normal|nothing (?:wrong|suspicious|unusual|to (?:worry|fear))|no need to worry|no (?:risk|problem|concern)s?|not a scam|risk[- ]free|guarantee[ds]?|100\s?%|all clear|you can trust)\b/i;
+/** Permission to act on the message ("it's okay to reply", "you can pay"). */
+const PERMISSION = /\b(?:it'?s|it is|you can|you may|feel free to|(?:okay|ok|fine|alright) to)\s+(?:go ahead and\s+)?(?:reply|respond|answer|pay|click|tap|call|open|send|share|transfer|install)\b/i;
+/** Each state's words, so a re-wording can't name a different state from the settled one ("Checking" is left out:
+ *  it is an ordinary word). */
+const STATE_WORDS: Record<string, RegExp> = {
+  Patrolling: /\bpatrol\w*/i, Sniffing: /\bsniff\w*/i, Growling: /\bgrowl\w*/i, Barking: /\bbark\w*/i, Biting: /\bbit(?:ing|es?)\b|\bbite\b/i,
+};
+const NEGATED_BEFORE = /\b(?:not|isn'?t|aren'?t|wasn'?t|never|no longer|can'?t be|cannot be|may not be|might not be|don'?t think)\s+(?:\w+\s+){0,2}$/;
+
+/** True when some match of `re` in the text has no negation just before it. */
+function unnegatedMatch(text: string, re: RegExp): boolean {
+  for (const m of text.matchAll(new RegExp(re.source, "gi"))) {
+    const before = text.slice(Math.max(0, (m.index ?? 0) - 40), m.index).toLowerCase().replace(/[\u2018\u2019]/g, "'");
+    if (!NEGATED_BEFORE.test(before)) return true;
+  }
+  return false;
+}
 const DISMISSAL = /\b(ignore (?:this|the) (?:warning|advice|result)|no need to (?:check|verify|act)|go ahead and (?:pay|click|reply|call|send))\b/i;
 const URLISH = /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(?:com|net|org|au|io|co|xyz|info|app)\b/i;
 
-export type ExplainCheck = { ok: true; text: string } | { ok: false; reason: "empty" | "too_long" | "reassurance" | "dismissal" | "new_link" | "new_number" };
+export type ExplainCheck = { ok: true; text: string } | { ok: false; reason: "empty" | "too_long" | "reassurance" | "permission" | "wrong_state" | "dismissal" | "new_link" | "new_number" };
 
 /** Accept the re-wording only if it can't change what the result means. Otherwise the fixed wording is shown. */
 export function checkExplanation(raw: string, r: SettledResult): ExplainCheck {
@@ -222,12 +240,14 @@ export function checkExplanation(raw: string, r: SettledResult): ExplainCheck {
   if (!text) return { ok: false, reason: "empty" };
   if (text.split(" ").length > EXPLAIN_MAX_WORDS + 20) return { ok: false, reason: "too_long" };
   const source = [r.stateName, r.verdict, ...r.why, r.recommendation].join(" ");
-  // A reassuring word is allowed only when negated just before it ("isn't safe", "not genuine", "never guaranteed").
-  for (const m of text.matchAll(new RegExp(REASSURANCE.source, "gi"))) {
-    const before = text.slice(Math.max(0, (m.index ?? 0) - 40), m.index).toLowerCase().replace(/[\u2018\u2019]/g, "'");
-    if (!/\b(?:not|isn'?t|aren'?t|wasn'?t|never|no longer|can'?t be|cannot be|may not be|might not be)\s+(?:\w+\s+){0,2}$/.test(before)) return { ok: false, reason: "reassurance" };
-  }
+  // Reassurance and permission are allowed only when negated just before ("isn't safe", "not okay to reply").
+  if (unnegatedMatch(text, REASSURANCE)) return { ok: false, reason: "reassurance" };
+  if (unnegatedMatch(text, PERMISSION)) return { ok: false, reason: "permission" };
   if (DISMISSAL.test(text)) return { ok: false, reason: "dismissal" };
+  // It may not name a different state from the settled one ("Apollo is patrolling" under a Biting result).
+  for (const [name, re] of Object.entries(STATE_WORDS)) {
+    if (name.toLowerCase() !== r.stateName.toLowerCase() && re.test(text)) return { ok: false, reason: "wrong_state" };
+  }
   const link = text.match(URLISH);
   if (link && !norm(source).includes(norm(link[0]))) return { ok: false, reason: "new_link" };
   for (const n of text.match(/\d[\d,.:$%]*/g) ?? []) {
