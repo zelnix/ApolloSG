@@ -311,32 +311,36 @@ async def test_a_newly_registered_link_is_a_weak_signal_never_concerning(monkeyp
     it never makes a case Concerning. It is recorded, and — since Google Safe Browsing's own "clear"
     result already covers the link, a later, unrelated targeted-search failure on the same check has no
     bearing (Developer Instructions §2: "An optional or redundant service failure that has no effect on
-    investigative reliability must not automatically invoke Benign") — the case settles as "not_scam"."""
+    investigative reliability must not automatically invoke Benign"). Unified Evidence Classification
+    PRD §4: a weak signal alone is not substantive positive verification (N2 still fails — destinations
+    aren't verified as genuinely the claimed sender's), so this settles as "unlikely_scam", not a false
+    "not_scam" — the case is never read as either safe or a scam."""
     calls = _gateway(monkeypatch)
     _lookups(monkeypatch, age_days=6)
     _owner, case, response, _ = await _case([("text", "Hi, it's Sarah from the conference. Here are the slides you asked for: https://slides-deck.net/deck")])
     assert calls == [], "Magnum DI couldn't change the finding or what to do"
-    assert response["outcome"] == "not_scam"
+    assert response["outcome"] == "unlikely_scam"
     assert any("registered on 2026-06-01" in f["text"] for f in response["findings"]), "the weak signal is listed"
-    assert "Apollo's checks found no scam indicators" in response["overview"]
+    assert "weak signal that isn't a concern on its own" in response["overview"]
     # Offline, the link's targeted search is unavailable, but Google Safe Browsing already cleared it —
     # a non-impacting, redundant failure, so the gap is named in the "how ApolloSG checked" trail, never
     # treated as unresolved evidence.
     assert {c["kind"]: c["status"] for c in case["routing"]["tc_flyby"]["checks"]}["link"] == "unavailable"
     assert "TC Hawkeye's lookup was unavailable, so this wasn't established either way" in response["explanationMarkdown"]
-    assert response["attentionReason"] is None
-    assert case["routing"]["tc_flyby"]["issues"] == [] and case["routing"]["tc_flyby"]["basis"] == "clear"
+    assert response["attentionReason"] is not None
+    assert case["routing"]["tc_flyby"]["issues"] == [] and case["routing"]["tc_flyby"]["basis"] == "unknown"
 
 
 async def test_a_plain_message_asking_nothing_is_settled_without_magnum(monkeypatch):
-    """Developer Instructions §6's own example: nothing to check, nothing wrong — settles as not_scam
-    directly, never floored to unlikely_scam merely for lacking verification."""
+    """Unified Evidence Classification PRD §4/§5.1: nothing to check, nothing wrong, but also nothing
+    positively verified — settles as "unlikely_scam" directly (never a false "not_scam" claiming more
+    than the evidence supports), and still never escalated to Magnum DI, since there's nothing an AI
+    call could usefully add."""
     calls = _gateway(monkeypatch)
     _owner, case, response, _ = await _case([("text", "Hey, are we still on for dinner on Friday? Let me know what time suits.")])
     assert calls == []
-    assert response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
-    assert "Apollo's checks found no scam indicators" in response["overview"]
-    assert "No warning signs in anything Apollo checked." in response["explanationMarkdown"]
+    assert response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
+    assert "It found no warning signs, but that isn't the same as it being safe" in response["overview"]
     flyby = case["routing"]["tc_flyby"]
     assert flyby["resolved"] is True and flyby["issues"] == []
     assert {c["kind"]: c["status"] for c in flyby["checks"]}["message_analysis"] == "not_needed"
@@ -548,9 +552,10 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     _lookups(monkeypatch, age_days=6)
     _owner, case, response, _ = await _case([("url", "https://fresh-deals.shop/promo")], message="Is this link safe?")
     # A newly registered domain is a weak signal: recorded, never Concerning on its own. Google Safe
-    # Browsing's own "clear" result already covers it, so the case settles as "not_scam" directly
-    # (Developer Instructions §6 — absence of further verification alone must not float it to the floor).
-    assert calls == [] and response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
+    # Browsing's own "clear" result already covers it, but a weak signal alone is not substantive
+    # positive verification (Unified Evidence Classification PRD §4 — N2 still fails), so the case
+    # settles as "unlikely_scam", never a false "not_scam" or a false "safe" claim.
+    assert calls == [] and response["outcome"] == "unlikely_scam" and response["assessment"] == "no_concern_found_within_scope"
     assert any("registered on 2026-06-01" in f["text"] for f in response["findings"])
     calls.clear()   # now nothing can be checked: every lookup and the search are unavailable
     from services.higgins.tc_flyby import search as tc_flyby_search

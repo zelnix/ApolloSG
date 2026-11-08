@@ -151,18 +151,18 @@ def _bare_link(*facts: dict, unavailable: bool = False) -> triage.Plan:
     return plan
 
 
-def test_weak_signal_alone_is_not_scam_with_no_overclaim(): 
-    """Correction (ApolloSG Developer Instructions §6 — "Correct Benign Baseline Invocation"): a weak
-    signal that isn't itself a concern, with nothing else unresolved or contradictory, is no longer
-    floored to "unlikely_scam" purely for lacking verification — it settles as "not_scam" directly,
-    still carefully worded (never claiming the site is proven safe)."""
+def test_weak_signal_alone_is_not_scam_with_no_overclaim():
+    """Unified Evidence Classification PRD §4: a weak signal that isn't itself a concern, with
+    nothing else unresolved or contradictory, still isn't substantive positive verification (N2
+    fails — the destination isn't confirmed as genuinely the claimed sender's) — so it settles as
+    "unlikely_scam", never a false "not_scam" and never claiming the site is proven safe."""
     plan = _bare_link(_listed_clean("fresh-deals.shop"), _registered("fresh-deals.shop", young=True))
     decision, issues = decide.evaluate(plan, MATERIAL, final=True)
-    assert issues == [] and decision.outcome == "not_scam", "settlement unchanged"
+    assert issues == [] and decision.outcome == "unlikely_scam", "settlement unchanged"
     result = report.compose(decision, plan, MATERIAL, "flyby-1")
-    assert result["attention"] == "none" and result["outcome"] == "not_scam"
-    assert result["overview"] == ("Nothing Apollo checked raises a concern about fresh-deals.shop. That isn't proof the site is safe — "
-                                  "only that these checks found nothing.")
+    assert result["attention"] == "review" and result["outcome"] == "unlikely_scam"
+    assert "weak signal that isn't a concern on its own" in result["overview"]
+    assert "but that isn't the same as it being safe" in result["overview"]
 
 
 def test_unable_to_determine_names_the_gap_when_something_couldnt_be_checked():

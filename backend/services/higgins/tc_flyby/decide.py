@@ -134,7 +134,18 @@ def provisional(plan_: Plan) -> Decision | None:
         if "S2" in deciding:
             return Decision("tc_flyby_official", "scam", "impersonation")
         if "S3" in deciding:
-            return Decision(_route(plan_.checks), "scam", "signals")
+            # S3 may now be established purely from the request's own wording (a named decisive
+            # mechanism — PRD §2.3.A), with neither a KB pattern nor a check-based signal to
+            # narrate from. Route to whichever presentation actually has evidence to show; when
+            # none of the templates below have anything concrete (no pattern, no check signal),
+            # defer to the final evaluate() stage, whose "unknown" basis renders generically
+            # rather than crashing on an empty findings list.
+            if plan_.pattern and plan_.pattern.get("stage") == "full":
+                return Decision("tc_flyby_kb", "scam", "pattern")
+            found = signals(plan_)
+            if found:
+                return Decision(_route([c for c, _ in found]), "scam", "signals")
+            return None
         if "S4" in deciding:
             return Decision("tc_flyby_kb", "scam", "pattern")
         return Decision(_route(plan_.checks), "scam", "threat")
@@ -145,13 +156,16 @@ def provisional(plan_: Plan) -> Decision | None:
         downgrade, reason = evidence_evaluation.should_downgrade_provisional(plan_, "likely_scam")
         if downgrade:
             return None  # let Magnum DI investigate further
-        # The Findings Rating (scoring.py) is the authoritative tier — but a full KB pattern match with
-        # no separate S4 corroboration only earns L2's "likely" by itself. When a genuinely independent
-        # decisive mechanism (PRD §2.3.A's named mechanisms, severe-consequence manipulation or
-        # money-mule recruitment — never the pattern match's own circular corroboration) is ALSO
-        # established, report it at the confirmed tier the score reaches, not the weaker L-rule label.
-        from services.higgins.tc_flyby.scoring import _l2_escalation_signal
-        outcome = "scam" if _l2_escalation_signal(plan_, rules_result.ipdmc) else "likely_scam"
+        # Unified Evidence Classification PRD §4/§7.3 — an L finding is promoted to "This is a Scam"
+        # only where verified evidence actually meets an S rule. evaluate_rules() already tried
+        # S1-S4 before L1-L3 and none passed here (we're in the "likely_scam" branch precisely
+        # because they didn't), so this outcome is always "likely_scam" — never escalated by a
+        # named-mechanism heuristic alone (the old `_l2_escalation_signal`-driven promotion is
+        # retired; see acceptance tests "L2 full pattern without independent S corroboration ->
+        # Likely; no automatic S promotion" and "High score without verified S -> Not automatically
+        # Scam"). scoring.reconcile() applies the same rule to the Findings Rating, so the number
+        # and this label can never disagree.
+        outcome = "likely_scam"
         if "L2" in deciding:
             return Decision("tc_flyby_kb", outcome, "pattern")
         if "L1" in deciding:

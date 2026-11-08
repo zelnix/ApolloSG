@@ -185,13 +185,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 25,
+      "targetScore": 25,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "010",
@@ -201,9 +201,9 @@
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 45,
+      "actualScore": 60,
       "targetScore": 77,
-      "scoreDelta": -32,
+      "scoreDelta": -17,
       "taxonomy": "Retail, E-Commerce & Employment",
       "basis": "pattern"
     },
@@ -251,13 +251,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 25,
+      "targetScore": 25,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "015",
@@ -279,9 +279,9 @@
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 85,
+      "actualScore": 84,
       "targetScore": 82,
-      "scoreDelta": 3,
+      "scoreDelta": 2,
       "taxonomy": "Social Engineering & Relationship Exploitation",
       "basis": "pattern"
     },
@@ -329,13 +329,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 25,
+      "targetScore": 25,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "061",
@@ -343,13 +343,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 25,
+      "targetScore": 25,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "062",
@@ -383,9 +383,9 @@
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 51,
+      "actualScore": 60,
       "targetScore": 80,
-      "scoreDelta": -29,
+      "scoreDelta": -20,
       "taxonomy": "Financial, Investment & Cryptocurrency Fraud",
       "basis": "pattern"
     },
@@ -423,9 +423,9 @@
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 85,
+      "actualScore": 84,
       "targetScore": 83,
-      "scoreDelta": 2,
+      "scoreDelta": 1,
       "taxonomy": "Financial, Investment & Cryptocurrency Fraud",
       "basis": "pattern"
     },
@@ -449,13 +449,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 25,
+      "targetScore": 25,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "070",
@@ -513,13 +513,13 @@
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 0,
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 25,
+      "targetScore": 25,
       "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "075",
@@ -769,17 +769,17 @@
     },
     {
       "id": "104",
-      "scenario": "Verified legitimate employer interview confirmation",
+      "scenario": "Ordinary unverified interview confirmation",
       "settled": true,
       "verificationStatus": "tc_hawkeye_resolved",
-      "category": "verified_legitimate",
-      "actualFinding": "not_scam",
-      "targetFinding": "not_scam",
-      "actualScore": 0,
-      "targetScore": 6,
-      "scoreDelta": -6,
+      "category": "benign",
+      "actualFinding": "unlikely_scam",
+      "targetFinding": "unlikely_scam",
+      "actualScore": 25,
+      "targetScore": 25,
+      "scoreDelta": 0,
       "taxonomy": null,
-      "basis": "clear"
+      "basis": "unknown"
     },
     {
       "id": "105",

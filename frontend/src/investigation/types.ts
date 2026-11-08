@@ -55,6 +55,14 @@ export interface FindingsRatingBreakdown {
   narrative: string;
   /** Material TC Hawkeye couldn't read at all (PRD completeness) — distinct from "missing" per-dimension checks. */
   contentGaps: string[];
+  /** Unified Evidence Classification PRD §5.1/§7.2 — the calculated six-dimension rating before any
+   *  evidence-verdict alignment. Equal to `rating` whenever the evidence verdict and the calculated
+   *  score already agreed. */
+  rawRating: number;
+  /** Why `rating` was nudged away from `rawRating` to match the evidence verdict's band — empty when it wasn't. */
+  adjustmentReason: string;
+  /** The S/N/L rule id(s) (e.g. ["S2"], ["N1","N2"]) that established the evidence verdict shown as `finding`. */
+  verdictRuleIds: string[];
 }
 /** A master domain reference, without its variant code (backend services.higgins.tc_flyby.taxonomy). */
 export interface TaxonomyDomainRef { domainCode: number; domainName: string }

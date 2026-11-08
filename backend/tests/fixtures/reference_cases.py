@@ -117,11 +117,12 @@ CASES: list[ReferenceCase] = [
                       gt("link", "startrack-redirect.info", text="startrack-redirect.info was registered 3 days ago.", signal="weak", topic="registration")],
     ),
     ReferenceCase(
-        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — an
-        # ordinary message with nothing to check and nothing wrong is not_scam/0, not the PRD's original
-        # illustrative unlikely_scam/28: that depended on the since-removed "absence of verification"
-        # Benign trigger. See services/higgins/tc_flyby/scoring.py::benign_trigger.
-        id="009", scenario="Ordinary unverified parcel arrival notice", category="benign", target_score=0, target_finding="not_scam",
+        # Corrected per the Unified Evidence Classification PRD (v1.0, 8 Nov 2026) §4/§5.1 — an
+        # ordinary message with nothing established isn't substantive positive verification (N1-N4
+        # require more than "nothing to object to"), so this reads "unlikely_scam", never a false
+        # "not_scam" claiming more than the evidence supports. See services/higgins/tc_flyby/
+        # finding_rules.py::evaluate_rules()'s N-waterfall and scoring.py::reconcile().
+        id="009", scenario="Ordinary unverified parcel arrival notice", category="benign", target_score=25, target_finding="unlikely_scam",
         question="Is this a scam?",
         material="Your parcel from Kmart has arrived at the Auspost locker at Westfield Hornsby. It will be held for 48 hours.",
     ),
@@ -157,8 +158,8 @@ CASES: list[ReferenceCase] = [
                   "to stop the transfer before it processes."),
     ),
     ReferenceCase(
-        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
-        id="014", scenario="Ordinary unverified banking reminder", category="benign", target_score=0, target_finding="not_scam",
+        # Corrected per the Unified Evidence Classification PRD (v1.0, 8 Nov 2026) §4/§5.1 — see note on case 009.
+        id="014", scenario="Ordinary unverified banking reminder", category="benign", target_score=25, target_finding="unlikely_scam",
         question="Is this a scam?",
         material="Reminder: your ANZ credit card payment of $120.00 is due in 3 days. Log in to the ANZ app to view your statement.",
     ),
@@ -196,16 +197,16 @@ CASES: list[ReferenceCase] = [
                   "once it's sorted, please don't tell anyone else about this."),
     ),
     ReferenceCase(
-        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
-        id="030", scenario="Unverified ordinary family message", category="benign", target_score=0, target_finding="not_scam",
+        # Corrected per the Unified Evidence Classification PRD (v1.0, 8 Nov 2026) §4/§5.1 — see note on case 009.
+        id="030", scenario="Unverified ordinary family message", category="benign", target_score=25, target_finding="unlikely_scam",
         question="Is this a scam?",
         material="Hey, running 10 minutes late to dinner, see you soon! Can you grab some bread on the way?",
     ),
 
     # ── 061-070 — Social Engineering (romance) & Financial/Crypto Fraud ─────
     ReferenceCase(
-        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
-        id="061", scenario="Ordinary golf invitation", category="benign", target_score=0, target_finding="not_scam",
+        # Corrected per the Unified Evidence Classification PRD (v1.0, 8 Nov 2026) §4/§5.1 — see note on case 009.
+        id="061", scenario="Ordinary golf invitation", category="benign", target_score=25, target_finding="unlikely_scam",
         question="Is this a scam?",
         material="Keen for golf Saturday morning? Tee off at 7am, I'll book us in at the usual course.",
     ),
@@ -261,8 +262,8 @@ CASES: list[ReferenceCase] = [
                   "wallet will be drained within the hour."),
     ),
     ReferenceCase(
-        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
-        id="069", scenario="Ordinary unverified investment seminar invitation", category="benign", target_score=0, target_finding="not_scam",
+        # Corrected per the Unified Evidence Classification PRD (v1.0, 8 Nov 2026) §4/§5.1 — see note on case 009.
+        id="069", scenario="Ordinary unverified investment seminar invitation", category="benign", target_score=25, target_finding="unlikely_scam",
         question="Is this a scam?",
         material="You're invited to a free investment seminar at the local library next Thursday 6pm, covering super and shares basics. All welcome.",
     ),
@@ -296,8 +297,8 @@ CASES: list[ReferenceCase] = [
                   "withdrawals after your first task set, deposit a refundable $150 activation fee in cryptocurrency to get started."),
     ),
     ReferenceCase(
-        # Corrected per ApolloSG Developer Instructions ("Correct Benign Baseline Invocation") — see note on case 009.
-        id="074", scenario="Ordinary unverified job interview invitation", category="benign", target_score=0, target_finding="not_scam",
+        # Corrected per the Unified Evidence Classification PRD (v1.0, 8 Nov 2026) §4/§5.1 — see note on case 009.
+        id="074", scenario="Ordinary unverified job interview invitation", category="benign", target_score=25, target_finding="unlikely_scam",
         question="Is this a scam?",
         material="Hi, thanks for applying — we'd like to invite you for an interview Tuesday at 10am at our office. Please confirm if that time works.",
     ),
@@ -446,15 +447,25 @@ CASES: list[ReferenceCase] = [
                           signal="clear", topic="official_domains", decisive=True)],
     ),
     ReferenceCase(
-        id="104", scenario="Verified legitimate employer interview confirmation", category="verified_legitimate", target_score=6, target_finding="not_scam",
+        id="104", scenario="Ordinary unverified interview confirmation", category="benign", target_score=25, target_finding="unlikely_scam",
         question="Is this legitimate?",
         material="Confirming our interview tomorrow at 2pm at our office on Level 4, 123 George St. Please bring a copy of your resume. No payment is required at any stage of our process.",
+        # Unified Evidence Classification PRD §4/§5.1 — reassuring wording ("no payment required") is
+        # never itself verification evidence; with no organisation named and nothing to check, this
+        # sits in the same "ordinary, nothing established" bucket as 009/014/030/061/069/074, not the
+        # genuinely verified control group below.
     ),
     ReferenceCase(
         id="105", scenario="Verified legitimate government service notification", category="verified_legitimate", target_score=5, target_finding="not_scam",
         question="Is this legitimate?",
         material="myGov: you have a new message in your myGov inbox from the ATO. Log in to myGov directly to view it — this message contains no links and does not ask for any information.",
         ground_truth=[gt("impersonation", "mygov", text="Every link and address in the material uses my.gov.au, myGov's official domain.",
-                          signal="clear", topic="official_domains", decisive=True)],
+                          signal="clear", topic="official_domains", decisive=True),
+                      # The ATO is only referenced as the message's origin inside myGov's own inbox — not
+                      # an independent sender with its own contact channel — so its own impersonation
+                      # check (created because the entity extractor also picked up "the ATO") resolves
+                      # clear too, rather than being left artificially unchecked.
+                      gt("impersonation", "ato", text="The ATO isn't contacted directly — myGov's own domain is the only one used in the material.",
+                          signal="clear", topic="official_domains", decisive=False)],
     ),
 ]
