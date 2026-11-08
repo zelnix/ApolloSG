@@ -27,7 +27,8 @@ const outDir = path.join(os.tmpdir(), preview ? "apollo-verify-export-preview" :
 // absence from a production artifact means something. Module paths and file names are not usable:
 // a production export carries neither, so they would "pass" in both builds and prove nothing.
 const MARKERS = [
-  "commbank-cancel.co",
+  // A preview-only fixture ID, unlike its example URL which is also used in Sample Checks (all builds).
+  "sim-txt-bank-verify",
   "civic-plumbing-invoices.com",
   "SIMULATED_SCREENSHOT_TEXT",
   "SIMULATED_EMAILS",
