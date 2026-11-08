@@ -96,6 +96,25 @@ class TestScorePlanMechanics:
         assert breakdown.finding == "likely_scam"
         assert breakdown.rating >= 65
 
+    def test_a_scam_the_rules_established_is_never_rated_likely(self):
+        """Owner, 2026-11-08: a myGov lookalike sender demanding a tax debt read "This is a scam" on the
+        Findings Brief while the DI tab's Scoring Breakdown said "83/100 — This is Likely a Scam". The verdict
+        comes from the S-rules (S2: fake identity + deceptive purpose); the rating must agree with it."""
+        plan = _plan()
+        ipdmc = IPDMCChecks(claimed_identity="myGov", identity_is_false=True, purpose_is_deceptive=True,
+                            identity_evidence=["mygov-refunds.net carries myGov's name but isn't myGov's domain (my.gov.au)."])
+        breakdown = score_plan(plan, ipdmc)
+        assert breakdown.finding == "scam"
+        assert breakdown.rating >= 85
+        assert breakdown.decisive_floor_applied
+        assert "rule S2" in (breakdown.decisive_mechanism or "")
+        # The breakdown says why, in the rule's own words.
+        assert "never scored below 85" in breakdown.narrative
+        # An established S-rule that a reliable genuine explanation undermines is not a scam — and isn't floored.
+        undermined = IPDMCChecks(claimed_identity="myGov", identity_is_false=True, purpose_is_deceptive=True,
+                                 has_contradictions=True, genuine_explanation_supported=True)
+        assert not score_plan(plan, undermined).decisive_floor_applied
+
     def test_positively_verified_identity_and_destination_is_not_scam(self):
         plan = _plan()
         ipdmc = IPDMCChecks(identity_verified="passed", destinations_verified="passed",

@@ -867,6 +867,21 @@ def l3_independent_indicators(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
 
 # ── Decision Engine ──────────────────────────────────────────────────────────
 
+def established_scam_rules(plan: Plan, ipdmc: IPDMCChecks, s_rules: list[RuleResult] | None = None) -> list[RuleResult]:
+    """The S1–S4 rules that pass with no unresolved reliable information undermining them — exactly the
+    condition under which evaluate_rules() reports "scam" (and decide.py's Decision carries it). One place
+    for that condition, so the Findings Rating (scoring.py) can floor the score the same way: the verdict
+    the person sees and the rating's band must never disagree (owner, 2026-11-08: a case shown as "This is
+    a scam" was rated 83/100 "likely")."""
+    rules = s_rules or [s1_known_scam(plan, ipdmc), s2_fake_identity(plan, ipdmc), s3_scam_activity(plan, ipdmc), s4_complete_pattern(plan, ipdmc)]
+    passed = [r for r in rules if r.passed]
+    if not passed:
+        return []
+    # S1 (known scam) is never undermined by a genuine explanation.
+    undermined = ipdmc.has_contradictions and ipdmc.genuine_explanation_supported and not any(r.rule_id == "S1" for r in passed)
+    return [] if undermined else passed
+
+
 def evaluate_rules(plan: Plan) -> FindingRulesResult:
     """Evaluate the S1-S4 / N1-N4 / L1-L3 rules against the investigation plan.
 
@@ -908,19 +923,12 @@ def evaluate_rules(plan: Plan) -> FindingRulesResult:
     s_failed = [r for r in s_rules if not r.passed]
 
     # If any S rule passes and no unresolved reliable information undermines it
-    if s_passed:
-        # Check for unresolved conflicts that could undermine the scam finding
-        has_undermining_conflict = (
-            ipdmc.has_contradictions and
-            ipdmc.genuine_explanation_supported and
-            not any(r.rule_id == "S1" for r in s_passed)  # S1 (known scam) is never undermined
-        )
-        if not has_undermining_conflict:
-            result.finding = "scam"
-            result.deciding_rules = [r.rule_id for r in s_passed]
-            result.rules_passed = s_passed
-            result.rules_failed = s_failed
-            return result
+    if established_scam_rules(plan, ipdmc, s_rules):
+        result.finding = "scam"
+        result.deciding_rules = [r.rule_id for r in s_passed]
+        result.rules_passed = s_passed
+        result.rules_failed = s_failed
+        return result
 
     # ── Step 2: Evaluate N1-N4 ──
     n_rules = [

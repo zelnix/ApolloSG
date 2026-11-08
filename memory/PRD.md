@@ -1,6 +1,19 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## Findings Rating agrees with the verdict (2026-11-08)
+- Owner: the Findings Brief said "This is a scam" while the DI tab's Scoring Breakdown said "83 / 100 — This is Likely a Scam"
+  (myGov lookalike sender, tax-debt demand). Cause: decide.py's verdict comes from the S1–S4 rules (S2 passed), the breakdown's
+  band from the six-dimension score alone (83 → 60–84 "likely").
+- Fix (backend): `finding_rules.established_scam_rules(plan, ipdmc)` is the one place for "an S-rule passed and nothing reliable
+  undermines it" (evaluate_rules uses it); `scoring._decisive_mechanism` now falls back to it, so a rules-established scam is floored
+  at 85 like any named critical mechanism, with the rule's own reason in the trace/narrative ("fake identity established and used for
+  deceptive purpose (rule S2) … never scored below 85"). Rule book: outcomes table note; stamped.
+- Verified in the preview (PayPal email sample): verdict "This is a scam" · Detailed Findings Brief "Findings Rating 85/100" ·
+  Scoring Breakdown "85 / 100 — This is a Scam". Tests: new test in test_findings_scoring.py; 138 + 284 + 17 backend tests in the
+  touched areas pass.
+
 ## Findings Brief: "what to do next" names the recorded material (2026-11-08)
+
 - Owner: an email case said "Delete the message or email" — the app knows it's an email. The steps no longer guess from the report's
   words: `caseSourceSummary.sourceKind(event, gates, original)` reads the case's own record (kept original's kind, the event's type,
   the case's Gate) → email | text | link | call; InvestigationView passes it to `FindingsBrief` (`source` prop; the Threat Case renders

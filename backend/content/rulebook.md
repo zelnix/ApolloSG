@@ -1027,6 +1027,11 @@ the boundaries are exact and inclusive:
 | **This is unlikely a scam** | 25–59 | A benign or routine communication without meaningful scam indicators, but without enough positive verification to call it genuine — the normal finding for ordinary, unverified communications. The case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. (Replaces the earlier "Unable to determine" outcome, now fully merged into this tier.) |
 | **This is not a scam** | 0–24 | The investigation verified the identity, destinations, purpose and resolved all scam warnings. This is **not** proof it's safe, and it is never described as safe. |
 
+The rating and the Finding never disagree: when the investigation's rules establish a scam (an authoritative
+listing, a fake identity used for a deceptive purpose, an established deceptive activity, or a complete
+corroborated pattern — rules S1–S4), the rating is floored at 85 like any other decisive mechanism, and the
+Scoring Breakdown says which rule did it. A case shown as "This is a scam" is never rated "likely".
+
 A reputation-check provider (IPQualityScore, for a link or phone number) that fails or times out, even
 after retrying, never produces a Findings Rating or any of the four outcomes above on its own: when
 nothing else established a decisive finding or a clear/concerning signal for what it would have covered,

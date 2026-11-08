@@ -45,7 +45,7 @@ import re
 from dataclasses import dataclass, field
 
 from services.higgins.tc_flyby.checks import corroborated_impersonation
-from services.higgins.tc_flyby.finding_rules import IPDMCChecks
+from services.higgins.tc_flyby.finding_rules import IPDMCChecks, established_scam_rules
 from services.higgins.tc_flyby.triage import Plan
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -441,7 +441,21 @@ def _decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
         # consequential request (e.g. a CEO/gift-card fraud with a confirmed fake sender) — waiting
         # for more evidence at this point causes real harm, same reasoning as the named mechanisms above.
         return f"A fully-corroborated \u201c{plan.pattern.get('name', '')}\u201d pattern paired with a consequential request"
-    return None
+    return _established_by_rules(plan, ipdmc)
+
+
+def _established_by_rules(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
+    """A scam the S1–S4 rules established (finding_rules.established_scam_rules) — the same condition on
+    which decide.py reports "This is a scam". That verdict is what the person sees, so the rating is
+    floored like any other decisive mechanism: a result shown as a scam is never rated "likely" (owner,
+    2026-11-08 — a myGov lookalike sender with a tax-debt demand read "This is a scam" over "83/100 —
+    Likely a Scam"). The reason is the rule's own, so the breakdown says why."""
+    passed = established_scam_rules(plan, ipdmc)
+    if not passed:
+        return None
+    rule = passed[0]
+    reason = rule.reason.rstrip(".")
+    return f"{reason[0].lower()}{reason[1:]} (rule {rule.rule_id})"
 
 
 def _checked_and_clean(plan: Plan, ipdmc: IPDMCChecks) -> bool:
