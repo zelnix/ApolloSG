@@ -13,6 +13,8 @@ let runtime: LocalLlamaRuntime | null = null;
 let startup: Promise<boolean> | null = null;
 
 export function startSharedLuddish(): Promise<boolean> {
+  // Candidate model has not cleared product safety or physical-device QA.
+  if (!__DEV__) return Promise.resolve(false);
   if (runtime) return Promise.resolve(true);
   if (startup) return startup;
   startup = (async () => {
@@ -36,6 +38,7 @@ export function startSharedLuddish(): Promise<boolean> {
  * Always rehashes the private copy before making a model available.
  */
 export async function installPrivateLuddishForTest(sourceUri: string): Promise<boolean> {
+  if (!__DEV__) return false;
   if (runtime || startup) return false;
   const source = new File(sourceUri);
   const dest = new File(Paths.document, CANDIDATE_FILE);
