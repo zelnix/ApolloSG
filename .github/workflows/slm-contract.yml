@@ -10,6 +10,8 @@ on:
       - 'backend/services/higgins/slm_contract.py'
       - 'backend/services/higgins/slm_advisory.py'
       - 'backend/services/higgins/coordinator.py'
+      - 'frontend/src/investigation/caseStore.ts'
+      - 'frontend/src/investigation/types.ts'
       - 'backend/tests/test_slm_advisory_stage.py'
       - 'backend/tests/test_slm_contract.py'
       - 'backend/routers/slm_handoff.py'
@@ -53,7 +55,7 @@ jobs:
         working-directory: frontend
         run: |
           npx tsc --noEmit > /tmp/slm-tsc-actual.txt 2>&1 || true
-          grep -E '^(src/domain/slm/|src/higgins/slmExplanation\\.ts|src/higgins/chatClient\\.ts|tests/slm)' /tmp/slm-tsc-actual.txt > /tmp/slm-tsc-errors.txt || true
+          grep -E '^(src/domain/slm/|src/higgins/slmExplanation\\.ts|src/higgins/chatClient\\.ts|src/investigation/(caseStore|types)\\.ts|tests/slm)' /tmp/slm-tsc-actual.txt > /tmp/slm-tsc-errors.txt || true
           if [ -s /tmp/slm-tsc-errors.txt ]; then
             echo "SLM TypeScript errors:"
             cat /tmp/slm-tsc-errors.txt
