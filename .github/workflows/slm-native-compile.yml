@@ -55,3 +55,10 @@ jobs:
         run: |
           test -s android/app/build/outputs/apk/debug/app-debug.apk
           echo "Debug APK assembled. No physical-device inference has been performed."
+      - name: Retain debug APK for controlled physical-device testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: apollosg-slm-android-debug
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 3
+          if-no-files-found: error
