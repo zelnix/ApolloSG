@@ -3,11 +3,79 @@
   "totalCases": 55,
   "settled": 32,
   "tierMatches": 32,
+  "tcHawkeyeResolved": {
+    "count": 32,
+    "tierMatches": 32,
+    "note": "TC Hawkeye reached a Finding deterministically on the first turn; TestFindingTierAccuracy independently checks the tier for each of these cases."
+  },
+  "correctlyRequiresMagnumDi": {
+    "count": 23,
+    "ids": [
+      "005",
+      "007",
+      "012",
+      "013",
+      "015",
+      "027",
+      "028",
+      "062",
+      "063",
+      "066",
+      "070",
+      "072",
+      "073",
+      "076",
+      "077",
+      "078",
+      "079",
+      "082",
+      "086",
+      "087",
+      "088",
+      "089",
+      "090"
+    ],
+    "note": "TC Hawkeye correctly identified these cases as needing Magnum DI's reasoning \u2014 the PRD's own intended routing, not a scoring gap. This is a check of the ROUTING decision only."
+  },
+  "magnumDiFindingsVerifiedEndToEnd": {
+    "count": 0,
+    "note": "Count of escalated cases whose actual Magnum DI Finding was produced (a live or simulated call through services.higgins.coordinator.run_turn, with a real case/job) and checked against this case's target. This suite does not make that call \u2014 see 'unverifiedBeyondRouting' below \u2014 so this is expected to be 0 here."
+  },
+  "unverifiedBeyondRouting": {
+    "count": 23,
+    "ids": [
+      "005",
+      "007",
+      "012",
+      "013",
+      "015",
+      "027",
+      "028",
+      "062",
+      "063",
+      "066",
+      "070",
+      "072",
+      "073",
+      "076",
+      "077",
+      "078",
+      "079",
+      "082",
+      "086",
+      "087",
+      "088",
+      "089",
+      "090"
+    ],
+    "note": "Escalated cases with no end-to-end Magnum DI verification in this report. Do not read 'correctly requires Magnum DI' as 'successfully investigated' for these IDs."
+  },
   "results": [
     {
       "id": "001",
       "scenario": "Confirmed OTP refund hijack",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -21,6 +89,7 @@
       "id": "002",
       "scenario": "Confirmed fake account verification portal",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -34,6 +103,7 @@
       "id": "003",
       "scenario": "Confirmed password-reset credential theft",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -47,6 +117,7 @@
       "id": "004",
       "scenario": "Confirmed malicious OAuth consent request",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -60,6 +131,8 @@
       "id": "005",
       "scenario": "Suspicious account recovery with substantial indicators",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 call back (\u201ccall us back on\u201d \u2192 1300 558 214) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -70,6 +143,7 @@
       "id": "006",
       "scenario": "Confirmed courier delivery-fee phishing",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -83,6 +157,8 @@
       "id": "007",
       "scenario": "Confirmed fake courier tracking portal",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cpay the redelivery fee\u201d \u2192 https://dhl-trackparcel.xyz/redeliver) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -93,6 +169,7 @@
       "id": "008",
       "scenario": "Confirmed delivery redirection credential theft",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -106,6 +183,7 @@
       "id": "009",
       "scenario": "Ordinary unverified parcel arrival notice",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
       "actualFinding": "unlikely_scam",
       "targetFinding": "unlikely_scam",
@@ -119,6 +197,7 @@
       "id": "010",
       "scenario": "Delivery message with suspicious payment link",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
@@ -132,6 +211,7 @@
       "id": "011",
       "scenario": "Confirmed bank security impersonation",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -145,6 +225,8 @@
       "id": "012",
       "scenario": "Confirmed fraudulent bank transfer instructions",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer from your account\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -155,6 +237,8 @@
       "id": "013",
       "scenario": "Suspicious bank callback request",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 call back (\u201ccall us back urgently on\u201d \u2192 1300 442 097) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -165,6 +249,7 @@
       "id": "014",
       "scenario": "Ordinary unverified banking reminder",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
       "actualFinding": "unlikely_scam",
       "targetFinding": "unlikely_scam",
@@ -178,6 +263,8 @@
       "id": "015",
       "scenario": "Confirmed fraudulent invoice redirection",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201csend the $8\u201d); personal details (\u201csend the $8,750 payment to our new BSB\u201d); payment details change (\u201cbank details have changed\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -188,6 +275,7 @@
       "id": "026",
       "scenario": "Hi Mum impersonation with substantial indicators",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
@@ -201,6 +289,8 @@
       "id": "027",
       "scenario": "Confirmed family emergency payment fraud",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cwire $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -211,6 +301,8 @@
       "id": "028",
       "scenario": "Suspicious emergency money request",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201csend it to this account\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -221,6 +313,7 @@
       "id": "029",
       "scenario": "Confirmed impersonated relative requesting transfer",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -234,6 +327,7 @@
       "id": "030",
       "scenario": "Unverified ordinary family message",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
       "actualFinding": "unlikely_scam",
       "targetFinding": "unlikely_scam",
@@ -247,6 +341,7 @@
       "id": "061",
       "scenario": "Ordinary golf invitation",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
       "actualFinding": "unlikely_scam",
       "targetFinding": "unlikely_scam",
@@ -260,6 +355,8 @@
       "id": "062",
       "scenario": "Romance grooming with financial redirection",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201csend $5\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the romance or relationship-grooming scam (Scamwatch (ACCC)), general knowledge only."
       ],
@@ -270,6 +367,8 @@
       "id": "063",
       "scenario": "Confirmed romance investment fraud",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cwire $3\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -280,6 +379,7 @@
       "id": "064",
       "scenario": "Wrong-number conversation to investment solicitation",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
@@ -293,6 +393,7 @@
       "id": "065",
       "scenario": "Confirmed emotional emergency payment fraud",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -306,6 +407,8 @@
       "id": "066",
       "scenario": "Confirmed guaranteed-return investment fraud",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer your first deposit of $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the investment scam promising high or guaranteed returns (Scamwatch (ACCC)), general knowledge only."
       ],
@@ -316,6 +419,7 @@
       "id": "067",
       "scenario": "Investment with unverifiable licence and suspicious returns",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "suspicious",
       "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
@@ -329,6 +433,7 @@
       "id": "068",
       "scenario": "Confirmed cryptocurrency wallet-draining request",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -342,6 +447,7 @@
       "id": "069",
       "scenario": "Ordinary unverified investment seminar invitation",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
       "actualFinding": "unlikely_scam",
       "targetFinding": "unlikely_scam",
@@ -355,6 +461,8 @@
       "id": "070",
       "scenario": "Confirmed fraudulent withdrawal-fee demand",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cpay a refundable release fee\u201d); gift cards crypto (\u201cpay a refundable release fee of $1,500 in cryptocurrency\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -365,6 +473,7 @@
       "id": "071",
       "scenario": "Confirmed fake online store",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -378,6 +487,8 @@
       "id": "072",
       "scenario": "Suspicious marketplace advance-payment request",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201c$100 deposit\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -388,6 +499,8 @@
       "id": "073",
       "scenario": "Confirmed task-based employment fraud",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cdeposit a refundable $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the job or paid-task scam (Scamwatch (ACCC)), general knowledge only."
       ],
@@ -398,6 +511,7 @@
       "id": "074",
       "scenario": "Ordinary unverified job interview invitation",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "benign",
       "actualFinding": "unlikely_scam",
       "targetFinding": "unlikely_scam",
@@ -411,6 +525,7 @@
       "id": "075",
       "scenario": "Confirmed money mule recruitment",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -424,6 +539,8 @@
       "id": "076",
       "scenario": "Confirmed sextortion demand",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cPay $8\u201d); gift cards crypto (\u201cPay $800 in bitcoin\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the government or authority threat scam (Scamwatch (ACCC)), general knowledge only."
       ],
@@ -434,6 +551,8 @@
       "id": "077",
       "scenario": "Confirmed ransomware payment demand",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 gift cards crypto (\u201cpay 0.5 bitcoin\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -444,6 +563,8 @@
       "id": "078",
       "scenario": "Suspicious fabricated hacking claim",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cPay $5\u201d); gift cards crypto (\u201cPay $500 in bitcoin\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -454,6 +575,8 @@
       "id": "079",
       "scenario": "Confirmed data exposure blackmail",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -464,6 +587,7 @@
       "id": "080",
       "scenario": "Confirmed malicious remote-access extortion",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -477,6 +601,7 @@
       "id": "081",
       "scenario": "Confirmed tax refund credential phishing",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -490,6 +615,8 @@
       "id": "082",
       "scenario": "Suspicious government payment notice",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 personal details (\u201cconfirm your Medicare and bank details\u201d \u2192 1300 884 210); call back (\u201ccall us urgently on\u201d \u2192 1300 884 210) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -500,6 +627,7 @@
       "id": "083",
       "scenario": "Confirmed fake court payment demand",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -513,6 +641,7 @@
       "id": "084",
       "scenario": "Confirmed toll payment phishing",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -526,6 +655,7 @@
       "id": "085",
       "scenario": "Confirmed government benefits impersonation",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
@@ -539,6 +669,8 @@
       "id": "086",
       "scenario": "Confirmed rental deposit fraud",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer the $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -549,6 +681,8 @@
       "id": "087",
       "scenario": "Suspicious property listing with payment pressure",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cwire the $6\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -559,6 +693,8 @@
       "id": "088",
       "scenario": "Confirmed conveyancing payment redirection",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201csend your $4\u201d); payment details change (\u201caccount details have changed\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -569,6 +705,8 @@
       "id": "089",
       "scenario": "Confirmed fraudulent credit repair scheme",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cPay our $9\u201d); gift cards crypto (\u201cPay our $900 upfront processing fee via gift card\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -579,6 +717,8 @@
       "id": "090",
       "scenario": "Confirmed property settlement impersonation",
       "settled": false,
+      "verificationStatus": "escalated_to_magnum_di_unverified",
+      "magnumDiFindingVerified": false,
       "issues": [
         "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer the full settlement amount\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
@@ -589,6 +729,7 @@
       "id": "101",
       "scenario": "Verified legitimate Uber arrival notification",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "verified_legitimate",
       "actualFinding": "not_scam",
       "targetFinding": "not_scam",
@@ -602,6 +743,7 @@
       "id": "102",
       "scenario": "Verified legitimate courier notification",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "verified_legitimate",
       "actualFinding": "not_scam",
       "targetFinding": "not_scam",
@@ -615,6 +757,7 @@
       "id": "103",
       "scenario": "Verified legitimate bank app notification",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "verified_legitimate",
       "actualFinding": "not_scam",
       "targetFinding": "not_scam",
@@ -628,6 +771,7 @@
       "id": "104",
       "scenario": "Verified legitimate employer interview confirmation",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "verified_legitimate",
       "actualFinding": "not_scam",
       "targetFinding": "not_scam",
@@ -641,6 +785,7 @@
       "id": "105",
       "scenario": "Verified legitimate government service notification",
       "settled": true,
+      "verificationStatus": "tc_hawkeye_resolved",
       "category": "verified_legitimate",
       "actualFinding": "not_scam",
       "targetFinding": "not_scam",
