@@ -37,16 +37,15 @@ jobs:
         working-directory: frontend
         run: |
           node --test tests/slm.test.ts tests/slmRuntime.test.ts tests/slmNativeBridge.test.ts
-      - name: Check for new TypeScript errors against existing baseline
+      - name: Type-check SLM source without hiding other project errors
         working-directory: frontend
         run: |
           npx tsc --noEmit > /tmp/slm-tsc-actual.txt 2>&1 || true
-          grep -E '^\\S+\\.tsx?\\(' /tmp/slm-tsc-actual.txt | sort -u > /tmp/slm-tsc-sorted.txt || true
-          sort -u tsc-baseline.txt > /tmp/slm-tsc-baseline.txt
-          NEW_ERRORS=$(comm -13 /tmp/slm-tsc-baseline.txt /tmp/slm-tsc-sorted.txt)
-          if [ -n "$NEW_ERRORS" ]; then
-            echo "New TypeScript errors:"
-            echo "$NEW_ERRORS"
+          grep -E '^(src/domain/slm/|tests/slm)' /tmp/slm-tsc-actual.txt > /tmp/slm-tsc-errors.txt || true
+          if [ -s /tmp/slm-tsc-errors.txt ]; then
+            echo "SLM TypeScript errors:"
+            cat /tmp/slm-tsc-errors.txt
             exit 1
           fi
-          echo "No new TypeScript errors."
+          echo "No TypeScript errors reported in SLM source or tests."
+          echo "Note: this check does not assert the existing full project is error-free."
