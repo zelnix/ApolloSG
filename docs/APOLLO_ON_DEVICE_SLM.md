@@ -38,9 +38,19 @@ Sizes are approximate; Hugging Face couldn't be reached from the authoring envir
   phone: how many real requests it finds, how many of its finds are right, how many explanations pass the checks,
   and the median time per call.
 
+### Licences
+
+- **Llama 3.2** (§1.b of its licence): anyone distributing the model must provide a copy of the agreement, prominently
+  display "Built with Llama", and keep the attribution notice. ApolloSG distributes it when a phone downloads it, so the
+  app shows "Built with Llama" on the Llama card and in About, and the licence and notice under "Read the licence".
+- **Qwen 2.5 0.5B / 1.5B**: Apache License 2.0, shown under "Read the licence".
+- Texts: `frontend/src/slm/licences.ts` (generated from Meta's GitHub and apache.org on 2026-11-08), and
+  `docs/slm-model-files/` for hosting beside the model files.
+
 ### To make the models downloadable
 
-1. Download each GGUF named above, upload it to ApolloSG's storage (HTTPS).
+1. Download each GGUF named above, upload it to ApolloSG's storage (HTTPS), with the matching files from
+   `docs/slm-model-files/` beside it (Llama: licence and notice; Qwen: Apache 2.0).
 2. Run `node frontend/scripts/slm-model-manifest.mjs <model-id> <file.gguf> <https URL>` on the exact uploaded file.
 3. Paste the printed line into `MODEL_SOURCES` in `frontend/src/slm/models.ts`. Until then each model shows
    "Not available to download yet".
@@ -109,4 +119,5 @@ not sent anywhere. Settings shows a one-line summary of it.
   and two or three mid-range Android phones (3–6 GB memory) for the fallback models: run Compare models on each.
   Check the Settings status line, the note's appearance, and that the result above it is identical with the
   setting on and off.
-- Update the privacy disclosure to say on-device AI processes message text locally when it is turned on.
+- Privacy disclosure: done (privacy inventory, AI disclosure, processing flows, onboarding summary). Have it
+  reviewed with the rest of the privacy policy.

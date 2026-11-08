@@ -19,6 +19,8 @@ export interface FallbackModel {
   /** Where the owner gets the file to host (Hugging Face repo / file). */
   upstream: { repo: string; file: string };
   licence: string;
+  /** Which licence text (licences.ts) ships with it. */
+  licenceText: "apache_2_0" | "llama_3_2";
   /** Approximate download size, shown before downloading; the real size comes from MODEL_SOURCES. */
   approxBytes: number;
   /** Total phone memory below which the model isn't offered: it would be too slow or be killed by the OS. */
@@ -34,17 +36,17 @@ export const FALLBACK_MODELS: readonly FallbackModel[] = [
   {
     id: "qwen2.5-0.5b-instruct-q4km", label: "Qwen 2.5 0.5B (small)", family: "Qwen",
     upstream: { repo: "Qwen/Qwen2.5-0.5B-Instruct-GGUF", file: "qwen2.5-0.5b-instruct-q4_k_m.gguf" },
-    licence: "Apache-2.0", approxBytes: 400 * MB, minTotalMemoryBytes: 3 * GB, contextTokens: 2048,
+    licence: "Apache-2.0", licenceText: "apache_2_0", approxBytes: 400 * MB, minTotalMemoryBytes: 3 * GB, contextTokens: 2048,
   },
   {
     id: "llama3.2-1b-instruct-q4km", label: "Llama 3.2 1B", family: "Llama",
     upstream: { repo: "bartowski/Llama-3.2-1B-Instruct-GGUF", file: "Llama-3.2-1B-Instruct-Q4_K_M.gguf" },
-    licence: "Llama 3.2 Community License (attribution: \"Built with Llama\")", approxBytes: 810 * MB, minTotalMemoryBytes: 4 * GB, contextTokens: 2048,
+    licence: "Llama 3.2 Community License", licenceText: "llama_3_2", approxBytes: 810 * MB, minTotalMemoryBytes: 4 * GB, contextTokens: 2048,
   },
   {
     id: "qwen2.5-1.5b-instruct-q4km", label: "Qwen 2.5 1.5B", family: "Qwen",
     upstream: { repo: "Qwen/Qwen2.5-1.5B-Instruct-GGUF", file: "qwen2.5-1.5b-instruct-q4_k_m.gguf" },
-    licence: "Apache-2.0", approxBytes: 1120 * MB, minTotalMemoryBytes: 6 * GB, contextTokens: 2048,
+    licence: "Apache-2.0", licenceText: "apache_2_0", approxBytes: 1120 * MB, minTotalMemoryBytes: 6 * GB, contextTokens: 2048,
   },
 ];
 

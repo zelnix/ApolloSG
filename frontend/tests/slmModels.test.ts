@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { PRE_SCREEN_CASES, scorePreScreen, summarise, summaryLine } from "../src/slm/benchmark.ts";
+import { APACHE_2_0_LICENSE, BUILT_WITH_LLAMA, LLAMA_3_2_LICENSE, LLAMA_3_2_NOTICE } from "../src/slm/licences.ts";
 import { FALLBACK_MODELS, MODEL_SOURCES, hashMatches, modelById, modelFit, validSource } from "../src/slm/models.ts";
 
 const GB = 1024 ** 3;
@@ -66,4 +67,15 @@ test("summary: precision, recall, accepted explanations, median time, one-line w
   assert.equal(s.failedCalls, 1);
   assert.equal(s.medianMs, 2000);
   assert.equal(summaryLine(s), "Finds requests 50% · correct 100% · explanations 1/3 · 2.0 s per call · 1 failed");
+});
+
+
+test("licences: every model ships its text; Llama carries the agreement, the credit and the notice", () => {
+  for (const m of FALLBACK_MODELS) assert.ok(m.licenceText === "llama_3_2" || m.licenceText === "apache_2_0", m.id);
+  assert.equal(modelById("llama3.2-1b-instruct-q4km")!.licenceText, "llama_3_2");
+  assert.match(LLAMA_3_2_LICENSE, /^LLAMA 3\.2 COMMUNITY LICENSE AGREEMENT/);
+  assert.match(LLAMA_3_2_LICENSE, /prominently display “Built with Llama”/);
+  assert.equal(BUILT_WITH_LLAMA, "Built with Llama");
+  assert.equal(LLAMA_3_2_NOTICE, "Llama 3.2 is licensed under the Llama 3.2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.");
+  assert.match(APACHE_2_0_LICENSE, /Apache License\s+Version 2\.0, January 2004/);
 });

@@ -8,12 +8,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { SlmNativeStatus } from "@/modules/apollo-slm";
 import { InfoButton, type ScreenInfo } from "@/src/components/InfoButton";
+import { Sheet } from "@/src/components/Sheet";
 import { Body, Button, Card, SectionTitle } from "@/src/components/ui";
 import { summaryLine } from "@/src/slm/benchmark";
 import { runBenchmark, savedBenchmarks, type StoredBenchmark } from "@/src/slm/benchmarkRunner";
 import { slmModelLabel } from "@/src/slm/core";
 import { cancelFallbackDownload, deleteFallback, downloadFallback, fallbackOptions, installedFallback } from "@/src/slm/fallbackModel";
 import { FIT_TEXT, formatBytes, MODEL_SOURCES, type FallbackModel, type ModelFit } from "@/src/slm/models";
+import { APACHE_2_0_LICENSE, BUILT_WITH_LLAMA, LLAMA_3_2_LICENSE, LLAMA_3_2_NOTICE } from "@/src/slm/licences";
 import { getSlmStatus } from "@/src/slm/onDeviceSlm";
 import { fonts, makeStyles, spacing, useTheme } from "@/src/theme";
 import { goBackOrHome } from "@/src/utils/navigation";
@@ -39,6 +41,9 @@ const useStyles = makeStyles((c) => ({
   content: { paddingHorizontal: spacing.xl, gap: spacing.lg },
   name: { fontFamily: fonts.textSemibold, fontSize: 16, color: c.onSurface },
   meta: { fontFamily: fonts.text, fontSize: 12, color: c.muted, marginTop: spacing.xs },
+  credit: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface, marginTop: spacing.xs },
+  licence: { fontFamily: fonts.text, fontSize: 12, color: c.onSurface, lineHeight: 18 },
+  licenceLink: { fontFamily: fonts.textSemibold, fontSize: 13, color: c.resting, marginTop: spacing.sm },
 }));
 
 export default function OnDeviceAiScreen() {
@@ -50,6 +55,7 @@ export default function OnDeviceAiScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [bench, setBench] = useState<StoredBenchmark[]>([]);
   const [benchProgress, setBenchProgress] = useState<string | null>(null);
+  const [licenceFor, setLicenceFor] = useState<FallbackModel | null>(null);
 
   const load = useCallback(async () => {
     setStatus(await getSlmStatus());
@@ -106,6 +112,10 @@ export default function OnDeviceAiScreen() {
         return <Card key={model.id} testID={`on-device-ai-model-${model.id}`}>
           <Text style={s.name}>{model.label}</Text>
           <Text style={s.meta}>{`${formatBytes(source?.bytes ?? model.approxBytes)} · ${model.licence}`}</Text>
+          {model.licenceText === "llama_3_2" ? <Text style={s.credit} testID={`on-device-ai-credit-${model.id}`}>{BUILT_WITH_LLAMA}</Text> : null}
+          <Pressable accessibilityRole="button" onPress={() => setLicenceFor(model)} testID={`on-device-ai-licence-${model.id}`}>
+            <Text style={s.licenceLink}>Read the licence</Text>
+          </Pressable>
           {isInstalled ? <>
             <Body style={{ marginTop: spacing.sm }}>{builtInReady ? "Downloaded. The built-in model is used while it's ready." : "Downloaded and in use."}</Body>
             <Button testID={`on-device-ai-delete-${model.id}`} variant="ghost" label="Delete this model" onPress={() => void deleteFallback().then(load)} />
@@ -130,5 +140,12 @@ export default function OnDeviceAiScreen() {
         </View>)}
       </Card>
     </ScrollView>
+    <Sheet visible={!!licenceFor} onClose={() => setLicenceFor(null)} title={licenceFor ? `${licenceFor.label} licence` : "Licence"} testID="on-device-ai-licence-sheet">
+      {licenceFor?.licenceText === "llama_3_2" ? <>
+        <Text style={s.credit}>{BUILT_WITH_LLAMA}</Text>
+        <Text style={[s.licence, { marginVertical: spacing.sm }]}>{LLAMA_3_2_NOTICE}</Text>
+        <Text style={s.licence} selectable>{LLAMA_3_2_LICENSE}</Text>
+      </> : <Text style={s.licence} selectable>{APACHE_2_0_LICENSE}</Text>}
+    </Sheet>
   </View>;
 }
