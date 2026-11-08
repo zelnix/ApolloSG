@@ -35,6 +35,7 @@ from typing import Optional
 from core.db import db, now_utc
 from services import device_stats
 from services.higgins import case_evidence
+from services.higgins import slm_advisory
 from services.higgins import evidence as ev
 from services.higgins import explain, history, outcomes
 from services.higgins import ai_settings
@@ -55,6 +56,34 @@ TRIAGE_EVIDENCE_ITEM_ID = tc_flyby.PREGATHERED_ITEM_ID
 
 # Magnum DI's one AI call for the whole correlated case. No retry.
 MAX_MAGNUM_CALLS = 1
+
+
+
+async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> None:
+    """Inspect any accepted local SLM advice at this stage; metadata only.
+
+    Model hypotheses never become facts, findings, evidence, scores, source
+    records or inputs to Magnum DI. Native SLM failure never interrupts work.
+    """
+    if not slm_advisory.enabled():
+        return
+    try:
+        advice = await slm_advisory.accepted_for_stage(owner, case, job, role)
+        if not advice:
+            return
+        counts = {key: len(advice.get(key, [])) for key in
+                  ("observations", "contradictions", "alternativeExplanations", "verificationSuggestions")}
+        await db.investigation_cases.update_one(
+            {"owner_id": owner, "case_id": case["case_id"],
+             "active_job_id": job["job_id"], "epoch": case.get("epoch"),
+             "revision": case.get("revision"), "status": {"$in": ["queued", "investigating"]}},
+            {"$set": {f"routing.slmAdvisory.{role}": {
+                "status": "accepted_for_review", "counts": counts,
+                "advisoryOnly": True, "at": now_utc(),
+            }}},
+        )
+    except Exception:
+        log.warning("slm_advisory_unavailable role=%s", role)
 
 
 async def _register_triage_evidence(owner: str, case: dict) -> None:
@@ -154,6 +183,7 @@ def _with_evidence(case: dict, response: HigginsResponse, record: dict, provider
 async def _commit(owner: str, case: dict, job: dict, payload: dict, response: HigginsResponse, provider_result: ProviderResult,
                   evidence_ids: set[str], source_ids: set[str]) -> Outcome:
     response, record = await _with_history(owner, case, response)
+    await _slm_stage(owner, case, job, "luddish")
     response, fidelity = await _plain_english(owner, case, response, provider_result.answered_by)
     response = _with_evidence(case, response, record, provider_result)
     commit = TurnCommit(turn_id=job["turn_id"], case_id=case["case_id"], input_revision=job["input_revision"], committed_revision=response.revision,
@@ -250,7 +280,9 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         # A follow-up is answered from the case's locked findings (routers/investigations._follow_up), never by
         # another investigation: this turn sends nothing.
         return Outcome("call_limit_reached", errors=["a follow-up is answered from the case's findings, not by another investigation"])
+    await _slm_stage(owner, case, job, "higgins_triage")
     fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
+    await _slm_stage(owner, case, job, "tc_hawkeye")
     if fly_by.resolved:
         committed = await _commit_flyby(owner, case, job, payload, fly_by, capability_ids)
         if committed is not None:
@@ -277,6 +309,8 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     # Mark evidence as examined now that it has been sent to the model
     for evidence_id, start, end, total in pending_marks:
         await ev.mark_examined(owner, case["case_id"], evidence_id, start, end, total)
+
+    await _slm_stage(owner, case, job, "magnum_di")
 
     # ── Step 3: Magnum DI's single AI call ──
     await progress("assess", "Magnum DI is examining what needs deeper analysis.")
