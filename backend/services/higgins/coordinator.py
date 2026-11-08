@@ -68,6 +68,15 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> None:
     if not slm_advisory.enabled():
         return
     try:
+        # Issue a stage-specific request on the already-authenticated case's
+        # existing event stream. Never wait for a phone or a local model.
+        from routers.slm_handoff import issue_stage_request
+        issued = await issue_stage_request(owner, case["case_id"], job["job_id"],
+                                           case["revision"], role)
+        if issued:
+            await repo.emit(owner, case["case_id"], job["job_id"],
+                            "slm_advisory_request", issued,
+                            case["revision"], repo.utc(case["expires_at"]))
         advice = await slm_advisory.accepted_for_stage(owner, case, job, role)
         if not advice:
             return
