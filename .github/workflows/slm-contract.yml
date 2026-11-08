@@ -5,6 +5,7 @@ on:
     branches: [slm]
     paths:
       - 'frontend/src/domain/slm/**'
+      - 'frontend/app/_layout.tsx'
       - 'frontend/src/higgins/slmExplanation.ts'
       - 'frontend/src/higgins/chatClient.ts'
       - 'backend/services/higgins/slm_contract.py'
@@ -50,12 +51,12 @@ jobs:
       - name: Run SLM contract and isolation tests
         working-directory: frontend
         run: |
-          node --test tests/slm.test.ts tests/slmRuntime.test.ts tests/slmNativeBridge.test.ts tests/slmModelIntegrity.test.cjs tests/slmCaseContract.test.ts tests/slmAskHiggins.test.ts
+          node --test tests/slm.test.ts tests/slmRuntime.test.ts tests/slmNativeBridge.test.ts tests/slmModelIntegrity.test.cjs tests/slmCaseContract.test.ts tests/slmAskHiggins.test.ts tests/slmModelAdmission.test.ts
       - name: Type-check SLM source without hiding other project errors
         working-directory: frontend
         run: |
           npx tsc --noEmit > /tmp/slm-tsc-actual.txt 2>&1 || true
-          grep -E '^(src/domain/slm/|src/higgins/slmExplanation\\.ts|src/higgins/chatClient\\.ts|src/investigation/(caseStore|types)\\.ts|tests/slm)' /tmp/slm-tsc-actual.txt > /tmp/slm-tsc-errors.txt || true
+          grep -E '^(src/domain/slm/|src/higgins/slmExplanation\\.ts|src/higgins/chatClient\\.ts|src/investigation/(caseStore|types)\\.ts|app/_layout\\.tsx|tests/slm)' /tmp/slm-tsc-actual.txt > /tmp/slm-tsc-errors.txt || true
           if [ -s /tmp/slm-tsc-errors.txt ]; then
             echo "SLM TypeScript errors:"
             cat /tmp/slm-tsc-errors.txt
