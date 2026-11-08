@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   compile:
-    name: Assemble Android debug with SLM native binding
+    name: Assemble Android SLM test APKs (offline + Metro debug)
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -51,14 +51,29 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
-      - name: Verify assembled artifact
+      - name: Compile standalone Android test APK with bundled JavaScript
+        run: |
+          cd android
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify APKs and embedded JavaScript
         run: |
           test -s android/app/build/outputs/apk/debug/app-debug.apk
-          echo "Debug APK assembled. No physical-device inference has been performed."
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          unzip -l android/app/build/outputs/apk/release/app-release.apk | grep -Eq 'assets/index.android.bundle|assets/.*\.hbc'
+          # A build with no embedded JS must never be labelled as a standalone test APK.
+          echo "Standalone release APK has embedded JavaScript. Debug APK requires Metro."
+          echo "Model candidate remains disabled in release builds; no physical-device inference has been performed."
       - name: Retain debug APK for controlled physical-device testing
         uses: actions/upload-artifact@v4
         with:
           name: apollosg-slm-android-debug
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 3
+          if-no-files-found: error
+      - name: Retain standalone APK for splash/boot acceptance without Metro
+        uses: actions/upload-artifact@v4
+        with:
+          name: apollosg-slm-android-standalone-test
+          path: frontend/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 3
           if-no-files-found: error
