@@ -8,7 +8,10 @@ Branch: `slm`. The shared interface lives in `frontend/src/domain/slm/index.ts`;
 
 **Not enabled in the application. No physical-device tests have been run.**
 No model weights, model downloader, native dependency or native builds have
-been added. This avoids changing the production app or its lockfile without
+been added. The native plugin is staged behind an explicit non-production
+`APOLLO_SLM_NATIVE=on` build-time switch, but MUST NOT be switched on until
+a compatible `llama.rn` dependency has been installed and lockfile generated.
+The native binding admission gate is in `frontend/src/domain/slm/nativeBridge.ts`. This avoids changing the production app or its lockfile without
 a reproducible native installation and device compatibility check.
 
 ## Native integration gate
@@ -16,9 +19,10 @@ a reproducible native installation and device compatibility check.
 1. From `frontend/`, select and pin a tested stable `llama.rn` version.
    Install via the repository's Yarn v1 workflow, committing the resulting
    `package.json` **and** `yarn.lock` in one change.
-2. Add the `llama.rn` Expo config plugin to the existing authoritative
-   `frontend/app.config.js`. Keep existing config plugins and device
-   permissions intact. Start with CPU inference (no GPU / OpenCL permissions).
+2. The `llama.rn` Expo config plugin has been staged in the existing authoritative
+   `frontend/app.config.js`, disabled unless `APOLLO_SLM_NATIVE=on` in a
+   non-production build. Existing config plugins and device permissions are intact.
+   CPU-only mode initially (no GPU/OpenCL permissions).
 3. Build a generated **native development client** for Android and iOS.
    Expo Go and browser builds cannot verify this native runtime.
 4. Obtain a licensed, vetted quantised **text-only** GGUF model. Verify
@@ -26,8 +30,8 @@ a reproducible native installation and device compatibility check.
    supported languages, and whether its chat template works with llama.rn.
    Make the model available as an explicitly selected, device-local
    `file://...`. Do not download arbitrary user-supplied remote models.
-5. Wire the native binding explicitly from the mobile app:
-   `new LocalLlamaRuntime(localModelUri, verifiedModelId, initLlama)`;
+5. Wire the native binding explicitly from a native-only mobile entry point:
+   `createNativeSLM({modelUri: localModelUri, modelId: verifiedModelId, initLlama, deviceAdmitted: true})`;
    then `await runSLM(caseScopedRequest, runtime)`.
    Device admission checks must establish sufficient free disk, memory and
    actual model compatibility before loading. Release when unused.
@@ -59,7 +63,7 @@ Run existing frontend tests alongside:
 
 ```sh
 cd frontend
-node --test tests/slm.test.ts tests/slmRuntime.test.ts
+node --test tests/slm.test.ts tests/slmRuntime.test.ts tests/slmNativeBridge.test.ts
 ```
 
 These tests mock the native binding and **do not constitute a native build or
@@ -67,6 +71,16 @@ physical-device proof**. Validate in the repository's configured Node version.
 
 ## Outstanding work
 
-Native dependency + reproducible lockfile; approved GGUF model; Expo plugin;
+Native dependency + reproducible lockfile; approved GGUF model; activate opt-in Expo plugin;
 Android/iOS build and measurements; real app lifecycle wiring; stage-specific
 integration; warranted Gemini extension; full regression/acceptance testing.
+
+## Package compatibility check (2026-11-08)
+
+Expo SDK 57 uses React Native 0.86.3 / New Architecture. `llama.rn`
+provides an Expo config plugin, and its v0.13.0-rc.9 prerelease exists.
+A version has **not** been installed or pinned: available execution access
+cannot run Yarn against the package registry to generate a trustworthy lockfile.
+Recent native compatibility reports warrant physical Android and iOS QA.
+Do not manually fabricate `yarn.lock` entries or activate the build flag
+before native dependency installation and acceptance.
