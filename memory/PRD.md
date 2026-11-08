@@ -1,6 +1,18 @@
 ## OWNER'S STANDING RULE (2026-10-28): Do not make any enhancement suggestions. Summaries report what was done only — no "Next Action Items" or ideas.
 
+## DI Scoring Breakdown card: one collapsible card, closed by default (2026-11-08)
+- Owner: the narrative paragraph at the top and the "How this rating was calculated" block duplicated the dimension rows; the
+  per-dimension "Show checks & evidence" toggles hid them. Now (`DiReport.tsx`): the card is a `CollapsibleSection` titled
+  "Scoring Breakdown", starts closed; open, it shows the rating line then every dimension with Checks performed / Evidence /
+  Missing evidence inline (no per-section toggle). Narrative and calculation trace are no longer rendered (still in the API).
+- Verified by the testing agent (iteration_90, frontend only, sample link check): starts closed; opens to "65 / 100 — This is
+  Likely a Scam" + six rows with inline details; no "Higgins rated this" / "How this rating was calculated" / "Show checks" text;
+  closes again; Decision path and Findings tab unaffected. Noted by the tester, NOT changed: Evidence Corroboration repeats the
+  same check/evidence lines as Scam Mechanism and Identity & Destination, and "link check … unavailable" appears under both
+  Checks performed and Missing evidence — backend data, ask the owner before touching.
+
 ## Findings Rating agrees with the verdict (2026-11-08)
+
 - Owner: the Findings Brief said "This is a scam" while the DI tab's Scoring Breakdown said "83 / 100 — This is Likely a Scam"
   (myGov lookalike sender, tax-debt demand). Cause: decide.py's verdict comes from the S1–S4 rules (S2 passed), the breakdown's
   band from the six-dimension score alone (83 → 60–84 "likely").

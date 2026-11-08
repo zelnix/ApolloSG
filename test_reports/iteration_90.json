@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only re-test of the DI tab Scoring Breakdown fix at 390x844, run in one browser session (onboarding, then /check?sample=sample-link-bank-lookalike, then inv-brief). All 5 bug checks and the regression check PASS. Closed state: the card text is exactly 'Scoring Breakdown' with a chevron. tc-di-score-rating, narrative, trace and dimension rows are all absent. Open state: the headline reads '65 / 100 — This is Likely a Scam', followed by 6 dimension rows: Scam Mechanism 20/25, Requested Action 0/20, Identity & Destination 20/20, Manipulation & Behaviour 0/15, Knowledge Base Intelligence 0/10 ('No knowledge base match.'), Evidence Corroboration 3/10. Four rows (scam_mechanism, requested_action, identity_destination, evidence_corroboration) render their -details inline with CHECKS PERFORMED / EVIDENCE / MISSING EVIDENCE (NOT REPORTED AS CLEAN). The other two rows show only the label, points and reason. None of these appear: 'Higgins rated this', 'How this rating was calculated', 'Six-dimension baseline', 'Show checks' or 'Hide checks'. A second tap closes the card back to the title only. Regression: the DI tab renders tc-di-trace (Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock) and tc-di-score-breakdown. The Findings tab (testID is inv-tab-bar-overview, not inv-tab-bar-findings) still shows inv-brief. No console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [".screenshots/closed.png", ".screenshots/open.png", ".screenshots/findings.png"],
+  "action_items": [
+    "None required for this bug. Optional, data-level and outside this fix's scope: the Evidence Corroboration row repeats the same check, evidence and missing-evidence lines as Scam Mechanism and Identity & Destination. The link-check 'unavailable' line also appears under both CHECKS PERFORMED and MISSING EVIDENCE in each row. Consider de-duplicating on the backend if the owner objects to repetition."
+  ],
+  "critical_code_review_comments": [
+    "DiReport.tsx ScoreBreakdown correctly wraps its content in CollapsibleSection (defaultOpen=false). ScoreDimensionRow has no toggle state. The narrative and trace blocks have been removed. The tc-di-score-gaps block only renders when contentGaps is non-empty (not exercised by this sample).",
+    "The toggle Pressable is 29px tall, but hitSlop=8 gives about 45px of effective touch target, so it meets the 44px minimum."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not requested)", "frontend": "100%"},
+  "seed_data_creation": "None. Only the device-local onboarding and the sample check run were created.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Findings tab testID is 'inv-tab-bar-overview'. Tabs: overview/evidence/history/di. The sample link check finishes in under 60s. The brief testID is 'inv-brief'. Use JS click for onboarding buttons."
+}

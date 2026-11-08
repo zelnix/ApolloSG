@@ -52,7 +52,6 @@ const useStyles = makeStyles((c) => ({
   detailSummary: { fontFamily: fonts.text, fontSize: 12, color: c.muted, marginTop: 2 },
   // Scoring breakdown
   scoreHeadline: { fontFamily: fonts.displayBold, fontSize: 20, color: c.onSurface },
-  scoreNarrative: { fontFamily: fonts.text, fontSize: 13, lineHeight: 19, color: c.onSurfaceSecondary, marginTop: spacing.xs, marginBottom: spacing.sm },
   scoreDimRow: { borderTopWidth: 1, borderTopColor: c.divider, paddingVertical: spacing.sm },
   scoreDimHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   scoreDimLabel: { fontFamily: fonts.textSemibold, fontSize: 14, color: c.onSurface, flex: 1 },
@@ -71,28 +70,17 @@ const FINDING_RATING_LABELS: Record<string, string> = {
 
 function ScoreDimensionRow({ dim }: { dim: FindingsRatingDimension }) {
   const s = useStyles();
-  const { colors } = useTheme();
-  const [expanded, setExpanded] = useState(false);
   const checks = dim.checks ?? [];
   const evidence = dim.evidence ?? [];
   const missing = dim.missing ?? [];
-  const hasDetails = checks.length > 0 || evidence.length > 0 || missing.length > 0;
   return (
     <View style={s.scoreDimRow} testID={`tc-di-score-dim-${dim.key}`}>
-      <Pressable onPress={() => hasDetails && setExpanded((v) => !v)} hitSlop={6} disabled={!hasDetails} testID={`tc-di-score-dim-${dim.key}-toggle`}>
-        <View style={s.scoreDimHead}>
-          <Text style={s.scoreDimLabel}>{dim.label}</Text>
-          <Text style={s.scoreDimPoints} testID={`tc-di-score-dim-${dim.key}-points`}>{dim.points}/{dim.max}</Text>
-        </View>
-        <Text style={s.scoreDimWhy} selectable>{dim.why}</Text>
-        {hasDetails ? (
-          <View style={[s.expandToggle, { paddingVertical: 2 }]}>
-            <Text style={s.expandLabel}>{expanded ? "Hide checks & evidence" : "Show checks & evidence"}</Text>
-            {expanded ? <ChevronUp size={14} color={colors.brandPrimary} /> : <ChevronDown size={14} color={colors.brandPrimary} />}
-          </View>
-        ) : null}
-      </Pressable>
-      {expanded ? (
+      <View style={s.scoreDimHead}>
+        <Text style={s.scoreDimLabel}>{dim.label}</Text>
+        <Text style={s.scoreDimPoints} testID={`tc-di-score-dim-${dim.key}-points`}>{dim.points}/{dim.max}</Text>
+      </View>
+      <Text style={s.scoreDimWhy} selectable>{dim.why}</Text>
+      {checks.length || evidence.length || missing.length ? (
         <View style={{ gap: 4 }} testID={`tc-di-score-dim-${dim.key}-details`}>
           {checks.length ? (
             <View>
@@ -118,29 +106,21 @@ function ScoreDimensionRow({ dim }: { dim: FindingsRatingDimension }) {
   );
 }
 
+/** The Scoring Breakdown card: one collapsible card, closed until opened (owner, 2026-11-08). Inside it the rating,
+ *  then every dimension with its checks and evidence shown in full — no section of its own collapses, and nothing is
+ *  said twice: the narrative paragraph and the "how this was calculated" sum restated the rows, so they're gone. */
 function ScoreBreakdown({ breakdown }: { breakdown: FindingsRatingBreakdown }) {
   const s = useStyles();
   const dimensions = breakdown.dimensions ?? [];
-  const trace = breakdown.calculationTrace ?? [];
   const gaps = breakdown.contentGaps ?? [];
   return (
-    <Card testID="tc-di-score-breakdown">
-      <Text style={s.sectionTitle}>Scoring Breakdown</Text>
+    <CollapsibleSection title="Scoring Breakdown" testID="tc-di-score-breakdown">
       <Text style={s.scoreHeadline} testID="tc-di-score-rating">
         {breakdown.rating} / 100 {"\u2014"} {FINDING_RATING_LABELS[breakdown.finding] ?? breakdown.finding}
       </Text>
-      {breakdown.narrative ? <Text style={s.scoreNarrative} selectable testID="tc-di-score-narrative">{breakdown.narrative}</Text> : null}
+      <View style={{ height: spacing.sm }} />
 
       {dimensions.map((d) => <ScoreDimensionRow key={d.key} dim={d} />)}
-
-      {trace.length ? (
-        <View style={s.traceBlock} testID="tc-di-score-trace">
-          <Text style={s.scoreSubLabel}>How this rating was calculated</Text>
-          {trace.map((t, i) => (
-            <Text key={i} style={s.stepDetail} selectable testID={`tc-di-score-trace-${i}`}>{`${i + 1}. ${t.step}: ${t.detail}`}</Text>
-          ))}
-        </View>
-      ) : null}
 
       {gaps.length ? (
         <View style={s.traceBlock} testID="tc-di-score-gaps">
@@ -148,7 +128,7 @@ function ScoreBreakdown({ breakdown }: { breakdown: FindingsRatingBreakdown }) {
           {gaps.map((g, i) => <Text key={i} style={s.stepDetail} selectable>{`• ${g}`}</Text>)}
         </View>
       ) : null}
-    </Card>
+    </CollapsibleSection>
   );
 }
 
