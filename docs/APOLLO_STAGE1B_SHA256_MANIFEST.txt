@@ -74,7 +74,7 @@ cf6d43d42f50cb85738b4bd5ce5084ab86cec4cdb9166e13828505a83a1048fc  ./guarddog-and
 fb7b06bb1628424a716a6e6a7c36faddbedc44f787ba59b7a0653b37c22a4dca  ./guarddog-android-sdk/settings.gradle.kts
 17ffc31fdbc77cfde8ff6200828c5c21e7b832b36aa0d08a6f1f6e48be88edab  ./guarddog-expo-module/android/build.gradle
 e982bdd84d5eedca51850e2c99552b7e5935e2c07922e0ce2bb4794699d656a2  ./guarddog-expo-module/android/src/main/java/com/guarddog/expo/GuardDogExpoAdapters.kt
-04cfde546768b39d1de057312f47e9ec5c5b5adbeb473996826b89e42b011517  ./guarddog-expo-module/android/src/main/java/com/guarddog/expo/GuardDogExpoModule.kt
+c5e6c7d1bbd151ca446800516478a635589e43b514c9822071c05e910eb6cc01  ./guarddog-expo-module/android/src/main/java/com/guarddog/expo/GuardDogExpoModule.kt
 d5e265a21014c1ca9fd2f0586bd942fe381ec5c6d623496961b2d0f1744b9627  ./guarddog-expo-module/android/src/main/java/com/guarddog/expo/dto/BridgeCapabilityRecord.kt
 382ebbe31d78d031c436cee4200774dd2f9e42603c830b40ce1641a00bb0f11f  ./guarddog-expo-module/android/src/main/java/com/guarddog/expo/dto/BridgeRuleBundleRecord.kt
 384f655cf584f906453f64236926e061dacd2c4cfd1dc511c4faa40312c5b669  ./guarddog-expo-module/android/src/main/java/com/guarddog/expo/dto/BridgeSecurityEventRecord.kt
