@@ -84,6 +84,8 @@ export interface InvestigationCheckScreenProps {
   original?: OriginalSourceInput | null;
   /** Shown above the investigation (e.g. the Same Number Reminder). */
   notice?: React.ReactNode;
+  /** Shown below the investigation, e.g. the on-device AI note. Never part of the result itself. */
+  footer?: React.ReactNode;
 }
 
 export function InvestigationCheckScreen({
@@ -100,6 +102,7 @@ export function InvestigationCheckScreen({
   evidenceNotice,
   original,
   notice,
+  footer,
 }: InvestigationCheckScreenProps) {
   const s = useStyles();
   const { colors } = useTheme();
@@ -156,6 +159,7 @@ export function InvestigationCheckScreen({
             ))}
           </View>
         ) : null}
+        {footer}
       </ScrollView>
     </View>
   );

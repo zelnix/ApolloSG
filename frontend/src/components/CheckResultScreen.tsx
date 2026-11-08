@@ -76,9 +76,11 @@ export interface CheckResultScreenProps {
   evidenceNotice?: string | null;
   /** Shown above the result, e.g. the Same Number Reminder. */
   notice?: React.ReactNode;
+  /** Shown below the result, e.g. the on-device AI note. Never part of the result itself. */
+  footer?: React.ReactNode;
 }
 
-export function CheckResultScreen({ result, actions = [], onAskHiggins, onClose, onAddOriginal, addingOriginal, evidenceNotice, notice }: CheckResultScreenProps) {
+export function CheckResultScreen({ result, actions = [], onAskHiggins, onClose, onAddOriginal, addingOriginal, evidenceNotice, notice, footer }: CheckResultScreenProps) {
   const s = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
@@ -237,6 +239,7 @@ export function CheckResultScreen({ result, actions = [], onAskHiggins, onClose,
             ))}
           </View>
         ) : null}
+        {footer}
       </ScrollView>
     </View>
   );

@@ -1,0 +1,30 @@
+// On-device small language model: Gemini Nano through ML Kit GenAI (Prompt API), run by Android AICore.
+// No model weights are bundled with ApolloSG; the OS owns, downloads and updates the model. Devices without AICore
+// support report "unavailable" and nothing else happens.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.apollo.slm'
+version = '1.0.0'
+
+expoModule {
+  canBePublished false
+}
+
+android {
+  namespace "app.apollo.slm"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+    // ML Kit GenAI requires API 26+; the app already sets minSdkVersion 26 (app.config.js, expo-build-properties).
+  }
+  lintOptions { abortOnError false }
+}
+
+dependencies {
+  // ML Kit GenAI Prompt API (Gemini Nano). Version to be confirmed against Google Maven at the first device build.
+  implementation 'com.google.mlkit:genai-prompt:1.0.0-alpha1'
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+}

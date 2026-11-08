@@ -35,6 +35,8 @@ import { MessagingSdk } from "@/src/security/messagingSdk";
 import type { NotificationStatus } from "@/src/push/notifications";
 import { useApollo } from "@/src/store/ApolloContext";
 import { setShowResultReasons, useShowResultReasons } from "@/src/store/resultReasonsStore";
+import { getSlmStatus, isSlmEnabled, requestSlmDownload, setSlmEnabled, slmStatusLine } from "@/src/slm/onDeviceSlm";
+import type { SlmNativeStatus } from "@/modules/apollo-slm";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { minimiseApp } from "@/src/utils/minimise";
 import { goBackOrHome } from "@/src/utils/navigation";
@@ -93,6 +95,15 @@ export default function SettingsScreen() {
   const [showTrust, setShowTrust] = useState(false); const [showShare, setShowShare] = useState(false); const [showAbout, setShowAbout] = useState(false);
   const [showRetrofit, setShowRetrofit] = useState(false);
   const showReasons = useShowResultReasons();
+  // On-device AI: off until the person turns it on; the status is read from the phone each time Settings opens.
+  const [slmOn, setSlmOn] = useState(false);
+  const [slmStatus, setSlmStatus] = useState<SlmNativeStatus | null>(null);
+  useEffect(() => { void isSlmEnabled().then(setSlmOn); void getSlmStatus().then(setSlmStatus); }, []);
+  const toggleSlm = async (on: boolean) => {
+    setSlmOn(on);
+    await setSlmEnabled(on);
+    if (on && slmStatus?.availability === "downloadable") setSlmStatus(await requestSlmDownload());
+  };
 
   // ── Linked email accounts ──
   interface LinkedEmail { email: string; connected_at?: string }
@@ -451,6 +462,7 @@ export default function SettingsScreen() {
       <Group icon={Smartphone} title="App" tone="app" testID="settings-preferences">
         <SwitchRow first label="Battery saver" hint="Reduces animation and checks status less often. It does not change the protection status." value={lowPower} onValueChange={(value) => void setLowPower(value)} testID="settings-lowpower-switch" />
         <SwitchRow label="Show why each result was settled" hint="One line naming what settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
+        <SwitchRow label="On-device AI" hint={`Re-words results in plain language and points out requests in a message, using the AI built into this phone. Nothing is sent anywhere, and it never changes Apollo's result. ${slmStatus ? slmStatusLine(slmStatus) + "." : ""}`} value={slmOn} onValueChange={(value) => void toggleSlm(value)} testID="settings-on-device-ai-switch" />
         <NavRow label="Minimise ApolloSG" hint="Move ApolloSG to the background" onPress={() => void minimiseApp(showToast)} testID="settings-minimise" />
         <NavRow label="Retrofit new enhancements" hint="Apply the latest reporting format to all past investigations" onPress={() => setShowRetrofit(true)} testID="settings-retrofit" />
       </Group>
