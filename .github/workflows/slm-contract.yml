@@ -1,0 +1,33 @@
+name: SLM contract tests
+
+on:
+  push:
+    branches: [slm]
+    paths:
+      - 'frontend/src/domain/slm/**'
+      - 'frontend/tests/slm*.test.ts'
+      - '.github/workflows/slm-contract.yml'
+  pull_request:
+    paths:
+      - 'frontend/src/domain/slm/**'
+      - 'frontend/tests/slm*.test.ts'
+      - '.github/workflows/slm-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  slm-contract:
+    name: Local SLM contract (no native model)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run SLM contract and isolation tests
+        working-directory: frontend
+        run: |
+          node --test tests/slm.test.ts tests/slmRuntime.test.ts tests/slmNativeBridge.test.ts
