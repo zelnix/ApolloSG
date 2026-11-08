@@ -5,6 +5,8 @@ on:
     branches: [slm]
     paths:
       - 'frontend/src/domain/slm/**'
+      - 'frontend/src/components/LaunchSplash.tsx'
+      - 'frontend/app/_layout.tsx'
       - 'frontend/app.config.js'
       - 'frontend/package.json'
       - 'frontend/yarn.lock'
