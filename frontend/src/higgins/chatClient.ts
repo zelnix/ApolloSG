@@ -1,4 +1,6 @@
 import { apiDelete, apiGet, apiPost } from "@/src/api/client";
+import { getSharedSLM } from "@/src/domain/slm/sharedRuntime";
+import { explainHigginsWithSLM } from "./slmExplanation";
 import type { NavLink } from "./appMap";
 import type { DeviceSnapshot } from "./deviceSnapshot";
 
@@ -15,8 +17,16 @@ export interface HigginsChatMessage { id: string; turnId: string; role: "user" |
 export const QUOTED_BASES = ["recognised_government_feed_cache", "scam_alert_card", "learn_with_higgins_catalogue", "apollo_knowledge_base"];
 export const isQuoted = (reply: Pick<HigginsChatReply, "evidenceBasis">) => (reply.evidenceBasis ?? []).some((basis) => QUOTED_BASES.includes(basis));
 
-export function askHiggins(message: string, conversationId: string, turnId: string, previousTurnIds: string[], deviceSnapshot?: DeviceSnapshot) {
-  return apiPost<HigginsChatReply>("/higgins/chat", "higgins_chat", { turnId, message, conversationId, previousTurnIds, ...(deviceSnapshot ? { deviceSnapshot } : {}) });
+export async function askHiggins(message: string, conversationId: string, turnId: string, previousTurnIds: string[], deviceSnapshot?: DeviceSnapshot) {
+  const verifiedReply = await apiPost<HigginsChatReply>("/higgins/chat", "higgins_chat", { turnId, message, conversationId, previousTurnIds, ...(deviceSnapshot ? { deviceSnapshot } : {}) });
+  // Optional same shared local SLM used by ApolloSG investigators. No model
+  // installed => existing Higgins reply unchanged. Never fail an ordinary chat
+  // because a local model is unavailable or rejects an unsafe rewrite.
+  try {
+    return await explainHigginsWithSLM(message, verifiedReply, getSharedSLM());
+  } catch {
+    return verifiedReply;
+  }
 }
 export function higginsHistory(deviceId: string) {
   return apiGet<{ items: HigginsChatMessage[]; receipts: unknown[]; kind: "ordinary_chat" }>(`/higgins/chat/history?device_id=${encodeURIComponent(deviceId)}`);
