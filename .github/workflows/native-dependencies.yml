@@ -2,9 +2,9 @@ name: Native dependency singleton guard
 
 on:
   pull_request:
-    paths: ['frontend/**', '.github/workflows/native-dependencies.yml']
+    paths: ['frontend/**', 'docs/APOLLO_STAGE1B_SHA256_MANIFEST.txt', '.github/workflows/native-dependencies.yml']
   push:
-    paths: ['frontend/**', '.github/workflows/native-dependencies.yml']
+    paths: ['frontend/**', 'docs/APOLLO_STAGE1B_SHA256_MANIFEST.txt', '.github/workflows/native-dependencies.yml']
   workflow_dispatch:
 
 permissions:
