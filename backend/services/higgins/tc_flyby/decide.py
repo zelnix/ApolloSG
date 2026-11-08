@@ -138,23 +138,30 @@ def provisional(plan_: Plan) -> Decision | None:
         downgrade, reason = evidence_evaluation.should_downgrade_provisional(plan_, "likely_scam")
         if downgrade:
             return None  # let Magnum DI investigate further
+        # The Findings Rating (scoring.py) is the authoritative tier — but a full KB pattern match with
+        # no separate S4 corroboration only earns L2's "likely" by itself. When a genuinely independent
+        # decisive mechanism (PRD §2.3.A's named mechanisms, severe-consequence manipulation or
+        # money-mule recruitment — never the pattern match's own circular corroboration) is ALSO
+        # established, report it at the confirmed tier the score reaches, not the weaker L-rule label.
+        from services.higgins.tc_flyby.scoring import _l2_escalation_signal
+        outcome = "scam" if _l2_escalation_signal(plan_, rules_result.ipdmc) else "likely_scam"
         if "L2" in deciding:
-            return Decision("tc_flyby_kb", "likely_scam", "pattern")
+            return Decision("tc_flyby_kb", outcome, "pattern")
         if "L1" in deciding:
             # L1 passed — check if corroborated_impersonation has data for the impersonation report
             corroborated = corroborated_impersonation(plan_)
             if corroborated:
-                return Decision("tc_flyby_official", "likely_scam", "impersonation")
+                return Decision("tc_flyby_official", outcome, "impersonation")
             # L1 passed via lookalike nature (no separate corroboration) — use signals path
             found = signals(plan_)
             if found:
-                return Decision(_route([c for c, _ in found]), "likely_scam", "signals")
-            return Decision(_route(plan_.checks), "likely_scam", "signals")
+                return Decision(_route([c for c, _ in found]), outcome, "signals")
+            return Decision(_route(plan_.checks), outcome, "signals")
         if "L3" in deciding:
             found = signals(plan_)
             return Decision(_route([c for c, _ in found]) if found else _route(plan_.checks),
-                            "likely_scam", "signals")
-        return Decision(_route(plan_.checks), "likely_scam", "signals")
+                            outcome, "signals")
+        return Decision(_route(plan_.checks), outcome, "signals")
 
     # "not_scam" and "unable_to_determine" are only determined at the final evaluate() step,
     # not as provisional decisions — they need all checks to complete first.
@@ -213,7 +220,15 @@ def magnum_issues(plan_: Plan, texts: dict[str, str], found: Decision | None = N
 def _all_issues(plan_: Plan, texts: dict[str, str]) -> list[Issue]:
     issues = [Issue("reading", f"Read {g['item']} directly — {g['what']}.", [g["evidenceId"]]) for g in plan_.gaps if g.get("magnum")]
     requests = unverified_requests(plan_)
-    if plan_.has_message and requests:
+    # A named decisive mechanism (wallet/recovery-phrase exploitation, extortion, OTP harvesting through
+    # a falsified identity — PRD §2.3.A) is, by its own definition, never something waiting on Magnum DI's
+    # reasoning could usefully refine: TC Hawkeye already has everything it needs, and deferring the ask
+    # to a later review is itself the harm the floor exists to prevent. Only genuinely ambiguous asks
+    # (e.g. an upfront marketplace deposit) still go to Magnum for reasoning about the deception.
+    from services.higgins.tc_flyby.finding_rules import gather_ipdmc
+    from services.higgins.tc_flyby.scoring import _decisive_mechanism
+    decisive = _decisive_mechanism(plan_, gather_ipdmc(plan_))
+    if plan_.has_message and requests and not decisive:
         asks = "; ".join(f"{r['type'].replace('_', ' ')} (“{r['quote']}”" + (f" → {', '.join(r['targets'][:3])}" if r["targets"] else "") + ")"
                          for r in requests[:4])
         partly = (f" ApolloSG KB: the material partly matches the {plan_.pattern['name']} ({plan_.pattern['publisher']}), general knowledge only."

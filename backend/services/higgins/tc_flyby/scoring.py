@@ -373,10 +373,34 @@ def _positively_verified(plan: Plan, ipdmc: IPDMCChecks) -> bool:
     return False
 
 
-def _decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
-    """A handful of critical exploit mechanisms that, once established, are never scored as merely
-    'likely' — the floor exists because waiting for more corroboration on these specific asks causes
-    real harm (PRD §2.3.A)."""
+def _severe_or_mule_signal(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
+    """The two newest, narrowest-scoped independent signals — severe-consequence manipulation and
+    money-mule recruitment — used specifically to decide whether an L-rule's pattern-only
+    "likely_scam" (no separate S4 corroboration) should be reported as a confirmed scam instead.
+    Deliberately excludes the OTP/wallet/extortion/impersonation branches above: those already have
+    their own established roles (feeding S-rules via identity_is_false, or the score fallback when no
+    L-rule passes at all) and must not retroactively escalate every pattern match that happens to also
+    contain a credential ask — e.g. the four call-only KB patterns are correctly capped at likely_scam
+    even on a full match, by PRD design, and must stay there."""
+    if not ipdmc.consequential_requests:
+        return None
+    if getattr(plan.entities, "severe_manipulation", False):
+        return "Severe-consequence manipulation (a secrecy/isolation instruction, an acute-distress appeal, or a threat of arrest or prosecution) used to extract a consequential request"
+    if getattr(plan.entities, "mule_signal", False):
+        return "Money-mule recruitment: asked to receive money and forward it on for a commission"
+    return None
+
+
+def _independent_decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
+    """The subset of _decisive_mechanism's reasons that don't depend on the KB pattern match being its
+    own corroboration — PRD §2.3.A's named critical mechanisms (OTP/credential harvesting, wallet
+    exploitation, extortion, verified deceptive destinations), plus severe-consequence manipulation
+    (an explicit secrecy/isolation instruction, an acute personal-danger appeal, or a threat of arrest,
+    prosecution or an irreversible consequence) and money-mule recruitment. Used by decide.py to decide
+    whether a pattern that only reaches L2 (a full KB pattern match with no separate S4 corroboration)
+    should still be reported as a confirmed scam rather than merely likely — deliberately excludes the
+    "fully-corroborated pattern" reason below, which is satisfied by the pattern match itself and so
+    can't independently confirm anything beyond what L2 already establishes."""
     quotes = " ".join(r.get("quote", "") for r in ipdmc.consequential_requests)
     if any(r["type"] == "credentials" for r in ipdmc.consequential_requests) and (
         _OTP_ASK.search(quotes) or ipdmc.identity_is_false
@@ -390,6 +414,28 @@ def _decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
         f["signal"] == "concern" and f.get("decisive") for c in plan.checks if c.kind == "link" for f in c.facts
     ):
         return "Credential phishing through a verified deceptive destination"
+    return _severe_or_mule_signal(plan, ipdmc)
+
+
+def _l2_escalation_signal(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
+    """Used by decide.py to decide whether an L-rule's pattern-only "likely_scam" (no separate S4
+    corroboration) should be reported as a confirmed scam instead. Call-channel patterns (bank/
+    government/tech-support/delivery call) are deliberately restricted to the narrower severity/mule
+    signals even here: by PRD design, a phone scam that only fully matches one of those four patterns
+    stays "likely" without separate corroboration, even when it also contains a credential ask — that
+    ask alone must not retroactively make every such call a confirmed scam."""
+    if plan.channel == "call":
+        return _severe_or_mule_signal(plan, ipdmc)
+    return _independent_decisive_mechanism(plan, ipdmc)
+
+
+def _decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
+    """A handful of critical exploit mechanisms that, once established, are never scored as merely
+    'likely' — the floor exists because waiting for more corroboration on these specific asks causes
+    real harm (PRD §2.3.A)."""
+    mechanism = _independent_decisive_mechanism(plan, ipdmc)
+    if mechanism:
+        return mechanism
     if plan.pattern and plan.pattern.get("stage") == "full" and ipdmc.mechanism_evidence and ipdmc.consequential_requests:
         # A complete, KB-confirmed scam pattern, independently corroborated, paired with a
         # consequential request (e.g. a CEO/gift-card fraud with a confirmed fake sender) — waiting
@@ -417,6 +463,11 @@ def _checked_and_clean(plan: Plan, ipdmc: IPDMCChecks) -> bool:
     if ipdmc.consequential_requests and (ipdmc.unverified_destinations or ipdmc.destinations_verified != "passed"):
         return False
     all_facts = [f for c in plan.checks for f in c.facts if f.get("class") == "live_evidence"]
+    if (getattr(plan.entities, "explicit_no_request", False) and not ipdmc.consequential_requests
+            and not any(f["signal"] in ("concern", "anomaly") for f in all_facts)):
+        # The material itself affirmatively states it carries no payment/link/information request, and
+        # nothing anywhere in it contradicts that — a positive, evidence-backed statement, not silence.
+        return True
     if not all_facts:
         return False
     if any(f["signal"] in ("concern", "anomaly", "weak", "missing") for f in all_facts):

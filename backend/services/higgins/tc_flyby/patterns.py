@@ -54,7 +54,7 @@ _TECH = (r"(?:tech(?:nical)?\s+support|it\s+support|help\s*desk|microsoft|apple|
 _COURIER = (r"(?:auspost|australia\s+post|startrack|dhl|fedex|ups|aramex|couriers\s+please|toll\s+(?:priority|ipec)"
             r"|(?:delivery|courier|parcel|postal)(?:\s+or\s+parcel)?\s+(?:company|service|driver)|courier)")
 _CODE_ASK = (r"\b(?:want(?:s|ed)?|ask(?:s|ed|ing)?(?:\s+(?:me|you|us))?(?:\s+(?:for|to\s+(?:give|read(?:\s+out)?|tell|confirm|share|provide|enter|send|repeat|say)))?"
-             r"|request(?:s|ed|ing)?|need(?:s|ed)?|give|read(?:\s+out)?|tell|confirm|share|provide|send|repeat)\b[^.?!\n]{0,40}?"
+             r"|request(?:s|ed|ing)?|need(?:s|ed)?|give|read(?:\s+out)?|tell|confirm|share|provide|send|repeat)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?"
              r"\b(?:one[- ]time\s+(?:code|password|passcode|pin)|otp|verification\s+code|security\s+code|sms\s+code|text\s+code"
              r"|(?:the|my|your|a|that|this)\s+code|pin(?:\s+number)?|passcode|password|card\s+(?:number|details)|cvv|bank(?:ing)?\s+details"
              r"|netbank\s+(?:password|details|login)|login\s+details)\b")
@@ -76,7 +76,7 @@ PATTERNS: tuple[dict, ...] = (
             ["says they have a new or lost phone", r"\bnew\s+(?:phone\s+)?(?:number|mobile|phone)\b|\b(?:lost|broke|dropped|smashed|cracked|damaged)\s+my\s+(?:old\s+)?phone\b"
                                                    r"|\bmy\s+(?:old\s+)?phone\s+(?:is\s+)?(?:broken|died|dead|lost|smashed|stolen)\b|\b(?:temporary|temp)\s+(?:number|phone)\b"],
         ],
-        "ask": ["asks for money", r"\b(?:can|could|would)\s+you\s+(?:please\s+)?(?:send|transfer|pay|lend|loan|cover)\b[^.?!\n]{0,50}?(?:\$\s?\d[\d,]*|\bmoney\b"
+        "ask": ["asks for money", r"\b(?:can|could|would)\s+you\s+(?:please\s+)?(?:send|transfer|pay|lend|loan|cover)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,50}?(?:\$\s?\d[\d,]*|\bmoney\b"
                                   r"|\bcash\b|\bbills?\b|\bpayment\b|\brent\b|\bfunds\b|\bit\b|\bme\b)"
                                   r"|\b(?:please\s+)?(?:send|transfer|pay)\s+(?:me\s+)?\$\s?\d[\d,]*"
                                   r"|\bi\s+need\s+(?:you\s+to\s+(?:send|transfer|pay)\s+(?:me\s+)?)?(?:\$\s?\d[\d,]*|money|cash)\b"
@@ -101,16 +101,16 @@ PATTERNS: tuple[dict, ...] = (
                  "call, or email is real by contacting the person or organisation directly using contact details you've found yourself.”"),
         "hallmarks": [
             ["says there's a problem with your account or asks you to verify it",
-             r"\b(?:verify|confirm|update|unlock|reactivate|re-activate|validate|restore)\b[^.?!\n]{0,40}\b(?:account|details|identity|information|card|profile|access|payment|security|password|netbank|login|log-in)\b"
-             r"|\b(?:account|card|access)\b[^.?!\n]{0,30}\b(?:suspended|locked|blocked|restricted|on hold|disabled|frozen|compromised)\b"
+             r"\b(?:verify|confirm|update|unlock|reactivate|re-activate|validate|restore)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}\b(?:account|details|identity|information|card|profile|access|payment|security|password|netbank|login|log-in)\b"
+             r"|\b(?:account|card|access)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}\b(?:suspended|locked|blocked|restricted|on hold|disabled|frozen|compromised)\b"
              r"|\bunusual\s+(?:sign[- ]?in|log[- ]?in|activity|transaction)s?\b|\bsecurity\s+(?:alert|notice|warning)\b"],
         ],
         "ask": ["asks you to log in, verify or enter details through the link",
-                r"\b(?:log\s?in|sign\s?in|verify|confirm|update|enter|provide|re-?enter)\b[^.?!\n]{0,40}?\b(?:password|passcode|pin|one[- ]time\s+(?:code|password|passcode)"
+                r"\b(?:log\s?in|sign\s?in|verify|confirm|update|enter|provide|re-?enter)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\b(?:password|passcode|pin|one[- ]time\s+(?:code|password|passcode)"
                 r"|otp|verification\s+code|security\s+code|card\s+(?:number|details)|cvv|account\s+details|personal\s+details|banking\s+details|details|identity|account)\b"
-                r"[^.?!\n]{0,40}?(?:https?://|\blink\b|\bhere\b|\bbelow\b|\bat\b)"
-                r"|\b(?:click|tap|visit|go to|follow|open)\b[^.?!\n]{0,30}?(?:https?://|\blink\b|\bhere\b|\bbelow\b)[^.?!\n]{0,60}?\b(?:verify|confirm|log\s?in|sign\s?in|update|restore|unlock|secure)\b"
-                r"|\b(?:verify|confirm|log\s?in|sign\s?in|update|restore|unlock|secure)\b[^.?!\n]{0,40}?(?:https?://|\bvia\s+the\s+link\b|\busing\s+the\s+link\b|\bat\s+the\s+link\b)"],
+                r"(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?(?:https?://|\blink\b|\bhere\b|\bbelow\b|\bat\b)"
+                r"|\b(?:click|tap|visit|go to|follow|open)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?(?:https?://|\blink\b|\bhere\b|\bbelow\b)(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,60}?\b(?:verify|confirm|log\s?in|sign\s?in|update|restore|unlock|secure)\b"
+                r"|\b(?:verify|confirm|log\s?in|sign\s?in|update|restore|unlock|secure)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?(?:https?://|\bvia\s+the\s+link\b|\busing\s+the\s+link\b|\bat\s+the\s+link\b)"],
         "opening": False,
         "requires": ["brand", "link", "offsite_link"],
         "impersonates_organisation": True,
@@ -129,13 +129,13 @@ PATTERNS: tuple[dict, ...] = (
                  "to “make a payment or transfer money” or “click on a link or call a number provided in the message”. “Scammers can steal "
                  "any personal information entered on these scam websites and use it to take your money or commit fraud in your name.”"),
         "hallmarks": [
-            ["says a parcel, delivery or toll has a problem", r"\b(?:parcel|package|delivery|shipment|item|order|toll|tolls|e-?toll|linkt)\b[^.?!\n]{0,50}?\b(?:held|on hold|failed"
+            ["says a parcel, delivery or toll has a problem", r"\b(?:parcel|package|delivery|shipment|item|order|toll|tolls|e-?toll|linkt)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,50}?\b(?:held|on hold|failed"
                                                               r"|unsuccessful|unpaid|overdue|outstanding|missed|could not be delivered|couldn'?t be delivered|unable to be delivered|returned)\b"
                                                               r"|\b(?:unpaid|overdue|outstanding)\s+(?:road\s+)?(?:toll|tolls|e-?toll|fee)s?\b|\b(?:failed|missed|unsuccessful)\s+delivery\b"
                                                               r"|\b(?:incomplete|invalid)\s+(?:delivery\s+)?address\b"],
         ],
-        "ask": ["asks you to pay a fee or update your details", r"\b(?:pay|settle|clear)\b[^.?!\n]{0,40}?(?:\$\s?\d|\bfee\b|\btoll\b|\bamount\b|\bbalance\b|\bcharge\b)"
-                                                               r"|\b(?:update|confirm|re-?enter)\s+(?:your\s+)?(?:delivery\s+)?(?:address|details|payment)\b"
+        "ask": ["asks you to pay a fee or update your details", r"\b(?:pay|settle|clear)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?(?:\$\s?\d|\bfee\b|\btoll\b|\bamount\b|\bbalance\b|\bcharge\b)"
+                                                               r"|\b(?:update|confirm|re-?enter)\s+(?:the\s+|your\s+)?(?:new\s+)?(?:delivery\s+)?(?:address|details|payment)\b"
                                                                r"|\b(?:redelivery|delivery|customs|handling)\s+fee\b"],
         "opening": False,
         "requires": ["link", "offsite_link"],
@@ -163,7 +163,7 @@ PATTERNS: tuple[dict, ...] = (
                                                             r"|(?:be|being)\s+deported|court\s+action|(?:criminal|legal)\s+proceedings|police\s+will\s+(?:attend|come|arrest)"
                                                             r"|suspend(?:ed)?\s+your\s+(?:tfn|tax\s+file\s+number|visa|medicare))\b"],
         ],
-        "ask": ["asks you to pay or hand over details", r"\b(?:pay|transfer|send|buy|purchase)\b[^.?!\n]{0,50}?(?:\$\s?\d|\bgift\s?cards?\b|\bvouchers?\b|\bitunes\b"
+        "ask": ["asks you to pay or hand over details", r"\b(?:pay|transfer|send|buy|purchase)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,50}?(?:\$\s?\d|\bgift\s?cards?\b|\bvouchers?\b|\bitunes\b"
                                                          r"|\bgoogle play\b|\bbitcoin\b|\bcrypto\b|\bfine\b|\bpenalty\b|\bamount\b|\bdebt\b|\bimmediately\b)"
                                                          r"|\b(?:provide|confirm|give)\s+(?:us\s+)?(?:your\s+)?(?:bank details|tax file number|tfn|passport|card details)\b"
                                                          r"|\bkeep\s+(?:it|your money|this)\s+(?:safe|secret|confidential)\b"],
@@ -190,7 +190,7 @@ PATTERNS: tuple[dict, ...] = (
                                                   r"|\b(?:unclaimed|pending|outstanding)\s+(?:refund|rebate|inheritance|funds|compensation|prize)\b"
                                                   r"|\bentitled\s+to\s+(?:a\s+)?(?:refund|rebate|compensation|payment|\$)"],
         ],
-        "ask": ["asks for a fee or your details to release it", r"\b(?:pay|send|transfer)\b[^.?!\n]{0,40}?\b(?:fee|tax|taxes|charge|charges|deposit)\b"
+        "ask": ["asks for a fee or your details to release it", r"\b(?:pay|send|transfer)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\b(?:fee|tax|taxes|charge|charges|deposit)\b"
                                                                r"|\b(?:processing|release|administration|clearance|transfer|handling|customs)\s+(?:fee|charge|tax)\b"
                                                                r"|\b(?:provide|confirm|enter|send)\s+(?:us\s+)?(?:your\s+)?(?:bank\s+details|card\s+details|account\s+details|bsb)\b"],
         "opening": False,
@@ -214,10 +214,10 @@ PATTERNS: tuple[dict, ...] = (
             ["offers a job or paid tasks", r"\b(?:job|role|position|vacanc(?:y|ies)|opportunity)\s+(?:offer|available|opening)|\bwe(?:'re|\s+are)\s+hiring\b"
                                            r"|\brecruiting\s+for\b|\bpart[- ]time\s+(?:job|work|role)\b|\bwork\s+from\s+home\b|\bremote\s+(?:job|work|role)\b"
                                            r"|\bonline\s+(?:job|work|tasks?)\b|\b(?:simple|easy)\s+tasks?\b|\bcomplete\s+tasks?\b"],
-            ["promises easy or high pay", r"\$\s?\d[\d,]*\s*(?:per|a|an|/|each)\s*(?:day|hour|hr|week|task)\b|\b(?:earn|earning)\b[^.?!\n]{0,40}(?:\$\s?\d|daily|per day|a day|commission)"
+            ["promises easy or high pay", r"\$\s?\d[\d,]*\s*(?:per|a|an|/|each)\s*(?:day|hour|hr|week|task)\b|\b(?:earn|earning)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}(?:\$\s?\d|daily|per day|a day|commission)"
                                           r"|\b(?:little effort|easy money|no experience (?:needed|required)|high (?:income|pay|salary))\b"],
         ],
-        "ask": ["asks you to pay, top up or deposit money", r"\b(?:top[- ]?up|recharge|deposit)\b[^.?!\n]{0,40}?(?:\$|\baccount\b|\busdt\b|\bcrypto\b|\bfunds\b|\bbalance\b)"
+        "ask": ["asks you to pay, top up or deposit money", r"\b(?:top[- ]?up|recharge|deposit)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?(?:\$|\baccount\b|\busdt\b|\bcrypto\b|\bfunds\b|\bbalance\b)"
                                                            r"|\b(?:pay|transfer|send)\s+(?:a|the|your|an)?\s*(?:training|registration|recruitment|starter|activation|joining)\s+fee\b"
                                                            r"|\b(?:upfront|activation|joining|registration)\s+(?:fee|payment|deposit)\b"],
         "opening": False,
@@ -246,7 +246,7 @@ PATTERNS: tuple[dict, ...] = (
              r"|\b\d{1,3}(?:\.\d+)?\s?%\s*(?:(?:per|a|each|every)\s+)?(?:day|daily|week|weekly|month|monthly|returns?|profit|interest|roi)\b"
              r"|risk[- ]free|no risk|double your (?:money|investment)|can'?t lose"],
         ],
-        "ask": ["asks you to invest or get in touch to start", r"\b(?:deposit|invest|send|transfer)\b[^.?!\n]{0,30}?(?:\$\s?\d|\bmoney\b|\bfunds\b|\busdt\b|\bcrypto\b|\bbitcoin\b|\bminimum\b)"
+        "ask": ["asks you to invest or get in touch to start", r"\b(?:deposit|invest|send|transfer)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?(?:\$\s?\d|\bmoney\b|\bfunds\b|\busdt\b|\bcrypto\b|\bbitcoin\b|\bminimum\b)"
                                                                 r"|\bminimum\s+(?:investment|deposit)\b"
                                                                 r"|\b(?:message|contact|join|add)\s+(?:us|me|our\s+(?:group|team|channel))\s+on\s+(?:whatsapp|telegram|signal)\b"],
         "opening": False,
@@ -273,15 +273,15 @@ PATTERNS: tuple[dict, ...] = (
                  "financial services (AFS) licence.\u201d"),
         "hallmarks": [
             ["introduces a trading mentor, expert, broker or advisor who guarantees returns",
-             r"\b(?:my|a|our|this)\s+(?:trading\s+)?(?:mentor|expert|broker|advisor|adviser|analyst|guru)\b[^.?!\n]{0,60}?"
+             r"\b(?:my|a|our|this)\s+(?:trading\s+)?(?:mentor|expert|broker|advisor|adviser|analyst|guru)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,60}?"
              r"\b(?:guarantee[ds]?|is\s+guaranteed|guarantees)\b"
-             r"|\b(?:mentor|expert|broker|advisor|adviser|analyst|guru)\b[^.?!\n]{0,60}?\bguarantee[ds]?\s+(?:\w+\s+){0,2}(?:returns?|profits?|income)\b"],
+             r"|\b(?:mentor|expert|broker|advisor|adviser|analyst|guru)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,60}?\bguarantee[ds]?\s+(?:\w+\s+){0,2}(?:returns?|profits?|income)\b"],
             ["promises guaranteed or very high returns",
              r"guarantee[ds]?\s+(?:\w+\s+){0,2}(?:returns?|profits?|income|interest|payouts?)"
              r"|\b\d{1,3}(?:\.\d+)?\s?%\s*(?:(?:per|a|each|every)\s+)?(?:day|daily|week|weekly|month|monthly|returns?|profit|interest|roi)\b"],
         ],
         "ask": ["offers to send a link, contact or group to get started",
-                r"\b(?:send|share|give)\s+(?:you\s+)?(?:the\s+|a\s+|my\s+)?(?:link|contact|details|group|channel)\b[^.?!\n]{0,40}?"
+                r"\b(?:send|share|give)\s+(?:you\s+)?(?:the\s+|a\s+|my\s+)?(?:link|contact|details|group|channel)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?"
                 r"\b(?:started?|sign\s*up|signup|join|begin)\b"
                 r"|\b(?:message|contact|join|add)\s+(?:us|me|our\s+(?:group|team|channel))\s+on\s+(?:whatsapp|telegram|signal)\b"],
         "opening": False,
@@ -308,19 +308,19 @@ PATTERNS: tuple[dict, ...] = (
                  "in person.\u201d \u201cThey ask you for money, gifts, or your bank/credit card details.\u201d"),
         "hallmarks": [
             ["professes strong romantic feelings very quickly after an unexpected first contact",
-             r"\b(?:my\s+)?(?:love|darling|dear(?:est)?|sweetheart|soulmate|my\s+(?:queen|king|heart))\b[^.?!\n]{0,60}?\b(?:love|miss|need)\s+you\b"
+             r"\b(?:my\s+)?(?:love|darling|dear(?:est)?|sweetheart|soulmate|my\s+(?:queen|king|heart))\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,60}?\b(?:love|miss|need)\s+you\b"
              r"|\bi\s+(?:love|adore)\s+you\s+(?:so\s+much\s+)?already\b|\bfeel\s+(?:a\s+)?(?:deep\s+)?connection\s+(?:with|to)\s+you\b"
              r"|\bwant\s+a\s+(?:serious\s+)?relationship\s+with\s+you\b|\bcan'?t\s+wait\s+to\s+(?:finally\s+)?meet\s+you\s+in\s+person\b"],
             ["gives a reason it can never meet, video call or be reached directly",
-             r"\b(?:can'?t|cannot|unable\s+to)\s+(?:video\s+call|video\s+chat|meet(?:\s+in\s+person)?|call\s+you)\b[^.?!\n]{0,40}?"
+             r"\b(?:can'?t|cannot|unable\s+to)\s+(?:video\s+call|video\s+chat|meet(?:\s+in\s+person)?|call\s+you)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?"
              r"\b(?:because|as|since|right\s+now)\b"
              r"|\b(?:deployed|stationed|working)\s+(?:overseas|abroad|on\s+an?\s+(?:oil\s+rig|ship|platform))\b"
              r"|\bstuck\s+(?:in|at)\s+(?:customs|the\s+airport|a\s+(?:military|work)\s+(?:base|site))\b"],
         ],
         "ask": ["asks for money, gift cards or crypto for a personal crisis or to finally meet",
-                r"\b(?:send|transfer|pay|wire)\b[^.?!\n]{0,40}?(?:\$\s?\d[\d,]*|\bmoney\b|\bfunds\b|\bcash\b)[^.?!\n]{0,40}?"
+                r"\b(?:send|transfer|pay|wire)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?(?:\$\s?\d[\d,]*|\bmoney\b|\bfunds\b|\bcash\b)(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?"
                 r"\b(?:urgently|please|now|today|so\s+i\s+can|to\s+(?:get|come|fly))\b"
-                r"|\b(?:customs|airport|medical|hospital|visa|flight|ticket|bail|legal)\s+(?:fee|bill|charge|cost)s?\b[^.?!\n]{0,40}?"
+                r"|\b(?:customs|airport|medical|hospital|visa|flight|ticket|bail|legal)\s+(?:fee|bill|charge|cost)s?\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?"
                 r"\b(?:pay|send|transfer|cover)\b"
                 r"|\bbuy\s+(?:me\s+)?(?:a\s+)?(?:gift\s?cards?|itunes|google\s+play)\b"],
         "opening": True,
@@ -371,26 +371,26 @@ PATTERNS: tuple[dict, ...] = (
             # Someone saying a code was / will be / has been sent to the user, or that the user should/will receive one.
             ["says a code was or will be sent to your phone",
              # Pattern A: "we/our team sent CODE to your phone" (the most natural English order)
-             r"\b(?:we|our\s+(?:security\s+|fraud\s+|technical\s+)?(?:team|system|department))\b[^.?!\n]{0,55}?"
-             r"\b(?:sent|send|are\s+sending|have\s+sent|just\s+sent|texted|are\s+about\s+to\s+send)\b[^.?!\n]{0,55}?"
+             r"\b(?:we|our\s+(?:security\s+|fraud\s+|technical\s+)?(?:team|system|department))\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,55}?"
+             r"\b(?:sent|send|are\s+sending|have\s+sent|just\s+sent|texted|are\s+about\s+to\s+send)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,55}?"
              r"\b(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|sms\s+code|2fa\s+code|two[- ]?factor\s+(?:code|pin)|code|pin)\b"
-             r"[^.?!\n]{0,30}?\b(?:to\s+(?:you|your)|on\s+your)\b"
+             r"(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?\b(?:to\s+(?:you|your)|on\s+your)\b"
              # Pattern B: "we/our team sent you a CODE" (you first, then the code noun)
-             r"|\b(?:we|our\s+(?:security\s+|fraud\s+|technical\s+)?(?:team|system|department))\b[^.?!\n]{0,55}?"
-             r"\b(?:sent|send|are\s+sending|have\s+sent|just\s+sent|texted|are\s+about\s+to\s+send)\b[^.?!\n]{0,30}?\b(?:you|your)\b"
-             r"[^.?!\n]{0,45}?\b(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|sms\s+code|2fa\s+code|two[- ]?factor\s+(?:code|pin)|code|pin)\b"
+             r"|\b(?:we|our\s+(?:security\s+|fraud\s+|technical\s+)?(?:team|system|department))\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,55}?"
+             r"\b(?:sent|send|are\s+sending|have\s+sent|just\s+sent|texted|are\s+about\s+to\s+send)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?\b(?:you|your)\b"
+             r"(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,45}?\b(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|sms\s+code|2fa\s+code|two[- ]?factor\s+(?:code|pin)|code|pin)\b"
              # Pattern C: "you should have received / just received / will receive a code"
-             r"|\byou\b[^.?!\n]{0,25}?\b(?:should\s+have\s+received?|just\s+received?|will\s+receive|may\s+have\s+received?|have\s+received?|receive)\b[^.?!\n]{0,30}?"
+             r"|\byou\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,25}?\b(?:should\s+have\s+received?|just\s+received?|will\s+receive|may\s+have\s+received?|have\s+received?|receive)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?"
              r"\b(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|sms\s+code|a\s+code|the\s+code|six[- ]?digit|a\s+\d[- ]?digit)\b"
              # Pattern D: "a verification code has been sent / will be sent to your phone"
-             r"|\b(?:a|the|your)\s+(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|code)\b[^.?!\n]{0,30}?"
-             r"\b(?:has\s+been\s+sent|was\s+sent|will\s+be\s+sent|is\s+on\s+its\s+way|will\s+arrive|is\s+being\s+sent)\b[^.?!\n]{0,25}?"
+             r"|\b(?:a|the|your)\s+(?:one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|code)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?"
+             r"\b(?:has\s+been\s+sent|was\s+sent|will\s+be\s+sent|is\s+on\s+its\s+way|will\s+arrive|is\s+being\s+sent)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,25}?"
              r"\b(?:to\s+you|to\s+your|on\s+your)\b"],
         ],
         # Extended ask — includes "enter", "type", "reply with" which _CODE_ASK omits, plus 2FA-specific vocab.
         "ask": ["asks you to share, reply with or enter the code you received",
                 r"\b(?:want(?:s|ed)?|ask(?:s|ed|ing)?(?:\s+(?:me|you|us))?(?:\s+(?:for|to\s+(?:give|read(?:\s+out)?|tell|confirm|share|provide|enter|send|repeat|say|type)))?"
-                r"|request(?:s|ed|ing)?|need(?:s|ed)?|give|read(?:\s+out)?|tell|confirm|share|provide|send|repeat|enter|type|reply\s+with)\b[^.?!\n]{0,40}?"
+                r"|request(?:s|ed|ing)?|need(?:s|ed)?|give|read(?:\s+out)?|tell|confirm|share|provide|send|repeat|enter|type|reply\s+with)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?"
                 r"\b(?:one[- ]time\s+(?:code|password|passcode|pin)|otp|verification\s+code|security\s+code|sms\s+code|text\s+code|2fa\s+code|two[- ]?factor\s+(?:code|pin)"
                 r"|(?:the|my|your|a|that|this|any)\s+code|pin(?:\s+number)?|passcode|password|card\s+(?:number|details)|cvv|bank(?:ing)?\s+details"
                 r"|authentication\s+code|authenticator\s+code)\b"],
@@ -432,9 +432,9 @@ PATTERNS: tuple[dict, ...] = (
                  "or written in an email or SMS.”"),
         "hallmarks": [["says the caller is from a government agency or the police", rf"\b{_CLAIMED}{_GOV}\b|\b{_GOV}{_CALLED}"]],
         "ask": ["says the caller asked you to pay, move money or hand over details",
-                r"\b(?:pay|transfer|send|move|buy|purchase|deposit|wire)\b[^.?!\n]{0,50}?(?:\$\s?\d[\d,]*(?:\.\d{2})?|\bmoney\b|\bfunds\b|\bgift\s?cards?\b|\bvouchers?\b"
+                r"\b(?:pay|transfer|send|move|buy|purchase|deposit|wire)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,50}?(?:\$\s?\d[\d,]*(?:\.\d{2})?|\bmoney\b|\bfunds\b|\bgift\s?cards?\b|\bvouchers?\b"
                 r"|\bitunes\b|\bgoogle\s+play\b|\bbitcoin\b|\bcrypto(?:currency)?\b|\bfine\b|\bpenalty\b|\bdebt\b|\bfee\b|\bamount\b|\bbalance\b)"
-                r"|\b(?:give|provide|confirm|tell|read(?:\s+out)?|share|send)\b[^.?!\n]{0,30}?\b(?:bank\s+(?:details|account)|card\s+(?:number|details)"
+                r"|\b(?:give|provide|confirm|tell|read(?:\s+out)?|share|send)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?\b(?:bank\s+(?:details|account)|card\s+(?:number|details)"
                 r"|tax\s+file\s+number|tfn|passport|one[- ]time\s+code|verification\s+code|security\s+code|password|pin)\b"],
         "opening": False,
         "requires": [],
@@ -482,9 +482,9 @@ PATTERNS: tuple[dict, ...] = (
         "hallmarks": [["says the call is about a parcel or delivery",
                        rf"\b{_CLAIMED}{_COURIER}\b|\b(?:my|your|a|the|an)\s+(?:parcel|package|delivery|shipment|consignment)\b"]],
         "ask": ["says the caller asked you to pay a fee or give card details",
-                r"\b(?:pay|settle|clear|transfer|send)\b[^.?!\n]{0,40}?(?:\$\s?\d[\d,]*(?:\.\d{2})?|\bmoney\b|\bfee\b|\bcharge\b|\bamount\b|\bbalance\b|\bcustoms\b|\bduty\b)"
+                r"\b(?:pay|settle|clear|transfer|send)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?(?:\$\s?\d[\d,]*(?:\.\d{2})?|\bmoney\b|\bfee\b|\bcharge\b|\bamount\b|\bbalance\b|\bcustoms\b|\bduty\b)"
                 r"|\b(?:redelivery|delivery|customs|handling|release)\s+(?:fee|charge)\b"
-                r"|\b(?:give|provide|confirm|read(?:\s+out)?|tell|share|enter)\b[^.?!\n]{0,30}?\b(?:card\s+(?:number|details)|bank\s+details|cvv"
+                r"|\b(?:give|provide|confirm|read(?:\s+out)?|tell|share|enter)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?\b(?:card\s+(?:number|details)|bank\s+details|cvv"
                 r"|one[- ]time\s+code|verification\s+code|security\s+code)\b"],
         "opening": False,
         "requires": [],
@@ -495,12 +495,60 @@ PATTERNS: tuple[dict, ...] = (
                    ["Report it", "Report it to Scamwatch at scamwatch.gov.au. If you've already paid or given card details, contact your bank now."]],
         "consequence": "Card details given for a small fee can be used to take much more.",
     },
+    {
+        "key": "money_mule_recruitment",
+        "name": "money mule recruitment scam",
+        "url": "https://www.scamwatch.gov.au/types-of-scams/jobs-and-employment-scams",
+        "summary": "an unsolicited job offer asks you to receive money into your own bank account and forward it on, often as cryptocurrency, keeping a commission — making you a money mule in a laundering operation.",
+        "body": ("Scamwatch warning signs: “You are asked to use your bank account to receive and transfer money for someone else, often "
+                 "keeping a commission.” Acting as a money mule, even unknowingly, can make you criminally liable and your own bank account "
+                 "can be frozen or closed. What to do: “Never give your bank account details to anyone you don't know and trust, and never "
+                 "agree to move money through your account for someone else.”"),
+        "hallmarks": [
+            ["offers paid work receiving and forwarding money", r"\b(?:payment\s+processing|money\s+transfer|financial)\s+agent\b"
+                                                                 r"|\breceive\s+(?:the\s+)?funds?\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,60}?\bforward\b"
+                                                                 r"|\bforward(?:ing)?\s+(?:it|them|the\s+(?:money|funds))\s+on\b|\bact\s+as\s+a\s+(?:payment|transfer)\s+agent\b"],
+            ["offers a commission for moving the money", r"\bkeep(?:ing)?\s+(?:a\s+)?\d{1,3}%\s+commission\b|\b\d{1,3}%\s+commission\s+on\s+each\s+transfer\b"
+                                                          r"|\bkeep\s+a\s+(?:cut|percentage|commission)\b"],
+        ],
+        "ask": ["asks for your account details to get started", r"\breply\s+with\s+(?:your\s+)?(?:account|bank)\s+details\b"
+                                                                 r"|\b(?:send|provide|give)\s+(?:us\s+)?your\s+(?:account|bank)\s+details\b"],
+        "opening": False,
+        "requires": [],
+        "impersonates_organisation": False,
+        "advice": [["Don't share your bank account", "Don't give your bank account, or accept and forward funds for anyone, to get or keep this work."],
+                   ["Check the employer yourself", "A legitimate payment-processing job doesn't recruit through an unsolicited message with no experience required."],
+                   ["Report it", "Report it to Scamwatch at scamwatch.gov.au. Acting as a money mule can freeze your own bank account, even if you didn't know."]],
+        "consequence": "Moving money for someone else like this is money laundering — your own bank account can be frozen and you can be held criminally liable, even unknowingly.",
+    },
+    {
+        "key": "fake_online_store",
+        "name": "fake online store scam",
+        "url": "https://www.scamwatch.gov.au/types-of-scams/online-shopping-scams",
+        "summary": "an ad or message advertises a steep, time-limited discount and pushes you to pay or enter your card details on an unfamiliar checkout page.",
+        "body": ("Scamwatch warning signs: “Prices are much lower than other retailers, with a false sense of urgency to buy now (for example, "
+                 "a limited time offer or low stock warnings).” What to do: “Do some research on the website or seller before you buy — "
+                 "search for reviews and only use secure payment methods.”"),
+        "hallmarks": [
+            ["advertises a steep, time-limited discount", r"\b\d{2,3}%\s+off\b|\bmassive\s+(?:clearance|sale|discount)\b|\bclearance\s+sale\b"],
+            ["creates urgency to buy immediately", r"\btoday\s+only\b|\bstock\s+is\s+almost\s+gone\b|\balmost\s+gone\b|\blimited\s+(?:time|stock)\b|\bhurry\b|\bwhile\s+stocks?\s+last\b"],
+        ],
+        "ask": ["asks you to pay or enter your card details at checkout", r"\bpay\s+now\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\bcard\s+(?:details|number)\b"
+                                                                         r"|\bwith\s+your\s+card\s+(?:details|number)\b|\bcheckout\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\bcard\s+(?:details|number)\b"],
+        "opening": False,
+        "requires": [],
+        "impersonates_organisation": False,
+        "advice": [["Don't pay through this link", "Don't enter your card details on a checkout page you reached from an unsolicited ad or message."],
+                   ["Check the store yourself", "Search for independent reviews of the store by name before buying anything."],
+                   ["Report it", "Report it to Scamwatch at scamwatch.gov.au. If you've already paid, contact your bank now."]],
+        "consequence": "Card details entered on a fake checkout page can be used to take much more than the advertised price.",
+    },
 )
 
 _REQUIREMENT_LABEL = {"brand": "names an organisation", "link": "contains a link",
                       "offsite_link": "sends you to a link that isn't the organisation's own website"}
 # Bumped whenever the shipped markers change, so the KB entries are refreshed rather than left stale.
-PATTERN_VERSION = 5
+PATTERN_VERSION = 6
 
 
 async def load() -> int:

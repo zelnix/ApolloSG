@@ -78,6 +78,8 @@ _PATTERN_MAP: dict[str, tuple[dict, list[int]]] = {
     "job_task":              (_variant(5, 1, "Job or paid-task employment scam"), []),
     "delivery_toll":         (_variant(5, 2, "Parcel delivery or unpaid-toll fee request"), [2]),
     "delivery_call":         (_variant(5, 3, "Delivery/courier fee impersonation call"), [2]),
+    "money_mule_recruitment": (_variant(5, 4, "Money-mule recruitment \u2014 receive-and-forward job offer"), [3]),
+    "fake_online_store":     (_variant(5, 5, "Fake online store \u2014 steep-discount checkout fraud"), []),
     "government_threat":     (_variant(7, 1, "Government or authority threat"), []),
     "government_call":       (_variant(7, 2, "Government or police impersonation call"), []),
 }
@@ -92,6 +94,10 @@ _MECHANISM_MAP: tuple[tuple[str, dict, list[int]], ...] = (
      _variant(3, 3, "Crypto wallet or recovery-phrase exploitation"), [1]),
     ("Extortion or ransomware demand",
      _variant(6, 1, "Extortion or ransomware demand"), []),
+    ("Severe-consequence manipulation",
+     _variant(4, 3, "Severe-consequence manipulation \u2014 secrecy, distress or authority-threat coercion"), [6, 7]),
+    ("Money-mule recruitment",
+     _variant(5, 6, "Money-mule recruitment established directly from the request"), [3]),
 )
 
 # consequential_requests "type" (triage._requests) -> generic fallback domain, most decisive first.

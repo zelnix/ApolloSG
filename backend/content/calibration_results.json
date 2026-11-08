@@ -1,79 +1,82 @@
 {
   "about": "ApolloSG PRD v2.3 Findings Calibration \u2014 synthetic reference-library run, see tests/fixtures/reference_cases.py and tests/test_calibration_reference_library.py.",
   "totalCases": 55,
-  "settled": 28,
-  "tierMatches": 11,
+  "settled": 32,
+  "tierMatches": 32,
   "results": [
     {
       "id": "001",
       "scenario": "Confirmed OTP refund hijack",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 credentials (\u201creply with the 6-digit one-time code\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 98
+      "actualScore": 85,
+      "targetScore": 98,
+      "scoreDelta": -13,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
+      "basis": "unknown"
     },
     {
       "id": "002",
       "scenario": "Confirmed fake account verification portal",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "likely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 65,
+      "actualScore": 75,
       "targetScore": 96,
-      "scoreDelta": -31,
-      "taxonomy": "Brand & Corporate Impersonation",
+      "scoreDelta": -21,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
       "basis": "impersonation"
     },
     {
       "id": "003",
       "scenario": "Confirmed password-reset credential theft",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 credentials (\u201creply with the verification code\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 97
+      "actualScore": 85,
+      "targetScore": 97,
+      "scoreDelta": -12,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
+      "basis": "unknown"
     },
     {
       "id": "004",
       "scenario": "Confirmed malicious OAuth consent request",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "likely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 65,
+      "actualScore": 85,
       "targetScore": 93,
-      "scoreDelta": -28,
-      "taxonomy": "Brand & Corporate Impersonation",
+      "scoreDelta": -8,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
       "basis": "impersonation"
     },
     {
       "id": "005",
       "scenario": "Suspicious account recovery with substantial indicators",
-      "settled": true,
-      "category": "suspicious",
-      "actualFinding": "unlikely_scam",
+      "settled": false,
+      "issues": [
+        "Message and deception analysis. The material asks the person to act \u2014 call back (\u201ccall us back on\u201d \u2192 1300 558 214) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+      ],
       "targetFinding": "likely_scam",
-      "actualScore": 28,
-      "targetScore": 79,
-      "scoreDelta": -51,
-      "taxonomy": null,
-      "basis": "unknown"
+      "targetScore": 79
     },
     {
       "id": "006",
       "scenario": "Confirmed courier delivery-fee phishing",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "likely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 65,
+      "actualScore": 71,
       "targetScore": 95,
-      "scoreDelta": -30,
-      "taxonomy": "Brand & Corporate Impersonation",
+      "scoreDelta": -24,
+      "taxonomy": "Retail, E-Commerce & Employment",
       "basis": "impersonation"
     },
     {
@@ -91,13 +94,13 @@
       "scenario": "Confirmed delivery redirection credential theft",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 28,
+      "actualScore": 65,
       "targetScore": 96,
-      "scoreDelta": -68,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -31,
+      "taxonomy": "Retail, E-Commerce & Employment",
+      "basis": "impersonation"
     },
     {
       "id": "009",
@@ -117,13 +120,13 @@
       "scenario": "Delivery message with suspicious payment link",
       "settled": true,
       "category": "suspicious",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 28,
+      "actualScore": 45,
       "targetScore": 77,
-      "scoreDelta": -49,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -32,
+      "taxonomy": "Retail, E-Commerce & Employment",
+      "basis": "pattern"
     },
     {
       "id": "011",
@@ -132,9 +135,9 @@
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 69,
+      "actualScore": 91,
       "targetScore": 97,
-      "scoreDelta": -28,
+      "scoreDelta": -6,
       "taxonomy": "Account Takeover & Authentication Exploitation",
       "basis": "impersonation"
     },
@@ -151,15 +154,12 @@
     {
       "id": "013",
       "scenario": "Suspicious bank callback request",
-      "settled": true,
-      "category": "suspicious",
-      "actualFinding": "unlikely_scam",
+      "settled": false,
+      "issues": [
+        "Message and deception analysis. The material asks the person to act \u2014 call back (\u201ccall us back urgently on\u201d \u2192 1300 442 097) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+      ],
       "targetFinding": "likely_scam",
-      "actualScore": 28,
-      "targetScore": 81,
-      "scoreDelta": -53,
-      "taxonomy": null,
-      "basis": "unknown"
+      "targetScore": 81
     },
     {
       "id": "014",
@@ -187,12 +187,15 @@
     {
       "id": "026",
       "scenario": "Hi Mum impersonation with substantial indicators",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer $4\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "suspicious",
+      "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "targetScore": 82
+      "actualScore": 85,
+      "targetScore": 82,
+      "scoreDelta": 3,
+      "taxonomy": "Social Engineering & Relationship Exploitation",
+      "basis": "pattern"
     },
     {
       "id": "027",
@@ -217,12 +220,15 @@
     {
       "id": "029",
       "scenario": "Confirmed impersonated relative requesting transfer",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer $9\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 95
+      "actualScore": 85,
+      "targetScore": 95,
+      "scoreDelta": -10,
+      "taxonomy": "Social Engineering & Relationship Exploitation",
+      "basis": "pattern"
     },
     {
       "id": "030",
@@ -255,7 +261,7 @@
       "scenario": "Romance grooming with financial redirection",
       "settled": false,
       "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201csend $5\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201csend $5\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the romance or relationship-grooming scam (Scamwatch (ACCC)), general knowledge only."
       ],
       "targetFinding": "likely_scam",
       "targetScore": 78
@@ -275,30 +281,33 @@
       "scenario": "Wrong-number conversation to investment solicitation",
       "settled": true,
       "category": "suspicious",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "actualScore": 28,
+      "actualScore": 51,
       "targetScore": 80,
-      "scoreDelta": -52,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -29,
+      "taxonomy": "Financial, Investment & Cryptocurrency Fraud",
+      "basis": "pattern"
     },
     {
       "id": "065",
       "scenario": "Confirmed emotional emergency payment fraud",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cpay a $2\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 93
+      "actualScore": 85,
+      "targetScore": 93,
+      "scoreDelta": -8,
+      "taxonomy": "Social Engineering & Relationship Exploitation",
+      "basis": "pattern"
     },
     {
       "id": "066",
       "scenario": "Confirmed guaranteed-return investment fraud",
       "settled": false,
       "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer your first deposit of $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer your first deposit of $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the investment scam promising high or guaranteed returns (Scamwatch (ACCC)), general knowledge only."
       ],
       "targetFinding": "scam",
       "targetScore": 97
@@ -306,24 +315,27 @@
     {
       "id": "067",
       "scenario": "Investment with unverifiable licence and suspicious returns",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201ctransfer \u2014 reply to receive our account\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "suspicious",
+      "actualFinding": "likely_scam",
       "targetFinding": "likely_scam",
-      "targetScore": 83
+      "actualScore": 85,
+      "targetScore": 83,
+      "scoreDelta": 2,
+      "taxonomy": "Financial, Investment & Cryptocurrency Fraud",
+      "basis": "pattern"
     },
     {
       "id": "068",
       "scenario": "Confirmed cryptocurrency wallet-draining request",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 28,
+      "actualScore": 85,
       "targetScore": 99,
-      "scoreDelta": -71,
-      "taxonomy": null,
+      "scoreDelta": -14,
+      "taxonomy": "Financial, Investment & Cryptocurrency Fraud",
       "basis": "unknown"
     },
     {
@@ -354,33 +366,30 @@
       "scenario": "Confirmed fake online store",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 28,
+      "actualScore": 85,
       "targetScore": 94,
-      "scoreDelta": -66,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -9,
+      "taxonomy": "Retail, E-Commerce & Employment",
+      "basis": "pattern"
     },
     {
       "id": "072",
       "scenario": "Suspicious marketplace advance-payment request",
-      "settled": true,
-      "category": "suspicious",
-      "actualFinding": "unlikely_scam",
+      "settled": false,
+      "issues": [
+        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201c$100 deposit\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+      ],
       "targetFinding": "likely_scam",
-      "actualScore": 28,
-      "targetScore": 76,
-      "scoreDelta": -48,
-      "taxonomy": null,
-      "basis": "unknown"
+      "targetScore": 76
     },
     {
       "id": "073",
       "scenario": "Confirmed task-based employment fraud",
       "settled": false,
       "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cdeposit a refundable $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cdeposit a refundable $1\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the job or paid-task scam (Scamwatch (ACCC)), general knowledge only."
       ],
       "targetFinding": "scam",
       "targetScore": 96
@@ -403,20 +412,20 @@
       "scenario": "Confirmed money mule recruitment",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 28,
+      "actualScore": 85,
       "targetScore": 95,
-      "scoreDelta": -67,
-      "taxonomy": null,
-      "basis": "unknown"
+      "scoreDelta": -10,
+      "taxonomy": "Retail, E-Commerce & Employment",
+      "basis": "pattern"
     },
     {
       "id": "076",
       "scenario": "Confirmed sextortion demand",
       "settled": false,
       "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cPay $8\u201d); gift cards crypto (\u201cPay $800 in bitcoin\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cPay $8\u201d); gift cards crypto (\u201cPay $800 in bitcoin\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do. ApolloSG KB: the material partly matches the government or authority threat scam (Scamwatch (ACCC)), general knowledge only."
       ],
       "targetFinding": "scam",
       "targetScore": 98
@@ -424,15 +433,12 @@
     {
       "id": "077",
       "scenario": "Confirmed ransomware payment demand",
-      "settled": true,
-      "category": "confirmed_scam",
-      "actualFinding": "unlikely_scam",
+      "settled": false,
+      "issues": [
+        "Message and deception analysis. The material asks the person to act \u2014 gift cards crypto (\u201cpay 0.5 bitcoin\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+      ],
       "targetFinding": "scam",
-      "actualScore": 28,
-      "targetScore": 99,
-      "scoreDelta": -71,
-      "taxonomy": null,
-      "basis": "unknown"
+      "targetScore": 99
     },
     {
       "id": "078",
@@ -457,12 +463,15 @@
     {
       "id": "080",
       "scenario": "Confirmed malicious remote-access extortion",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cpay a $4\u201d); remote access (\u201cInstall AnyDesk\u201d); gift cards crypto (\u201cpay a $400 removal fee in gift cards\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 97
+      "actualScore": 85,
+      "targetScore": 97,
+      "scoreDelta": -12,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
+      "basis": "pattern"
     },
     {
       "id": "081",
@@ -471,9 +480,9 @@
       "category": "confirmed_scam",
       "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 78,
+      "actualScore": 100,
       "targetScore": 97,
-      "scoreDelta": -19,
+      "scoreDelta": 3,
       "taxonomy": "Account Takeover & Authentication Exploitation",
       "basis": "impersonation"
     },
@@ -482,7 +491,7 @@
       "scenario": "Suspicious government payment notice",
       "settled": false,
       "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 personal details (\u201cconfirm your Medicare and bank details\u201d \u2192 1300 884 210); call back (\u201ccall us urgently\u201d \u2192 1300 884 210) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
+        "Message and deception analysis. The material asks the person to act \u2014 personal details (\u201cconfirm your Medicare and bank details\u201d \u2192 1300 884 210); call back (\u201ccall us urgently on\u201d \u2192 1300 884 210) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
       ],
       "targetFinding": "likely_scam",
       "targetScore": 79
@@ -490,12 +499,15 @@
     {
       "id": "083",
       "scenario": "Confirmed fake court payment demand",
-      "settled": false,
-      "issues": [
-        "Message and deception analysis. The material asks the person to act \u2014 payment (\u201cpay $6\u201d); gift cards crypto (\u201cpay $650 immediately via gift card\u201d) \u2014 through a route no official source verified, and nothing TC Hawkeye established settles what to do."
-      ],
+      "settled": true,
+      "category": "confirmed_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "targetScore": 95
+      "actualScore": 85,
+      "targetScore": 95,
+      "scoreDelta": -10,
+      "taxonomy": "Government, Tax & Legal Impersonation",
+      "basis": "pattern"
     },
     {
       "id": "084",
@@ -515,12 +527,12 @@
       "scenario": "Confirmed government benefits impersonation",
       "settled": true,
       "category": "confirmed_scam",
-      "actualFinding": "likely_scam",
+      "actualFinding": "scam",
       "targetFinding": "scam",
-      "actualScore": 65,
+      "actualScore": 85,
       "targetScore": 96,
-      "scoreDelta": -31,
-      "taxonomy": "Brand & Corporate Impersonation",
+      "scoreDelta": -11,
+      "taxonomy": "Account Takeover & Authentication Exploitation",
       "basis": "impersonation"
     },
     {
@@ -578,26 +590,26 @@
       "scenario": "Verified legitimate Uber arrival notification",
       "settled": true,
       "category": "verified_legitimate",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "not_scam",
       "targetFinding": "not_scam",
-      "actualScore": 28,
+      "actualScore": 0,
       "targetScore": 5,
-      "scoreDelta": 23,
+      "scoreDelta": -5,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "102",
       "scenario": "Verified legitimate courier notification",
       "settled": true,
       "category": "verified_legitimate",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "not_scam",
       "targetFinding": "not_scam",
-      "actualScore": 28,
+      "actualScore": 0,
       "targetScore": 7,
-      "scoreDelta": 21,
+      "scoreDelta": -7,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "103",
@@ -617,13 +629,13 @@
       "scenario": "Verified legitimate employer interview confirmation",
       "settled": true,
       "category": "verified_legitimate",
-      "actualFinding": "unlikely_scam",
+      "actualFinding": "not_scam",
       "targetFinding": "not_scam",
-      "actualScore": 28,
+      "actualScore": 0,
       "targetScore": 6,
-      "scoreDelta": 22,
+      "scoreDelta": -6,
       "taxonomy": null,
-      "basis": "unknown"
+      "basis": "clear"
     },
     {
       "id": "105",

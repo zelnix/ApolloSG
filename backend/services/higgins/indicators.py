@@ -24,6 +24,8 @@ BRANDS: dict[str, tuple[str, str]] = {
     "ing": ("ING", "ing.com.au"),
     "auspost": ("AusPost", "auspost.com.au"),
     "australia post": ("AusPost", "auspost.com.au"),
+    "startrack": ("StarTrack", "startrack.com.au"),
+    "star track": ("StarTrack", "startrack.com.au"),
     "linkt": ("Linkt", "linkt.com.au"),
     "e-toll": ("E-Toll", "etoll.com.au"),
     "mygov": ("myGov", "my.gov.au"),
@@ -41,6 +43,7 @@ BRANDS: dict[str, tuple[str, str]] = {
     "google": ("Google", "google.com"),
     "woolworths": ("Woolworths", "woolworths.com.au"),
     "coles": ("Coles", "coles.com.au"),
+    "uber": ("Uber", "uber.com"),
 }
 
 CREDENTIAL_TERMS: dict[str, str] = {

@@ -45,6 +45,43 @@ CLAIM_RE = re.compile(
     r"|\b\d{1,3}(?:\.\d+)?\s?%\s*(?:(?:per|a|each|every)\s+)?(?:day|daily|week|weekly|month|monthly|year|annually|p\.a\.|returns?|profit|interest|roi)\b"
     r"|risk[- ]free|no risk|double your (?:money|investment)|can'?t lose|passive income", re.I)
 QUOTED_RE = re.compile(r"[“\"]([^”\"]{40,300})[”\"]")
+# A generic self-identification ("this is IT Support", "I'm calling from the fraud team") — distinct
+# from BRANDS (a specific, recognised organisation): this still names *a* claimed sender, just not one
+# with a registered official domain/number to check, so a call-back or payment request addressed to it
+# is still something Magnum DI's reasoning needs to weigh (decide.py's "reasoning" capability).
+SELF_ID_RE = re.compile(
+    r"\b(?:this\s+is|i'?m\s+(?:calling\s+)?from|we'?re\s+(?:calling\s+)?from)\s+"
+    r"((?:[A-Z][\w&'-]*\s*){1,5}(?:Support|Team|Department|Dept|Service|Services|Security|Fraud|Alert|Bank|Division))\b"
+)
+# An explicit, affirmative statement that nothing is being asked for ("no payment or link in this
+# message") — qualitatively different from a message simply not mentioning a request: a genuine
+# informational vacuum (PRD §2.4's golf-invitation example) still needs the benign floor, but a message
+# that actively states it carries no request and genuinely carries none is positive evidence, not silence.
+NO_REQUEST_RE = re.compile(
+    r"\bno\s+payment\s+(?:or\s+link\s+in\s+this\s+message|is\s+required)\b"
+    r"|\bno\s+action\s+(?:is\s+)?(?:needed|required)\b"
+    r"|\b(?:this\s+message\s+)?contains\s+no\s+links?\b"
+    r"|\bdoes\s+not\s+ask\s+for\s+any\s+information\b", re.I,
+)
+# Severe-consequence manipulation: an explicit secrecy/isolation instruction, an acute personal-danger
+# appeal, or a threat of arrest/prosecution/irreversible consequence — qualitatively more than ordinary
+# urgency wording, and (PRD §2.3.A's reasoning) itself decisive once paired with a consequential request.
+SEVERE_MANIPULATION_RE = re.compile(
+    r"\bdon'?t\s+tell\s+(?:anyone|anybody|any\s*one|your\s+\w+)\b|\bkeep\s+this\s+(?:between\s+us|secret|to\s+yourself)\b"
+    r"|\bplease\s+don'?t\s+(?:tell|mention|say\s+anything)\b"
+    r"|\bi'?m\s+so\s+scared\b|\bi\s+am\s+so\s+scared\b|\bi'?m\s+(?:in\s+)?(?:real\s+)?(?:danger|trouble)\b"
+    r"|\bwarrant\s+(?:has\s+been\s+)?issued\s+for\s+your\s+arrest\b|\bto\s+avoid\s+arrest\b|\bbefore\s+(?:you\s+(?:are\s+)?|being\s+)?arrested\b"
+    r"|\breport\s+(?:this|you)\s+to\s+(?:the\s+)?authorities\b|\block\s+you\s+out\s+permanently\b"
+    r"|\byou\s+will\s+be\s+(?:arrested|prosecuted|charged|sued)\b|\bfacing\s+(?:criminal\s+)?(?:charges|prosecution)\b", re.I,
+)
+# Money-mule recruitment: an unsolicited offer to receive money and forward it on (often as crypto) for
+# a commission — being asked to do this is itself the harm (money laundering), regardless of corroboration.
+MULE_SIGNAL_RE = re.compile(
+    r"\breceive\s+(?:the\s+)?funds?\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,60}?\bforward\b"
+    r"|\bforward(?:ing)?\s+(?:it|them|the\s+(?:money|funds))\s+on\b"
+    r"|\bkeep(?:ing)?\s+(?:a\s+)?\d{1,3}%\s+commission\b|\b\d{1,3}%\s+commission\s+on\s+each\s+transfer\b"
+    r"|\bpayment\s+processing\s+agent\b|\bmoney\s+transfer\s+agent\b", re.I,
+)
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
 QUESTION_START = re.compile(r"^(what|how|who|where|when|which|why|can|could|does|do|is|are|should|will|would)\b", re.I)
 FACTUAL_START = re.compile(r"^(what|how|who|where|when|which|why|is there|are there|does|do)\b", re.I)
@@ -72,26 +109,34 @@ RED_FLAG_CLAIM = re.compile(
 # ("we will never ask for your password") is not a request; a negation that belongs to something else ("Do not
 # delay, send …") never cancels one (services/triage/requests.negated_before).
 REQUESTS: tuple[tuple[str, str], ...] = (
-    ("payment", r"(?:\b(?:send|transfer|pay|deposit|wire|lend|loan)\b|\b(?:must|should|needs?\s+to|to)\s+be\s+(?:paid|transferred|deposited)\b|\bpayable\s+to\b)"
-                r"[^.?!\n]{0,60}?(?:\$\s?\d|\bmoney\b|\bfunds\b|\bcash\b|\bpayment\b|\bfees?\b"
-                r"|\binvoice\b|\bbill\b|\bamount\b|\bbalance\b|\blevy\b|\brent\b|\btoll\b|\bfine\b|\bBSB\b|\baccount\b|\bPayID\b)"),
-    ("credentials", r"\b(?:enter|provide|confirm|verify|share|send|give|tell|update|re-?enter|reply\s+with)\b[^.?!\n]{0,40}?\b(?:password|passcode|pin"
+    ("payment", r"(?:(?:\b(?:send|transfer|pay|deposit|wire|lend|loan)\b|\b(?:must|should|needs?\s+to|to)\s+be\s+(?:paid|transferred|deposited)\b|\bpayable\s+to\b)"
+                r"(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,60}?(?:\$\s?\d|\bmoney\b|\bfunds\b|\bcash\b|\bpayment\b|\bfees?\b"
+                r"|\binvoice\b|\bbill\b|\bamount\b|\bbalance\b|\blevy\b|\brent\b|\btoll\b|\bfine\b|\bBSB\b|\baccount\b|\bPayID\b)"
+                # Reverse order only, and only immediately adjacent: the ask is stated as a plain noun
+                # phrase straight after the figure ("a $100 deposit", "$50 advance", "$20 holding fee")
+                # — never a wider scan for these words anywhere near an unrelated dollar figure, which
+                # would wrongly flag every message that merely mentions money near a different clause.
+                r"|\$\s?\d[\d,.]*\s+(?:deposit|advance|holding\s+fee)\b)"),
+    ("credentials", r"\b(?:enter(?:ing)?|provid(?:e|ing)|confirm(?:ing)?|verify(?:ing)?|shar(?:e|ing)|send(?:ing)?|giv(?:e|ing)|tell(?:ing)?|updat(?:e|ing)|re-?enter(?:ing)?|reply\s+with)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\b(?:password|passcode|pin"
                     r"|one[- ]time\s+(?:code|password|passcode)|otp|verification\s+code|security\s+code|code\s+(?:we|you)|card\s+(?:number|details)|cvv"
-                    r"|netbank|login\s+details)\b|\b(?:log|sign)\s?(?:in|on)\b[^.?!\n]{0,30}?(?:https?://|\blink\b|\bhere\b|\bbelow\b)"),
-    ("personal_details", r"\b(?:enter|provide|confirm|verify|send|give|update|share)\b[^.?!\n]{0,40}?\b(?:date\s+of\s+birth|dob|driver'?s?\s+licen[cs]e"
-                         r"|passport|tax\s+file\s+number|tfn|medicare\s+(?:number|card)|bank\s+(?:details|account)|bsb|account\s+number"
+                    r"|netbank|login\s+details|recovery\s+phrase|seed\s+phrase|private\s+key|wallet\s+(?:seed|key|phrase))\b"
+                    r"|\b(?:log|sign)\s?(?:in|on)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?(?:https?://|\blink\b|\bhere\b|\bbelow\b)"
+                    r"|\b(?:request(?:ing|s)?|approve|authorise|authorize|grant)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\b(?:full\s+)?access\s+to\s+(?:your|the)\b"
+                    r"|\bwith\s+your\s+card\s+(?:details|number)\b"),
+    ("personal_details", r"\b(?:enter(?:ing)?|provid(?:e|ing)|confirm(?:ing)?|verify(?:ing)?|send(?:ing)?|giv(?:e|ing)|updat(?:e|ing)|shar(?:e|ing)|reply\s+with)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\b(?:date\s+of\s+birth|dob|driver'?s?\s+licen[cs]e"
+                         r"|passport|tax\s+file\s+number|tfn|medicare\s+(?:number|card)|bank\s+(?:details|account)|bsb|account\s+(?:number|details)"
                          r"|personal\s+(?:details|information)|identity|id\s+documents?)\b"),
     ("remote_access", r"\b(?:download|install|open|run)\s+(?:the\s+|this\s+|our\s+)?(?:anydesk|teamviewer|ultraviewer|quick\s?support|quick\s+assist|apk"
                       r"|remote\s+(?:access|desktop|support))\b|\b(?:give|allow|grant|let)\s+(?:us|me|our\s+technician)\s+(?:remote\s+)?access\b"
                       r"|\b(?:share|start)\s+(?:your\s+)?screen\b"),
-    ("gift_cards_crypto", r"\b(?:buy|purchase|get|send|pay)\b[^.?!\n]{0,40}?\b(?:gift\s?cards?|vouchers?|itunes|google\s+play\s+cards?|steam\s+cards?"
+    ("gift_cards_crypto", r"\b(?:buy|purchase|get|send|pay)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,40}?\b(?:gift\s?cards?|vouchers?|itunes|google\s+play\s+cards?|steam\s+cards?"
                           r"|bitcoin|crypto(?:currency)?|usdt)\b"),
     ("payment_details_change", r"\b(?:bank|account|payment)\s+(?:details|account)\s+(?:have|has)\s+(?:changed|been\s+updated)\b"
                                r"|\b(?:new|updated|different)\s+(?:bank\s+)?(?:account|bank\s+details|payment\s+details|bsb)\b"
                                r"|\binstead\s+of\s+(?:the|our|your)\s+usual\s+account\b"),
-    ("call_back", r"\b(?:call|ring|phone)\s+(?:us|me|our\s+\w+(?:\s+team)?|the\s+\w+\s+team|back)?\s*(?:on|at|now|immediately|urgently|today)\b"),
+    ("call_back", r"\b(?:call|ring|phone)\s+(?:(?:us|me)\s+)?(?:our\s+\w+(?:\s+team)?\s+|the\s+\w+\s+team\s+)?(?:back\s+)?(?:urgently\s+|immediately\s+|now\s+|today\s+)?(?:on|at|now|immediately|urgently|today)\b"),
     ("reply", r"\breply\s+(?:with|y|yes|stop|to\s+this)\b|\b(?:text|message)\s+(?:us|me)\s+back\b"),
-    ("open_link", r"\b(?:click|tap|visit|open|follow|go\s+to)\b[^.?!\n]{0,30}?(?:https?://|\blink\b|\bhere\b|\bbelow\b)"),
+    ("open_link", r"\b(?:click|tap|visit|open|follow|go\s+to)\b(?:[^.?!\n]|(?<=\d)\.(?=\d)){0,30}?(?:https?://|\blink\b|\bhere\b|\bbelow\b)"),
 )
 # Requests that move money, access or identity. Acting on one through a route nobody verified is where harm happens.
 CONSEQUENTIAL = ("payment", "credentials", "personal_details", "remote_access", "gift_cards_crypto", "payment_details_change")
@@ -171,13 +216,24 @@ class Entities:
     payment_details: list[str] = field(default_factory=list)   # BSB / account numbers, PayIDs, crypto wallets
     requests: list[dict] = field(default_factory=list)          # what the material asks the person to do, and what it points at
     relationships: list[dict] = field(default_factory=list)     # how extracted items relate, with their context
+    self_identified_sender: str | None = None   # a generic self-claimed sender ("this is IT Support") with no registry to check
+    explicit_no_request: bool = False            # the material itself states it carries no payment/link/information request
+    severe_manipulation: bool = False            # secrecy/isolation, acute-distress or arrest/authority-threat language
+    mule_signal: bool = False                    # asks the reader to receive money and forward it on for a commission
 
     def any_identifier(self) -> bool:
         return bool(self.urls or self.hosts or self.phones or self.emails or self.companies or self.abns or self.acns or self.licences
                     or self.payment_details)
 
     def wire(self) -> dict:
-        return {k: [list(v) if isinstance(v, tuple) else v for v in getattr(self, k)] for k in self.__dataclass_fields__}
+        out = {}
+        for k in self.__dataclass_fields__:
+            v = getattr(self, k)
+            if isinstance(v, list):
+                out[k] = [list(x) if isinstance(x, tuple) else x for x in v]
+            else:
+                out[k] = v
+        return out
 
 
 def _phones(text: str) -> list[str]:
@@ -322,6 +378,11 @@ def extract(text: str) -> Entities:
     ent.payment_details = _payment_details(text)
     ent.requests = _requests(text, ent)
     ent.relationships = _relationships(text, ent)
+    self_id = SELF_ID_RE.search(text)
+    ent.self_identified_sender = re.sub(r"\s+", " ", self_id.group(1)).strip() if self_id else None
+    ent.explicit_no_request = bool(NO_REQUEST_RE.search(text))
+    ent.severe_manipulation = bool(SEVERE_MANIPULATION_RE.search(text))
+    ent.mule_signal = bool(MULE_SIGNAL_RE.search(text))
     return ent
 
 

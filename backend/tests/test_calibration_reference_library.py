@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from services.higgins import outcomes
-from services.higgins.tc_flyby import decide, report, triage
+from services.higgins.tc_flyby import _kb_stage, decide, report, triage
 from services.higgins.tc_flyby.official import fact
 from tests.fixtures.reference_cases import CASES, ReferenceCase
 
@@ -37,10 +37,14 @@ def _apply_ground_truth(plan_: triage.Plan, case: ReferenceCase) -> None:
                 check.status = "resolved"
 
 
-def _run(case: ReferenceCase) -> dict:
+async def _run(case: ReferenceCase) -> dict:
     material = {"item-0": case.material}
     plan_ = triage.plan(case.question, [case.material])
     _apply_ground_truth(plan_, case)
+    # The real investigation pipeline (services/higgins/tc_flyby/__init__.py::_kb_stage) always runs
+    # KB pattern matching before deciding the case — skipping it here under-tests every scenario a
+    # known scam pattern should catch, and was masking real calibration gaps as "no pattern available".
+    await _kb_stage(plan_, case.material)
 
     decision, issues = decide.evaluate(plan_, material, final=True)
     if decision is None:
@@ -57,8 +61,8 @@ def _run(case: ReferenceCase) -> dict:
 
 
 @pytest.fixture(scope="module")
-def calibration_results() -> list[dict]:
-    results = [_run(c) for c in CASES]
+async def calibration_results() -> list[dict]:
+    results = [await _run(c) for c in CASES]
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     RESULTS_PATH.write_text(json.dumps({
         "about": "ApolloSG PRD v2.3 Findings Calibration — synthetic reference-library run, see "
@@ -86,8 +90,8 @@ class TestFindingTierAccuracy:
     each settled reference case?"""
 
     @pytest.mark.parametrize("case", CASES, ids=lambda c: f"{c.id}_{c.scenario[:40].replace(' ', '_')}")
-    def test_case_reaches_the_target_finding_tier(self, case: ReferenceCase):
-        result = _run(case)
+    async def test_case_reaches_the_target_finding_tier(self, case: ReferenceCase):
+        result = await _run(case)
         if not result["settled"]:
             pytest.skip(f"{case.id} escalated to Magnum DI (capability: {[i for i in result['issues']]}) — "
                         f"not scoreable by TC Hawkeye alone, see TestEveryCaseSettlesAtTcHawkeye")

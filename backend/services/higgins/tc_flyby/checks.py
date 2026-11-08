@@ -112,7 +112,7 @@ def unverified_requests(plan_: Plan) -> list[dict]:
     out = []
     for r in plan_.entities.requests:
         consequential = r["type"] in CONSEQUENTIAL or (
-            r["type"] == "call_back" and bool(plan_.entities.brands)
+            r["type"] == "call_back" and bool(plan_.entities.brands or plan_.entities.self_identified_sender)
         )
         if consequential and not (r["targets"] and all(verified(t, plan_) for t in r["targets"])):
             out.append(r)

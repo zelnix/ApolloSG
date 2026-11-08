@@ -110,7 +110,9 @@ CASES: list[ReferenceCase] = [
         question="Is this a scam?",
         material=("Your StarTrack parcel couldn't be delivered. To redirect it to a pickup point, log in with your email and "
                   "password at https://startrack-redirect.info/login to confirm the new address."),
-        ground_truth=[gt("link", "startrack-redirect.info", text="startrack-redirect.info carries StarTrack's name, but it is not StarTrack's domain (startrack.com.au).",
+        ground_truth=[gt("impersonation", "startrack", text="startrack-redirect.info carries StarTrack's name, but it is not StarTrack's own domain (startrack.com.au).",
+                          signal="anomaly", topic="lookalike", place="startrack-redirect.info"),
+                      gt("link", "startrack-redirect.info", text="startrack-redirect.info carries StarTrack's name, but it is not StarTrack's domain (startrack.com.au).",
                           signal="anomaly", topic="lookalike", place="startrack-redirect.info"),
                       gt("link", "startrack-redirect.info", text="startrack-redirect.info was registered 3 days ago.", signal="weak", topic="registration")],
     ),
@@ -421,7 +423,10 @@ CASES: list[ReferenceCase] = [
         id="102", scenario="Verified legitimate courier notification", category="verified_legitimate", target_score=7, target_finding="not_scam",
         question="Is this legitimate?",
         material="Australia Post: your parcel is out for delivery today between 9am-5pm. Track it in the Auspost app. No action needed.",
-        ground_truth=[gt("impersonation", "australia post", text="Every link and address in the material uses auspost.com.au, Australia Post's official domain.",
+        # check_kind/subject must match the Check Higgins Triage actually creates for this brand mention
+        # ("AusPost", from entity extraction) — "australia post" never matched it, so this fact was
+        # silently dropped and the case never got credited with its own positive verification evidence.
+        ground_truth=[gt("impersonation", "auspost", text="Every link and address in the material uses auspost.com.au, Australia Post's official domain.",
                           signal="clear", topic="official_domains", decisive=True)],
     ),
     ReferenceCase(
