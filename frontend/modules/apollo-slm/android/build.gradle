@@ -24,7 +24,9 @@ android {
 }
 
 dependencies {
-  // ML Kit GenAI Prompt API (Gemini Nano). 1.0.0-beta4 is the release the Prompt API get-started guide names.
-  implementation 'com.google.mlkit:genai-prompt:1.0.0-beta4'
+  // ML Kit GenAI Prompt API (Gemini Nano). Not beta4: it is compiled with Kotlin 2.3 and pulls kotlin-stdlib 2.3,
+  // which this app's Kotlin 2.1 compiler can't read (CI run 42540747432). beta1 is the release Google's Prompt API
+  // get-started guide names.
+  implementation 'com.google.mlkit:genai-prompt:1.0.0-beta1'
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
 }
