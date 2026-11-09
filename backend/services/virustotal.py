@@ -4,7 +4,7 @@ Uses the VirusTotal v3 API in hash-only mode: only the SHA-256 hash of a file is
 the file content never leaves Apollo's backend. This catches all previously-known malware
 while preserving attachment privacy.
 
-Free tier: 4 lookups/minute, 500/day. Sufficient for personal email volume.
+The 4/minute limit below is an in-process safeguard, not a verified\naccount-wide quota or a commercial-use licence. Production usage requires\nindependent account-wide enforcement and licence verification.
 """
 from __future__ import annotations
 
