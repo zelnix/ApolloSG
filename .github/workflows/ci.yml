@@ -118,14 +118,15 @@ jobs:
       # Fix issues at the source and regenerate to shrink them; never add entries to get a change through.
       #   Lint:  npx eslint src app --suppress-all --suppressions-location eslint-suppressions.json
       #          (after fixing, `--prune-suppressions` drops entries that no longer occur)
-      #   Types: npx tsc --noEmit | grep -E '^\S+\.tsx?\(' | sed -E 's/\([0-9]+,[0-9]+\)//' | sort -u > tsc-baseline.txt
-      # The type baseline has no line numbers, so editing a file doesn't make its old errors look new.
+      #   Types: npx tsc --noEmit | grep -E '^\S+\.tsx?\(' | sed -E 's/\([0-9]+,[0-9]+\)//; s#import\("[^"]*/frontend/#import("#g' | sort -u > tsc-baseline.txt
+      # The type baseline has no line numbers, so editing a file doesn't make its old errors look new, and no absolute
+      # paths (tsc writes them inside import("…") types), so it matches on any machine.
       - name: Lint (new issues only — see baseline note above)
         run: npx expo lint -- --suppressions-location eslint-suppressions.json
       - name: Type check (new errors only — see baseline note above)
         run: |
           npx tsc --noEmit > /tmp/tsc-actual.txt 2>&1 || true
-          grep -E '^\S+\.tsx?\(' /tmp/tsc-actual.txt | sed -E 's/\([0-9]+,[0-9]+\)//' | sort -u > /tmp/tsc-actual-sorted.txt
+          grep -E '^\S+\.tsx?\(' /tmp/tsc-actual.txt | sed -E 's/\([0-9]+,[0-9]+\)//; s#import\("[^"]*/frontend/#import("#g' | sort -u > /tmp/tsc-actual-sorted.txt
           sort -u tsc-baseline.txt > /tmp/tsc-baseline-sorted.txt
           NEW_ERRORS=$(comm -13 /tmp/tsc-baseline-sorted.txt /tmp/tsc-actual-sorted.txt)
           if [ -n "$NEW_ERRORS" ]; then
