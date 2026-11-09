@@ -54,3 +54,38 @@ def test_cached_result_does_not_claim_safe():
     source = inspect.getsource(wr.lookup)
     assert '"cached_result"' in source
     assert '"underlying_status"' in source
+
+ 
+def test_atomic_reservation_at_cutoff_and_database_failure():
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+    from pymongo.errors import PyMongoError
+    quota = MagicMock()
+    quota.insert_one = AsyncMock(side_effect=__import__("pymongo").errors.DuplicateKeyError("exists"))
+    quota.find_one_and_update = AsyncMock(return_value=None)
+    with patch.object(wr.db, "web_risk_quota", quota):
+        assert asyncio.run(wr.reserve()) is False
+        assert quota.find_one_and_update.await_args.args[0]["reserved"]["$lt"] == 95_000
+        assert quota.find_one_and_update.await_args.args[1]["$inc"]["reserved"] == 1
+        quota.find_one_and_update.side_effect = PyMongoError("database down")
+        assert asyncio.run(wr.reserve()) is None
+
+
+def test_missing_key_never_reaches_cache_or_network():
+    import asyncio
+    from unittest.mock import AsyncMock
+    with patch.dict("os.environ", {"GOOGLE_WEB_RISK_ENABLED": "true"}, clear=True):
+        with patch.object(wr.reusable_intel, "once", new_callable=AsyncMock) as once:
+            outcome = asyncio.run(wr.lookup("https://example.org/"))
+            assert outcome["status"] == "unavailable"
+            assert outcome["reason"] == "not_configured"
+            once.assert_not_awaited()
+
+
+def test_disabled_provider_never_reaches_network():
+    import asyncio
+    from unittest.mock import AsyncMock
+    with patch.dict("os.environ", {"GOOGLE_WEB_RISK_ENABLED": "false", "GOOGLE_WEB_RISK_API_KEY": "test"}):
+        with patch.object(wr.reusable_intel, "once", new_callable=AsyncMock) as once:
+            assert asyncio.run(wr.lookup("https://example.org/"))["status"] == "not_checked"
+            once.assert_not_awaited()
