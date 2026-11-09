@@ -41,10 +41,22 @@ jobs:
     # The debug build alone took 25 min on run 42541622891 (llama.cpp compiles for every ABI); 45 min cut off the
     # standalone build.
     timeout-minutes: 100
+    # The app's build-time settings, as the published app has them. EXPO_PUBLIC_BACKEND_URL is required: without it
+    # the app stops at launch ("EXPO_PUBLIC_BACKEND_URL is not set", run 42550302561 on a test phone). It comes from
+    # the repository variable EXPO_PUBLIC_BACKEND_URL (Settings → Secrets and variables → Actions → Variables), set by
+    # the owner to the live production server. The GuardDog values match
+    # native-dependencies.yml; without them the protection screens show "not configured".
     env:
       CI: '1'
-      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
+      EXPO_PUBLIC_APP_ENV: production
+      EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE: guarddog_production
       EXPO_PUBLIC_PREVIEW_BUILD: excluded
+      EXPO_PUBLIC_GUARDDOG_RULE_BUNDLE_URL: https://threat-patrol-1.emergent.host/api/guarddog/rules
+      EXPO_PUBLIC_GUARDDOG_CONTROLLED_HOST: apolloverify.harmonywellnessgroup.com.au
+      EXPO_PUBLIC_GUARDDOG_CONTROLLED_IPV4: 52.25.179.131
+      EXPO_PUBLIC_GUARDDOG_CONTROLLED_URL: https://apolloverify.harmonywellnessgroup.com.au/
+      EXPO_PUBLIC_GUARDDOG_RULESET_ID: apollo-rules-v1
       APOLLO_ANDROID_RESTRICTED_PERMISSIONS: 'off'
     defaults:
       run:
@@ -58,6 +70,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Require the backend address
+        run: |
+          if [ -z "$EXPO_PUBLIC_BACKEND_URL" ]; then
+            echo "::error::The repository variable EXPO_PUBLIC_BACKEND_URL is empty. Without it the app stops at launch."
+            exit 1
+          fi
+          echo "Backend: $EXPO_PUBLIC_BACKEND_URL"
       - name: Install pinned frontend dependencies
         run: |
           corepack enable
