@@ -1,6 +1,7 @@
 """Reputation checks, batch checks and feedback."""
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 from typing import Annotated, Literal, Optional
 
@@ -17,7 +18,21 @@ router = APIRouter()
 
 @router.get("/intel/status")
 async def intel_status():
-    if not SAFE_BROWSING_API_KEY:
+    provider = os.environ.get("GOOGLE_URL_PROVIDER", "safe_browsing")
+    if provider == "web_risk":
+        from services.google_web_risk import enabled, period
+        # Status must not issue a billable lookup, including synthetic test URLs.
+        try:
+            quota = await db.web_risk_quota.find_one({"_id": period(now_utc())}, {"reserved": 1})
+            used = int(quota.get("reserved", 0)) if quota else 0
+            sb = {"status": "configured" if enabled() else "disabled",
+                  "provider": "google_web_risk", "reserved_this_month": used,
+                  "operational_cutoff": 95000,
+                  "detail": "Status is passive; it does not verify live Google API access."}
+        except Exception:
+            sb = {"status": "unavailable", "provider": "google_web_risk",
+                  "detail": "Request accounting unavailable. External lookups must not proceed."}
+    elif not SAFE_BROWSING_API_KEY:
         sb = {"status": "not_configured", "detail": "Add SAFE_BROWSING_API_KEY to enable Google Safe Browsing."}
     else:
         stale = _sb_probe["checked_at"] is None or now_utc() - _sb_probe["checked_at"] > timedelta(minutes=10)
