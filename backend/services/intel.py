@@ -155,7 +155,7 @@ async def safe_browsing_lookup(url: str) -> tuple[IntelSource, Optional[datetime
 async def google_url_lookup(url: str) -> tuple[IntelSource, Optional[datetime]]:
     """Staged provider switch; legacy Safe Browsing stays intact until acceptance passes."""
     import os
-    if os.environ.get("GOOGLE_URL_PROVIDER", "safe_browsing") != "web_risk":
+    if os.environ.get("GOOGLE_URL_PROVIDER", "web_risk") != "web_risk":
         return await safe_browsing_lookup(url)
     from services.google_web_risk import lookup
     result = await lookup(url)
@@ -305,10 +305,10 @@ async def run_intel_check(indicator_type: str, value: str) -> IntelCheckResponse
     url, host = sanitize_url(value)
     indicator = host if indicator_type == "domain" else url
     import os
-    provider = os.environ.get("GOOGLE_URL_PROVIDER", "safe_browsing")
+    provider = os.environ.get("GOOGLE_URL_PROVIDER", "web_risk")
     # Isolate legacy Safe Browsing entries from staged Web Risk entries.
     if provider == "web_risk":
-        active = os.environ.get("GOOGLE_WEB_RISK_ENABLED", "").lower() == "true"
+        active = os.environ.get("GOOGLE_WEB_RISK_ENABLED", "true").lower() == "true"
         dg = digest(f"google_web_risk:{'active' if active else 'disabled'}:{indicator}")
     else:
         dg = digest(indicator)
