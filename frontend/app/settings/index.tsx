@@ -466,9 +466,20 @@ export default function SettingsScreen() {
       <Group icon={Smartphone} title="App" tone="app" testID="settings-preferences">
         <SwitchRow first label="Battery saver" hint="Reduces animation and checks status less often. It does not change the protection status." value={lowPower} onValueChange={(value) => void setLowPower(value)} testID="settings-lowpower-switch" />
         <SwitchRow label="Show why each result was settled" hint="One line naming what settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
-        <SwitchRow label="On-device AI" hint={`Re-words results in plain language and points out requests in a message, using AI that runs on this phone. Nothing is sent anywhere, and it never changes Apollo's result. ${slmStatus ? slmStatusLine(slmStatus, slmFallback) + "." : ""}`} value={slmOn} onValueChange={(value) => void toggleSlm(value)} testID="settings-on-device-ai-switch" />
+        {/* Written out rather than via SwitchRow/NavRow, which are created during render (react-hooks/static-components);
+            the hint wraps so the model status isn't cut off. */}
+        <View style={[s.rowItem, s.divider]}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowLabel}>On-device AI</Text>
+            <Text style={s.rowHint}>{`Re-words results in plain language and points out requests in a message, using AI that runs on this phone. Nothing is sent anywhere, and it never changes Apollo's result. ${slmStatus ? slmStatusLine(slmStatus, slmFallback) + "." : ""}`}</Text>
+          </View>
+          <Switch testID="settings-on-device-ai-switch" value={slmOn} onValueChange={(value) => void toggleSlm(value)} trackColor={{ true: colors.resting, false: colors.borderStrong }} thumbColor={colors.onSurface} />
+        </View>
         {slmOn && slmCalls ? <Body testID="settings-on-device-ai-calls" style={{ paddingTop: spacing.xs }}>{slmCalls}</Body> : null}
-        <NavRow label="On-device AI models" hint="See this phone's model, download one if it has none, and compare models" onPress={() => router.push("/settings/on-device-ai")} testID="settings-on-device-ai-models" />
+        <Pressable testID="settings-on-device-ai-models" accessibilityRole="button" accessibilityLabel="On-device AI models" onPress={() => router.push("/settings/on-device-ai")} style={[s.rowItem, s.divider]}>
+          <View style={{ flex: 1 }}><Text style={s.rowLabel}>On-device AI models</Text><Text style={s.rowHint}>See this phone&apos;s model, download one if it has none, and compare models</Text></View>
+          <ChevronRight size={20} color={colors.muted} />
+        </Pressable>
         <NavRow label="Minimise ApolloSG" hint="Move ApolloSG to the background" onPress={() => void minimiseApp(showToast)} testID="settings-minimise" />
         <NavRow label="Retrofit new enhancements" hint="Apply the latest reporting format to all past investigations" onPress={() => setShowRetrofit(true)} testID="settings-retrofit" />
       </Group>
