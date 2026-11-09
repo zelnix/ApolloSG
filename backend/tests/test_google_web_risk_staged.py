@@ -89,3 +89,26 @@ def test_disabled_provider_never_reaches_network():
         with patch.object(wr.reusable_intel, "once", new_callable=AsyncMock) as once:
             assert asyncio.run(wr.lookup("https://example.org/"))["status"] == "not_checked"
             once.assert_not_awaited()
+
+
+def test_web_risk_no_match_never_becomes_clean_verdict():
+    from core.models import IntelSource
+    from services.intel import combine
+    sources = [
+        IntelSource(name="google_web_risk", status="clear", detail="No listing"),
+        IntelSource(name="openphish", status="clear", detail="No listing"),
+    ]
+    verdict, threats, coverage = combine(sources)
+    assert verdict == "unknown"
+    assert threats == []
+    assert coverage == "partial"
+
+
+def test_web_risk_match_still_produces_malicious_verdict():
+    from core.models import IntelSource
+    from services.intel import combine
+    verdict, threats, coverage = combine([
+        IntelSource(name="google_web_risk", status="match", detail="Match", threat_types=["MALWARE"]),
+    ])
+    assert verdict == "malicious"
+    assert threats == ["MALWARE"]
