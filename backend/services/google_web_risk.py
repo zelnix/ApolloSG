@@ -33,7 +33,7 @@ def period(now: datetime) -> str:
     return now.astimezone(timezone.utc).strftime("%Y-%m")
 
 
-async def reserve() -> bool:
+async def reserve() -> bool | None:
     """Atomic cross-worker reservation, including uncertain outcomes. Fail closed on Mongo errors.
 
     A single quota document is shared across backend instances. Reservations are never
@@ -53,7 +53,7 @@ async def reserve() -> bool:
         )
         return result is not None
     except Exception:
-        return False
+        return None
 
 
 async def _lookup_uncached(url: str) -> dict:
@@ -78,8 +78,11 @@ async def _lookup_uncached(url: str) -> dict:
                     "checked_at": cached["checked_at"].isoformat(), "expires_at": cached["expires_at"].isoformat()}
     except Exception:
         return {**result, "status": "unavailable", "reason": "cache_unavailable"}
-    if not await reserve():
-        return {**result, "status": "quota_exhausted", "reason": "quota_or_accounting_unavailable"}
+    reservation = await reserve()
+    if reservation is None:
+        return {**result, "status": "unavailable", "reason": "accounting_unavailable"}
+    if not reservation:
+        return {**result, "status": "quota_exhausted", "reason": "application_cutoff"}
     # No automatic retries: each attempt is potentially billable.
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0), follow_redirects=False) as client:
