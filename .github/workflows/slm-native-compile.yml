@@ -26,7 +26,7 @@ jobs:
   compile:
     name: Assemble standalone Android SLM test APK (optional debug)
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       CI: '1'
       APOLLO_SLM_NATIVE: 'on'
