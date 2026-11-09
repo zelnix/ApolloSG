@@ -18,6 +18,8 @@ export interface FallbackModel {
   family: "Qwen" | "Llama";
   /** Where the owner gets the file to host (Hugging Face repo / file). */
   upstream: { repo: string; file: string };
+  /** The SHA-256 the publisher lists for that exact file, when known. A hosted copy must match it. */
+  upstreamSha256: string | null;
   licence: string;
   /** Which licence text (licences.ts) ships with it. */
   licenceText: "apache_2_0" | "llama_3_2";
@@ -36,16 +38,18 @@ export const FALLBACK_MODELS: readonly FallbackModel[] = [
   {
     id: "qwen2.5-0.5b-instruct-q4km", label: "Qwen 2.5 0.5B (small)", family: "Qwen",
     upstream: { repo: "Qwen/Qwen2.5-0.5B-Instruct-GGUF", file: "qwen2.5-0.5b-instruct-q4_k_m.gguf" },
-    licence: "Apache-2.0", licenceText: "apache_2_0", approxBytes: 400 * MB, minTotalMemoryBytes: 3 * GB, contextTokens: 2048,
+    // Publisher-listed SHA-256 and size, as recorded in the slm branch's docs/SLM_MODEL_BENCHMARK.md (2026-11-08).
+    upstreamSha256: "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
+    licence: "Apache-2.0", licenceText: "apache_2_0", approxBytes: 491 * MB, minTotalMemoryBytes: 3 * GB, contextTokens: 2048,
   },
   {
     id: "llama3.2-1b-instruct-q4km", label: "Llama 3.2 1B", family: "Llama",
-    upstream: { repo: "bartowski/Llama-3.2-1B-Instruct-GGUF", file: "Llama-3.2-1B-Instruct-Q4_K_M.gguf" },
+    upstream: { repo: "bartowski/Llama-3.2-1B-Instruct-GGUF", file: "Llama-3.2-1B-Instruct-Q4_K_M.gguf" }, upstreamSha256: null,
     licence: "Llama 3.2 Community License", licenceText: "llama_3_2", approxBytes: 810 * MB, minTotalMemoryBytes: 4 * GB, contextTokens: 2048,
   },
   {
     id: "qwen2.5-1.5b-instruct-q4km", label: "Qwen 2.5 1.5B", family: "Qwen",
-    upstream: { repo: "Qwen/Qwen2.5-1.5B-Instruct-GGUF", file: "qwen2.5-1.5b-instruct-q4_k_m.gguf" },
+    upstream: { repo: "Qwen/Qwen2.5-1.5B-Instruct-GGUF", file: "qwen2.5-1.5b-instruct-q4_k_m.gguf" }, upstreamSha256: null,
     licence: "Apache-2.0", licenceText: "apache_2_0", approxBytes: 1120 * MB, minTotalMemoryBytes: 6 * GB, contextTokens: 2048,
   },
 ];
@@ -75,11 +79,13 @@ export function validSource(s: ModelSource | null | undefined): s is ModelSource
 
 export type ModelFit =
   | { ok: true }
-  | { ok: false; reason: "not_hosted" | "too_little_memory" | "too_little_storage" | "memory_unknown" };
+  | { ok: false; reason: "not_hosted" | "not_publisher_file" | "too_little_memory" | "too_little_storage" | "memory_unknown" };
 
 /** Whether this phone can take the model. Unknown memory is not "enough": the model isn't offered. */
 export function modelFit(m: FallbackModel, source: ModelSource | null, totalMemoryBytes: number | null, freeStorageBytes: number | null): ModelFit {
   if (!validSource(source)) return { ok: false, reason: "not_hosted" };
+  // The hosted file must be the publisher's exact file when its hash is known.
+  if (m.upstreamSha256 && !hashMatches(m.upstreamSha256, source.sha256)) return { ok: false, reason: "not_publisher_file" };
   if (totalMemoryBytes == null || !Number.isFinite(totalMemoryBytes)) return { ok: false, reason: "memory_unknown" };
   if (totalMemoryBytes < m.minTotalMemoryBytes) return { ok: false, reason: "too_little_memory" };
   // Keep 500 MB free after the download so the phone isn't left full.
@@ -89,6 +95,7 @@ export function modelFit(m: FallbackModel, source: ModelSource | null, totalMemo
 
 export const FIT_TEXT: Record<Exclude<ModelFit, { ok: true }>["reason"], string> = {
   not_hosted: "Not available to download yet",
+  not_publisher_file: "Not available: the hosted file isn't the publisher's file",
   too_little_memory: "This phone doesn't have enough memory for it",
   too_little_storage: "Not enough free storage on this phone",
   memory_unknown: "ApolloSG couldn't read this phone's memory, so it isn't offered",

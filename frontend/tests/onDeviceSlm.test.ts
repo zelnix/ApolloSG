@@ -75,13 +75,17 @@ const SETTLED: SettledResult = {
   recommendation: "Don't reply or tap the link. Call CommBank on the number on your card.",
 };
 
-test("a faithful re-wording is accepted", () => {
-  const r = checkExplanation("Apollo is growling at this one. It asks for a code and the link isn't CommBank's own. Please don't reply or tap it — call CommBank on the number on your card.", SETTLED);
-  assert.equal(r.ok, true);
+test("a faithful re-wording is accepted; a loose rewrite fails the Luddish fidelity check", () => {
+  assert.equal(checkExplanation("This message asks you for a code, and its link isn't CommBank's. Don't reply or tap the link. Call CommBank on the number on your card.", SETTLED).ok, true);
+  assert.deepEqual(checkExplanation("Apollo is growling at this one. It asks for a code and the link isn't CommBank's own. Please don't reply or tap it — call CommBank on the number on your card.", SETTLED), { ok: false, reason: "fidelity_meaning_changed" });
+  // Dropping a negation is caught even when every word check passes.
+  assert.deepEqual(checkExplanation("This message asks for a code and uses a link that is CommBank's. Don't reply or tap the link. Call CommBank on the number on your card.", SETTLED), { ok: false, reason: "fidelity_negation_changed" });
 });
 
 test("negated reassurance is fine; plain reassurance is rejected", () => {
-  assert.equal(checkExplanation("This message isn't safe to answer. Call CommBank on the number on your card.", SETTLED).ok, true);
+  // Negated reassurance passes the word rules when the settled advice itself says it.
+  const unsafe: SettledResult = { ...SETTLED, recommendation: "It isn't safe to reply. Call CommBank on the number on your card." };
+  assert.equal(checkExplanation("This message asks for a code and uses a link that isn't CommBank's. It isn't safe to reply. Call CommBank on the number on your card.", unsafe).ok, true);
   assert.deepEqual(checkExplanation("It's probably safe, but call CommBank to be sure.", SETTLED), { ok: false, reason: "reassurance" });
   assert.deepEqual(checkExplanation("This looks genuine.", SETTLED), { ok: false, reason: "reassurance" });
 });
@@ -130,8 +134,8 @@ test("a re-wording that contradicts the settled result is rejected", () => {
   assert.equal(checkExplanation("It's okay to reply to this one.", biting).ok, false);
   assert.deepEqual(checkExplanation("You can tap the link.", biting), { ok: false, reason: "permission" });
   assert.deepEqual(checkExplanation("This is not a scam.", biting), { ok: false, reason: "reassurance" });
-  // Negated forms keep the meaning and pass.
-  assert.equal(checkExplanation("Apollo is biting: it blocked a known scam site. It isn't okay to reply, and it's not fine to open the link.", biting).ok, true);
+  // A faithful re-wording of the same result passes.
+  assert.equal(checkExplanation("Apollo blocked a known scam site, so don't reply or open the link.", biting).ok, true);
 });
 
 test("a request quote that runs across a sentence boundary is dropped, not counted", () => {

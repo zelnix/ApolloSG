@@ -18,6 +18,7 @@
  * This file imports nothing from React Native so it runs under `node --test`.
  */
 import { CREDENTIAL_PATTERNS } from "../domain/privacyPolicy.ts";
+import { differences } from "../domain/luddish/fidelity.ts";
 import { clauses, negated } from "../domain/requestSignals.ts";
 
 export const SLM_MAX_INPUT_CHARS = 4000;
@@ -202,7 +203,8 @@ export const EXPLAIN_MAX_WORDS = 90;
 export const EXPLAIN_INSTRUCTIONS = [
   "You are Higgins, ApolloSG's friendly guide. Re-word a result that Apollo has already settled, for an older reader.",
   `Use plain, warm, short sentences, at most ${EXPLAIN_MAX_WORDS} words. Plain text only, no lists or headings.`,
-  "Keep the meaning exactly. Do not add facts, numbers, links, names or reasons that are not in the result.",
+  "Re-word only \"What Apollo found\" and \"What to do\", as one short paragraph. Keep Apollo's own words wherever you can.",
+  "Keep the meaning exactly. Keep every \"not\", \"don't\" and \"isn't\". Do not add facts, numbers, links, names or reasons that are not in the result.",
   "Never say anything is safe, genuine, legitimate or nothing to worry about. Keep the advice of what to do.",
 ].join("\n");
 
@@ -232,7 +234,7 @@ function unnegatedMatch(text: string, re: RegExp): boolean {
 const DISMISSAL = /\b(ignore (?:this|the) (?:warning|advice|result)|no need to (?:check|verify|act)|go ahead and (?:pay|click|reply|call|send))\b/i;
 const URLISH = /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(?:com|net|org|au|io|co|xyz|info|app)\b/i;
 
-export type ExplainCheck = { ok: true; text: string } | { ok: false; reason: "empty" | "too_long" | "reassurance" | "permission" | "wrong_state" | "dismissal" | "new_link" | "new_number" };
+export type ExplainCheck = { ok: true; text: string } | { ok: false; reason: "empty" | "too_long" | "reassurance" | "permission" | "wrong_state" | "dismissal" | "new_link" | "new_number" | `fidelity_${string}` };
 
 /** Accept the re-wording only if it can't change what the result means. Otherwise the fixed wording is shown. */
 export function checkExplanation(raw: string, r: SettledResult): ExplainCheck {
@@ -253,6 +255,10 @@ export function checkExplanation(raw: string, r: SettledResult): ExplainCheck {
   for (const n of text.match(/\d[\d,.:$%]*/g) ?? []) {
     if (!source.includes(n.replace(/[.,:]$/, ""))) return { ok: false, reason: "new_number" };
   }
+  // Last, the app's own Luddish fidelity check (the same one plain-language explanations pass): against the paragraph
+  // the person reads, it must keep the point, every negation, number and quote, and add no reassurance or alarm.
+  const diff = differences(`${r.verdict} ${r.recommendation}`, text);
+  if (diff.length) return { ok: false, reason: `fidelity_${diff[0].toLowerCase()}` };
   return { ok: true, text };
 }
 

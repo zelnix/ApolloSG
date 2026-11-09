@@ -24,11 +24,13 @@ Runtime: llama.cpp through `llama.rn` 0.12.9 (latest stable; 0.13 is still relea
 
 | Model | Approx. download | Offered when total memory ≥ | Licence | Upstream file to host |
 |---|---|---|---|---|
-| Qwen 2.5 0.5B Instruct, Q4_K_M | ~400 MB | 3 GB | Apache-2.0 | `Qwen/Qwen2.5-0.5B-Instruct-GGUF` / `qwen2.5-0.5b-instruct-q4_k_m.gguf` |
+| Qwen 2.5 0.5B Instruct, Q4_K_M | ~491 MB | 3 GB | Apache-2.0 | `Qwen/Qwen2.5-0.5B-Instruct-GGUF` / `qwen2.5-0.5b-instruct-q4_k_m.gguf` |
 | Llama 3.2 1B Instruct, Q4_K_M | ~810 MB | 4 GB | Llama 3.2 Community License ("Built with Llama") | `bartowski/Llama-3.2-1B-Instruct-GGUF` / `Llama-3.2-1B-Instruct-Q4_K_M.gguf` |
 | Qwen 2.5 1.5B Instruct, Q4_K_M | ~1.1 GB | 6 GB | Apache-2.0 | `Qwen/Qwen2.5-1.5B-Instruct-GGUF` / `qwen2.5-1.5b-instruct-q4_k_m.gguf` |
 
-Sizes are approximate; Hugging Face couldn't be reached from the authoring environment.
+Sizes are approximate. Qwen 0.5B's size and publisher SHA-256 (`74a4da8c…7a9db`) come from the `slm` branch's
+`docs/SLM_MODEL_BENCHMARK.md`; the app refuses a hosted Qwen 0.5B file whose hash isn't the publisher's, and the manifest
+script refuses to print an entry for one. The other two have no publisher hash recorded yet.
 
 - Downloaded only when the person taps it, only on Wi-Fi, only with enough memory and storage (500 MB left free).
 - Files come from **ApolloSG's own storage**, not Hugging Face links, so they can't change underneath the app.
@@ -55,6 +57,19 @@ Sizes are approximate; Hugging Face couldn't be reached from the authoring envir
 3. Paste the printed line into `MODEL_SOURCES` in `frontend/src/slm/models.ts`. Until then each model shows
    "Not available to download yet".
 
+## Relationship to the `slm` branch
+
+The owner's `slm` branch is a separate SLM effort (developer-only llama.rn runtime, Ask Higgins re-wording, and
+advisory hand-off to the server investigation). The owner decided on 2026-11-09 to keep the two **separate**:
+`slm-claude` is not merged into `slm` or the reverse. Owner decisions recorded the same day:
+
+1. Downloading a model when the person taps Download is allowed.
+2. Sending model output to the server is acceptable (this applies to `slm`'s hand-off; `slm-claude` sends nothing,
+   and its privacy text says so — if the two are ever combined, that text must change first).
+
+If both ever reach `main`: they each add their own llama.rn runtime and both edit `app.config.js`, `package.json`,
+`yarn.lock` and `privacy.ts`, so only one runtime can stay and those files will conflict.
+
 ## Which model version
 
 ApolloSG doesn't pin a model version: the OS chooses and updates it, so it is recorded instead.
@@ -73,7 +88,9 @@ not sent anywhere. Settings shows a one-line summary of it.
 1. **Plain-language explanation** of a result that Apollo has already settled (Message check result, under
    "On this phone"). The re-wording is checked before it is shown. It is rejected if it reassures ("safe",
    "genuine"…) without a negation, adds a link or a number that isn't in the result, or dismisses the advice. When
-   it is rejected, nothing extra is shown: Apollo's fixed wording is already complete.
+   it is rejected, nothing extra is shown: Apollo's fixed wording is already complete. Last, it must pass the app's own
+   Luddish fidelity check (`domain/luddish/fidelity.ts differences()`) against Apollo's verdict and advice: same point,
+   every negation, number and quote kept, no added reassurance or alarm.
 2. **Pre-screen pointers**: requests to act (send money, share a code or details, install something, remote access,
    call or reply), a claimed organisation, and urgency. Each pointer must quote the message word for word. A quote
    that isn't in the text, or that a negation governs ("we will never ask you to…"), is dropped. Only pointers the

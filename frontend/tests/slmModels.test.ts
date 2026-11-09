@@ -27,11 +27,15 @@ test("a source needs an https URL, a 64-hex SHA-256 and a size", () => {
 
 test("fit: not offered without a source, with too little or unknown memory, or too little storage", () => {
   assert.deepEqual(modelFit(qwen05, null, 4 * GB, 10 * GB), { ok: false, reason: "not_hosted" });
-  assert.deepEqual(modelFit(qwen05, SRC, null, 10 * GB), { ok: false, reason: "memory_unknown" });
-  assert.deepEqual(modelFit(qwen05, SRC, 2 * GB, 10 * GB), { ok: false, reason: "too_little_memory" });
+  const PUB = { ...SRC, sha256: qwen05.upstreamSha256! };
+  assert.deepEqual(modelFit(qwen05, PUB, null, 10 * GB), { ok: false, reason: "memory_unknown" });
+  assert.deepEqual(modelFit(qwen05, PUB, 2 * GB, 10 * GB), { ok: false, reason: "too_little_memory" });
   assert.deepEqual(modelFit(qwen15, SRC, 4 * GB, 10 * GB), { ok: false, reason: "too_little_memory" });
-  assert.deepEqual(modelFit(qwen05, SRC, 4 * GB, 0.5 * GB), { ok: false, reason: "too_little_storage" });
-  assert.deepEqual(modelFit(qwen05, SRC, 4 * GB, 10 * GB), { ok: true });
+  assert.deepEqual(modelFit(qwen05, PUB, 4 * GB, 0.5 * GB), { ok: false, reason: "too_little_storage" });
+  // SRC's hash isn't the publisher's Qwen 0.5B file, so it's refused; the publisher's exact hash is accepted.
+  assert.deepEqual(modelFit(qwen05, SRC, 4 * GB, 10 * GB), { ok: false, reason: "not_publisher_file" });
+  assert.deepEqual(modelFit(qwen05, PUB, 4 * GB, 10 * GB), { ok: true });
+  assert.deepEqual(modelFit(qwen15, SRC, 8 * GB, 10 * GB), { ok: true }); // no publisher hash recorded yet
 });
 
 test("hash check: exact match only (case-insensitive); unreadable or malformed never matches", () => {
@@ -56,7 +60,7 @@ test("scoring: verified kinds count; invented quotes and negated asks don't", ()
 test("summary: precision, recall, accepted explanations, median time, one-line wording", () => {
   const bank = PRE_SCREEN_CASES.find((c) => c.id === "bank-code")!;
   const s = summarise("Qwen 2.5 0.5B", [scorePreScreen(bank, JSON.stringify({ requests: [{ kind: "share_code", quote: "reply with the 6-digit code we just sent you" }] }))], [
-    { raw: "Apollo is growling. Don't reply. Call CommBank on the number on your card.", settled: { stateName: "Growling", verdict: "Asks for a code.", why: [], recommendation: "Don't reply. Call CommBank on the number on your card." } },
+    { raw: "It asks for a code. Don't reply. Call CommBank on the number on your card.", settled: { stateName: "Growling", verdict: "Asks for a code.", why: [], recommendation: "Don't reply. Call CommBank on the number on your card." } },
     { raw: "This is safe.", settled: { stateName: "Growling", verdict: "Asks for a code.", why: [], recommendation: "Don't reply." } },
     { raw: null, settled: { stateName: "Growling", verdict: "x", why: [], recommendation: "y" } },
   ], [3000, 1000, 2000]);

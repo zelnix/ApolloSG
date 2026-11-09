@@ -16,5 +16,11 @@ createReadStream(file)
   .on("error", (e) => { console.error(e.message); process.exit(1); })
   .on("end", () => {
     const entry = { url, sha256: hash.digest("hex"), bytes: statSync(file).size };
+    // Publisher-listed hashes (src/slm/models.ts upstreamSha256). The app refuses a hosted file that doesn't match.
+    const PUBLISHER = { "qwen2.5-0.5b-instruct-q4km": "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db" };
+    if (PUBLISHER[id] && PUBLISHER[id] !== entry.sha256) {
+      console.error(`This file is not the publisher's ${id} file (expected SHA-256 ${PUBLISHER[id]}). Don't host it.`);
+      process.exit(1);
+    }
     console.log(`  "${id}": ${JSON.stringify(entry)},`);
   });
