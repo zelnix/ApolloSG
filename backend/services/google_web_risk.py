@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
-from hashlib import sha256
 
 import httpx
 from pymongo import ReturnDocument
@@ -95,8 +94,8 @@ async def _lookup_uncached(url: str) -> dict:
         if not isinstance(payload, dict) or not isinstance(payload.get("threat", {}), dict):
             return {**result, "status": "unavailable", "reason": "malformed_response"}
         threat = payload.get("threat", {})
-        types = threat.get("threatTypes", [])
-        if not isinstance(types, list) or any(t not in THREATS for t in types):
+        types = threat.get("threatTypes") if threat else []
+        if not isinstance(types, list) or (threat and not types) or any(t not in THREATS for t in types):
             return {**result, "status": "unavailable", "reason": "malformed_response"}
         status = "threat_match" if types else "no_match"
         expires = now + CACHE_NO_MATCH
@@ -125,6 +124,8 @@ async def lookup(url: str) -> dict:
         clean, _ = sanitize_url(url)
     except Exception:
         return {"provider": PROVIDER, "status": "unavailable", "threat_types": [], "reason": "invalid_url"}
+    if not os.environ.get("GOOGLE_WEB_RISK_API_KEY"):
+        return {"provider": PROVIDER, "status": "unavailable", "threat_types": [], "reason": "not_configured"}
     identity = digest("google_web_risk:" + clean)
     async def reuse():
         try:
