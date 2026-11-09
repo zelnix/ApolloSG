@@ -37,8 +37,10 @@ def test_reservation_contract_uses_atomic_increment():
     assert "return None" in source
 
 
-def test_provider_never_enabled_by_default():
+def test_provider_enabled_by_default_with_explicit_disable_override():
     with patch.dict("os.environ", {}, clear=True):
+        assert wr.enabled()
+    with patch.dict("os.environ", {"GOOGLE_WEB_RISK_ENABLED": "false"}, clear=True):
         assert not wr.enabled()
 
 
