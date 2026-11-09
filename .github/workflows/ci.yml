@@ -6,9 +6,10 @@
 #   3. frontend-checks — expo lint and tsc, failing only on issues that aren't in the committed baselines.
 #
 # The backend needs no seeded data: the suite registers its own devices through /api/devices/register
-# (tests/conftest.py). Nothing here calls a paid or external service: no provider keys are set, and
-# APOLLO_FORBID_PROVIDER_CALLS=1 makes the AI gateway and Brave search refuse to send anything. Tests marked
-# credentialed_integration are skipped (they need APOLLO_RUN_CREDENTIALED_INTEGRATION=1 and real keys).
+# (tests/conftest.py). No paid or keyed service is used: no provider keys are set, and
+# APOLLO_FORBID_PROVIDER_CALLS=1 makes the AI gateway and Brave search refuse to send anything. The backend's own
+# background jobs still fetch free public threat and government feeds at start-up, as they do in production.
+# Tests marked credentialed_integration are skipped (they need APOLLO_RUN_CREDENTIALED_INTEGRATION=1 and real keys).
 #
 # The two secrets the backend requires at start-up are generated fresh for each run and thrown away:
 # URL_HMAC_SECRET and the investigation key file. No GitHub secrets are needed.
@@ -80,7 +81,8 @@ jobs:
           cd backend
           nohup python -m uvicorn server:app --host 0.0.0.0 --port 8001 > /tmp/backend.log 2>&1 &
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:8001/api/openapi.json > /dev/null; then
+            # FastAPI serves its schema at /openapi.json (ApolloSG's routes are under /api, the schema isn't).
+            if curl -sf http://localhost:8001/openapi.json > /dev/null; then
               echo "backend is up"; exit 0
             fi
             sleep 2
