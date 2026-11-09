@@ -13,7 +13,7 @@ import ShieldCheck from "lucide-react-native/icons/shield-check";
 import Smartphone from "lucide-react-native/icons/smartphone";
 import Trash from "lucide-react-native/icons/trash";
 import Users from "lucide-react-native/icons/users";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,7 +27,7 @@ import { TimeStepper } from "@/src/components/TimeStepper";
 import { Body, Button, Card, Pill } from "@/src/components/ui";
 import { APP_VERSION } from "@/src/config/buildInfo";
 import { CANDIDATE_FILE } from "@/src/domain/slm/modelAdmission";
-import { getSharedSLM } from "@/src/domain/slm/sharedRuntime";
+import { getSLMActivitySnapshot, subscribeSLMActivity } from "@/src/domain/slm/sharedRuntime";
 import { openPrivacyPolicy } from "@/src/config/privacyPolicy";
 import { apiDelete, apiGet } from "@/src/api/client";
 import { confirmDialog } from "@/src/utils/confirmDialog";
@@ -95,6 +95,7 @@ export default function SettingsScreen() {
   const [showTrust, setShowTrust] = useState(false); const [showShare, setShowShare] = useState(false); const [showAbout, setShowAbout] = useState(false);
   const [showRetrofit, setShowRetrofit] = useState(false);
   const showReasons = useShowResultReasons();
+  const slmActivity = useSyncExternalStore(subscribeSLMActivity, getSLMActivitySnapshot, getSLMActivitySnapshot);
 
   // ── Linked email accounts ──
   interface LinkedEmail { email: string; connected_at?: string }
@@ -459,8 +460,10 @@ export default function SettingsScreen() {
             <Text style={s.rowHint}>Engine: llama.rn (local GGUF, optional)</Text>
             <Text style={s.rowHint}>Candidate model: Qwen2.5-0.5B-Instruct · Q4_K_M</Text>
             <Text style={s.rowHint}>Model file: {CANDIDATE_FILE}</Text>
-            <Text style={s.rowHint}>Status: {!__DEV__ ? "Disabled in release builds" : getSharedSLM() ? "Runtime registered (inference unverified)" : "No runtime registered"}</Text>
-            <Text style={s.rowHint}>Model installation and successful inference have not been verified on this device. A candidate model is not necessarily installed or active.</Text>
+            <Text style={s.rowHint} testID="settings-slm-status">Status: {!__DEV__ ? "Disabled in release builds" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
+            <Text style={s.rowHint}>Loaded model: {slmActivity.modelId ?? "None confirmed"}</Text>
+            <Text style={s.rowHint}>Last verified local inference: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
+            <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the SLM output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
           </View>
         </View>
         <NavRow label="Minimise ApolloSG" hint="Move ApolloSG to the background" onPress={() => void minimiseApp(showToast)} testID="settings-minimise" />
