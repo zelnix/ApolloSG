@@ -52,11 +52,11 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          ./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
       - name: Compile standalone Android test APK with bundled JavaScript
         run: |
           cd android
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+          ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
       - name: Verify APKs and embedded JavaScript
         run: |
           test -s android/app/build/outputs/apk/debug/app-debug.apk
