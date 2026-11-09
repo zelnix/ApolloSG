@@ -38,7 +38,9 @@ jobs:
   build:
     name: Assemble Android test APKs (debug + standalone)
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # The debug build alone took 25 min on run 42541622891 (llama.cpp compiles for every ABI); 45 min cut off the
+    # standalone build.
+    timeout-minutes: 100
     env:
       CI: '1'
       EXPO_PUBLIC_APP_ENV: development
@@ -78,19 +80,7 @@ jobs:
         run: |
           cd android
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
-      - name: Compile standalone test APK (JavaScript bundled, debug-signed)
-        run: |
-          cd android
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace
-      - name: Verify APKs carry the native libraries and bundled JavaScript
-        run: |
-          DEBUG=android/app/build/outputs/apk/debug/app-debug.apk
-          STANDALONE=android/app/build/outputs/apk/release/app-release.apk
-          test -s "$DEBUG" && test -s "$STANDALONE"
-          unzip -l "$STANDALONE" | grep -Eq 'assets/index.android.bundle|assets/.*\.hbc'
-          # llama.cpp's native library must be packaged, or the downloaded model can never load.
-          unzip -l "$STANDALONE" | grep -Eiq 'lib/arm64-v8a/.*rnllama.*\.so'
-          echo "APKs built. No model is bundled; no on-device inference has been run in CI."
+      # Saved straight away, so a slow or failed standalone build still leaves a debug APK to install.
       - name: Keep debug APK (needs Metro)
         uses: actions/upload-artifact@v4
         with:
@@ -98,6 +88,18 @@ jobs:
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
           if-no-files-found: error
+      - name: Compile standalone test APK (JavaScript bundled, debug-signed)
+        run: |
+          cd android
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify APKs carry the native libraries and bundled JavaScript
+        run: |
+          STANDALONE=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$STANDALONE"
+          unzip -l "$STANDALONE" | grep -Eq 'assets/index.android.bundle|assets/.*\.hbc'
+          # llama.cpp's native library must be packaged, or the downloaded model can never load.
+          unzip -l "$STANDALONE" | grep -Eiq 'lib/arm64-v8a/.*rnllama.*\.so'
+          echo "APKs built. No model is bundled; no on-device inference has been run in CI."
       - name: Keep standalone test APK (runs without Metro)
         uses: actions/upload-artifact@v4
         with:
