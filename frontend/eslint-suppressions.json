@@ -1,0 +1,67 @@
+{
+  "src/components/AlertPreviewSheet.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/components/InvestigationFlow.tsx": {
+    "react-hooks/refs": {
+      "count": 6
+    }
+  },
+  "src/components/PhoneIdentityCard.tsx": {
+    "react-hooks/static-components": {
+      "count": 1
+    }
+  },
+  "src/components/RetrofitModal.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 3
+    }
+  },
+  "src/components/TypingDots.tsx": {
+    "react-hooks/refs": {
+      "count": 7
+    }
+  },
+  "src/components/evidence/EvidenceArtefactCard.tsx": {
+    "react-hooks/preserve-manual-memoization": {
+      "count": 1
+    }
+  },
+  "app/(tabs)/ask.tsx": {
+    "react-hooks/refs": {
+      "count": 5
+    }
+  },
+  "app/account-monitor.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 2
+    }
+  },
+  "app/app-check.tsx": {
+    "react-hooks/refs": {
+      "count": 2
+    }
+  },
+  "app/email.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "app/higgins/scam/[id].tsx": {
+    "react-hooks/static-components": {
+      "count": 1
+    }
+  },
+  "app/higgins/scams.tsx": {
+    "react-hooks/static-components": {
+      "count": 1
+    }
+  },
+  "app/settings/index.tsx": {
+    "react-hooks/static-components": {
+      "count": 31
+    }
+  }
+}

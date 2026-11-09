@@ -1,46 +1,30 @@
-# ROUJAUNE — CI release gate
+# ApolloSG — CI
 #
-# WHY THIS EXISTS: Production Hardening & Release Readiness. This workflow is
-# the permanent gate that must stay green before any release candidate ships:
-# backend regression suite (900+ pytest cases incl. cross-user isolation),
-# frontend lint/typecheck, and secret scanning on every push/PR.
+# Runs on every push to main and every pull request into main:
+#   1. secret-scan     — gitleaks over the history.
+#   2. backend-tests   — boots the real FastAPI backend against an empty MongoDB and runs backend/tests.
+#   3. frontend-checks — expo lint and tsc, failing only on issues that aren't in the committed baselines.
 #
-# ── REQUIRED GITHUB SECRETS (Settings → Secrets and variables → Actions) ────
-# The backend test suite is a full HTTP integration suite that boots the real
-# FastAPI app against a MongoDB restored from the committed fixture archive
-# (backend/tests/fixtures/ci_seed.archive — a sanitized snapshot of the demo/
-# greenlantern/admin accounts + seeded content the suite was written against,
-# minus screen_captures/admin_audit). Add these secrets with the SAME values
-# currently in backend/.env so the fixture's stored data (bcrypt password
-# hashes, the HWG service-token comparison) matches what the tests expect:
+# The backend needs no seeded data: the suite registers its own devices through /api/devices/register
+# (tests/conftest.py). Nothing here calls a paid or external service: no provider keys are set, and
+# APOLLO_FORBID_PROVIDER_CALLS=1 makes the AI gateway and Brave search refuse to send anything. Tests marked
+# credentialed_integration are skipped (they need APOLLO_RUN_CREDENTIALED_INTEGRATION=1 and real keys).
 #
-# EMERGENT_LLM_KEY — Universal key powering Coach chat/adaptation (Claude/Gemini/OpenAI)
-# GEMINI_API_KEY — Coach TTS (GET /api/coach/speak)
-# ADMIN_LOGIN_PASSWORD — MUST match the password the fixture's admin account was hashed with
-# HWG_SERVICE_TOKEN — MUST match the fixed token test_admin_service_token.py asserts
-# ENCRYPTION_KEY — Fernet key for OAuth-token-at-rest encryption (connections tests)
-# STRAVA_CLIENT_ID — optional; connections/Strava shape tests
-# STRAVA_CLIENT_SECRET — optional; connections/Strava shape tests
+# The two secrets the backend requires at start-up are generated fresh for each run and thrown away:
+# URL_HMAC_SECRET and the investigation key file. No GitHub secrets are needed.
 #
-# RESEND_API_KEY is intentionally NOT required — EMAIL_SANDBOX_MODE=true below
-# makes emailer.send_email() short-circuit before the network call (see
-# PRODUCTION_READINESS_REPORT.md, "Email/Resend — environment issue").
-#
-# KNOWN LIMITATION (documented, not hidden): the fixture archive is a snapshot
-# of the dev/preview database at the time this workflow was authored. A small
-# number of tests that depend on further hand-accumulated preview state (e.g.
-# ad-hoc curl-verified benchmark/climb history from earlier feature rounds)
-# may drift from this snapshot over time; treat any such failure as a fixture-
-# staleness follow-up, not necessarily an application regression. The vast
-# majority of tests register their own fresh users and are fully hermetic.
+# Native builds are covered by the separate native-dependencies.yml workflow (and per-branch Android builds).
 
 name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   secret-scan:
@@ -56,8 +40,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   backend-tests:
-    name: Backend pytest (regression + cross-user isolation)
+    name: Backend pytest
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       mongo:
         image: mongo:7
@@ -65,27 +50,10 @@ jobs:
           - 27017:27017
     env:
       MONGO_URL: mongodb://localhost:27017
-      DB_NAME: test_database
+      DB_NAME: apollo_ci
       EXPO_PUBLIC_BACKEND_URL: http://localhost:8001
-      EXPO_BACKEND_URL: http://localhost:8001
-      EMAIL_SANDBOX_MODE: "true"
-      EMAIL_FROM_NAME: "Harmony Wellness Group"
-      EMAIL_FROM_ADDRESS: "noreply@harmonywellnessgroup.com.au"
-      ADMIN_EMAILS: "roger.parenzee@gmail.com"
-      ADMIN_LOGIN_EMAIL: "roger.parenzee@gmail.com"
-      APPLE_BUNDLE_ID: "com.hwg.roujaune"
-      ANDROID_PACKAGE_NAME: "com.hwg.roujaune"
-      IAP_DEV_TRUST: "0"
       CORS_ORIGINS: "*"
-      APP_NAME: "ROUJAUNE"
-      # Secrets — see the required-secrets block at the top of this file.
-      EMERGENT_LLM_KEY: ${{ secrets.EMERGENT_LLM_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      ADMIN_LOGIN_PASSWORD: ${{ secrets.ADMIN_LOGIN_PASSWORD }}
-      HWG_SERVICE_TOKEN: ${{ secrets.HWG_SERVICE_TOKEN }}
-      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-      STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
-      STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+      APOLLO_FORBID_PROVIDER_CALLS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -95,31 +63,23 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install backend dependencies
         run: |
-          # emergentintegrations and the custom litellm wheel are Emergent-internal
-          # packages distributed via private URLs that are not reachable from CI.
-          # Neither package is imported by production code or the test suite
-          # (verified: grep -rn "import emergentintegrations\|from emergentintegrations\|import litellm\|from litellm" --include="*.py" returns nothing outside tests/).
-          # Filter them out and install everything else.
-          grep -v '^emergentintegrations' backend/requirements.txt \
-            | grep -v '^litellm' \
-            > /tmp/requirements-ci.txt
+          # emergentintegrations and the custom litellm wheel come from Emergent-internal URLs CI can't reach.
+          # Production code doesn't import them; one test helper imports emergentintegrations lazily inside a
+          # credentialed evaluation function only.
+          grep -v '^emergentintegrations' backend/requirements.txt | grep -v '^litellm' > /tmp/requirements-ci.txt
           pip install -r /tmp/requirements-ci.txt
-      - name: Install MongoDB Database Tools (mongorestore)
+      - name: Generate throwaway start-up secrets
         run: |
-          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-          sudo apt-get update -qq
-          sudo apt-get install -y mongodb-database-tools
-      - name: Restore CI fixture data into MongoDB
-        run: |
-          mongorestore --host 127.0.0.1 --port 27017 --gzip \
-            --archive=backend/tests/fixtures/ci_seed.archive \
-            --nsInclude='test_database.*'
+          echo "URL_HMAC_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          KEY_FILE="$RUNNER_TEMP/investigation.key"
+          openssl rand -hex 32 > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"   # the encryption service refuses a key file others can read
+          echo "INVESTIGATION_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
       - name: Start backend (uvicorn)
         run: |
           cd backend
           nohup python -m uvicorn server:app --host 0.0.0.0 --port 8001 > /tmp/backend.log 2>&1 &
-          for i in $(seq 1 40); do
+          for i in $(seq 1 60); do
             if curl -sf http://localhost:8001/api/openapi.json > /dev/null; then
               echo "backend is up"; exit 0
             fi
@@ -141,95 +101,36 @@ jobs:
   frontend-checks:
     name: Frontend lint + typecheck
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - name: Enable corepack (pinned Yarn from package.json)
-        run: corepack enable
+          node-version: "24"
+      - name: Enable corepack (pinned Yarn)
+        run: corepack enable && corepack prepare yarn@1.22.22 --activate
       - name: Install frontend dependencies
-        working-directory: frontend
-        run: yarn install --frozen-lockfile
-      # NOTE on baselines (frontend/eslint-suppressions.json, frontend/tsc-baseline.txt):
-      # This CI gate was introduced against an existing, previously-ungated codebase.
-      # Rather than mass-editing hundreds of frozen lines during an RC code freeze
-      # (high regression risk for zero functional value), pre-existing lint/type
-      # issues were snapshotted once so CI fails ONLY on issues introduced from now
-      # on. Fix issues at the source and re-run `--suppress-all` / regenerate the
-      # tsc baseline (see below) to shrink these over time — do not add new entries.
-      - name: Lint (expo lint, new issues only — see baseline note above)
-        working-directory: frontend
+        run: yarn install --frozen-lockfile --non-interactive
+      # BASELINES (frontend/eslint-suppressions.json, frontend/tsc-baseline.txt): this gate was added to an existing
+      # codebase, so the issues already on main on 2026-11-09 are recorded once and CI fails only on new ones.
+      # Fix issues at the source and regenerate to shrink them; never add entries to get a change through.
+      #   Lint:  npx eslint src app --suppress-all --suppressions-location eslint-suppressions.json
+      #          (after fixing, `--prune-suppressions` drops entries that no longer occur)
+      #   Types: npx tsc --noEmit | grep -E '^\S+\.tsx?\(' | sed -E 's/\([0-9]+,[0-9]+\)//' | sort -u > tsc-baseline.txt
+      # The type baseline has no line numbers, so editing a file doesn't make its old errors look new.
+      - name: Lint (new issues only — see baseline note above)
         run: npx expo lint -- --suppressions-location eslint-suppressions.json
       - name: Type check (new errors only — see baseline note above)
-        working-directory: frontend
         run: |
           npx tsc --noEmit > /tmp/tsc-actual.txt 2>&1 || true
-          grep -E '^\S+\.tsx?\(' /tmp/tsc-actual.txt | sort -u > /tmp/tsc-actual-sorted.txt
+          grep -E '^\S+\.tsx?\(' /tmp/tsc-actual.txt | sed -E 's/\([0-9]+,[0-9]+\)//' | sort -u > /tmp/tsc-actual-sorted.txt
           sort -u tsc-baseline.txt > /tmp/tsc-baseline-sorted.txt
           NEW_ERRORS=$(comm -13 /tmp/tsc-baseline-sorted.txt /tmp/tsc-actual-sorted.txt)
           if [ -n "$NEW_ERRORS" ]; then
-            echo "New TypeScript errors introduced (not in tsc-baseline.txt):"
+            echo "New TypeScript errors (not in tsc-baseline.txt):"
             echo "$NEW_ERRORS"
             exit 1
           fi
-          echo "No new TypeScript errors. ($(wc -l < /tmp/tsc-actual-sorted.txt) pre-existing baselined, ignored.)"
-
-  # ── Native build smoke gate ──────────────────────────────────────────────────
-  # Runs an EAS Android build (preview profile) to confirm the native toolchain
-  # compiles cleanly. Fails the pipeline if the app process would crash during
-  # cold launch. Requires EXPO_TOKEN as a GitHub Secret (Settings → Secrets →
-  # Actions). The iOS gate mirrors this once an Apple certificate is configured.
-  android-build-smoke:
-    name: Android build smoke (EAS preview)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' # skip on PRs to save build minutes
-    needs: [frontend-checks]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Enable corepack
-        run: corepack enable
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: yarn install --frozen-lockfile
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-      - name: Run EAS Android build (preview)
-        working-directory: frontend
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "⚠️  EXPO_TOKEN not configured — skipping native build smoke gate."
-            echo "   Add your Expo token as a GitHub Secret to enable this check."
-            exit 0
-          fi
-          eas build --platform android --profile preview --non-interactive --no-wait
-
-  # Placeholder: iOS build smoke gate. Enable once an Apple Distribution
-  # certificate is configured in eas.json and the EXPO_TOKEN secret is live.
-  # ios-build-smoke:
-  #   name: iOS build smoke (EAS preview)
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'push'
-  #   needs: [frontend-checks]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: "22"
-  #     - name: Enable corepack
-  #       run: corepack enable
-  #     - name: Install frontend dependencies
-  #       working-directory: frontend
-  #       run: yarn install --frozen-lockfile
-  #     - name: Install EAS CLI
-  #       run: npm install -g eas-cli
-  #     - name: Run EAS iOS build (preview)
-  #       working-directory: frontend
-  #       env:
-  #         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  #       run: eas build --platform ios --profile preview --non-interactive --no-wait
+          echo "No new TypeScript errors. ($(wc -l < /tmp/tsc-actual-sorted.txt) baselined, ignored.)"

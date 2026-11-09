@@ -1,0 +1,28 @@
+app/app-check.tsx: error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<AppPurpose>'.
+app/app-check.tsx: error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<AppSource>'.
+app/app-check.tsx: error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'SetStateAction<AppPermission[]>'.
+app/capability/[id].tsx: error TS2322: Type '{ testID: string; label: string; onPress: () => void; size: string; }' is not assignable to type 'IntrinsicAttributes & { label: string; onPress: () => void; variant?: BtnVariant | undefined; icon?: ReactNode; disabled?: boolean | undefined; testID: string; style?: StyleProp<...>; accessibilityLabel?: string | undefined; accessibilityHint?: string | undefined; }'.
+app/capability/[id].tsx: error TS2322: Type '{ testID: string; label: string; variant: "ghost"; onPress: () => void; size: string; }' is not assignable to type 'IntrinsicAttributes & { label: string; onPress: () => void; variant?: BtnVariant | undefined; icon?: ReactNode; disabled?: boolean | undefined; testID: string; style?: StyleProp<...>; accessibilityLabel?: string | undefined; accessibilityHint?: string | undefined; }'.
+app/email.tsx: error TS2561: Object literal may only specify known properties, but 'origin' does not exist in type '{ from: string; subject: string; raw: string; via?: EmailVia | undefined; original?: OriginalEmail | undefined; simulated?: boolean | undefined; }'. Did you mean to write 'original'?
+app/higgins/scams.tsx: error TS2367: This comparison appears to be unintentional because the types '"AU" | "US" | "NZ" | "UK" | "EU" | "everywhere" | "CA"' and '"global"' have no overlap.
+app/patrol/[id].tsx: error TS2322: Type 'import("/tmp/claude-0/-home-user/c7944405-fcda-5964-b3e0-c6a08cb8d05a/scratchpad/ci-wt/frontend/src/domain/reportSections").Report | undefined' is not assignable to type 'Report | undefined'.
+app/patrol/[id].tsx: error TS2322: Type '{ schemaVersion: 1; id: string; revision: number; status: string; question: string; createdAt: string; updatedAt: string; response: HigginsResponse; gates: string[]; answeredBy: string | null; settledReason: SettledReason | null; simulated: boolean | undefined; origin: CaseOrigin | null; } | { ...; } | null' is not assignable to type 'InvestigationCase | null'.
+src/components/InvestigationView.tsx: error TS2304: Cannot find name 'BriefVerdict'.
+src/components/InvestigationView.tsx: error TS2322: Type 'Report | Report' is not assignable to type 'Report'.
+src/components/InvestigationView.tsx: error TS2345: Argument of type 'Report | Report' is not assignable to parameter of type 'Report'.
+src/components/PhoneIdentityCard.tsx: error TS2339: Property 'entity' does not exist on type 'TierExplanation'.
+src/domain/caseSourceSummary.ts: error TS2741: Property 'sample_check' is missing in type '{ user: { heading: string; verb: string; }; apollo: { heading: string; verb: string; }; }' but required in type 'Record<CaseOrigin, { heading: string; verb: string; }>'.
+src/domain/patrolActivity.ts: error TS2339: Property 'name' does not exist on type 'IncompleteCheck'.
+src/domain/patrolActivity.ts: error TS2339: Property 'name' does not exist on type 'RuleRecord'.
+src/domain/patrolActivity.ts: error TS2339: Property 'reason' does not exist on type 'IncompleteCheck'.
+src/domain/patrolActivity.ts: error TS2339: Property 'reason' does not exist on type 'RuleRecord'.
+src/domain/patrolActivity.ts: error TS2367: This comparison appears to be unintentional because the types 'RuleResult' and '"not_checked"' have no overlap.
+src/domain/sameNumber.ts: error TS2322: Type '{ eventId: string; count: number; source: "check"; origin: null; at: string; state: ApolloState; summary: string; } | { eventId: string; count: number; source: "case"; origin: "apollo" | "user" | "sample_check" | null; at: string; state: ApolloState; summary: string; }' is not assignable to type 'EarlierCheck | null'.
+src/domain/sameNumber.ts: error TS2367: This comparison appears to be unintentional because the types '"apollo" | "user" | null' and '"sample_check"' have no overlap.
+src/higgins/scamAlertUi.ts: error TS2367: This comparison appears to be unintentional because the types '"AU" | "US" | "NZ" | "UK" | "EU" | "CA"' and '"global"' have no overlap.
+src/store/activityRecorder.ts: error TS2367: This comparison appears to be unintentional because the types '"unsupported" | "unknown" | "temporarily_unavailable" | "setup_available" | "disabled_by_user"' and '"not_supported"' have no overlap.
+src/store/activityRecorder.ts: error TS2367: This comparison appears to be unintentional because the types '"unsupported" | "unknown" | "temporarily_unavailable" | "setup_available" | "disabled_by_user"' and '"stopped"' have no overlap.
+src/store/activityRecorder.ts: error TS2367: This comparison appears to be unintentional because the types '"unsupported" | "unknown" | "temporarily_unavailable" | "setup_available" | "disabled_by_user"' and '"unavailable"' have no overlap.
+src/store/activityRecorder.ts: error TS2367: This comparison appears to be unintentional because the types '"unsupported" | "unknown" | "temporarily_unavailable" | "setup_available" | "disabled_by_user"' and '"was_active"' have no overlap.
+src/store/activityRecorder.ts: error TS2459: Module '"@/src/security/postureMonitor"' declares 'PostureSnapshot' locally, but it is not exported.
+src/store/activityRecorder.ts: error TS2724: '"@/src/security/postureMonitor"' has no exported member named 'PostureChange'. Did you mean 'onPostureChange'?
