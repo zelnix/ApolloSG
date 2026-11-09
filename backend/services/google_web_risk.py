@@ -20,6 +20,8 @@ ENDPOINT = "https://webrisk.googleapis.com/v1/uris:search"
 THREATS = ("MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE")
 OPERATIONAL_STOP = 95_000
 HARD_CEILING = 100_000
+TEST_BUDGET = 10_000
+PRODUCTION_BUDGET = OPERATIONAL_STOP - TEST_BUDGET
 # Billing period is calendar month in UTC; production activation requires Cloud billing verification.
 CACHE_NO_MATCH = timedelta(minutes=5)
 
@@ -32,7 +34,7 @@ def period(now: datetime) -> str:
     return now.astimezone(timezone.utc).strftime("%Y-%m")
 
 
-async def reserve() -> bool | None:
+async def reserve(*, testing: bool = False) -> bool | None:
     """Atomic cross-worker reservation, including uncertain outcomes. Fail closed on Mongo errors.
 
     A single quota document is shared across backend instances. Reservations are never
@@ -42,12 +44,14 @@ async def reserve() -> bool | None:
     collection = db.web_risk_quota
     try:
         try:
-            await collection.insert_one({"_id": month, "reserved": 0, "created_at": now_utc()})
+            await collection.insert_one({"_id": month, "reserved": 0, "testing_reserved": 0, "production_reserved": 0, "created_at": now_utc()})
         except DuplicateKeyError:
             pass
+        field = "testing_reserved" if testing else "production_reserved"
+        limit = TEST_BUDGET if testing else PRODUCTION_BUDGET
         result = await collection.find_one_and_update(
-            {"_id": month, "reserved": {"$lt": min(OPERATIONAL_STOP, HARD_CEILING)}},
-            {"$inc": {"reserved": 1}, "$set": {"last_reserved_at": now_utc()}},
+            {"_id": month, "reserved": {"$lt": min(OPERATIONAL_STOP, HARD_CEILING)}, field: {"$lt": limit}},
+            {"$inc": {"reserved": 1, field: 1}, "$set": {"last_reserved_at": now_utc()}},
             return_document=ReturnDocument.AFTER,
         )
         return result is not None
@@ -55,7 +59,7 @@ async def reserve() -> bool | None:
         return None
 
 
-async def _lookup_uncached(url: str) -> dict:
+async def _lookup_uncached(url: str, *, testing: bool = False) -> dict:
     """Provider result is non-authoritative until mapped through existing intel contracts."""
     result = {"provider": PROVIDER, "status": "not_checked", "threat_types": []}
     if not enabled():
@@ -67,7 +71,7 @@ async def _lookup_uncached(url: str) -> dict:
         clean, _ = sanitize_url(url)
     except Exception:
         return {**result, "status": "unavailable", "reason": "invalid_url"}
-    identity = digest("google_web_risk:" + clean)
+    identity = digest(("google_web_risk:test:" if testing else "google_web_risk:") + clean)
     now = now_utc()
     try:
         cached = await db.web_risk_cache.find_one({"_id": identity, "expires_at": {"$gt": now}})
@@ -77,7 +81,7 @@ async def _lookup_uncached(url: str) -> dict:
                     "checked_at": cached["checked_at"].isoformat(), "expires_at": cached["expires_at"].isoformat()}
     except Exception:
         return {**result, "status": "unavailable", "reason": "cache_unavailable"}
-    reservation = await reserve()
+    reservation = await reserve(testing=testing)
     if reservation is None:
         return {**result, "status": "unavailable", "reason": "accounting_unavailable"}
     if not reservation:
@@ -116,7 +120,7 @@ async def _lookup_uncached(url: str) -> dict:
     except Exception:
         return {**result, "status": "unavailable", "reason": "persistence_or_provider_error"}
 
-async def lookup(url: str) -> dict:
+async def lookup(url: str, *, testing: bool = False) -> dict:
     """Coalesce equivalent requests across workers via existing Mongo in-flight claims."""
     if not enabled():
         return {"provider": PROVIDER, "status": "not_checked", "threat_types": [], "reason": "production_disabled"}
@@ -126,7 +130,7 @@ async def lookup(url: str) -> dict:
         return {"provider": PROVIDER, "status": "unavailable", "threat_types": [], "reason": "invalid_url"}
     if not os.environ.get("GOOGLE_WEB_RISK_API_KEY"):
         return {"provider": PROVIDER, "status": "unavailable", "threat_types": [], "reason": "not_configured"}
-    identity = digest("google_web_risk:" + clean)
+    identity = digest(("google_web_risk:test:" if testing else "google_web_risk:") + clean)
     async def reuse():
         try:
             row = await db.web_risk_cache.find_one({"_id": identity, "expires_at": {"$gt": now_utc()}})
@@ -140,7 +144,7 @@ async def lookup(url: str) -> dict:
     try:
         existing = await reuse()
         if existing is not None: return existing
-        result = await reusable_intel.once("web_risk:" + identity, lambda: _lookup_uncached(clean), reuse=reuse)
+        result = await reusable_intel.once("web_risk:" + identity, lambda: _lookup_uncached(clean, testing=testing), reuse=reuse)
         return result if result is not None else {"provider": PROVIDER, "status": "unavailable",
                                                    "threat_types": [], "reason": "concurrent_lookup_unresolved"}
     except Exception:
