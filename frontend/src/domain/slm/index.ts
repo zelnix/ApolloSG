@@ -5,6 +5,8 @@
  * advisory: investigation, scoring, Evidence Lock and user-visible verdicts stay in
  * their existing authoritative components.
  */
+import { recordSuccessfulSLMInference } from "./sharedRuntime.ts";
+
 export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins";
 export type SLMOperation = "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation";
 
@@ -108,6 +110,7 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
     const candidate = await adapter.infer(request);
     const answer = validate(candidate, new Set(request.evidence.map((e) => e.evidenceId)));
     if (!answer) return { status: "invalid_output", execution: "none", reason: "response_contract_failed" };
+    recordSuccessfulSLMInference(adapter);
     return { status: "completed", execution: "on_device", modelId: adapter.modelId, answer };
   } catch {
     // Do not log private evidence or model responses.
