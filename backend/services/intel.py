@@ -218,6 +218,10 @@ def combine(sources: list[IntelSource]) -> tuple[Verdict, list[str], str]:
     if any(s.status == "match" for s in sources):
         return "malicious", threats, "full" if all(s.status in ("match", "clear") for s in sources) else "partial"
     clear = [s for s in sources if s.status == "clear"]
+    # A Google Web Risk no-match is not affirmative evidence of safety.
+    # Preserve the source's completed lookup while refusing a clean verdict.
+    if any(s.name == "google_web_risk" and s.status == "clear" for s in sources):
+        return "unknown", [], "partial"
     if len(clear) == len(sources):
         return "clean", [], "full"
     if clear:
