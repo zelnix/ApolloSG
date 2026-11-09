@@ -1,0 +1,107 @@
+name: On-device AI Android build (slm-claude)
+
+# Builds Android test APKs for the slm-claude on-device AI work (built-in Gemini Nano via ML Kit, and the
+# downloadable llama.cpp fallback). Proves the native code compiles and links; it does not prove a model runs —
+# that needs a physical phone (docs/APOLLO_ON_DEVICE_SLM.md, "Before release").
+# Separate from the slm branch's "SLM Android native compile" workflow; the two branches are kept apart.
+
+on:
+  push:
+    branches: [slm-claude]
+    paths:
+      - 'frontend/modules/apollo-slm/**'
+      - 'frontend/src/slm/**'
+      - 'frontend/src/components/OnDeviceAiNote.tsx'
+      - 'frontend/app/settings/on-device-ai.tsx'
+      - 'frontend/app.config.js'
+      - 'frontend/package.json'
+      - 'frontend/yarn.lock'
+      - '.github/workflows/slm-claude-android.yml'
+  pull_request:
+    paths:
+      - 'frontend/modules/apollo-slm/**'
+      - 'frontend/src/slm/**'
+      - 'frontend/app.config.js'
+      - 'frontend/package.json'
+      - 'frontend/yarn.lock'
+      - '.github/workflows/slm-claude-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slm-claude-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Assemble Android test APKs (debug + standalone)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_PREVIEW_BUILD: excluded
+      APOLLO_ANDROID_RESTRICTED_PERMISSIONS: 'off'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install pinned frontend dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --non-interactive
+      - name: Verify native dependency singletons
+        run: node scripts/native-dependency-guard.cjs
+      - name: On-device AI rule tests
+        run: node --test tests/onDeviceSlm.test.ts tests/slmModels.test.ts
+      - name: Prebuild Android project (generated, not committed)
+        run: npx expo prebuild --platform android --clean --no-install --non-interactive
+      - name: Check both on-device AI native modules are linked
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew projects --no-daemon > ../gradle-projects.txt
+          grep -q "apollo-slm" ../gradle-projects.txt || { echo "apollo-slm is not linked into the Android build"; exit 1; }
+          grep -qi "llama" ../gradle-projects.txt || { echo "llama.rn is not linked into the Android build"; exit 1; }
+      - name: Compile debug APK
+        run: |
+          cd android
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Compile standalone test APK (JavaScript bundled, debug-signed)
+        run: |
+          cd android
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+      - name: Verify APKs carry the native libraries and bundled JavaScript
+        run: |
+          DEBUG=android/app/build/outputs/apk/debug/app-debug.apk
+          STANDALONE=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$DEBUG" && test -s "$STANDALONE"
+          unzip -l "$STANDALONE" | grep -Eq 'assets/index.android.bundle|assets/.*\.hbc'
+          # llama.cpp's native library must be packaged, or the downloaded model can never load.
+          unzip -l "$STANDALONE" | grep -Eiq 'lib/arm64-v8a/.*rnllama.*\.so'
+          echo "APKs built. No model is bundled; no on-device inference has been run in CI."
+      - name: Keep debug APK (needs Metro)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apollosg-slm-claude-android-debug
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error
+      - name: Keep standalone test APK (runs without Metro)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apollosg-slm-claude-android-standalone-test
+          path: frontend/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
+          if-no-files-found: error

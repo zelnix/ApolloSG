@@ -123,6 +123,12 @@ not sent anywhere. Settings shows a one-line summary of it.
 
 ## Before release
 
+- **Android test build (CI):** `.github/workflows/slm-claude-android.yml` runs on pushes to `slm-claude` that touch
+  this work, and on demand. It prebuilds, checks `apollo-slm` and `llama.rn` are linked, compiles debug and standalone
+  APKs, checks the llama.cpp native library is packaged, and keeps both APKs for 7 days (Actions → the run →
+  Artifacts). The standalone APK runs without Metro and is debug-signed, for test phones only. A green build proves
+  the native code compiles, not that a model runs.
+
 - Run an EAS Android build. `1.0.0-beta4` comes from Google's Prompt API guide; Google Maven itself couldn't be
   reached from the authoring environment, so the build is the first real check.
 - Build on iOS with an Xcode version whose SDK includes FoundationModels (iOS 26 SDK).
