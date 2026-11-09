@@ -37,6 +37,7 @@ import { goBackOrHome } from "@/src/utils/navigation";
 import { storage } from "@/src/utils/storage";
 import { recentNativeFailures } from "@/src/security/nativeDiagnostics";
 import { CloseButton } from "@/src/components/CloseButton";
+import { getSharedSLM } from "@/src/domain/slm/sharedRuntime";
 
 const USER_EMAIL_KEY = "apollo.support.user_email.v1";
 
@@ -272,6 +273,18 @@ export default function SupportScreen() {
             <View style={s.row}><Text style={s.label}>Apollo threat list</Text><Text style={s.value} testID="support-blocklist-count">{intel.data?.blocklist.entries ?? "—"} entries</Text></View>
           </View> : null}
         </> : <Body>Reading app and device details…</Body>}
+      </Section>
+
+      {/* SLM is an optional advisory capability, not a protection or cloud-service check. */}
+      <Section title="On-device AI (SLM)" testID="support-slm-section">
+        <Body style={s.detail}>These are local runtime facts, not an inference benchmark. Installing an APK does not install a model. No cloud AI response proves local inference.</Body>
+        <InfoRow label="Native platform" value={Platform.OS === "android" || Platform.OS === "ios" ? (appDevice.data?.app.nativeBuild ? "Native app" : "Not verified") : "Not supported in this preview"} />
+        <InfoRow label="SLM startup policy" value={!__DEV__ ? "Disabled in release build" : Platform.OS === "android" || Platform.OS === "ios" ? "Development-only admission" : "Unavailable on this platform"} />
+        <InfoRow label="Model installed" value="Not verified" />
+        <InfoRow label="Model SHA-256" value="Not verified" />
+        <InfoRow label="Model loaded" value={getSharedSLM() ? "Runtime registered" : "No runtime registered"} />
+        <InfoRow label="Native inference" value="Not verified" />
+        <Body style={s.detail} testID="support-slm-explanation">{!__DEV__ ? "This APK is a release build. Current SLM startup code explicitly refuses release-mode activation, even if the native library was compiled in. Higgins uses its existing response path; this is not proof of on-device SLM inference." : "A development build can attempt private-model admission, but model presence, hash verification and real inference require separate device evidence. A registered runtime alone is not a completed inference test."}</Body>
       </Section>
 
       {/* 2. Protection & Services */}
