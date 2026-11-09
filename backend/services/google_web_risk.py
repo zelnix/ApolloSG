@@ -1,4 +1,4 @@
-"""Google Web Risk Lookup: staged, OFF by default. No caller may bypass the shared Mongo quota reservation.
+"""Google Web Risk Lookup: enabled by default on slm when configured. No caller may bypass the shared Mongo quota reservation.
 Only uris.search is permitted; never hashes.search / computeDiff.
 No URL, API key, or case content is written to shared cache or logs.
 """
@@ -27,7 +27,7 @@ CACHE_NO_MATCH = timedelta(minutes=5)
 
 
 def enabled() -> bool:
-    return os.environ.get("GOOGLE_WEB_RISK_ENABLED", "").lower() == "true"
+    return os.environ.get("GOOGLE_WEB_RISK_ENABLED", "true").lower() == "true"
 
 
 def period(now: datetime) -> str:
