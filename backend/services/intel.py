@@ -152,6 +152,35 @@ async def safe_browsing_lookup(url: str) -> tuple[IntelSource, Optional[datetime
     return IntelSource(name="google_safe_browsing", status="clear", detail="No current Safe Browsing listing.", url=transparency_page(url)), None
 
 
+async def google_url_lookup(url: str) -> tuple[IntelSource, Optional[datetime]]:
+    """Staged provider switch; legacy Safe Browsing stays intact until acceptance passes."""
+    import os
+    if os.environ.get("GOOGLE_URL_PROVIDER", "safe_browsing") != "web_risk":
+        return await safe_browsing_lookup(url)
+    from services.google_web_risk import lookup
+    result = await lookup(url)
+    state = result.get("underlying_status", result.get("status"))
+    cached = result.get("status") == "cached_result"
+    expiry = None
+    if result.get("expires_at"):
+        try:
+            expiry = datetime.fromisoformat(result["expires_at"])
+        except (ValueError, TypeError):
+            pass
+    if state == "threat_match":
+        return IntelSource(name="google_web_risk", status="match",
+                           detail="Google Web Risk reported a threat match" + (" (cached)." if cached else "."),
+                           threat_types=result.get("threat_types", [])), expiry
+    if state == "no_match":
+        return IntelSource(name="google_web_risk", status="clear",
+                           detail="No listing found by Google Web Risk; this does not establish that the link is safe." +
+                                  (" (cached)." if cached else ".")), expiry
+    failure = result.get("reason") or state
+    return IntelSource(name="google_web_risk", status="unavailable",
+                       detail="Google Web Risk could not complete this check.",
+                       failure=str(failure)), None
+
+
 def transparency_page(url: str) -> str:
     """Google's own public page for a Safe Browsing listing (its Transparency Report site status)."""
     from urllib.parse import quote
@@ -160,7 +189,7 @@ def transparency_page(url: str) -> str:
 
 
 # How each list is named to a person.
-SOURCE_LABELS = {"google_safe_browsing": "Google Safe Browsing", "apollo_blocklist": "Apollo's blocklist", "phishtank": "PhishTank",
+SOURCE_LABELS = {"google_web_risk": "Google Web Risk", "google_safe_browsing": "Google Safe Browsing", "apollo_blocklist": "Apollo's blocklist", "phishtank": "PhishTank",
                  "openphish": "OpenPhish", "spamhaus_drop": "Spamhaus DROP", "asic_investor_alerts": "ASIC's investor alert list",
                  "acma_blocked_gambling": "ACMA's blocked gambling websites list"}
 
@@ -285,7 +314,7 @@ async def run_intel_check(indicator_type: str, value: str) -> IntelCheckResponse
     from services import threat_feeds
     bl_source = await blocklist_check(host)
     (sb_source, sb_expiry), feed_sources = await asyncio.gather(
-        safe_browsing_lookup(url if indicator_type == "url" else f"http://{host}/"),
+        google_url_lookup(url if indicator_type == "url" else f"http://{host}/"),
         threat_feeds.listing_sources(host, url if indicator_type == "url" else None))
     sources = [bl_source, sb_source, *feed_sources]
     verdict, threats, coverage = combine(sources)
