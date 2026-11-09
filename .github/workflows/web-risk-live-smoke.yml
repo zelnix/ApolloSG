@@ -1,0 +1,43 @@
+name: Web Risk controlled live smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  one-request-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME: web_risk_live_smoke
+      EXPO_PUBLIC_BACKEND_URL: http://localhost:8001
+      URL_HMAC_SECRET: ephemeral-test-only-key
+      GOOGLE_WEB_RISK_API_KEY: ${{ secrets.GOOGLE_WEB_RISK_API_KEY }}
+      GOOGLE_WEB_RISK_ENABLED: "true"
+      GOOGLE_WEB_RISK_LIVE_TEST: "1"
+      APOLLO_RUN_CREDENTIALED_INTEGRATION: "1"
+      GOOGLE_URL_PROVIDER: safe_browsing
+      APOLLO_FORBID_PROVIDER_CALLS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Require explicitly configured Web Risk key
+        run: |
+          if [ -z "$GOOGLE_WEB_RISK_API_KEY" ]; then
+            echo "::error::Repository Actions secret GOOGLE_WEB_RISK_API_KEY is missing."
+            exit 1
+          fi
+      - name: Install backend test dependencies
+        run: |
+          grep -v '^emergentintegrations' backend/requirements.txt | grep -v '^litellm' > /tmp/requirements-web-risk.txt
+          pip install -r /tmp/requirements-web-risk.txt
+      - name: One controlled live lookup and cached repeat
+        working-directory: backend
+        run: python -m pytest tests/test_google_web_risk_live.py -q -m credentialed_integration --no-header
