@@ -14,6 +14,7 @@ from pymongo.errors import DuplicateKeyError
 
 from core.db import db, now_utc
 from services.intel import sanitize_url, digest
+from services import reusable_intel
 
 PROVIDER = "google_web_risk"
 ENDPOINT = "https://webrisk.googleapis.com/v1/uris:search"
@@ -55,7 +56,7 @@ async def reserve() -> bool:
         return False
 
 
-async def lookup(url: str) -> dict:
+async def _lookup_uncached(url: str) -> dict:
     """Provider result is non-authoritative until mapped through existing intel contracts."""
     result = {"provider": PROVIDER, "status": "not_checked", "threat_types": []}
     if not enabled():
@@ -112,3 +113,31 @@ async def lookup(url: str) -> dict:
         return {**result, "status": "unavailable", "reason": "request_failed"}
     except Exception:
         return {**result, "status": "unavailable", "reason": "persistence_or_provider_error"}
+
+async def lookup(url: str) -> dict:
+    """Coalesce equivalent requests across workers via existing Mongo in-flight claims."""
+    if not enabled():
+        return {"provider": PROVIDER, "status": "not_checked", "threat_types": [], "reason": "production_disabled"}
+    try:
+        clean, _ = sanitize_url(url)
+    except Exception:
+        return {"provider": PROVIDER, "status": "unavailable", "threat_types": [], "reason": "invalid_url"}
+    identity = digest("google_web_risk:" + clean)
+    async def reuse():
+        try:
+            row = await db.web_risk_cache.find_one({"_id": identity, "expires_at": {"$gt": now_utc()}})
+            if row:
+                return {"provider": PROVIDER, "status": "cached_result", "underlying_status": row["status"],
+                        "threat_types": row["threat_types"], "checked_at": row["checked_at"].isoformat(),
+                        "expires_at": row["expires_at"].isoformat()}
+        except Exception:
+            return {"provider": PROVIDER, "status": "unavailable", "threat_types": [], "reason": "cache_unavailable"}
+        return None
+    try:
+        existing = await reuse()
+        if existing is not None: return existing
+        result = await reusable_intel.once("web_risk:" + identity, lambda: _lookup_uncached(clean), reuse=reuse)
+        return result if result is not None else {"provider": PROVIDER, "status": "unavailable",
+                                                   "threat_types": [], "reason": "concurrent_lookup_unresolved"}
+    except Exception:
+        return {"provider": PROVIDER, "status": "unavailable", "threat_types": [], "reason": "accounting_or_coalescing_unavailable"}
