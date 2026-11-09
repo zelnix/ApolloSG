@@ -65,9 +65,9 @@ def test_atomic_reservation_at_cutoff_and_database_failure():
     quota.find_one_and_update = AsyncMock(return_value=None)
     with patch.object(wr.db, "web_risk_quota", quota):
         assert asyncio.run(wr.reserve()) is False
-        assert quota.find_one_and_update.await_args.args[0]["reserved"]["$lt"] == 95_000
+        assert quota.find_one_and_update.await_args.args[0]["$expr"]["$and"][0]["$lt"][1] == 95_000
         assert quota.find_one_and_update.await_args.args[1]["$inc"]["reserved"] == 1
-        assert quota.find_one_and_update.await_args.args[0]["production_reserved"]["$lt"] == 85_000
+        assert quota.find_one_and_update.await_args.args[0]["$expr"]["$and"][1]["$lt"][1] == 85_000
         quota.find_one_and_update.side_effect = PyMongoError("database down")
         assert asyncio.run(wr.reserve()) is None
 
@@ -125,8 +125,8 @@ def test_testing_budget_reservation_is_separate():
     with patch.object(wr.db, "web_risk_quota", quota):
         assert asyncio.run(wr.reserve(testing=True)) is True
     query, update = quota.find_one_and_update.await_args.args
-    assert query["testing_reserved"]["$lt"] == 10_000
-    assert query["reserved"]["$lt"] == 95_000
+    assert query["$expr"]["$and"][1]["$lt"][1] == 10_000
+    assert query["$expr"]["$and"][0]["$lt"][1] == 95_000
     assert update["$inc"] == {"reserved": 1, "testing_reserved": 1}
 
 
