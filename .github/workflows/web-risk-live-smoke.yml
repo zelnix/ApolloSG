@@ -7,14 +7,9 @@ jobs:
   one-request-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
     env:
-      MONGO_URL: mongodb://localhost:27017
-      DB_NAME: web_risk_live_smoke
+      MONGO_URL: ${{ secrets.WEB_RISK_SHARED_MONGO_URL }}
+      DB_NAME: ${{ secrets.WEB_RISK_SHARED_DB_NAME }}
       EXPO_PUBLIC_BACKEND_URL: http://localhost:8001
       URL_HMAC_SECRET: ephemeral-test-only-key
       GOOGLE_WEB_RISK_API_KEY: ${{ secrets.GOOGLE_WEB_RISK_API_KEY }}
@@ -28,8 +23,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Require explicitly configured Web Risk key
+      - name: Require shared quota database and Web Risk key
         run: |
+          if [ -z "$MONGO_URL" ] || [ -z "$DB_NAME" ]; then
+            echo "::error::Shared MongoDB quota secrets are required; an ephemeral test database would bypass monthly accounting."
+            exit 1
+          fi
           if [ -z "$GOOGLE_WEB_RISK_API_KEY" ]; then
             echo "::error::Repository Actions secret GOOGLE_WEB_RISK_API_KEY is missing."
             exit 1
