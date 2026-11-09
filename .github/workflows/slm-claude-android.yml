@@ -81,7 +81,13 @@ jobs:
         run: |
           corepack enable
           corepack prepare yarn@1.22.22 --activate
-          yarn install --frozen-lockfile --non-interactive
+          # llama.rn's install script downloads prebuilt libraries from GitHub releases; a passing 504 there
+          # (run 42578950717) shouldn't fail the build, so the install is tried up to 3 times, a minute apart.
+          for attempt in 1 2 3; do
+            yarn install --frozen-lockfile --non-interactive && exit 0
+            echo "::warning::yarn install failed (attempt $attempt of 3)"; sleep 60
+          done
+          exit 1
       - name: Verify native dependency singletons
         run: node scripts/native-dependency-guard.cjs
       - name: On-device AI rule tests
@@ -103,7 +109,12 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew projects --no-daemon > ../gradle-projects.txt
+          # The first Gradle call downloads Gradle itself (services.gradle.org returned 504 once): up to 3 tries.
+          for attempt in 1 2 3; do
+            ./gradlew projects --no-daemon > ../gradle-projects.txt && break
+            [ "$attempt" = 3 ] && exit 1
+            echo "::warning::Gradle setup failed (attempt $attempt of 3)"; sleep 60
+          done
           grep -q "apollo-slm" ../gradle-projects.txt || { echo "apollo-slm is not linked into the Android build"; exit 1; }
           grep -qi "llama" ../gradle-projects.txt || { echo "llama.rn is not linked into the Android build"; exit 1; }
       - name: Compile debug APK
