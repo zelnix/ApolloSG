@@ -69,6 +69,17 @@ jobs:
         run: node --test tests/onDeviceSlm.test.ts tests/slmModels.test.ts
       - name: Prebuild Android project (generated, not committed)
         run: npx expo prebuild --platform android --clean --no-install --non-interactive
+      # The generated gradle.properties gives Gradle 2 GB, which ran out while packaging the standalone APK
+      # (OutOfMemoryError in ApkFlinger, run 42546148286). Test builds also target 64-bit ARM only: every recent
+      # phone, and about a quarter of the llama.cpp native compile and APK size.
+      - name: Tune the generated Gradle project for CI test builds
+        run: |
+          cd android
+          sed -i '/^org.gradle.jvmargs=/d; /^reactNativeArchitectures=/d' gradle.properties
+          printf '\n' >> gradle.properties   # the generated file has no trailing newline
+          echo 'org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError' >> gradle.properties
+          echo 'reactNativeArchitectures=arm64-v8a' >> gradle.properties
+          grep -E '^(org.gradle.jvmargs|reactNativeArchitectures)=' gradle.properties
       - name: Check both on-device AI native modules are linked
         run: |
           cd android

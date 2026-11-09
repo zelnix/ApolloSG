@@ -126,7 +126,8 @@ not sent anywhere. Settings shows a one-line summary of it.
 - **Android test build (CI):** `.github/workflows/slm-claude-android.yml` runs on pushes to `slm-claude` that touch
   this work, and on demand. It prebuilds, checks `apollo-slm` and `llama.rn` are linked, compiles debug and standalone
   APKs, checks the llama.cpp native library is packaged, and keeps both APKs for 7 days (Actions → the run →
-  Artifacts). The standalone APK runs without Metro and is debug-signed, for test phones only. A green build proves
+  Artifacts). The standalone APK runs without Metro and is debug-signed, for test phones only. CI test builds
+  target 64-bit ARM (`arm64-v8a`) only, which covers recent phones; a store build still builds every ABI. A green build proves
   the native code compiles, not that a model runs.
 
 - Run an EAS Android build. `1.0.0-beta4` comes from Google's Prompt API guide; Google Maven itself couldn't be
