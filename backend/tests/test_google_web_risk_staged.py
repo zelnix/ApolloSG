@@ -26,3 +26,31 @@ def test_no_secret_embedded_in_module():
     source = inspect.getsource(wr)
     assert "GOOGLE_WEB_RISK_API_KEY" in source
     assert "SAFE_BROWSING_API_KEY" not in source
+
+
+def test_reservation_contract_uses_atomic_increment():
+    import inspect
+    source = inspect.getsource(wr.reserve)
+    assert "find_one_and_update" in source
+    assert '"$lt"' in source
+    assert '"$inc"' in source
+    assert "return None" in source
+
+
+def test_provider_never_enabled_by_default():
+    with patch.dict("os.environ", {}, clear=True):
+        assert not wr.enabled()
+
+
+def test_no_retry_loop_in_external_lookup():
+    import inspect
+    source = inspect.getsource(wr._lookup_uncached)
+    assert "for attempt" not in source
+    assert "client.get(" in source
+
+
+def test_cached_result_does_not_claim_safe():
+    import inspect
+    source = inspect.getsource(wr.lookup)
+    assert '"cached_result"' in source
+    assert '"underlying_status"' in source
