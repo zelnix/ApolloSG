@@ -26,6 +26,8 @@ import { Sheet } from "@/src/components/Sheet";
 import { TimeStepper } from "@/src/components/TimeStepper";
 import { Body, Button, Card, Pill } from "@/src/components/ui";
 import { APP_VERSION } from "@/src/config/buildInfo";
+import { CANDIDATE_FILE } from "@/src/domain/slm/modelAdmission";
+import { getSharedSLM } from "@/src/domain/slm/sharedRuntime";
 import { openPrivacyPolicy } from "@/src/config/privacyPolicy";
 import { apiDelete, apiGet } from "@/src/api/client";
 import { confirmDialog } from "@/src/utils/confirmDialog";
@@ -451,6 +453,16 @@ export default function SettingsScreen() {
       <Group icon={Smartphone} title="App" tone="app" testID="settings-preferences">
         <SwitchRow first label="Battery saver" hint="Reduces animation and checks status less often. It does not change the protection status." value={lowPower} onValueChange={(value) => void setLowPower(value)} testID="settings-lowpower-switch" />
         <SwitchRow label="Show why each result was settled" hint="One line naming what settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
+        <View testID="settings-slm-info" style={[s.rowItem, s.divider, { alignItems: "flex-start" }]}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={s.rowLabel}>On-device AI (SLM)</Text>
+            <Text style={s.rowHint}>Engine: llama.rn (local GGUF, optional)</Text>
+            <Text style={s.rowHint}>Candidate model: Qwen2.5-0.5B-Instruct · Q4_K_M</Text>
+            <Text style={s.rowHint}>Model file: {CANDIDATE_FILE}</Text>
+            <Text style={s.rowHint}>Status: {!__DEV__ ? "Disabled in release builds" : getSharedSLM() ? "Runtime registered (inference unverified)" : "No runtime registered"}</Text>
+            <Text style={s.rowHint}>Model installation and successful inference have not been verified on this device. A candidate model is not necessarily installed or active.</Text>
+          </View>
+        </View>
         <NavRow label="Minimise ApolloSG" hint="Move ApolloSG to the background" onPress={() => void minimiseApp(showToast)} testID="settings-minimise" />
         <NavRow label="Retrofit new enhancements" hint="Apply the latest reporting format to all past investigations" onPress={() => setShowRetrofit(true)} testID="settings-retrofit" />
       </Group>
