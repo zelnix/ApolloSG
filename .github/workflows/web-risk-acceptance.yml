@@ -20,6 +20,7 @@ jobs:
           - 27017:27017
     env:
       MONGO_URL: mongodb://localhost:27017
+      EXPO_PUBLIC_BACKEND_URL: http://localhost:8001
       DB_NAME: web_risk_acceptance
       GOOGLE_WEB_RISK_ENABLED: "false"
       GOOGLE_URL_PROVIDER: safe_browsing
