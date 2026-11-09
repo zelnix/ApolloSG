@@ -23,11 +23,15 @@ async def intel_status():
         from services.google_web_risk import enabled, period
         # Status must not issue a billable lookup, including synthetic test URLs.
         try:
-            quota = await db.web_risk_quota.find_one({"_id": period(now_utc())}, {"reserved": 1})
+            quota = await db.web_risk_quota.find_one({"_id": period(now_utc())}, {"reserved": 1, "testing_reserved": 1, "production_reserved": 1})
             used = int(quota.get("reserved", 0)) if quota else 0
             sb = {"status": "configured" if enabled() else "disabled",
                   "provider": "google_web_risk", "reserved_this_month": used,
                   "operational_cutoff": 95000,
+                  "testing_reserved": int(quota.get("testing_reserved", 0)) if quota else 0,
+                  "testing_budget": 10000,
+                  "production_reserved": int(quota.get("production_reserved", 0)) if quota else 0,
+                  "production_budget": 85000,
                   "detail": "Status is passive; it does not verify live Google API access."}
         except Exception:
             sb = {"status": "unavailable", "provider": "google_web_risk",
