@@ -7,6 +7,7 @@ on:
       - 'backend/services/intel.py'
       - 'backend/services/reusable_intel.py'
       - 'backend/tests/test_google_web_risk_staged.py'
+      - 'backend/tests/test_google_web_risk_mongo.py'
       - '.github/workflows/web-risk-acceptance.yml'
   workflow_dispatch:
 jobs:
@@ -34,4 +35,4 @@ jobs:
           pip install -r /tmp/requirements-web-risk.txt
       - name: Run offline Web Risk tests (no Google requests)
         working-directory: backend
-        run: python -m pytest tests/test_google_web_risk_staged.py -q --no-header
+        run: python -m pytest tests/test_google_web_risk_staged.py tests/test_google_web_risk_mongo.py -q --no-header
