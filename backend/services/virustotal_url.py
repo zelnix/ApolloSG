@@ -4,14 +4,12 @@ Uses the VirusTotal v3 URL endpoint. Each URL is base64url-encoded before the lo
 — only the identifier is sent, never page content.
 
 Free-tier budget: 4 requests / minute, 500 / day across *all* VT modules
-(this module targets ≤ 2 req/min to leave room for attachment hash lookups).
+(both modules now share the same per-process limiter; account-wide enforcement is not yet established).
 """
 from __future__ import annotations
 
-import asyncio
 import base64
 import os
-import time
 from dataclasses import dataclass, field
 
 import httpx
@@ -22,11 +20,9 @@ load_dotenv()
 VT_API_KEY: str = os.getenv("VIRUSTOTAL_API_KEY", "")
 VT_API_URL = "https://www.virustotal.com/api/v3"
 
-# Conservative rate: 2 req/min to share the 4 req/min free-tier budget with
-# the hash-lookup module (services/virustotal.py).
-_last_request_times: list[float] = []
-_rate_lock = asyncio.Lock()
-_MAX_REQ_PER_MIN = 2
+# Share the existing in-process VirusTotal limiter with file-hash lookups.
+# This is NOT a cross-worker or account-wide quota guarantee.
+from services.virustotal import _rate_limit
 
 
 @dataclass
@@ -40,18 +36,6 @@ class URLRepResult:
     categories: list[str] = field(default_factory=list)
     community_score: int = 0
     detail: str = ""
-
-
-async def _rate_limit() -> None:
-    """Enforce a conservative rate limit to stay within the VT free-tier budget."""
-    async with _rate_lock:
-        now = time.monotonic()
-        _last_request_times[:] = [t for t in _last_request_times if now - t < 60]
-        if len(_last_request_times) >= _MAX_REQ_PER_MIN:
-            wait = 60.0 - (now - _last_request_times[0])
-            if wait > 0:
-                await asyncio.sleep(wait)
-        _last_request_times.append(time.monotonic())
 
 
 def _url_id(url: str) -> str:
