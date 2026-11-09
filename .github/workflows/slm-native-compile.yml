@@ -30,7 +30,13 @@ jobs:
     env:
       CI: '1'
       APOLLO_SLM_NATIVE: 'on'
-      EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_APP_ENV: production
+      EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE: guarddog_production
+      EXPO_PUBLIC_GUARDDOG_RULE_BUNDLE_URL: https://threat-patrol-1.emergent.host/api/guarddog/rules
+      EXPO_PUBLIC_GUARDDOG_CONTROLLED_HOST: apolloverify.harmonywellnessgroup.com.au
+      EXPO_PUBLIC_GUARDDOG_CONTROLLED_IPV4: 52.25.179.131
+      EXPO_PUBLIC_GUARDDOG_CONTROLLED_URL: https://apolloverify.harmonywellnessgroup.com.au/
+      EXPO_PUBLIC_GUARDDOG_RULESET_ID: apollo-rules-v1
       EXPO_PUBLIC_PREVIEW_BUILD: excluded
       APOLLO_ANDROID_RESTRICTED_PERMISSIONS: 'off'
       EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
