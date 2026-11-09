@@ -33,6 +33,7 @@ jobs:
       EXPO_PUBLIC_APP_ENV: development
       EXPO_PUBLIC_PREVIEW_BUILD: excluded
       APOLLO_ANDROID_RESTRICTED_PERMISSIONS: 'off'
+      EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
     defaults:
       run:
         working-directory: frontend
@@ -52,6 +53,16 @@ jobs:
           yarn install --frozen-lockfile --non-interactive
       - name: Verify native dependency singletons
         run: node scripts/native-dependency-guard.cjs
+      - name: Verify standalone backend configuration
+        run: |
+          if [ -z "$EXPO_PUBLIC_BACKEND_URL" ]; then
+            echo '::error::EXPO_PUBLIC_BACKEND_URL is missing. Configure the existing GitHub Actions repository variable before building the standalone APK.'
+            exit 1
+          fi
+          case "$EXPO_PUBLIC_BACKEND_URL" in
+            https://*) ;;
+            *) echo '::error::EXPO_PUBLIC_BACKEND_URL must be an HTTPS URL.'; exit 1 ;;
+          esac
       - name: Prebuild Android project without checking generated native code into Git
         run: npx expo prebuild --platform android --clean --no-install --non-interactive
       - name: Compile native Android debug APK (manual opt-in)
