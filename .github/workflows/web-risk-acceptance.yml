@@ -1,0 +1,37 @@
+name: Web Risk staged acceptance
+on:
+  push:
+    branches: [slm]
+    paths:
+      - 'backend/services/google_web_risk.py'
+      - 'backend/services/intel.py'
+      - 'backend/services/reusable_intel.py'
+      - 'backend/tests/test_google_web_risk_staged.py'
+      - '.github/workflows/web-risk-acceptance.yml'
+  workflow_dispatch:
+jobs:
+  web-risk-tests:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME: web_risk_acceptance
+      GOOGLE_WEB_RISK_ENABLED: "false"
+      GOOGLE_URL_PROVIDER: safe_browsing
+      URL_HMAC_SECRET: test-only-not-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          grep -v '^emergentintegrations' backend/requirements.txt | grep -v '^litellm' > /tmp/requirements-web-risk.txt
+          pip install -r /tmp/requirements-web-risk.txt
+      - name: Run offline Web Risk tests (no Google requests)
+        working-directory: backend
+        run: python -m pytest tests/test_google_web_risk_staged.py -q --no-header
