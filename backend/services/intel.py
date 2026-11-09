@@ -300,7 +300,14 @@ async def expand_redirects(url: str, max_hops: int = 5) -> list[str]:
 async def run_intel_check(indicator_type: str, value: str) -> IntelCheckResponse:
     url, host = sanitize_url(value)
     indicator = host if indicator_type == "domain" else url
-    dg = digest(indicator)
+    import os
+    provider = os.environ.get("GOOGLE_URL_PROVIDER", "safe_browsing")
+    # Isolate legacy Safe Browsing entries from staged Web Risk entries.
+    if provider == "web_risk":
+        active = os.environ.get("GOOGLE_WEB_RISK_ENABLED", "").lower() == "true"
+        dg = digest(f"google_web_risk:{'active' if active else 'disabled'}:{indicator}")
+    else:
+        dg = digest(indicator)
     ts = now_utc()
     cached = await db.reputation_cache.find_one({"indicator_digest": dg})
     if cached:
