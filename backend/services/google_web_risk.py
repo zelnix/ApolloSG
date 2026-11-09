@@ -50,7 +50,7 @@ async def reserve(*, testing: bool = False) -> bool | None:
         field = "testing_reserved" if testing else "production_reserved"
         limit = TEST_BUDGET if testing else PRODUCTION_BUDGET
         result = await collection.find_one_and_update(
-            {"_id": month, "reserved": {"$lt": min(OPERATIONAL_STOP, HARD_CEILING)}, field: {"$lt": limit}},
+            {"_id": month, "$expr": {"$and": [{"$lt": [{"$ifNull": ["$reserved", 0]}, min(OPERATIONAL_STOP, HARD_CEILING)]}, {"$lt": [{"$ifNull": ["$" + field, 0]}, limit]}]}},
             {"$inc": {"reserved": 1, field: 1}, "$set": {"last_reserved_at": now_utc()}},
             return_document=ReturnDocument.AFTER,
         )
