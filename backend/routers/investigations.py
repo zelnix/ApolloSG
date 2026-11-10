@@ -1388,8 +1388,10 @@ async def _saved_report(request: Request) -> Optional[dict]:
     saved = body.get("saved") if isinstance(body, dict) else None
     if saved is None:
         return None
-    if not isinstance(saved, dict) or set(saved) - {"text", "link", "result", "headers"} \
+    if not isinstance(saved, dict) or set(saved) - {"text", "link", "result", "headers", "evidenceIds"} \
             or any(not isinstance(saved.get(k, False), bool) for k in ("text", "link", "result")) \
+            or not isinstance(saved.get("evidenceIds", []), list) or len(saved.get("evidenceIds", [])) > 1000 \
+            or any(not isinstance(eid, str) or len(eid) > 80 for eid in saved.get("evidenceIds", [])) \
             or not isinstance(saved.get("headers", []), list) or len(saved.get("headers", [])) > 20 \
             or any(not isinstance(h, str) or len(h) > 40 for h in saved.get("headers", [])):
         raise http(422, "invalid_input", "saved must say which parts the phone saved: text, link, result and header labels.")
@@ -1404,7 +1406,9 @@ async def confirm_commit(case_id: str, request: Request):
     owner = owner_of(request)
     saved = await _saved_report(request)
     held = await device_pickup.get(owner, case_id)
-    if held is not None and saved is not None:
+    if held is not None:
+        if saved is None:
+            raise http(409, "conflict", "Device save confirmation is required before deleting the server copy.")
         gaps = device_pickup.missing(held, saved)
         if gaps:
             raise http(409, "conflict", f"This phone hasn't saved {', '.join(gaps)} yet, so ApolloSG keeps its copy until it has.", missing=gaps)
