@@ -7,6 +7,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 
 import { useApollo } from "@/src/store/ApolloContext";
+import { startupStage } from "@/src/startup/startupStages";
 
 const PHONE_ARTWORK = require("@/assets/images/splash-full.webp");
 const TABLET_ARTWORK = require("@/assets/images/splash-full-tablet.webp");
@@ -30,14 +31,20 @@ export function LaunchSplash() {
   const opacity = useSharedValue(1);
 
   useEffect(() => {
+    startupStage("apollo_state", "started");
     const min = setTimeout(() => setMinShown(true), MIN_MS);
     const max = setTimeout(() => setTimedOut(true), MAX_MS);
     return () => { clearTimeout(min); clearTimeout(max); };
   }, []);
 
+  useEffect(() => {
+    if (ready) startupStage("apollo_state", "completed");
+  }, [ready]);
   const done = (ready && minShown) || timedOut;
   useEffect(() => {
     if (!done) return;
+    if (!ready) startupStage("apollo_state", "timed_out", "splash_display_limit_only");
+    startupStage("navigation", "started");
     opacity.value = withDelay(SETTLE_MS, withTiming(0, { duration: FADE_MS }, (finished) => { if (finished) runOnJS(setVisible)(false); }));
   }, [done, opacity]);
 
