@@ -68,3 +68,9 @@ export async function stopSharedLuddish(): Promise<void> {
   if (previous && getSharedSLM() === previous) setSharedSLM(null);
   if (previous) await previous.release();
 }
+
+/** Presence only; admission and integrity are checked separately at startup. */
+export function isPrivateLuddishModelMissing(): boolean {
+  try { return !new File(Paths.document, CANDIDATE_FILE).exists; }
+  catch { return false; }
+}
