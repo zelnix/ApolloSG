@@ -123,7 +123,7 @@ async def _await_case_finding(owner: str, case: dict, job: dict, progress) -> di
 
 async def _commit_slm_finding(owner: str, case: dict, job: dict, payload: dict,
                               advice: dict, capability_ids: set[str]) -> Optional[Outcome]:
-    """Commit cited SLM reasoning using the existing case/Evidence Lock path."""
+    """Retain cited on-device Findings through the existing case repository."""
     finding = advice["caseFinding"]
     rows = await repo.list_evidence(owner, case["case_id"])
     evidence_ids = {row["evidence_id"] for row in rows}
@@ -167,7 +167,7 @@ async def _commit_slm_finding(owner: str, case: dict, job: dict, payload: dict,
     provider_result = ProviderResult(provider="apollo", model=advice["modelId"],
                                      api_version="", finish_reason="STOP",
                                      provider_complete=True, usage=Usage(),
-                                     source_ids=[], simulated=False, answered_by="tc_hawkeye")
+                                     source_ids=[], simulated=False, answered_by="higgins_luddish")
     return await _commit(owner, case, job, payload, response, provider_result,
                          evidence_ids, set())
 
@@ -269,7 +269,7 @@ def _with_evidence(case: dict, response: HigginsResponse, record: dict, provider
 async def _commit(owner: str, case: dict, job: dict, payload: dict, response: HigginsResponse, provider_result: ProviderResult,
                   evidence_ids: set[str], source_ids: set[str]) -> Outcome:
     response, record = await _with_history(owner, case, response)
-    await _slm_stage(owner, case, job, "luddish")
+    # Luddish has already produced the Finding before commit; do not run a second advisory stage.
     response, fidelity = await _plain_english(owner, case, response, provider_result.answered_by)
     response = _with_evidence(case, response, record, provider_result)
     commit = TurnCommit(turn_id=job["turn_id"], case_id=case["case_id"], input_revision=job["input_revision"], committed_revision=response.revision,
