@@ -3,7 +3,7 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Text, View, Pressable } from "react-native";
-import { checkRequiredSLMCompatibility, rollbackSLMSetup } from "./bootstrap";
+import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackSLMSetup } from "./bootstrap";
 
 type State = { status: "checking" | "ready" | "incompatible"; reason: string };
 
@@ -34,6 +34,17 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       <Text style={{ fontSize: 22, fontWeight: "700", textAlign: "center" }}>ApolloSG cannot start on this device</Text>
       <Text style={{ textAlign: "center" }}>{state.reason}</Text>
       <Text style={{ textAlign: "center" }}>No ApolloSG protection has been started. You can remove the app using your device settings.</Text>
+      <Pressable accessibilityRole="button" onPress={() => {
+        setState({ status: "checking", reason: "" });
+        void downloadPrivateLuddishForTest().then(async () => {
+          const admission = await checkRequiredSLMCompatibility();
+          if (!admission.compatible) await rollbackSLMSetup();
+          setState({ status: admission.compatible ? "ready" : "incompatible", reason: admission.reason });
+        }).catch(async () => {
+          await rollbackSLMSetup().catch(() => undefined);
+          setState({ status: "incompatible", reason: "The required model could not be installed and verified." });
+        });
+      }}><Text style={{ fontWeight: "700" }}>Install required AI and retry</Text></Pressable>
       <Pressable accessibilityRole="button" onPress={() => {
         setState({ status: "checking", reason: "" });
         void checkRequiredSLMCompatibility().then(async (admission) => {
