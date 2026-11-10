@@ -59,3 +59,32 @@ test("does not use a network provider or disclose errors when inference throws",
     status: "unavailable", execution: "none", reason: "on_device_inference_failed",
   });
 });
+
+test("Qantas-style email is assessed by SLM, not a Hawkeye score", async () => {
+  const evidenceId = "email-qantas-1";
+  const input = {
+    role: "case_finding" as const,
+    operation: "case_finding" as const,
+    evidence: [{ evidenceId, text: "From: Qantas <news@e.qantas.com>\\nSubject: Your points update" }],
+    question: "Assess the complete case evidence; cite each reason.",
+  };
+  const result = await runSLM(input, {
+    modelId: "fixture-local-slm",
+    infer: async () => ({
+      observations: [], contradictions: [], alternativeExplanations: [],
+      verificationSuggestions: [], draftExplanation: null,
+      caseFinding: {
+        outcome: "unlikely_scam",
+        explanation: "This resembles a Qantas points update, but sender authentication was not supplied.",
+        reasons: [{ text: "The displayed sender uses e.qantas.com.", evidenceIds: [evidenceId] }],
+        uncertainty: "The sender and actual link destinations were not authenticated.",
+        advice: "Open the Qantas app directly to check your points.",
+      },
+    }),
+  });
+  assert.equal(result.status, "completed");
+  if (result.status === "completed") {
+    assert.equal(result.answer.caseFinding?.outcome, "unlikely_scam");
+    assert.equal(result.answer.caseFinding?.reasons[0].evidenceIds[0], evidenceId);
+  }
+});
