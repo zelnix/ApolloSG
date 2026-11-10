@@ -1,5 +1,7 @@
 # Apollo investigation architecture (as built, 2026-09-21)
 
+> **Historical implementation snapshot (2026-09-21).** This document records the architecture at that date; it is not the current approved ApolloSG architecture. The later approved design uses a shared On-device AI SLM across Higgins Triage, TC Hawkeye, Magnum DI and Higgins Luddish, with Gemini as an optional Magnum DI extension only. Evidence Lock remains authoritative. Approval does not itself establish that every runtime path has been migrated; verify the implementation separately.
+
 ## Boundaries
 
 | Layer | File | Responsibility |
