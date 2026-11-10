@@ -131,26 +131,51 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
 /** Compatibility admission before protection setup. The app cannot uninstall
  * itself; rollback is limited to ApolloSG-owned model files and runtime state.
  */
-export async function checkRequiredSLMCompatibility(): Promise<{ compatible: boolean; reason: string }> {
-  if (!Device.totalMemory || Device.totalMemory < 3 * 1024 * 1024 * 1024) {
-    return { compatible: false, reason: "This device does not meet the required memory capacity." };
+export type SLMCompatibilityStage = "hardware" | "model_integrity" | "runtime_registration" | "inference" | "response_validation" | "complete" | "failed";
+export async function checkRequiredSLMCompatibility(
+  onStage?: (stage: SLMCompatibilityStage) => void,
+): Promise<{ compatible: boolean; reason: string }> {
+  const startedAt = Date.now();
+  let stage: SLMCompatibilityStage = "hardware";
+  const mark = (next: SLMCompatibilityStage) => {
+    console.info("[ApolloSG SLM compatibility]", stage, "elapsed_ms", Date.now() - startedAt);
+    stage = next;
+    onStage?.(next);
+  };
+  try {
+    mark("hardware");
+    if (!Device.totalMemory || Device.totalMemory < 3 * 1024 * 1024 * 1024) {
+      mark("failed");
+      return { compatible: false, reason: "This device does not meet the required memory capacity." };
+    }
+    mark("model_integrity");
+    // The shared runtime is registered after model checksum verification.
+    const started = await startSharedLuddish();
+    mark("runtime_registration");
+    if (!started || !getSharedSLM()) {
+      mark("failed");
+      return { compatible: false, reason: "The required local AI model could not be verified or started." };
+    }
+    // Native context loading is lazy; inference triggers the actual model load.
+    mark("inference");
+    const { runSLM } = await import("./index.ts");
+    const result = await runSLM({
+      role: "case_finding", operation: "case_finding",
+      question: "Compatibility self-test. Assess this synthetic, non-user message.",
+      evidence: [{ evidenceId: "compatibility-test", text: "Synthetic test: an unknown sender claims to be a bank. No independent checks were performed." }],
+    }, getSharedSLM());
+    mark("response_validation");
+    if (result.status !== "completed" || !result.answer.caseFinding) {
+      mark("failed");
+      return { compatible: false, reason: "The local AI model did not complete its required reasoning test." };
+    }
+    mark("complete");
+    return { compatible: true, reason: "On-device AI compatibility verified." };
+  } catch (error) {
+    console.warn("[ApolloSG SLM compatibility] failure", stage, "elapsed_ms", Date.now() - startedAt, error);
+    mark("failed");
+    return { compatible: false, reason: "The local AI failed during " + stage + "." };
   }
-  const started = await startSharedLuddish();
-  if (!started || !getSharedSLM()) {
-    return { compatible: false, reason: "The required local AI model could not be verified or started." };
-  }
-  // Real inference is essential: model presence and loading alone do not prove compatibility.
-  const { runSLM } = await import("./index.ts");
-  const result = await runSLM({
-    role: "case_finding", operation: "case_finding",
-    question: "Compatibility self-test. Assess this synthetic, non-user message.",
-    evidence: [{ evidenceId: "compatibility-test", text: "Synthetic test: an unknown sender claims to be a bank. No independent checks were performed." }],
-  }, getSharedSLM());
-  if (result.status !== "completed" || !result.answer.caseFinding) {
-    await stopSharedLuddish();
-    return { compatible: false, reason: "The local AI model did not complete its required reasoning test." };
-  }
-  return { compatible: true, reason: "On-device AI compatibility verified." };
 }
 
 export async function rollbackSLMSetup(): Promise<void> {
