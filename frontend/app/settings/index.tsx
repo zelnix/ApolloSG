@@ -28,6 +28,7 @@ import { TimeStepper } from "@/src/components/TimeStepper";
 import { Body, Button, Card, Pill } from "@/src/components/ui";
 import { APP_VERSION } from "@/src/config/buildInfo";
 import { CANDIDATE_FILE } from "@/src/domain/slm/modelAdmission";
+import { getOnDeviceAIDownloadState, subscribeOnDeviceAIDownload } from "@/src/domain/slm/downloadStatus";
 import { getSLMActivitySnapshot, subscribeSLMActivity } from "@/src/domain/slm/sharedRuntime";
 import { openPrivacyPolicy } from "@/src/config/privacyPolicy";
 import { apiDelete, apiGet } from "@/src/api/client";
@@ -97,6 +98,8 @@ export default function SettingsScreen() {
   const [showRetrofit, setShowRetrofit] = useState(false);
   const showReasons = useShowResultReasons();
   const slmActivity = useSyncExternalStore(subscribeSLMActivity, getSLMActivitySnapshot, getSLMActivitySnapshot);
+  const aiDownload = useSyncExternalStore(subscribeOnDeviceAIDownload, getOnDeviceAIDownloadState, getOnDeviceAIDownloadState);
+  const aiDownloadActive = ["downloading", "verifying", "registering"].includes(aiDownload.phase);
   const [slmInstalling, setSlmInstalling] = useState(false);
   const slmTestAvailable = Platform.OS === "android" &&
     (__DEV__ || process.env.EXPO_PUBLIC_SLM_TEST_MODE === "true");
@@ -489,7 +492,7 @@ export default function SettingsScreen() {
             <Text style={s.rowHint}>Engine: On-device AI (local, optional)</Text>
             <Text style={s.rowHint}>On-device AI version: ODAI-Q2.5-0.5B-Q4KM-v1</Text>
             <Text style={s.rowHint}>AI package: verified local installation</Text>
-            <Text style={s.rowHint} testID="settings-slm-status">Status: {!slmTestAvailable ? "Disabled in this build" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
+            <Text style={s.rowHint} testID="settings-slm-status">Status: {aiDownloadActive ? "Setup in progress" : !slmTestAvailable ? "Disabled in this build" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
             <Text style={s.rowHint}>Loaded model: {slmActivity.modelId ?? "None confirmed"}</Text>
             <Text style={s.rowHint}>Last verified local inference: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
             <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the On-device AI output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
@@ -498,8 +501,9 @@ export default function SettingsScreen() {
         {slmTestAvailable && !slmActivity.registered ? (
           <Pressable testID="settings-download-slm" accessibilityRole="button"
             accessibilityLabel="Download and install On-device AI model"
-            disabled={slmInstalling}
+            disabled={slmInstalling || aiDownloadActive}
             onPress={() => {
+              if (aiDownloadActive) return;
               confirmDialog("Download On-device AI model?",
                 "Download approximately 491 MB from the official AI package source and verify it on this device? Mobile data charges may apply.",
                 [{ text: "Cancel", style: "cancel" }, { text: "Download & Install", onPress: () => {
@@ -514,8 +518,10 @@ export default function SettingsScreen() {
             }}
             style={[s.rowItem, s.divider]}>
             <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>{slmInstalling ? "Downloading or verifying…" : "Download On-device AI Model"}</Text>
-              <Text style={s.rowHint}>Approximately 491 MB from the official source. Downloads only with your permission.</Text>
+              <Text style={s.rowLabel}>{aiDownloadActive ? "On-device AI setup in progress" : "Download On-device AI"}</Text>
+              <Text style={s.rowHint}>Approximately 491 MB. Downloads only with your permission.</Text>
+              {aiDownloadActive ? <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm }}><ActivityIndicator size="small" /><Text style={s.rowHint}>{aiDownload.phase === "downloading" ? (aiDownload.totalBytes > 0 ? `Downloading ${Math.min(100, Math.round(100 * aiDownload.receivedBytes / aiDownload.totalBytes))}% · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} of ${(aiDownload.totalBytes / 1048576).toFixed(0)} MB` : `Downloading · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} MB received`) : aiDownload.phase === "verifying" ? "Verifying download…" : "Setting up On-device AI…"}</Text></View> : null}
+              {aiDownload.phase === "failed" ? <Text style={s.rowHint}>Previous setup failed: {aiDownload.error ?? "Unknown error"}</Text> : null}
             </View>
             <ChevronRight size={20} color={colors.muted} />
           </Pressable>
@@ -523,9 +529,9 @@ export default function SettingsScreen() {
         {slmTestAvailable ? (
           <Pressable testID="settings-install-slm" accessibilityRole="button"
             accessibilityLabel="Install On-device AI from device"
-            disabled={slmInstalling || slmActivity.registered}
+            disabled={slmInstalling || aiDownloadActive || slmActivity.registered}
             onPress={() => void installSlmModel()}
-            style={[s.rowItem, s.divider, { opacity: slmInstalling || slmActivity.registered ? 0.5 : 1 }]}>
+            style={[s.rowItem, s.divider, { opacity: slmInstalling || aiDownloadActive || slmActivity.registered ? 0.5 : 1 }]}>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{slmInstalling ? "Verifying model…" :
                 slmActivity.registered ? "Model runtime registered" : "Install On-device AI Model"}</Text>
