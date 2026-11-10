@@ -8,6 +8,6 @@ export async function isPrivateLuddishModelMissing(): Promise<boolean> { return 
 export async function downloadPrivateLuddishForTest(): Promise<boolean> { return false; }
 
 export async function checkRequiredSLMCompatibility(): Promise<{ compatible: boolean; reason: string }> {
-  return { compatible: false, reason: "This platform cannot run ApolloSG's required native AI model." };
+  return { compatible: false, reason: "This platform cannot run ApolloSG's required On-device AI model." };
 }
 export async function rollbackSLMSetup(): Promise<void> {}
