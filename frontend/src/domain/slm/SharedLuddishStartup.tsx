@@ -26,10 +26,10 @@ export function SharedLuddishStartup(): null {
         if (started || cancelled || prompted.current || ["downloading", "verifying", "registering"].includes(getOnDeviceAIDownloadState().phase)) return;
         if (cancelled) return;
         prompted.current = true;
-        Alert.alert("ApolloSG requires on-device AI",
-          "ApolloSG cannot activate on this device until the local AI model is installed and verified. If the device cannot run it, setup cannot continue.",
+        Alert.alert("ApolloSG requires On-device AI",
+          "ApolloSG cannot activate on this device until the On-device AI model is installed and verified. If the device cannot run it, setup cannot continue.",
           [{ text: "Exit setup", style: "cancel", onPress: () => router.replace("/onboarding") },
-           { text: "Install required AI", onPress: () => { router.push("/settings"); void module.downloadPrivateLuddishForTest(); } }]);
+           { text: "Install required On-device AI", onPress: () => { router.push("/settings"); void module.downloadPrivateLuddishForTest(); } }]);
       }).catch(() => undefined);
     }, 1500);
     return () => { cancelled = true; clearTimeout(handle); };
