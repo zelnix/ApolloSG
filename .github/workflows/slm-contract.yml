@@ -16,6 +16,7 @@ on:
       - 'backend/tests/test_slm_advisory_stage.py'
       - 'backend/tests/test_higgins_escalation_contract.py'
       - 'backend/tests/test_slm_contract.py'
+      - 'backend/tests/test_slm_redundancy_regression.py'
       - 'backend/tests/test_no_evidence_lock_stage.py'
       - 'backend/routers/slm_handoff.py'
       - 'backend/routers/investigations.py'
@@ -83,6 +84,7 @@ jobs:
         run: |
           PYTHONPATH=. python tests/test_slm_contract.py
           PYTHONPATH=. python tests/test_slm_advisory_stage.py
+          PYTHONPATH=. python tests/test_slm_redundancy_regression.py
           python -c "import runpy; t = runpy.run_path('tests/test_no_evidence_lock_stage.py'); t['test_investigation_coordinator_has_no_evidence_lock_stage'](); t['test_existing_evidence_and_findings_persistence_are_retained'](); print('Evidence Lock regression: 2 passed')"
           python -c "import runpy; t = runpy.run_path('tests/test_higgins_escalation_contract.py'); [t[name]() for name in sorted(t) if name.startswith('test_')]; print('Higgins escalation regression: 4 passed')"
           python -m py_compile routers/slm_handoff.py routers/investigations.py services/higgins/slm_contract.py services/higgins/slm_advisory.py services/higgins/coordinator.py
