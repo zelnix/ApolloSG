@@ -1,4 +1,4 @@
-"""Reputation intelligence: external providers (Google Safe Browsing and the free threat lists in
+"""Reputation intelligence: external providers (Google Web Risk and the free threat lists in
 services/threat_feeds.py), HMAC digest cache, redirect expansion.
 
 Product decision: Apollo's internal blocklist (db.blocklist) is no longer used as an independent
@@ -17,7 +17,7 @@ from urllib.parse import urlparse, urlunparse
 import httpx
 from fastapi import HTTPException
 
-from core.config import SAFE_BROWSING_API_KEY, SB_ENDPOINT, SB_THREAT_TYPES, URL_HMAC_SECRET, logger
+from core.config import URL_HMAC_SECRET, logger
 from core.db import db, now_utc
 from core.models import BlocklistEntry, IntelCheckResponse, IntelSource, ReputationCache, Verdict
 from services.rdap import lookup_domain_cached
@@ -30,7 +30,7 @@ def digest(value: str) -> str:
 def sanitize_url(raw: str) -> tuple[str, str]:
     """Strip credentials, fragments and secret query params; preserve path. Return (url, host).
     Validation only, no canonicalisation games. The path is kept so that reputation sources
-    (e.g. Safe Browsing) can match page-specific threats, not just the origin."""
+    (e.g. Web Risk) can match page-specific threats, not just the origin."""
     candidate = raw if "://" in raw else f"https://{raw}"
     try:
         parsed = urlparse(candidate)
@@ -86,77 +86,8 @@ async def blocklist_check(host: str) -> IntelSource:
     return IntelSource(name="apollo_blocklist", status="clear", detail="Not on Apollo's managed threat list.")
 
 
-_sb_probe: dict[str, Any] = {"status": None, "checked_at": None, "detail": ""}
-
-
-def _sb_unavailable(detail: str, failure: str) -> tuple[IntelSource, None]:
-    return IntelSource(name="google_safe_browsing", status="unavailable", detail=detail, failure=failure), None
-
-
-async def safe_browsing_lookup(url: str) -> tuple[IntelSource, Optional[datetime]]:
-    if not SAFE_BROWSING_API_KEY:
-        return IntelSource(name="google_safe_browsing", status="not_configured", detail="No Safe Browsing key configured.", failure="not_configured"), None
-    # Short-circuit while the key is known-bad (re-probed every 10 minutes) to avoid hammering Google.
-    if _sb_probe["status"] == "auth_error" and _sb_probe["checked_at"] and now_utc() - _sb_probe["checked_at"] < timedelta(minutes=10):
-        return _sb_unavailable("Safe Browsing key was rejected; reputation check unavailable.", "auth_failure")
-    payload = {
-        "client": {"clientId": "apollo-v1", "clientVersion": "1.0"},
-        "threatInfo": {
-            "threatTypes": SB_THREAT_TYPES,
-            "platformTypes": ["ANY_PLATFORM"],
-            "threatEntryTypes": ["URL"],
-            "threatEntries": [{"url": url}],
-        },
-    }
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as http:
-            resp = await http.post(SB_ENDPOINT, params={"key": SAFE_BROWSING_API_KEY}, json=payload)
-        if resp.status_code in (401, 403):
-            _sb_probe.update(status="auth_error", checked_at=now_utc(), detail="Key rejected by Google Safe Browsing.")
-            return _sb_unavailable("Safe Browsing key was rejected; reputation check unavailable.", "auth_failure")
-        if resp.status_code == 429:
-            _sb_probe.update(status="unreachable", checked_at=now_utc(), detail="Safe Browsing quota used up.")
-            return _sb_unavailable("Safe Browsing's lookup quota is used up for now.", "quota_exhausted")
-        resp.raise_for_status()
-        data = resp.json()
-    except httpx.TimeoutException:
-        _sb_probe.update(status="unreachable", checked_at=now_utc(), detail="Safe Browsing did not respond.")
-        return _sb_unavailable("Safe Browsing did not respond in time.", "timeout")
-    except httpx.HTTPStatusError as exc:
-        _sb_probe.update(status="unreachable", checked_at=now_utc(), detail="Safe Browsing returned an error.")
-        return _sb_unavailable("Safe Browsing returned an error.", "server_error" if exc.response.status_code >= 500 else "rejected")
-    except httpx.HTTPError:
-        _sb_probe.update(status="unreachable", checked_at=now_utc(), detail="Safe Browsing could not be reached.")
-        return _sb_unavailable("Safe Browsing could not be reached.", "provider_unavailable")
-    except ValueError:
-        _sb_probe.update(status="unreachable", checked_at=now_utc(), detail="Safe Browsing answer was malformed.")
-        return _sb_unavailable("Safe Browsing sent an unreadable answer.", "malformed")
-    if not isinstance(data, dict) or not isinstance(data.get("matches", []), list):
-        # Malformed answer (wrong shape) is rejected — degrade to "unavailable", never read it as "clear".
-        _sb_probe.update(status="unreachable", checked_at=now_utc(), detail="Safe Browsing answer was malformed.")
-        return _sb_unavailable("Safe Browsing sent an unreadable answer.", "malformed")
-    _sb_probe.update(status="ok", checked_at=now_utc(), detail="Safe Browsing reachable.")
-    matches = [m for m in data.get("matches", []) if isinstance(m, dict)]
-    if matches:
-        threats = sorted({str(m.get("threatType", "UNKNOWN")) for m in matches})
-        seconds = 300
-        try:
-            seconds = max(60, int(str(matches[0].get("cacheDuration", "300s")).rstrip("s").split(".")[0]))
-        except ValueError:
-            pass
-        return (
-            IntelSource(name="google_safe_browsing", status="match", detail="Listed as unsafe by Google Safe Browsing.", threat_types=threats,
-                        url=transparency_page(url)),
-            now_utc() + timedelta(seconds=seconds),
-        )
-    return IntelSource(name="google_safe_browsing", status="clear", detail="No current Safe Browsing listing.", url=transparency_page(url)), None
-
-
 async def google_url_lookup(url: str) -> tuple[IntelSource, Optional[datetime]]:
-    """Staged provider switch; legacy Safe Browsing stays intact until acceptance passes."""
-    import os
-    if os.environ.get("GOOGLE_URL_PROVIDER", "web_risk") != "web_risk":
-        return await safe_browsing_lookup(url)
+    """Google Web Risk is the only Google URL reputation provider."""
     from services.google_web_risk import lookup
     result = await lookup(url)
     state = result.get("underlying_status", result.get("status"))
@@ -181,15 +112,8 @@ async def google_url_lookup(url: str) -> tuple[IntelSource, Optional[datetime]]:
                        failure=str(failure)), None
 
 
-def transparency_page(url: str) -> str:
-    """Google's own public page for a Safe Browsing listing (its Transparency Report site status)."""
-    from urllib.parse import quote
-    host = (urlparse(url).hostname or url).lower()
-    return f"https://transparencyreport.google.com/safe-browsing/search?url={quote(host, safe='')}"
-
-
 # How each list is named to a person.
-SOURCE_LABELS = {"google_web_risk": "Google Web Risk", "google_safe_browsing": "Google Safe Browsing", "apollo_blocklist": "Apollo's blocklist", "phishtank": "PhishTank",
+SOURCE_LABELS = {"google_web_risk": "Google Web Risk", "apollo_blocklist": "Apollo's blocklist", "phishtank": "PhishTank",
                  "openphish": "OpenPhish", "spamhaus_drop": "Spamhaus DROP", "asic_investor_alerts": "ASIC's investor alert list",
                  "acma_blocked_gambling": "ACMA's blocked gambling websites list"}
 
@@ -203,12 +127,12 @@ def _names(labels: list[str]) -> str:
     return labels[0] if len(labels) == 1 else ", ".join(labels[:-1]) + " and " + labels[-1] if labels else ""
 
 
-def listed_by(sources: list[dict] | None, default: str = "Google Safe Browsing") -> str:
+def listed_by(sources: list[dict] | None, default: str = "Google Web Risk") -> str:
     """The lists that list it ("PhishTank and Google Safe Browsing"), from a check's recorded sources."""
     return _names([label(s.get("name") or "") for s in sources or [] if s.get("status") == "match"]) or default
 
 
-def answered(sources: list[dict] | None, default: str = "Google Safe Browsing") -> str:
+def answered(sources: list[dict] | None, default: str = "Google Web Risk") -> str:
     """The lists that answered (listed or not), for a "not listed by …" statement."""
     return _names([label(s.get("name") or "") for s in sources or [] if s.get("status") in ("match", "clear")]) or default
 
@@ -305,13 +229,9 @@ async def run_intel_check(indicator_type: str, value: str) -> IntelCheckResponse
     url, host = sanitize_url(value)
     indicator = host if indicator_type == "domain" else url
     import os
-    provider = os.environ.get("GOOGLE_URL_PROVIDER", "web_risk")
-    # Isolate legacy Safe Browsing entries from staged Web Risk entries.
-    if provider == "web_risk":
-        active = os.environ.get("GOOGLE_WEB_RISK_ENABLED", "true").lower() == "true"
-        dg = digest(f"google_web_risk:{'active' if active else 'disabled'}:{indicator}")
-    else:
-        dg = digest(indicator)
+    # Cache keys are provider-specific: never reuse legacy Safe Browsing results.
+    active = os.environ.get("GOOGLE_WEB_RISK_ENABLED", "true").lower() == "true"
+    dg = digest(f"google_web_risk:{'active' if active else 'disabled'}:{indicator}")
     ts = now_utc()
     cached = await db.reputation_cache.find_one({"indicator_digest": dg})
     if cached:
