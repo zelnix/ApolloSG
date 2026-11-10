@@ -4,6 +4,8 @@
  */
 import * as Device from "expo-device";
 import { File, FileMode, Paths } from "expo-file-system";
+import * as LegacyFileSystem from "expo-file-system/legacy";
+import { updateOnDeviceAIDownload } from "./downloadStatus.ts";
 import { CANDIDATE_FILE, verifyPrivateGGUF } from "./modelAdmission.ts";
 
 import { getSharedSLM, setSharedSLM } from "./sharedRuntime.ts";
@@ -80,32 +82,50 @@ export function isPrivateLuddishModelMissing(): boolean {
 /** Explicitly consented download to private storage; never runs on startup. */
 export function downloadPrivateLuddishForTest(): Promise<boolean> {
   if (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") return Promise.resolve(false);
-  if (runtime || startup) return Promise.resolve(false);
   if (download) return download;
+  if (runtime || startup) return Promise.resolve(false);
+  updateOnDeviceAIDownload({ phase: "downloading", receivedBytes: 0, totalBytes: 0, error: undefined });
   download = (async () => {
     const dest = new File(Paths.document, CANDIDATE_FILE);
-    if (dest.exists) return startSharedLuddish();
+    if (dest.exists) {
+      updateOnDeviceAIDownload({ phase: "verifying" });
+      const ok = await startSharedLuddish();
+      updateOnDeviceAIDownload({ phase: ok ? "ready" : "failed", error: ok ? undefined : "Existing AI package failed verification." });
+      return ok;
+    }
     try {
-      await File.downloadFileAsync(MODEL_DOWNLOAD_URL, dest, { idempotent: false });
+      // A single shared download with native byte-progress callbacks.
+      const task = LegacyFileSystem.createDownloadResumable(
+        MODEL_DOWNLOAD_URL, dest.uri, {},
+        ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+          updateOnDeviceAIDownload({
+            phase: "downloading",
+            receivedBytes: totalBytesWritten,
+            totalBytes: totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : 0,
+          });
+        },
+      );
+      const result = await task.downloadAsync();
+      if (!result || result.status < 200 || result.status >= 300) throw new Error("Download failed");
+      updateOnDeviceAIDownload({ phase: "verifying" });
       const admitted = await verifyPrivateGGUF({
         uri: dest.uri, exists: dest.exists, size: dest.size,
         open: () => dest.open(FileMode.ReadOnly),
       }, Device.totalMemory ?? null);
-      if (!admitted.available) {
-        if (dest.exists) dest.delete();
-        return false;
-      }
-      // Release the download lock before startup checks (no network fallback).
+      if (!admitted.available) throw new Error("AI package verification failed: " + admitted.reason);
+      updateOnDeviceAIDownload({ phase: "registering" });
       const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
       const created = createLuddishOnDevice({
         modelUri: admitted.uri, modelId: admitted.modelId, deviceAdmitted: true,
       });
-      if (!created) { if (dest.exists) dest.delete(); return false; }
+      if (!created) throw new Error("On-device AI runtime unavailable");
       runtime = created;
       setSharedSLM(created);
+      updateOnDeviceAIDownload({ phase: "ready" });
       return true;
-    } catch {
+    } catch (e) {
       try { if (dest.exists) dest.delete(); } catch { /* best effort */ }
+      updateOnDeviceAIDownload({ phase: "failed", error: e instanceof Error ? e.message : "Download failed" });
       return false;
     }
   })().finally(() => { download = null; });
