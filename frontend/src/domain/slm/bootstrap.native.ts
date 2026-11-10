@@ -3,6 +3,8 @@
  * The one instance services Ask Higgins and all investigation roles.
  */
 import * as Device from "expo-device";
+import * as Network from "expo-network";
+import { Alert } from "react-native";
 import { File, FileMode, Paths } from "expo-file-system";
 import * as LegacyFileSystem from "expo-file-system/legacy";
 import { updateOnDeviceAIDownload } from "./downloadStatus.ts";
@@ -76,11 +78,33 @@ export function isPrivateLuddishModelMissing(): boolean {
   catch { return false; }
 }
 
+/** Consent is per download, not a permanent cellular-data permission. */
+async function confirmModelNetworkUse(): Promise<boolean> {
+  let state: Network.NetworkState;
+  try { state = await Network.getNetworkStateAsync(); }
+  catch { state = { type: Network.NetworkStateType.UNKNOWN, isConnected: undefined, isInternetReachable: undefined }; }
+  if (state.isConnected === false || state.type === Network.NetworkStateType.NONE) {
+    Alert.alert("No internet connection", "Connect to Wi-Fi or mobile data to download ApolloSG's On-device AI model.");
+    return false;
+  }
+  if (state.type === Network.NetworkStateType.WIFI) return true;
+  return new Promise<boolean>((resolve) => {
+    Alert.alert(
+      "Download using mobile data?",
+      "ApolloSG needs to download its On-device AI model. You're not connected to Wi-Fi. Mobile data may use your allowance or incur charges.",
+      [
+        { text: "Wait for Wi-Fi", style: "cancel", onPress: () => resolve(false) },
+        { text: "Download using mobile data", onPress: () => resolve(true) },
+      ],
+      { cancelable: false },
+    );
+  });
+}
+
 /** Explicitly consented download to private storage; never runs on startup. */
 export function downloadPrivateLuddishForTest(): Promise<boolean> {
   if (download) return download;
   if (runtime || startup) return Promise.resolve(false);
-  updateOnDeviceAIDownload({ phase: "downloading", receivedBytes: 0, totalBytes: 0, error: undefined });
   download = (async () => {
     const dest = new File(Paths.document, CANDIDATE_FILE);
     if (dest.exists) {
@@ -90,6 +114,8 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
       return ok;
     }
     try {
+      if (!await confirmModelNetworkUse()) return false;
+      updateOnDeviceAIDownload({ phase: "downloading", receivedBytes: 0, totalBytes: 0, error: undefined });
       // A single shared download with native byte-progress callbacks.
       const task = LegacyFileSystem.createDownloadResumable(
         MODEL_DOWNLOAD_URL, dest.uri, {},
@@ -101,8 +127,41 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
           });
         },
       );
-      const result = await task.downloadAsync();
-      if (!result || result.status < 200 || result.status >= 300) throw new Error("Download failed");
+      // Monitor network transitions throughout transfer. A switch away from Wi-Fi
+      // pauses the transfer before requesting fresh consent. Never silently spend
+      // mobile data because the connection changed mid-download.
+      let monitoring = true;
+      let networkBusy = false;
+      let denied = false;
+      const monitor = setInterval(() => {
+        if (!monitoring || networkBusy) return;
+        networkBusy = true;
+        void (async () => {
+          try {
+            const state = await Network.getNetworkStateAsync();
+            if (state.type === Network.NetworkStateType.WIFI && state.isConnected !== false) return;
+            await task.pauseAsync();
+            if (!monitoring) return;
+            const approved = await confirmModelNetworkUse();
+            if (!monitoring) return;
+            if (!approved) { denied = true; return; }
+            // Resume only after explicit consent for the current network.
+            await task.resumeAsync();
+          } catch {
+            denied = true;
+            try { await task.pauseAsync(); } catch { /* already stopped */ }
+          } finally { networkBusy = false; }
+        })();
+      }, 1000);
+      let result: LegacyFileSystem.FileSystemDownloadResult | undefined;
+      try {
+        result = await task.downloadAsync() ?? undefined;
+      } finally {
+        monitoring = false;
+        clearInterval(monitor);
+      }
+      if (denied || !result || result.status < 200 || result.status >= 300) throw new Error(
+        denied ? "Download paused. Connect to Wi-Fi and retry." : "Download failed");
       updateOnDeviceAIDownload({ phase: "verifying" });
       const admitted = await verifyPrivateGGUF({
         uri: dest.uri, exists: dest.exists, size: dest.size,
