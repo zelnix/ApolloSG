@@ -104,6 +104,8 @@ def settled_by_flyby(answered_by: Optional[str]) -> bool:
 
 def investigator(answered_by: Optional[str]) -> str:
     """Who settled a result, by name: the one place this is decided."""
+    if answered_by == "higgins_luddish":
+        return "Higgins Luddish"
     return "TC Hawkeye" if settled_by_flyby(answered_by) else "Magnum DI"
 
 
