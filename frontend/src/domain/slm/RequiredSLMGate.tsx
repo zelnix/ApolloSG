@@ -1,13 +1,13 @@
 /** Global fail-closed admission boundary for all ApolloSG routes.
  * This must mount outside ApolloProvider and the navigation stack.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Text, View, Pressable } from "react-native";
 import { checkRequiredSLMCompatibility, rollbackSLMSetup } from "./bootstrap";
 
 type State = { status: "checking" | "ready" | "incompatible"; reason: string };
 
-export function RequiredSLMGate({ children }: { children: React.ReactNode }) {
+export function RequiredSLMGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ status: "checking", reason: "" });
   useEffect(() => {
     let active = true;
