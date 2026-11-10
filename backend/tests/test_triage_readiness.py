@@ -33,3 +33,16 @@ def test_truncated_message_retains_investigable_evidence():
 
 def test_unrelated_short_message_not_ready():
     assert not background_text_ready("See you soon").ready
+
+
+def test_insufficient_evidence_has_higgins_explanation():
+    result = background_text_ready("Hello")
+    assert not result.ready
+    assert "can’t begin an investigation" in result.explanation
+    assert "Please share" in result.explanation
+
+
+def test_empty_content_has_specific_higgins_explanation():
+    result = background_text_ready("  ")
+    assert not result.ready
+    assert "no message content" in result.explanation
