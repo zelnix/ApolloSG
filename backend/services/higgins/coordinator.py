@@ -172,6 +172,34 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
         return False
 
 
+async def _await_escalation_assessment(owner: str, case: dict, job: dict, progress) -> dict | None:
+    """Bounded, evidence-cited on-device decision; no Hawkeye self-escalation."""
+    if not slm_advisory.enabled():
+        return None
+    import asyncio
+    from routers.slm_handoff import issue_stage_request
+
+    try:
+        issued = await issue_stage_request(owner, case["case_id"], job["job_id"],
+                                           case["revision"], "higgins_escalation_assessment")
+        if not issued:
+            return None
+        await repo.emit(owner, case["case_id"], job["job_id"],
+                        "slm_advisory_request", issued, case["revision"],
+                        repo.utc(case["expires_at"]))
+        await progress("assess", "Higgins is checking Hawkeye's evidence and escalation need.")
+        for _ in range(30):
+            advice = await slm_advisory.accepted_for_stage(
+                owner, case, job, "higgins_escalation_assessment")
+            if advice and advice.get("escalationAssessment"):
+                return advice["escalationAssessment"]
+            await asyncio.sleep(0.5)
+    except Exception:
+        log.warning("higgins_escalation_assessment_unavailable case=%s",
+                    case["case_id"], exc_info=True)
+    return None
+
+
 async def _await_case_finding(owner: str, case: dict, job: dict, progress) -> dict | None:
     """One bounded wait for an authenticated native SLM Finding; never invent a result."""
     if not slm_advisory.enabled():
@@ -444,13 +472,29 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     await _slm_stage(owner, case, job, "higgins_triage")
     fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
     await _slm_stage(owner, case, job, "tc_hawkeye")
-    # Hawkeye determines whether deeper investigation is necessary, not its outcome.
-    if not fly_by.resolved:
-        # Reload after Hawkeye: its checks and handoff brief are newly retained evidence.
-        # Pass the full case rather than Hawkeye's filtered rows so Magnum DI can
-        # independently challenge even material Hawkeye considers settled.
+    assessment = await _await_escalation_assessment(owner, case, job, progress)
+    if assessment is None:
+        # Neither Hawkeye's resolved flag nor a cloud provider may substitute for
+        # the required on-device evidence sanity check and escalation decision.
+        return Outcome("device_unavailable", errors=[
+            "Higgins Escalation Assessment was unavailable. Hawkeye's investigation "
+            "is retained, but no escalation or final Finding was authorised."
+        ])
+    decision = assessment["decision"]
+    if decision == "additional_evidence_required":
+        return Outcome("device_unavailable", errors=[
+            "Higgins Escalation Assessment identified material evidence gaps: " +
+            "; ".join(assessment.get("materialGaps") or ["additional evidence is required"])
+        ])
+    if decision == "escalate":
+        # Magnum independently reviews the complete case, not Hawkeye's selected rows.
         magnum_rows = await repo.list_evidence(owner, case["case_id"])
-        await _magnum_external_evidence(owner, case, job, payload["message"], magnum_rows, progress)
+        magnum_available = await _magnum_external_evidence(
+            owner, case, job, payload["message"], magnum_rows, progress)
+        if not magnum_available:
+            # One consistent unavailable outcome: no retry loop, no fabricated
+            # external findings. Luddish may still evaluate retained local evidence.
+            log.warning("magnum_unavailable_case_continues_locally case=%s", case["case_id"])
     slm_finding = await _await_case_finding(owner, case, job, progress)
     if slm_finding:
         committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
