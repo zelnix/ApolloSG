@@ -36,7 +36,6 @@ export default function Onboarding() {
   const { adapterLabel } = useApollo();
   const [checkingCompatibility, setCheckingCompatibility] = useState(false);
   const [compatibilityMessage, setCompatibilityMessage] = useState("");
-  const [compatible, setCompatible] = useState(false);
   const checkCompatibility = async () => {
     if (checkingCompatibility) return;
     setCheckingCompatibility(true);
@@ -44,11 +43,9 @@ export default function Onboarding() {
       const slm = await import("@/src/domain/slm/bootstrap");
       const result = await slm.checkRequiredSLMCompatibility();
       setCompatibilityMessage(result.reason);
-      setCompatible(result.compatible);
       if (result.compatible) router.push("/privacy-disclosure");
       else Alert.alert("Device not compatible", result.reason + " ApolloSG setup cannot continue.");
     } catch {
-      setCompatible(false);
       setCompatibilityMessage("Required on-device AI compatibility check failed.");
       Alert.alert("Device not compatible", "ApolloSG setup cannot continue without the required local AI.");
     } finally { setCheckingCompatibility(false); }
