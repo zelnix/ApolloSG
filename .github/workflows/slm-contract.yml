@@ -15,6 +15,7 @@ on:
       - 'frontend/src/investigation/types.ts'
       - 'backend/tests/test_slm_advisory_stage.py'
       - 'backend/tests/test_slm_contract.py'
+      - 'backend/tests/test_no_evidence_lock_stage.py'
       - 'backend/routers/slm_handoff.py'
       - 'backend/routers/investigations.py'
       - 'frontend/src/domain/privacy.ts'
@@ -81,4 +82,5 @@ jobs:
         run: |
           PYTHONPATH=. python tests/test_slm_contract.py
           PYTHONPATH=. python tests/test_slm_advisory_stage.py
+          python -m pytest -q tests/test_no_evidence_lock_stage.py
           python -m py_compile routers/slm_handoff.py routers/investigations.py services/higgins/slm_contract.py services/higgins/slm_advisory.py services/higgins/coordinator.py
