@@ -192,7 +192,7 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
     except ValueError:
         raise http(422, "invalid_input", "Luddish reasoning failed case or evidence-reference checks.")
     # Conditional single acceptance. Never call ingest_observation, never update
-    # investigation evidence, jobs, findings, scores or Evidence Lock.
+    # investigation evidence, jobs, Findings or scores.
     claimed = await db.investigation_device_requests.find_one_and_update(
         {
             "owner_id": owner, "case_id": case_id, "request_id": body.request_id,
