@@ -95,6 +95,74 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> None:
         log.warning("slm_advisory_unavailable role=%s", role)
 
 
+# Magnum DI collects external investigative material; it does not produce the user's Finding.
+_MAGNUM_EVIDENCE_ID = "magnum-di-external-investigation"
+_MAGNUM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "observations": {"type": "array", "items": {"type": "object", "properties": {
+            "text": {"type": "string"}, "source": {"type": "string"},
+            "confidence": {"type": "string", "enum": ["low", "medium", "high"]}},
+            "required": ["text", "source", "confidence"]}},
+        "uncertainties": {"type": "array", "items": {"type": "string"}},
+        "investigationScope": {"type": "string"},
+    },
+    "required": ["observations", "uncertainties", "investigationScope"],
+}
+
+
+async def _magnum_external_evidence(owner: str, case: dict, job: dict,
+                                    question: str, rows: list[dict], progress) -> bool:
+    """One provider-independent external investigation, retained as case evidence for Luddish."""
+    from services.higgins.llm_boundary import Purpose
+    from services.higgins.ai_request import ProviderFailure
+
+    if not await repo.claim_magnum_call(owner, case["case_id"], job["job_id"]):
+        log.warning("magnum_call_already_claimed case=%s", case["case_id"])
+        return False
+    parts, _marks, _words = await ev.model_parts(owner, case, rows)
+    await progress("investigate", "Magnum DI is gathering additional external evidence.")
+    provider.register_di_owner(repo.correlation_id(case["case_id"]), owner)
+    try:
+        result = await provider.generate(
+            "", [Message(role="user", parts=[Part(text=question), *parts])],
+            model=job["provider_model"], capability="text", json_output=True,
+            response_schema=_MAGNUM_SCHEMA, web_search=True,
+            purpose=Purpose.INVESTIGATION,
+            correlation_id=repo.correlation_id(case["case_id"]),
+            device_id=owner, job_id=job["job_id"], trigger_source="magnum_di",
+        )
+    except ProviderFailure as exc:
+        log.warning("magnum_external_unavailable case=%s code=%s", case["case_id"], exc.code)
+        # A provider refusal must not be mistaken for an external investigation.
+        return False
+    if result.finish_reason != "STOP":
+        log.warning("magnum_external_incomplete case=%s finish=%s", case["case_id"], result.finish_reason)
+        return False
+    try:
+        findings = result.object()
+        if not isinstance(findings.get("observations"), list) or not isinstance(findings.get("uncertainties"), list):
+            raise ValueError("invalid investigation evidence")
+        # Retain the provider's actual response and grounding metadata, without converting
+        # its claims into independently verified facts or a final Finding.
+        retained = json.dumps({
+            "investigator": "Magnum DI", "provider": result.provider,
+            "model": result.model, "simulated": result.simulated,
+            "investigation": findings, "grounding": result.grounding,
+        }, ensure_ascii=False, default=str)
+        await ev.ingest_text(
+            owner, case, _MAGNUM_EVIDENCE_ID, retained, kind="observation",
+            origin="external_source", label="Magnum DI external investigation",
+            meta={"investigator": "magnum_di", "provider": result.provider,
+                  "model": result.model, "simulated": result.simulated},
+            coverage=Coverage(status="examined", unit="items", total=1, examined=1),
+        )
+        return True
+    except (ValueError, TypeError, KeyError):
+        log.warning("magnum_external_invalid_result case=%s", case["case_id"], exc_info=True)
+        return False
+
+
 async def _await_case_finding(owner: str, case: dict, job: dict, progress) -> dict | None:
     """One bounded wait for an authenticated native SLM Finding; never invent a result."""
     if not slm_advisory.enabled():
@@ -371,7 +439,7 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     # Hawkeye determines whether deeper investigation is necessary. A resolved
     # case skips Magnum DI; an unresolved case requests its existing local role.
     if not fly_by.resolved:
-        await _slm_stage(owner, case, job, "magnum_di")
+        await _magnum_external_evidence(owner, case, job, payload["message"], rows, progress)
     slm_finding = await _await_case_finding(owner, case, job, progress)
     if slm_finding:
         committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
