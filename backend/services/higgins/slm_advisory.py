@@ -19,7 +19,7 @@ ROLES = frozenset(("higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "case
 
 
 def enabled() -> bool:
-    return os.getenv("APOLLO_SLM_HANDOFF", "off").strip().lower() == "on"
+    return os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() == "on"
 
 
 async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> dict | None:
