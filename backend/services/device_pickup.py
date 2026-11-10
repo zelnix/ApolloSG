@@ -10,6 +10,7 @@ The phone fetches it with GET /investigations/{id}/pickup. Stored encrypted, lik
 from __future__ import annotations
 
 from datetime import datetime
+import base64
 from typing import Any, Optional
 
 from fastapi import HTTPException
@@ -58,7 +59,6 @@ async def hold(owner: str, case_id: str) -> bool:
                 item["body"] = body
             else:
                 # Keep original binary bytes, not an inferred transcription.
-                import base64
                 item["base64"] = base64.b64encode(data).decode("ascii")
             evidence_content.append(item)
             if row.get("origin") == "user_submission" and not row.get("parent_id") and kind in ("text", "url"):
@@ -73,9 +73,17 @@ async def hold(owner: str, case_id: str) -> bool:
             "evidenceContent": evidence_content,
             "source": source,
         }
+        # MongoDB documents have a 16 MiB limit. Never create a pickup that
+        # appears complete but cannot be stored; the existing encrypted evidence
+        # chunks remain the source of truth until a verified device transfer.
+        from bson import BSON
+        encoded_snapshot = repo.enc_json(snapshot)
+        if len(BSON.encode({"snapshot_ciphertext": encoded_snapshot})) >= 15 * 1024 * 1024:
+            logger.warning("device_pickup_snapshot_too_large case=%s", case_id[:8])
+            return False
         now = now_utc()
         await db[COLLECTION].update_one({"owner_id": owner, "case_id": case_id},
-                                        {"$set": {"snapshot_ciphertext": repo.enc_json(snapshot), "held_at": now},
+                                        {"$set": {"snapshot_ciphertext": encoded_snapshot, "held_at": now},
                                          "$setOnInsert": {"owner_id": owner, "case_id": case_id, "first_held_at": now}}, upsert=True)
         return True
     except Exception as exc:  # noqa: BLE001 — never blocks an investigation finishing; never logs content
