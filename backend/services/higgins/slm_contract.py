@@ -100,4 +100,8 @@ def accept_advisory_reasoning(
                 raise ValueError("unrecognised_slm_evidence")
     if request.operation == "case_finding" and result.answer.case_finding is None:
         raise ValueError("missing_case_finding")
+    if request.operation == "case_finding" and any(
+        not reason.evidence_ids for reason in result.answer.case_finding.reasons
+    ):
+        raise ValueError("uncited_case_finding_reason")
     return result.answer
