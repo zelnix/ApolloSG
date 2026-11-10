@@ -611,7 +611,9 @@ async def get_evidence_content(case_id: str, evidence_id: str, request: Request)
         raise repo.http(410, "evidence_content_expired",
                         "This evidence was automatically deleted after 24 hours to protect your privacy. "
                         "The investigation findings remain available in your saved report.")
-    return Response(content=data, media_type=media_type, headers={**NO_STORE, "Content-Length": str(len(data))})
+    import hashlib
+    return Response(content=data, media_type=media_type, headers={**NO_STORE, "Content-Length": str(len(data)),
+                                                                 "X-Evidence-SHA256": hashlib.sha256(data).hexdigest()})
 
 
 
