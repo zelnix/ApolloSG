@@ -1406,6 +1406,9 @@ async def confirm_commit(case_id: str, request: Request):
     owner = owner_of(request)
     saved = await _saved_report(request)
     held = await device_pickup.get(owner, case_id)
+    if held is None:
+        raise http(409, "conflict",
+                   "No complete device pickup snapshot is available. Server evidence cannot be deleted until a verified device copy exists.")
     if held is not None:
         if saved is None:
             raise http(409, "conflict", "Device save confirmation is required before deleting the server copy.")
