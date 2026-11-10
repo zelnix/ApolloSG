@@ -8,26 +8,18 @@ Free-tier budget: 4 requests / minute, 500 / day across *all* VT modules
 """
 from __future__ import annotations
 
-import asyncio
 import base64
 import os
-import time
 from dataclasses import dataclass, field
 
 import httpx
 from dotenv import load_dotenv
+from services.virustotal_quota import rate_limit as _rate_limit
 
 load_dotenv()
 
 VT_API_KEY: str = os.getenv("VIRUSTOTAL_API_KEY", "")
 VT_API_URL = "https://www.virustotal.com/api/v3"
-
-# Conservative rate: 2 req/min to share the 4 req/min free-tier budget with
-# the hash-lookup module (services/virustotal.py).
-_last_request_times: list[float] = []
-_rate_lock = asyncio.Lock()
-_MAX_REQ_PER_MIN = 2
-
 
 @dataclass
 class URLRepResult:
@@ -40,18 +32,6 @@ class URLRepResult:
     categories: list[str] = field(default_factory=list)
     community_score: int = 0
     detail: str = ""
-
-
-async def _rate_limit() -> None:
-    """Enforce a conservative rate limit to stay within the VT free-tier budget."""
-    async with _rate_lock:
-        now = time.monotonic()
-        _last_request_times[:] = [t for t in _last_request_times if now - t < 60]
-        if len(_last_request_times) >= _MAX_REQ_PER_MIN:
-            wait = 60.0 - (now - _last_request_times[0])
-            if wait > 0:
-                await asyncio.sleep(wait)
-        _last_request_times.append(time.monotonic())
 
 
 def _url_id(url: str) -> str:
