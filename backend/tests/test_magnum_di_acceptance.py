@@ -436,3 +436,53 @@ class TestResponseValidation:
         resp, errors = validate(invalid, revision=1, evidence_ids=set(), source_ids=set(),
                                 capability_ids=set(), pending_question=None, provider_complete=True)
         assert len(errors) > 0, "Invalid assessment should be rejected"
+
+
+class TestMagnumAssessmentReconciliation:
+    """Field mapping must not discard supported Magnum findings or override threats."""
+
+    @staticmethod
+    def _response():
+        return {
+            "overview": "The available checks did not establish a scam.",
+            "explanationMarkdown": "Some sender details remain unverified.",
+            "assessment": "uncertain",
+            "outcome": "unlikely_scam",
+            "attention": "none",
+            "findings": [],
+            "uncertainties": ["Sender identity not independently verified"],
+            "scope": "Only the supplied message and available lookups",
+            "sourceIds": [],
+            "remainingEvidenceIds": [],
+            "actions": [],
+            "recommendedActionIndex": None,
+            "question": None,
+            "completion": "complete",
+        }
+
+    def test_unlikely_scam_uncertain_field_reconciles_without_losing_gaps(self):
+        response, errors = validate(self._response(), revision=1, evidence_ids=set(),
+                                    source_ids=set(), capability_ids=set(),
+                                    pending_question=None, provider_complete=True)
+        assert not errors
+        assert response is not None
+        assert response.outcome == "unlikely_scam"
+        assert response.assessment == "no_concern_found_within_scope"
+        assert response.uncertainties == ["Sender identity not independently verified"]
+
+    def test_action_needed_does_not_reconcile(self):
+        data = self._response()
+        data["attention"] = "action_needed"
+        response, errors = validate(data, revision=1, evidence_ids=set(),
+                                    source_ids=set(), capability_ids=set(),
+                                    pending_question=None, provider_complete=True)
+        assert response is None
+        assert any("requires assessment" in e for e in errors)
+
+    def test_established_threat_cannot_be_lowered(self):
+        response, errors = validate(self._response(), revision=1, evidence_ids=set(),
+                                    source_ids=set(), capability_ids=set(),
+                                    pending_question=None, provider_complete=True,
+                                    floor={"outcome": "scam", "established": True})
+        assert response is None
+        assert any("established threat" in e for e in errors)
