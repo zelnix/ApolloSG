@@ -143,9 +143,9 @@ export function useInvestigation(boundOperationId?: string | null) {
       if (event.type === "progress") update((previous) => ({ progress: [...previous.progress.slice(-6), event.payload.message] }));
       else if (event.type === "response") update({ response: event.payload.response, sources: event.payload.sources, question: event.payload.response.question });
       else if (event.type === "slm_advisory_request") {
-        // Separate non-terminal Luddish advisory task. No SLM is bundled with
-        // the app by default, so do nothing until a verified local runtime is
-        // installed. Failures must never mark the investigation as failed.
+        // Existing authenticated stream delivers On-device AI stage requests.
+        // The case_finding response is mandatory for a completed verdict;
+        // the coordinator reports an incomplete case if it is unavailable.
         const adapter = getSharedSLM();
         const issued = event.payload;
         if (adapter && issued.request.caseId === caseId &&
