@@ -1,30 +1,33 @@
 /** Global fail-closed admission boundary for all ApolloSG routes.
  * This must mount outside ApolloProvider and the navigation stack.
  */
-import { useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Text, View, Pressable } from "react-native";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ActivityIndicator, AppState, Text, View, Pressable } from "react-native";
 import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackSLMSetup } from "./bootstrap";
 
 type State = { status: "checking" | "ready" | "incompatible"; reason: string };
 
 export function RequiredSLMGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ status: "checking", reason: "" });
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const admission = await checkRequiredSLMCompatibility();
-        if (!admission.compatible) {
-          await rollbackSLMSetup();
-          if (active) setState({ status: "incompatible", reason: admission.reason });
-        } else if (active) setState({ status: "ready", reason: "" });
-      } catch {
-        await rollbackSLMSetup().catch(() => undefined);
-        if (active) setState({ status: "incompatible", reason: "Required on-device AI verification failed." });
-      }
-    })();
-    return () => { active = false; };
+  const verify = useCallback(async (install = false) => {
+    setState({ status: "checking", reason: "" });
+    try {
+      if (install) await downloadPrivateLuddishForTest();
+      const admission = await checkRequiredSLMCompatibility();
+      if (!admission.compatible) await rollbackSLMSetup();
+      setState({ status: admission.compatible ? "ready" : "incompatible", reason: admission.reason });
+    } catch {
+      await rollbackSLMSetup().catch(() => undefined);
+      setState({ status: "incompatible", reason: "Required on-device AI verification failed." });
+    }
   }, []);
+  useEffect(() => {
+    void verify();
+    const subscription = AppState.addEventListener("change", next => {
+      if (next === "active") void verify();
+    });
+    return () => subscription.remove();
+  }, [verify]);
   if (state.status === "ready") return <>{children}</>;
   return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
     {state.status === "checking" ? <>
@@ -34,24 +37,12 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       <Text style={{ fontSize: 22, fontWeight: "700", textAlign: "center" }}>ApolloSG cannot start on this device</Text>
       <Text style={{ textAlign: "center" }}>{state.reason}</Text>
       <Text style={{ textAlign: "center" }}>No ApolloSG protection has been started. You can remove the app using your device settings.</Text>
-      <Pressable accessibilityRole="button" onPress={() => {
-        setState({ status: "checking", reason: "" });
-        void downloadPrivateLuddishForTest().then(async () => {
-          const admission = await checkRequiredSLMCompatibility();
-          if (!admission.compatible) await rollbackSLMSetup();
-          setState({ status: admission.compatible ? "ready" : "incompatible", reason: admission.reason });
-        }).catch(async () => {
-          await rollbackSLMSetup().catch(() => undefined);
-          setState({ status: "incompatible", reason: "The required model could not be installed and verified." });
-        });
-      }}><Text style={{ fontWeight: "700" }}>Install required AI and retry</Text></Pressable>
-      <Pressable accessibilityRole="button" onPress={() => {
-        setState({ status: "checking", reason: "" });
-        void checkRequiredSLMCompatibility().then(async (admission) => {
-          if (!admission.compatible) await rollbackSLMSetup();
-          setState({ status: admission.compatible ? "ready" : "incompatible", reason: admission.reason });
-        }).catch(() => setState({ status: "incompatible", reason: "Compatibility check failed." }));
-      }}><Text style={{ fontWeight: "700" }}>Retry compatibility check</Text></Pressable>
+      <Pressable accessibilityRole="button" onPress={() => { void verify(true); }}>
+        <Text style={{ fontWeight: "700" }}>Install required AI and retry</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" onPress={() => { void verify(); }}>
+        <Text style={{ fontWeight: "700" }}>Retry compatibility check</Text>
+      </Pressable>
     </>}
   </View>;
 }
