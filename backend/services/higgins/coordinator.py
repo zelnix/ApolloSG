@@ -22,7 +22,7 @@ ONE MAGNUM DI CALL PER CORRELATED CASE, AT MOST. There are no tool rounds, no ne
 escalation, no Pro fallback, no second call to present the answer and no retry: Higgins shows what this one call
 returned, or why it failed. The call is claimed atomically for the case (repository.claim_magnum_call) before anything
 is sent, so a follow-up, retry, Resubmit, new job, recovered job or restart can never make a second one. Cases TC Hawkeye
-settles use none. Follow-up questions are answered from the case's locked findings and ApolloSG's approved knowledge
+settles use none. Follow-up questions are answered from the case's stored Findings and ApolloSG's approved knowledge
 (routers/investigations._follow_up), never by another investigation.
 """
 from __future__ import annotations
@@ -332,8 +332,11 @@ async def _with_history(owner: str, case: dict, response: HigginsResponse) -> tu
 
 
 def _with_evidence(case: dict, response: HigginsResponse, record: dict, provider_result: ProviderResult) -> HigginsResponse:
-    """The result with its Evidence record (services/higgins/case_evidence.py): each fact once, with who found it first
-    and who established it too. A failure leaves the Evidence record unrecorded (None) — never reconstructed later."""
+    """Build a display-oriented evidence summary from stored findings and provenance.
+
+    This is not an Evidence Lock stage, investigation gate or source of authority.
+    Original evidence and accepted Findings remain in their existing repositories.
+    """
     try:
         facts = case_evidence.build(response, record, answered_by=provider_result.answered_by,
                                     simulated=bool(provider_result.simulated or (record.get("search") or {}).get("simulated")))
@@ -435,7 +438,7 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
 
     # ── Step 2: Higgins Triage → TC Hawkeye (first turn only) ──
     if not first_turn:
-        # A follow-up is answered from the case's locked findings (routers/investigations._follow_up), never by
+        # A follow-up is answered from the case's stored Findings (routers/investigations._follow_up), never by
         # another investigation: this turn sends nothing.
         return Outcome("call_limit_reached", errors=["a follow-up is answered from the case's findings, not by another investigation"])
     await _slm_stage(owner, case, job, "higgins_triage")
