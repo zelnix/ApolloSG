@@ -151,3 +151,15 @@ test("the redacted view states exactly what changed — and says so when nothing
     ["2 areas of the picture"],
   );
 });
+
+test("Gmail share provenance does not hide headers present in shared text", () => {
+  const view = describeArtefact({
+    ...base, kind: "email",
+    fields: [{ label: "Source app", value: "Gmail" }],
+    text: "From: Qantas <news@qantas.com>\nSubject: Your latest offers\n\nWelcome to this month's news.",
+  });
+  assert.equal(view.sender, "Qantas <news@qantas.com>");
+  assert.equal(view.subject, "Your latest offers");
+  assert.equal(view.fields.find((f) => f.label === "Source app")?.value, "Gmail");
+  assert.match(view.body ?? "", /Welcome to this month's news/);
+});
