@@ -68,12 +68,14 @@ async def _active_case_job(owner: str, case_id: str, job_id: str, revision: int)
     return case, job
 
 
-async def _source_evidence(owner: str, case_id: str) -> list[SLMReference]:
+async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = False) -> list[SLMReference]:
     """Only user-submitted text/URLs are eligible. Never include prior cases or KB."""
     gathered = []
     total = 0
     for row in await repo.list_evidence(owner, case_id):
-        if row.get("origin") != "user_submission" or row.get("kind") not in ("text", "url"):
+        submitted = row.get("origin") == "user_submission" and row.get("kind") in ("text", "url")
+        checks = include_checks and row.get("client_item_id") == "tc-flyby-checks"
+        if not (submitted or checks):
             continue
         if row.get("availability") != "available":
             continue
@@ -110,7 +112,7 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
             return None
         return {"request": repo.dec_json(existing["request_ciphertext"]),
                 "expiresAt": repo.utc(existing["expires_at"]).isoformat()}
-    evidence = await _source_evidence(owner, case_id)
+    evidence = await _source_evidence(owner, case_id, include_checks=(role == "case_finding"))
     if not evidence:
         return None
     issued = SLMReasoningRequest(
