@@ -506,9 +506,9 @@ export default function SettingsScreen() {
             <Text style={s.rowLabel}>On-device AI</Text>
             <Text style={s.rowHint}>Engine: On-device AI (local, optional)</Text>
             <Text style={s.rowHint}>On-device AI version: ODAI-Q2.5-0.5B-Q4KM-v1</Text>
-            <Text style={s.rowHint}>AI package: verified local installation</Text>
+            <Text style={s.rowHint}>On-device AI package: verified local installation</Text>
             <Text style={s.rowHint} testID="settings-slm-status">Status: {aiDownloadActive ? "Setup in progress" : !slmTestAvailable ? "Disabled in this build" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
-            <Text style={s.rowHint}>Installed AI package: {slmActivity.registered ? "ODAI-Q2.5-0.5B-Q4KM-v1" : "None confirmed"}</Text>
+            <Text style={s.rowHint}>Installed On-device AI package: {slmActivity.registered ? "ODAI-Q2.5-0.5B-Q4KM-v1" : "None confirmed"}</Text>
             <Text style={s.rowHint}>Last verified local inference: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
             <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the On-device AI output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
           </View>
@@ -521,7 +521,7 @@ export default function SettingsScreen() {
             style={[s.rowItem, s.divider, { opacity: aiTesting ? 0.6 : 1 }]}>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{aiTesting ? "Testing On-device AI…" : "Test On-device AI"}</Text>
-              <Text style={s.rowHint}>Run a real local AI response test. No internet or case evidence is used.</Text>
+              <Text style={s.rowHint}>Run a real On-device AI response test. No internet or case evidence is used.</Text>
               {aiTesting ? <ActivityIndicator size="small" style={{ alignSelf: "flex-start", marginTop: spacing.sm }} /> : null}
               {aiTestResult ? <Text style={s.rowHint} testID="settings-ai-test-result">{aiTestResult === "working" ? "Working — " : "Not working — "}{aiTestReason}</Text> : null}
             </View>
@@ -535,7 +535,7 @@ export default function SettingsScreen() {
             onPress={() => {
               if (aiDownloadActive) return;
               confirmDialog("Download On-device AI model?",
-                "Download approximately 491 MB from the official AI package source and verify it on this device? Mobile data charges may apply.",
+                "Download approximately 491 MB from the official On-device AI package source and verify it on this device? Mobile data charges may apply.",
                 [{ text: "Cancel", style: "cancel" }, { text: "Download & Install", onPress: () => {
                   setSlmInstalling(true);
                   void import("@/src/domain/slm/bootstrap").then(m => m.downloadPrivateLuddishForTest())
