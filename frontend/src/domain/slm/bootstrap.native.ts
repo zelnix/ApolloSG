@@ -86,7 +86,7 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
     if (dest.exists) {
       updateOnDeviceAIDownload({ phase: "verifying" });
       const ok = await startSharedLuddish();
-      updateOnDeviceAIDownload({ phase: ok ? "ready" : "failed", error: ok ? undefined : "Existing AI package failed verification." });
+      updateOnDeviceAIDownload({ phase: ok ? "ready" : "failed", error: ok ? undefined : "Existing On-device AI package failed verification." });
       return ok;
     }
     try {
@@ -108,7 +108,7 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
         uri: dest.uri, exists: dest.exists, size: dest.size,
         open: () => dest.open(FileMode.ReadOnly),
       }, Device.totalMemory ?? null);
-      if (!admitted.available) throw new Error("AI package verification failed: " + admitted.reason);
+      if (!admitted.available) throw new Error("On-device AI package verification failed: " + admitted.reason);
       updateOnDeviceAIDownload({ phase: "registering" });
       const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
       const created = createLuddishOnDevice({
@@ -154,7 +154,7 @@ export async function checkRequiredSLMCompatibility(
     mark("runtime_registration");
     if (!started || !getSharedSLM()) {
       mark("failed");
-      return { compatible: false, reason: "The required local AI model could not be verified or started." };
+      return { compatible: false, reason: "The required On-device AI model could not be verified or started." };
     }
     // Native context loading is lazy; inference triggers the actual model load.
     mark("inference");
@@ -167,14 +167,14 @@ export async function checkRequiredSLMCompatibility(
     mark("response_validation");
     if (result.status !== "completed" || !result.answer.caseFinding) {
       mark("failed");
-      return { compatible: false, reason: "The local AI model did not complete its required reasoning test." };
+      return { compatible: false, reason: "The On-device AI model did not complete its required reasoning test." };
     }
     mark("complete");
     return { compatible: true, reason: "On-device AI compatibility verified." };
   } catch (error) {
     console.warn("[ApolloSG SLM compatibility] failure", stage, "elapsed_ms", Date.now() - startedAt, error);
     mark("failed");
-    return { compatible: false, reason: "The local AI failed during " + stage + "." };
+    return { compatible: false, reason: "The On-device AI failed during " + stage + "." };
   }
 }
 
