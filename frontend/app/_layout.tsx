@@ -29,12 +29,14 @@ import { useTheme } from "@/src/theme";
 import { installTwelveHourClock } from "@/src/utils/twelveHourClock";
 import { SharedLuddishStartup } from "@/src/domain/slm/SharedLuddishStartup";
 import { RequiredSLMGate } from "@/src/domain/slm/RequiredSLMGate";
+import { startupStage } from "@/src/startup/startupStages";
 
 // Every time Apollo shows is on the 12-hour clock, in this device's own time zone.
 installTwelveHourClock();
 
 // Production: suppress LogBox entirely. Development: keep it active for diagnosis.
 if (!__DEV__) LogBox.ignoreAllLogs(true);
+startupStage("fonts", "started");
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Security boot boundary: if any security selector failed validation during module evaluation, the app
@@ -48,7 +50,11 @@ if (Notifications) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({ shouldShowAlert: true, shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
   });
-  if (Platform.OS === "android") void ensureNotificationChannels().catch(() => undefined);
+  if (Platform.OS === "android") {
+    startupStage("notifications", "started");
+    void ensureNotificationChannels().then(() => startupStage("notifications", "completed"))
+      .catch(() => startupStage("notifications", "failed"));
+  }
 }
 
 // A tap is the one honest proof an alert arrived. Local alerts carry their log id; alerts sent from
@@ -87,11 +93,20 @@ export default function RootLayout() {
     "Geist-500": require("../assets/fonts/Geist-500.ttf"),
     "Geist-600": require("../assets/fonts/Geist-600.ttf"),
   });
-  useEffect(() => { if (loaded) void SplashScreen.hideAsync().catch(() => {}); }, [loaded]);
+  useEffect(() => { if (loaded) { startupStage("fonts", "completed"); void SplashScreen.hideAsync().catch(() => {}); } }, [loaded]);
   // Pre-load the user's personal data into memory so the redaction engine can use it synchronously.
-  useEffect(() => { void loadPersonalData().catch(() => undefined); }, []);
+  useEffect(() => {
+    startupStage("personal_data", "started");
+    void loadPersonalData().then(() => startupStage("personal_data", "completed"))
+      .catch(() => startupStage("personal_data", "failed"));
+  }, []);
   // Device Protections: read and compare this device's settings on open and on return to Apollo.
-  useEffect(() => { if (!SECURITY_BOOT_ERROR) startDeviceProtectionMonitor(); }, []);
+  useEffect(() => {
+    if (SECURITY_BOOT_ERROR) return;
+    startupStage("device_protections", "started");
+    try { startDeviceProtectionMonitor(); startupStage("device_protections", "completed", "monitor_started"); }
+    catch { startupStage("device_protections", "failed"); }
+  }, []);
 
   useEffect(() => {
     if (!Notifications || SECURITY_BOOT_ERROR) return;
