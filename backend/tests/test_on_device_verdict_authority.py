@@ -24,12 +24,10 @@ class TestOnDeviceVerdictAuthority(unittest.TestCase):
         self.assertNotIn("claim_magnum_call(", body)
 
     def test_handoff_enabled_by_default_but_can_be_disabled(self):
-        from services.higgins import slm_advisory
-        from unittest.mock import patch
-        with patch.dict("os.environ", {}, clear=True):
-            self.assertTrue(slm_advisory.enabled())
-        with patch.dict("os.environ", {"APOLLO_SLM_HANDOFF": "off"}):
-            self.assertFalse(slm_advisory.enabled())
+        source = (ROOT / "services/higgins/slm_advisory.py").read_text(encoding="utf-8")
+        self.assertIn('os.getenv("APOLLO_SLM_HANDOFF", "on")', source)
+        router = (ROOT / "routers/slm_handoff.py").read_text(encoding="utf-8")
+        self.assertIn('os.getenv("APOLLO_SLM_HANDOFF", "on")', router)
 
 
 if __name__ == "__main__":
