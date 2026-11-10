@@ -486,3 +486,22 @@ class TestMagnumAssessmentReconciliation:
                                     floor={"outcome": "scam", "established": True})
         assert response is None
         assert any("established threat" in e for e in errors)
+
+    def test_partial_investigation_can_report_decisive_scam_evidence(self):
+        data = self._response()
+        data.update(assessment="concern_found", outcome="scam", completion="partial",
+                    overview="A verified malicious destination was found.",
+                    findings=[{"text": "The destination is listed as malicious.",
+                               "basis": "observation", "confidence": "low",
+                               "evidenceIds": ["evidence-1"], "sourceIds": [],
+                               "supersedesFindingIds": []}],
+                    uncertainties=["A separate company lookup was unavailable"])
+        response, errors = validate(data, revision=1, evidence_ids={"evidence-1"},
+                                    source_ids=set(), capability_ids=set(),
+                                    pending_question=None, provider_complete=True)
+        assert not errors
+        assert response is not None
+        assert response.outcome == "scam"
+        assert response.completion == "partial"
+        assert response.findings[0].confidence == "low"
+        assert response.uncertainties
