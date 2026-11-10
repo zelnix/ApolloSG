@@ -109,5 +109,19 @@ class ContractTests(unittest.TestCase):
             accept_advisory_reasoning(req, result(answer=answer))
 
 
+    def test_case_finding_rejects_uncited_reason_before_acceptance(self):
+        req = SLMReasoningRequest.model_validate({
+            **request().wire(), "role": "case_finding", "operation": "case_finding",
+        })
+        answer = result().answer.wire()
+        answer["caseFinding"] = {
+            "outcome": "not_scam", "explanation": "Claimed to be genuine",
+            "reasons": [{"text": "No source was cited", "evidenceIds": []}],
+            "uncertainty": None, "advice": None,
+        }
+        with self.assertRaisesRegex(ValueError, "uncited_case_finding_reason"):
+            accept_advisory_reasoning(req, result(answer=answer))
+
+
 if __name__ == "__main__":
     unittest.main()
