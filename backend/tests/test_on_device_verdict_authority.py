@@ -27,7 +27,7 @@ class TestOnDeviceVerdictAuthority(unittest.TestCase):
         source = (ROOT / "services/higgins/slm_advisory.py").read_text(encoding="utf-8")
         self.assertIn('os.getenv("APOLLO_SLM_HANDOFF", "on")', source)
         router = (ROOT / "routers/slm_handoff.py").read_text(encoding="utf-8")
-        self.assertIn('os.getenv("APOLLO_SLM_HANDOFF", "on")', router)
+        self.assertGreaterEqual(router.count('os.getenv("APOLLO_SLM_HANDOFF", "on")'), 2)
 
 
 if __name__ == "__main__":
