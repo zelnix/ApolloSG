@@ -416,10 +416,6 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     await _register_triage_evidence(owner, case)
     rows = await repo.list_evidence(owner, case["case_id"])
     first_turn = not case.get("response_revision") and not payload.get("answerToQuestionId")
-    search_on = True
-    # What Magnum DI's result can't go below: TC Hawkeye's concern, established or provisional (tc_flyby/decide.floor).
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "routing.tc_flyby.floor": 1}) or {}
-    floor = ((stored.get("routing") or {}).get("tc_flyby") or {}).get("floor")
 
     # Too much written evidence for one investigation. Apollo sends NOTHING rather than quietly
     # shortening, sampling or dropping any of it, and no evidence is marked as examined — so this is
@@ -437,10 +433,13 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     await _slm_stage(owner, case, job, "higgins_triage")
     fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
     await _slm_stage(owner, case, job, "tc_hawkeye")
-    # Hawkeye determines whether deeper investigation is necessary. A resolved
-    # case skips Magnum DI; an unresolved case requests its existing local role.
+    # Hawkeye determines whether deeper investigation is necessary, not its outcome.
     if not fly_by.resolved:
-        await _magnum_external_evidence(owner, case, job, payload["message"], rows, progress)
+        # Reload after Hawkeye: its checks and handoff brief are newly retained evidence.
+        # Pass the full case rather than Hawkeye's filtered rows so Magnum DI can
+        # independently challenge even material Hawkeye considers settled.
+        magnum_rows = await repo.list_evidence(owner, case["case_id"])
+        await _magnum_external_evidence(owner, case, job, payload["message"], magnum_rows, progress)
     slm_finding = await _await_case_finding(owner, case, job, progress)
     if slm_finding:
         committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
