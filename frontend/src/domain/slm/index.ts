@@ -7,8 +7,8 @@
  */
 import { recordSuccessfulSLMInference } from "./sharedRuntime.ts";
 
-export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding";
-export type SLMOperation = "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding";
+export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding" | "higgins_escalation_assessment";
+export type SLMOperation = "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding" | "escalation_assessment";
 
 export interface SLMReference {
   /** Only references supplied to this invocation may be cited by the model. */
@@ -40,6 +40,13 @@ export interface SLMCaseFinding {
   advice: string | null;
 }
 
+export interface SLMEscalationAssessment {
+  decision: "proceed_local" | "escalate" | "additional_evidence_required";
+  rationale: string;
+  evidenceIds: readonly string[];
+  materialGaps: readonly string[];
+}
+
 export interface SLMAnswer {
   observations: readonly SLMObservation[];
   contradictions: readonly SLMObservation[];
@@ -48,6 +55,7 @@ export interface SLMAnswer {
   /** Draft language only; existing Evidence Lock / fidelity checks must approve display. */
   draftExplanation: string | null;
   caseFinding?: SLMCaseFinding | null;
+  escalationAssessment?: SLMEscalationAssessment | null;
 }
 
 export interface SLMAdapter {
@@ -60,8 +68,8 @@ export type SLMRun =
   | { status: "completed"; execution: "on_device"; modelId: string; answer: SLMAnswer }
   | { status: "unavailable" | "invalid_output"; execution: "none"; reason: string };
 
-const ROLES: readonly SLMRole[] = ["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding"];
-const OPERATIONS: readonly SLMOperation[] = ["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding"];
+const ROLES: readonly SLMRole[] = ["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding", "higgins_escalation_assessment"];
+const OPERATIONS: readonly SLMOperation[] = ["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding", "escalation_assessment"];
 const MAX_EVIDENCE = 64;
 const MAX_CHARS = 120_000;
 const MAX_OBSERVATIONS = 24;
@@ -91,22 +99,37 @@ function validCaseFinding(value: unknown, refs: Set<string>): value is SLMCaseFi
     (f.advice === null || (typeof f.advice === "string" && f.advice.length <= 1500));
 }
 
+function validEscalation(value: unknown, refs: Set<string>): value is SLMEscalationAssessment {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const a = value as Record<string, unknown>;
+  return ["proceed_local", "escalate", "additional_evidence_required"].includes(String(a.decision)) &&
+    typeof a.rationale === "string" && a.rationale.trim().length > 0 && a.rationale.length <= MAX_TEXT &&
+    Array.isArray(a.evidenceIds) && a.evidenceIds.length > 0 && a.evidenceIds.length <= MAX_EVIDENCE &&
+    a.evidenceIds.every((id: unknown) => typeof id === "string" && refs.has(id)) &&
+    Array.isArray(a.materialGaps) && a.materialGaps.length <= 12 &&
+    a.materialGaps.every((gap: unknown) => typeof gap === "string" && gap.length > 0 && gap.length <= 1500) &&
+    (a.decision !== "proceed_local" || a.materialGaps.length === 0);
+}
+
 function validate(value: unknown, refs: Set<string>, operation: SLMOperation): SLMAnswer | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const a = value as Record<string, unknown>;
   // Unexpected fields (including a model-authored verdict or score) must not leak downstream.
   const permitted = new Set(["observations", "contradictions", "alternativeExplanations",
-    "verificationSuggestions", "draftExplanation", "caseFinding"]);
+    "verificationSuggestions", "draftExplanation", "caseFinding", "escalationAssessment"]);
   if (Object.keys(a).some((k) => !permitted.has(k))) return null;
   if (!observations(a.observations, refs) || !observations(a.contradictions, refs) ||
       !observations(a.alternativeExplanations, refs) ||
       !observations(a.verificationSuggestions, refs)) return null;
   if (a.draftExplanation !== null &&
       (typeof a.draftExplanation !== "string" || a.draftExplanation.length > MAX_TEXT)) return null;
+  if (operation === "escalation_assessment" && !validEscalation(a.escalationAssessment, refs)) return null;
+  if (a.escalationAssessment != null && !validEscalation(a.escalationAssessment, refs)) return null;
   if (operation === "case_finding" && !validCaseFinding(a.caseFinding, refs)) return null;
   if (a.caseFinding != null && !validCaseFinding(a.caseFinding, refs)) return null;
   return {
     ...(a.caseFinding != null ? { caseFinding: a.caseFinding as SLMCaseFinding } : {}),
+    ...(a.escalationAssessment != null ? { escalationAssessment: a.escalationAssessment as SLMEscalationAssessment } : {}),
     observations: a.observations, contradictions: a.contradictions,
     alternativeExplanations: a.alternativeExplanations,
     verificationSuggestions: a.verificationSuggestions, draftExplanation: a.draftExplanation,
