@@ -59,14 +59,14 @@ MAX_MAGNUM_CALLS = 1
 
 
 
-async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> None:
-    """Inspect any accepted local SLM advice at this stage; metadata only.
+async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> dict | None:
+    """Await bounded case-scoped SLM advice before the relevant investigation stage.
 
     Model hypotheses never become facts, findings, evidence, scores, source
-    records or inputs to Magnum DI. Native SLM failure never interrupts work.
+    records or inputs to Magnum DI. Native SLM failure never interrupts work; missing advice remains explicit.
     """
     if not slm_advisory.enabled():
-        return
+        return None
     try:
         # Issue a stage-specific request on the already-authenticated case's
         # existing event stream. Never wait for a phone or a local model.
@@ -77,9 +77,15 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> None:
             await repo.emit(owner, case["case_id"], job["job_id"],
                             "slm_advisory_request", issued,
                             case["revision"], repo.utc(case["expires_at"]))
-        advice = await slm_advisory.accepted_for_stage(owner, case, job, role)
+        import asyncio
+        advice = None
+        for _ in range(30):
+            advice = await slm_advisory.accepted_for_stage(owner, case, job, role)
+            if advice:
+                break
+            await asyncio.sleep(0.5)
         if not advice:
-            return
+            return None
         counts = {key: len(advice.get(key, [])) for key in
                   ("observations", "contradictions", "alternativeExplanations", "verificationSuggestions")}
         await db.investigation_cases.update_one(
@@ -91,8 +97,10 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> None:
                 "advisoryOnly": True, "at": now_utc(),
             }}},
         )
+        return advice
     except Exception:
         log.warning("slm_advisory_unavailable role=%s", role)
+    return None
 
 
 # Magnum DI collects external investigative material; it does not produce the user's Finding.
@@ -469,8 +477,9 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         # A follow-up is answered from the case's stored Findings (routers/investigations._follow_up), never by
         # another investigation: this turn sends nothing.
         return Outcome("call_limit_reached", errors=["a follow-up is answered from the case's findings, not by another investigation"])
-    await _slm_stage(owner, case, job, "higgins_triage")
-    fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
+    triage_advice = await _slm_stage(owner, case, job, "higgins_triage")
+    fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress,
+                                       triage_advice=triage_advice)
     await _slm_stage(owner, case, job, "tc_hawkeye")
     assessment = await _await_escalation_assessment(owner, case, job, progress)
     if assessment is None:
