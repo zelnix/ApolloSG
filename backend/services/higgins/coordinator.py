@@ -95,6 +95,83 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> None:
         log.warning("slm_advisory_unavailable role=%s", role)
 
 
+async def _await_case_finding(owner: str, case: dict, job: dict, progress) -> dict | None:
+    """One bounded wait for an authenticated native SLM Finding; never invent a result."""
+    if not slm_advisory.enabled():
+        return None
+    import asyncio
+    from routers.slm_handoff import issue_stage_request
+
+    try:
+        issued = await issue_stage_request(owner, case["case_id"], job["job_id"],
+                                           case["revision"], "case_finding")
+        if not issued:
+            return None
+        await repo.emit(owner, case["case_id"], job["job_id"],
+                        "slm_advisory_request", issued, case["revision"],
+                        repo.utc(case["expires_at"]))
+        await progress("assess", "The on-device model is reviewing the investigation.")
+        for _ in range(30):
+            advice = await slm_advisory.accepted_for_stage(owner, case, job, "case_finding")
+            if advice and advice.get("caseFinding"):
+                return advice
+            await asyncio.sleep(0.5)
+    except Exception:
+        log.warning("slm_case_finding_unavailable case=%s", case["case_id"], exc_info=True)
+    return None
+
+
+async def _commit_slm_finding(owner: str, case: dict, job: dict, payload: dict,
+                              advice: dict, capability_ids: set[str]) -> Optional[Outcome]:
+    """Commit cited SLM reasoning using the existing case/Evidence Lock path."""
+    finding = advice["caseFinding"]
+    rows = await repo.list_evidence(owner, case["case_id"])
+    evidence_ids = {row["evidence_id"] for row in rows}
+    reasons = finding.get("reasons") or []
+    if not reasons or any(not r.get("evidenceIds") or
+                          not set(r["evidenceIds"]).issubset(evidence_ids) for r in reasons):
+        return None
+    outcome = finding["outcome"]
+    concerns = outcome in ("scam", "likely_scam")
+    advice_text = finding.get("advice")
+    response_data = {
+        "overview": finding["explanation"],
+        "explanationMarkdown": finding["explanation"] + "\\n\\n" +
+            "\\n".join("- " + r["text"] for r in reasons),
+        "assessment": outcomes.ASSESSMENT[outcome],
+        "outcome": outcome,
+        "attention": "review" if concerns else "none",
+        "findings": [
+            {"text": reason["text"], "basis": "inference", "confidence": "medium",
+             "evidenceIds": reason["evidenceIds"], "sourceIds": [],
+             "supersedesFindingIds": []}
+            for reason in reasons
+        ],
+        "uncertainties": [finding["uncertainty"]] if finding.get("uncertainty") else [],
+        "scope": "Submitted evidence and TC Hawkeye investigation available to the on-device model",
+        "sourceIds": [], "remainingEvidenceIds": [],
+        "actions": ([{"kind": "instruction", "label": "What to do",
+                     "instruction": advice_text, "capabilityId": None, "sourceIds": [],
+                     "desiredField": None, "desiredValue": None}] if advice_text else []),
+        "recommendedActionIndex": 0 if advice_text else None,
+        "question": None, "completion": "complete",
+    }
+    response, errors = validate(response_data, revision=(case.get("response_revision") or 0) + 1,
+                                evidence_ids=evidence_ids,
+                                source_ids={x["id"] for x in await repo.sources(owner, case["case_id"])},
+                                capability_ids=capability_ids, pending_question=None,
+                                provider_complete=True, material_gaps=_material_gaps(rows))
+    if response is None:
+        log.warning("slm_case_finding_invalid case=%s errors=%s", case["case_id"], errors[:3])
+        return None
+    provider_result = ProviderResult(provider="apollo", model=advice["modelId"],
+                                     api_version="", finish_reason="STOP",
+                                     provider_complete=True, usage=Usage(),
+                                     source_ids=[], simulated=False, answered_by="tc_hawkeye")
+    return await _commit(owner, case, job, payload, response, provider_result,
+                         evidence_ids, set())
+
+
 async def _register_triage_evidence(owner: str, case: dict) -> None:
     """Store the raw triage provider results as a case evidence item, once."""
     pre_gathered = case.get("triage_provider_evidence")
@@ -292,6 +369,11 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     await _slm_stage(owner, case, job, "higgins_triage")
     fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
     await _slm_stage(owner, case, job, "tc_hawkeye")
+    slm_finding = await _await_case_finding(owner, case, job, progress)
+    if slm_finding:
+        committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
+        if committed is not None:
+            return committed
     if fly_by.resolved:
         committed = await _commit_flyby(owner, case, job, payload, fly_by, capability_ids)
         if committed is not None:
