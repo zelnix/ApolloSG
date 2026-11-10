@@ -66,7 +66,8 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
                                 category: str, evidence_source: str, subject: str = "",
                                 client_submission_id: str | None = None,
                                 investigation_case_id: str | None = None,
-                                indicator_host: str | None = None, source: dict | None = None) -> str:
+                                indicator_host: str | None = None, source: dict | None = None,
+                                investigation_readiness: dict | None = None) -> str:
     """Save the Triage Investigation and project it into Patrol History (idempotent).
 
     `evidence_source` is what supplied the evidence (core/evidence_model.py): "connected_mailbox" for an email the
@@ -92,6 +93,18 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
 
     event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"apollo-triage:{device_id}:{investigation.investigation_id}"))
     text = patrol_text(wire, category)
+    if investigation_readiness is not None:
+        if investigation_readiness["ready"]:
+            text = {"state": "resting", "status": "resolved",
+                    "headline": "Evidence passed to TC Hawkeye",
+                    "what_happened": "There was enough evidence to begin an investigation.",
+                    "why": [], "what_to_do": "Review the investigation for findings."}
+        else:
+            text = {"state": "resting", "status": "resolved",
+                    "headline": "Investigation could not begin",
+                    "what_happened": investigation_readiness["higginsExplanation"],
+                    "why": [investigation_readiness["reason"]],
+                    "what_to_do": investigation_readiness["higginsExplanation"]}
     gaps = investigation.coverage_gaps
     at = investigation.evaluated_at or now_utc()
     document = {
@@ -108,6 +121,7 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
         "evidence_representation": "privacy_protected_copy",
         "evidence_completeness": "partial" if incomplete or gaps else "complete",
         "triage_investigation": wire,
+        "investigation_readiness": investigation_readiness,
         "initiator": "apollo_triage",
         "deleted_at": None, "updated_at": now_utc(),
     }
