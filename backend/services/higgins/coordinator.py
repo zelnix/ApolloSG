@@ -117,10 +117,12 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
     from services.higgins.llm_boundary import Purpose
     from services.higgins.ai_request import ProviderFailure
 
+    # Prepare the complete evidence before claiming the single external call.
+    # A local preparation error must not consume the case's call allowance.
+    parts, _marks, _words = await ev.model_parts(owner, case, rows)
     if not await repo.claim_magnum_call(owner, case["case_id"], job["job_id"]):
         log.warning("magnum_call_already_claimed case=%s", case["case_id"])
         return False
-    parts, _marks, _words = await ev.model_parts(owner, case, rows)
     await progress("investigate", "Magnum DI is gathering additional external evidence.")
     provider.register_di_owner(repo.correlation_id(case["case_id"]), owner)
     try:
