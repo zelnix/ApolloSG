@@ -109,10 +109,10 @@ def needs_result(snapshot: dict) -> bool:
 def missing(snapshot: dict, saved: dict) -> list[str]:
     """What the phone says it hasn't saved yet, of what the server holds for it. Empty: its copy is complete."""
     out: list[str] = []
-    required_ids = {e.get("evidenceId") for e in snapshot.get("evidenceContent") or []}
-    saved_ids = set(saved.get("evidenceIds") or [])
-    if not required_ids.issubset(saved_ids):
-        out.append("the investigation evidence")
+    required = {e["evidenceId"]: e["sha256"] for e in snapshot.get("evidenceContent") or []}
+    reported = saved.get("evidenceDigests") or {}
+    if any(reported.get(eid) != digest for eid, digest in required.items()):
+        out.append("the investigation evidence (verified checksums)")
     kinds = {o.get("kind") for o in snapshot.get("originals") or []}
     if "text" in kinds and not saved.get("text"):
         out.append("the text")
