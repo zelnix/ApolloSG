@@ -436,7 +436,7 @@ def _summary(plan_: Plan, decision: deciding.Decision | None, issues: list[decid
 
 
 # ── Entry point ─────────────────────────────────────────────────────────────
-async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None) -> FlyByOutcome:
+async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> FlyByOutcome:
     """Triage → TC Hawkeye. Runs once per case: a retry of Magnum DI reuses this record and repeats no lookup."""
     case_id = case["case_id"]
     stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
@@ -444,7 +444,7 @@ async def investigate(owner: str, case: dict, job: dict, question: str, rows: li
         record = repo.dec_json(stored["tc_flyby_ciphertext"])
         await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$inc": {"routing.tc_flyby.reusedOnRetry": 1}})
     else:
-        record = await _run(owner, case, job, question, rows, progress, triage_advice=triage_advice)
+        record = await _run(owner, case, job, question, rows, progress, triage_advice=triage_advice, hawkeye_advice=hawkeye_advice)
     usage = record["search"]["tokens"]
     common = {"usage": {"input_tokens": usage.get("input") or None, "output_tokens": usage.get("output") or None},
               "simulated": record["search"]["simulated"], "model": record["search"]["model"]}
@@ -456,7 +456,7 @@ async def investigate(owner: str, case: dict, job: dict, question: str, rows: li
     return FlyByOutcome(False, "magnum_di", rows=rows_, magnum_search=record["magnumSearch"], floor=record.get("floor"), **common)
 
 
-async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None) -> dict:
+async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> dict:
     case_id = case["case_id"]
     await progress("observe", "Higgins Triage is preparing what was sent and working out what needs checking.")
     texts, gaps, read = await _material(owner, case, rows)
@@ -464,7 +464,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     # Advisory questions can only prioritise checks already justified by source evidence.
     # They cannot create checks, facts, evidence, or verdicts.
     from services.higgins.slm_advisory import advisory_verification_questions
-    suggestions = advisory_verification_questions(triage_advice)
+    suggestions = advisory_verification_questions(triage_advice) + advisory_verification_questions(hawkeye_advice)
     if suggestions:
         def relevance(check):
             subject = f"{check.subject} {check.question or ''}".casefold()
