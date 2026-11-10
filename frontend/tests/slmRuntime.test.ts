@@ -81,3 +81,50 @@ test("requires a local GGUF, and release prevents future execution", async () =>
   const response = await runSLM({ ...base, evidence: [] }, runtime);
   assert.equal(response.status, "unavailable");
 });
+
+for (const decision of ["proceed_local", "escalate", "additional_evidence_required"] as const) {
+  test(`native escalation prompt and validation accept ${decision}`, async () => {
+    const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local-test", async () => ({
+      completion: async ({ messages }) => {
+        assert.match(messages[0].content, /For escalation_assessment include escalationAssessment/);
+        assert.match(messages[0].content, /For all other operations omit escalationAssessment/);
+        return { text: JSON.stringify({
+          observations: [], contradictions: [], alternativeExplanations: [],
+          verificationSuggestions: [], draftExplanation: null,
+          escalationAssessment: {
+            decision, rationale: "Assessment cites the supplied source.",
+            evidenceIds: ["current"], materialGaps: decision === "proceed_local" ? [] : ["Independent verification unavailable"],
+          },
+        }) };
+      },
+      release: async () => undefined,
+    }));
+    const response = await runSLM({
+      role: "higgins_escalation_assessment", operation: "escalation_assessment",
+      question: "Assess escalation", evidence: [{ evidenceId: "current", text: "Unverified claim" }],
+    }, runtime);
+    assert.equal(response.status, "completed");
+    if (response.status === "completed") assert.equal(response.answer.escalationAssessment?.decision, decision);
+    await runtime.release();
+  });
+}
+
+test("native escalation rejects fabricated citations", async () => {
+  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local-test", async () => ({
+    completion: async () => ({ text: JSON.stringify({
+      observations: [], contradictions: [], alternativeExplanations: [],
+      verificationSuggestions: [], draftExplanation: null,
+      escalationAssessment: {
+        decision: "escalate", rationale: "Needs verification",
+        evidenceIds: ["other-device"], materialGaps: ["Missing verification"],
+      },
+    }) }),
+    release: async () => undefined,
+  }));
+  const response = await runSLM({
+    role: "higgins_escalation_assessment", operation: "escalation_assessment",
+    question: "Assess escalation", evidence: [{ evidenceId: "current", text: "Claim" }],
+  }, runtime);
+  assert.equal(response.status, "invalid_output");
+  await runtime.release();
+});
