@@ -375,8 +375,8 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
 
     from services.higgins.triage_readiness import background_text_ready
     readiness = background_text_ready(body.text, sender=body.sender, content_complete=body.content_complete)
-    if not (triage_result.should_escalate or readiness.ready):
-        # Triage admits evidence for investigation; its preliminary threat label is not the gate.
+    if not readiness.ready:
+        # Triage checks evidence sufficiency only; TC Hawkeye owns investigation findings.
         _log_triage = __import__("logging").getLogger("apollo.triage")
         _log_triage.info("background_text_triage device=%s submission=%s outcome=%s",
                           owner, body.submission_id[:12], triage_result.outcome.value)
@@ -387,6 +387,7 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
             "jobId": None,
             "acceptedAt": now_utc().isoformat(),
             "triage": triage_result.wire(),
+            "investigationReadiness": {"ready": False, "reason": readiness.reason, "higginsExplanation": readiness.explanation},
         }, status_code=202, headers=NO_STORE)
 
     # ── Triage escalated: proceed to full investigation ──
@@ -422,7 +423,8 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
                                  investigation_case_id=data["case"]["id"])
     return JSONResponse({"caseId": data["case"]["id"], "jobId": data.get("job", {}).get("id") if data.get("job") else None,
                          "acceptedAt": now_utc().isoformat(),
-                         "triage": triage_result.wire()}, status_code=202, headers=NO_STORE)
+                         "triage": triage_result.wire(),
+                         "investigationReadiness": {"ready": True, "reason": readiness.reason}}, status_code=202, headers=NO_STORE)
 
 
 @router.get("/investigations/storage")
