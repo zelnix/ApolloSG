@@ -73,9 +73,11 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
     gathered = []
     total = 0
     for row in await repo.list_evidence(owner, case_id):
-        submitted = row.get("origin") == "user_submission" and row.get("kind") in ("text", "url")
-        checks = include_checks and row.get("client_item_id") in ("tc-flyby-di-checks", "magnum-di-external-investigation")
-        if not (submitted or checks):
+        # Include original and derived readable case evidence, not merely user-typed
+        # messages. On-device Findings need the same textual record Hawkeye saw.
+        readable = row.get("kind") in ("text", "url", "observation", "source_snapshot")
+        investigative = row.get("origin") in ("apollo_inference", "external_source")
+        if not readable or (investigative and not include_checks):
             continue
         if row.get("availability") != "available":
             continue
