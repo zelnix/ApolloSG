@@ -24,7 +24,7 @@ export const CHECK_ROLES: CheckRole[] = [
     job: "Detects and protects",
     rules: [
       "Watches websites, calls, messages, apps, your device and your connection, and acts on the device.",
-      "Its first look at anything uses fixed rules, with no AI. Only something that looks like a possible threat — or that Apollo can't settle on its own — goes on to be investigated.",
+      "Apollo detects potential concerns and passes investigation-ready material through the established investigation flow.",
       "Biting means a block Apollo really made on this device. A link, email or message check can raise Apollo to Barking, never Biting.",
       "Something Apollo couldn't check is never treated as safe, or as unsafe. Apollo tells you what it couldn't see.",
       "Passwords and codes are removed on your device before anything is sent, and only what the check needs leaves your device.",
@@ -38,7 +38,7 @@ export const CHECK_ROLES: CheckRole[] = [
       "Reads everything you sent before any investigating starts: the text, the links, the words in a screenshot and the text inside a document.",
       "Picks out what needs checking — links, phone numbers, email addresses, company names, payment details, and anything asking you to act.",
       "Anything it couldn't read is noted, never guessed.",
-      "Uses no AI and doesn't go online. It prepares the check; it doesn't decide the result.",
+      "Uses the shared On-device AI to assess whether enough information is available for investigation. It does not decide whether something is a scam.",
     ],
   },
   {
@@ -46,12 +46,12 @@ export const CHECK_ROLES: CheckRole[] = [
     name: "TC Hawkeye",
     job: "Investigates quickly",
     rules: [
-      "Uses no AI. Checks the cheapest reliable way first: official sources, then ApolloSG's knowledge base, then one small, targeted web search.",
+      "Investigates using the shared On-device AI and applicable evidence-backed checks, including available official sources and threat intelligence.",
       "A search answer only counts when a real web page backs it up.",
-      "Stops as soon as checking further couldn't change the result or what you should do. “Unable to determine” is an honest answer.",
+      "Records findings and limitations; unresolved cases can proceed to Magnum DI for deeper investigation.",
       "A known scam only matches when the whole pattern is there — one word on its own never counts.",
       "A web address that uses a company's name but isn't that company's website is a warning sign.",
-      "When TC Hawkeye settles a check, Magnum DI isn't called at all.",
+      "Magnum DI is engaged when TC Hawkeye cannot reach a conclusive investigation result.",
     ],
   },
   {
@@ -60,10 +60,10 @@ export const CHECK_ROLES: CheckRole[] = [
     job: "Investigates deeply, only when needed",
     rules: [
       "Called only when TC Hawkeye can't settle something that could change the answer — a picture Apollo couldn't read, a request to send money or details somewhere nobody has verified, or findings that disagree.",
-      "Looks only at what's still open, with TC Hawkeye's notes — not the whole case again.",
-      "Makes at most one AI call per case, and it's never retried. It searches the web only if a fact is still missing.",
-      "If that call fails, ApolloSG tells you why and shows what TC Hawkeye already found.",
-      "Every finding must point to real evidence. If its answer doesn't hold up, ApolloSG says so rather than making one up.",
+      "Investigates unresolved questions more deeply, using TC Hawkeye's findings and any additional evidence.",
+      "Uses the shared On-device AI for deeper investigation. Gemini may be used as an optional extension when deeper capability is warranted.",
+      "If a check is unavailable or incomplete, ApolloSG records the limitation rather than presenting it as successful.",
+      "Evidence Lock retains findings, sources and limitations. Luddish assesses the full evidence from TC Hawkeye and Magnum DI to determine the final Finding.",
       "It's the only part of ApolloSG that may ask you a question or ask your device for a fresh reading.",
     ],
   },
@@ -80,17 +80,17 @@ export const CHECK_ROLES: CheckRole[] = [
   },
 ];
 
-/** Every check ends with one of these four Findings, whichever investigator answered. */
+/** The final Finding is determined by Luddish from the available investigation evidence. */
 export const OUTCOME_GUIDE: { outcome: string; meaning: string }[] = [
   { outcome: "scam", meaning: "The investigation established this is a scam — through a known scam listing, a fake identity, established deception, or a complete corroborated scam pattern." },
   { outcome: "likely_scam", meaning: "Strong signs of a scam — impersonation indicators, a strong pattern match, or multiple independent scam indicators — but an important part of the evidence remains unverified." },
-  { outcome: "unable_to_determine", meaning: "Apollo couldn't establish enough to say either way — too little information, important checks unavailable, or conflicting results." },
+  { outcome: "unlikely_scam", meaning: "The available evidence points away from a scam, but does not establish that the content is safe." },
   { outcome: "not_scam", meaning: "The investigation verified the identity, destinations, purpose and resolved all scam warnings. That's not a guarantee it's safe — only that these checks found nothing." },
 ];
 
 export const PROMISES: string[] = [
   "ApolloSG never tells you something is safe — only what its checks found.",
   "Anything Apollo couldn't check is listed, not hidden.",
-  "Every result says who settled it: TC Hawkeye or Magnum DI.",
+  "Every final Finding is grounded in evidence assessed by Luddish, with investigation sources and limitations retained.",
 ];
 
