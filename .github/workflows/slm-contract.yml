@@ -76,7 +76,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install contract-test dependencies
-        run: python -m pip install 'pydantic>=2,<3' 'pytest>=8,<10' 'pytest-xdist>=3,<5'
+        run: python -m pip install 'pydantic>=2,<3' 'pytest>=8,<10' 'pytest-xdist>=3,<5' 'requests>=2,<3'
       - name: Test backend case correlation and evidence integrity
         working-directory: backend
         run: |
