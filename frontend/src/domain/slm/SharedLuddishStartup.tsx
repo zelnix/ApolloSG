@@ -1,7 +1,7 @@
 /**
  * Required SLM compatibility is checked at onboarding before activation.
  * Mounts inside the existing ApolloProvider, then waits for ready state before
- * dynamically loading native/model code. Web and release builds stay inert.
+ * dynamically loading native/model code. All pre-production native builds use the model.
  */
 import { useEffect, useRef } from "react";
 import { Alert, Platform } from "react-native";
@@ -14,8 +14,7 @@ export function SharedLuddishStartup(): null {
   const router = useRouter();
   const prompted = useRef(false);
   useEffect(() => {
-    if (!ready || (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") ||
-        (Platform.OS !== "android" && Platform.OS !== "ios")) return;
+    if (!ready || (Platform.OS !== "android" && Platform.OS !== "ios")) return;
     let cancelled = false;
     // Defer native module resolution and full-file SHA verification until after
     // Apollo has had a chance to render and dismiss its existing splash.
