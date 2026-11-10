@@ -30,6 +30,20 @@ VT_API_URL = "https://www.virustotal.com/api/v3"
 _last_request_times: list[float] = []
 _rate_lock = asyncio.Lock()
 MAX_REQUESTS_PER_MINUTE = 4
+# A 429 can mean minute, daily, or account quota exhaustion. Respect Retry-After
+# when provided and fail closed for the cooldown; never report a reputation verdict.
+_vt_cooldown_until = 0.0
+
+def quota_wait_seconds() -> float:
+    return max(0.0, _vt_cooldown_until - time.monotonic())
+
+def note_quota_failure(retry_after: str | None) -> None:
+    global _vt_cooldown_until
+    try:
+        seconds = float(retry_after or "")
+    except ValueError:
+        seconds = 300.0
+    _vt_cooldown_until = max(_vt_cooldown_until, time.monotonic() + max(60.0, min(seconds, 86400.0)))
 
 
 @dataclass
@@ -75,6 +89,9 @@ async def lookup_hash(sha256: str, filename: str = "") -> ScanResult:
             detail="Malware scanning is not configured. Set VIRUSTOTAL_API_KEY to enable.",
         )
 
+    if quota_wait_seconds() > 0:
+        return ScanResult(filename=filename, sha256=sha256, status="error",
+                          detail="VirusTotal quota temporarily unavailable (previous HTTP 429); this attachment was not checked.")
     await _rate_limit()
 
     try:
@@ -93,9 +110,10 @@ async def lookup_hash(sha256: str, filename: str = "") -> ScanResult:
             )
 
         if resp.status_code == 429:
+            note_quota_failure(resp.headers.get("Retry-After"))
             return ScanResult(
                 filename=filename, sha256=sha256, status="error",
-                detail="VirusTotal rate limit exceeded. The attachment could not be checked.",
+                detail="VirusTotal returned HTTP 429 (rate or daily quota exhausted). The attachment was not checked.",
             )
 
         if resp.status_code != 200:
