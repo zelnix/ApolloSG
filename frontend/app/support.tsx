@@ -276,15 +276,16 @@ export default function SupportScreen() {
       </Section>
 
       {/* SLM is an optional advisory capability, not a protection or cloud-service check. */}
-      <Section title="On-device AI (SLM)" testID="support-slm-section">
+      <Section title="On-device AI" testID="support-slm-section">
         <Body style={s.detail}>These are local runtime facts, not an inference benchmark. Installing an APK does not install a model. No cloud AI response proves local inference.</Body>
         <InfoRow label="Native platform" value={Platform.OS === "android" || Platform.OS === "ios" ? (appDevice.data?.app.nativeBuild ? "Native app" : "Not verified") : "Not supported in this preview"} />
-        <InfoRow label="SLM startup policy" value={!__DEV__ ? "Disabled in release build" : Platform.OS === "android" || Platform.OS === "ios" ? "Development-only admission" : "Unavailable on this platform"} />
+        <InfoRow label="On-device AI startup policy" value={(!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") ? "Disabled in this build" : Platform.OS === "android" || Platform.OS === "ios" ? "Test-device admission enabled" : "Unavailable on this platform"} />
+        <InfoRow label="AI version" value="ODAI-Q2.5-0.5B-Q4KM-v1" />
         <InfoRow label="Model installed" value="Not verified" />
         <InfoRow label="Model SHA-256" value="Not verified" />
         <InfoRow label="Model loaded" value={getSharedSLM() ? "Runtime registered" : "No runtime registered"} />
         <InfoRow label="Native inference" value="Not verified" />
-        <Body style={s.detail} testID="support-slm-explanation">{!__DEV__ ? "This APK is a release build. Current SLM startup code explicitly refuses release-mode activation, even if the native library was compiled in. Higgins uses its existing response path; this is not proof of on-device SLM inference." : "A development build can attempt private-model admission, but model presence, hash verification and real inference require separate device evidence. A registered runtime alone is not a completed inference test."}</Body>
+        <Body style={s.detail} testID="support-slm-explanation">{(!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") ? "This APK is a release build. On-device AI is disabled in this build, even if the native library was compiled in. Higgins uses its existing response path; this is not proof of On-device AI inference." : "A development build can attempt private-model admission, but model presence, hash verification and real inference require separate device evidence. A registered runtime alone is not a completed inference test."}</Body>
       </Section>
 
       {/* 2. Protection & Services */}
