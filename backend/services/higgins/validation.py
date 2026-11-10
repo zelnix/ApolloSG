@@ -173,7 +173,19 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
     if model.assessment == "no_concern_found_within_scope" and model.attention in ("action_needed", "urgent"):
         errors.append("assessment 'no_concern_found_within_scope' is contradicted by attention 'action_needed'/'urgent'; reconcile the assessment with the attention level")
     if model.outcome and model.assessment != outcomes.ASSESSMENT[model.outcome]:
-        errors.append(f"outcome '{model.outcome}' requires assessment '{outcomes.ASSESSMENT[model.outcome]}'; reconcile the outcome with the assessment")
+        # Magnum DI can resolve an inconclusive Hawkeye case. A provider sometimes uses
+        # "uncertain" for an unlikely-scam outcome to express residual verification gaps.
+        # This is a field-level mismatch, not contrary threat evidence. Reconcile only
+        # when the provider has explicitly chosen the low-concern outcome, has not asked
+        # for action, and the established-evidence floor still passes. Preserve all
+        # uncertainties, evidence, scope and the original narrative unchanged.
+        if (model.outcome == "unlikely_scam" and model.assessment == "uncertain"
+                and model.attention not in ("action_needed", "urgent")
+                and not floor_errors(model, floor)):
+            log.info("magnum_assessment_reconciled outcome=unlikely_scam from=uncertain to=no_concern_found_within_scope")
+            model.assessment = "no_concern_found_within_scope"
+        else:
+            errors.append(f"outcome '{model.outcome}' requires assessment '{outcomes.ASSESSMENT[model.outcome]}'; reconcile the outcome with the assessment")
     errors += floor_errors(model, floor)
 
     # ── CONFIDENCE: concern outcomes require at least one substantive finding ──
