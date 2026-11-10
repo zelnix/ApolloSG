@@ -158,8 +158,9 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
             coverage=Coverage(status="examined", unit="items", total=1, examined=1),
         )
         return True
-    except (ValueError, TypeError, KeyError):
-        log.warning("magnum_external_invalid_result case=%s", case["case_id"], exc_info=True)
+    except Exception:
+        # Retention failure must not be mistaken for a completed external investigation.
+        log.warning("magnum_external_retention_failed case=%s", case["case_id"], exc_info=True)
         return False
 
 
@@ -216,7 +217,7 @@ async def _commit_slm_finding(owner: str, case: dict, job: dict, payload: dict,
             for reason in reasons
         ],
         "uncertainties": [finding["uncertainty"]] if finding.get("uncertainty") else [],
-        "scope": "Submitted evidence and TC Hawkeye investigation available to the on-device model",
+        "scope": "Evidence supplied to the on-device model, including Magnum DI external research only when retained and supplied",
         "sourceIds": [], "remainingEvidenceIds": [],
         "actions": ([{"kind": "instruction", "label": "What to do",
                      "instruction": advice_text, "capabilityId": None, "sourceIds": [],
