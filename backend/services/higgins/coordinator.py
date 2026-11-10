@@ -338,10 +338,9 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     payload = repo.dec_json(job["payload_ciphertext"])
     device = repo.device_profile(case)
     capability_ids = set((device or {}).get("capabilityIds", []))
-    job_model = job.get("provider_model") or await ai_settings.investigation_model()
-    if not job.get("provider_model"):
-        await repo.set_job(owner, job["job_id"], job["fence"], {"$set": {"provider_model": job_model}})
-        job = {**job, "provider_model": job_model}  # TC Hawkeye reads it from here
+    # Preserve the job's existing model metadata for TC Hawkeye, but do not
+    # resolve or pin a cloud provider as a prerequisite for local inference.
+    # An unavailable external provider must never block an on-device Finding.
 
     # ── Step 1: Assemble the case evidence ──
     await progress("ingest", "Assembling the case evidence.")
