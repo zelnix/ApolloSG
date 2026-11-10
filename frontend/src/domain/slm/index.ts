@@ -7,7 +7,7 @@
  */
 import { recordSuccessfulSLMInference } from "./sharedRuntime.ts";
 
-export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins";
+export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding";
 export type SLMOperation = "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding";
 
 export interface SLMReference {
@@ -60,7 +60,7 @@ export type SLMRun =
   | { status: "completed"; execution: "on_device"; modelId: string; answer: SLMAnswer }
   | { status: "unavailable" | "invalid_output"; execution: "none"; reason: string };
 
-const ROLES: readonly SLMRole[] = ["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins"];
+const ROLES: readonly SLMRole[] = ["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding"];
 const OPERATIONS: readonly SLMOperation[] = ["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding"];
 const MAX_EVIDENCE = 64;
 const MAX_CHARS = 120_000;
