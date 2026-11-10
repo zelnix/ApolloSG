@@ -106,7 +106,7 @@ function validate(value: unknown, refs: Set<string>, operation: SLMOperation): S
   if (operation === "case_finding" && !validCaseFinding(a.caseFinding, refs)) return null;
   if (a.caseFinding != null && !validCaseFinding(a.caseFinding, refs)) return null;
   return {
-    caseFinding: (a.caseFinding as SLMCaseFinding | null | undefined) ?? null,
+    ...(a.caseFinding != null ? { caseFinding: a.caseFinding as SLMCaseFinding } : {}),
     observations: a.observations, contradictions: a.contradictions,
     alternativeExplanations: a.alternativeExplanations,
     verificationSuggestions: a.verificationSuggestions, draftExplanation: a.draftExplanation,
