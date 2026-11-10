@@ -485,7 +485,7 @@ export default function SettingsScreen() {
         <SwitchRow label="Show why each result was settled" hint="One line naming what settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
         <View testID="settings-slm-info" style={[s.rowItem, s.divider, { alignItems: "flex-start" }]}>
           <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text style={s.rowLabel}>On-device AI (SLM)</Text>
+            <Text style={s.rowLabel}>On-device AI</Text>
             <Text style={s.rowHint}>Engine: llama.rn (local GGUF, optional)</Text>
             <Text style={s.rowHint}>Candidate model: Qwen2.5-0.5B-Instruct · Q4_K_M</Text>
             <Text style={s.rowHint}>Model file: {CANDIDATE_FILE}</Text>
@@ -496,13 +496,26 @@ export default function SettingsScreen() {
           </View>
         </View>
         {slmTestAvailable && !slmActivity.registered ? (
-          <Pressable testID="settings-download-slm" accessibilityRole="link"
-            accessibilityLabel="Download approved Qwen model from Hugging Face"
-            onPress={() => { void Linking.openURL("https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true"); }}
+          <Pressable testID="settings-download-slm" accessibilityRole="button"
+            accessibilityLabel="Download and install On-device AI model"
+            disabled={slmInstalling}
+            onPress={() => {
+              confirmDialog("Download On-device AI model?",
+                "Download about 491 MB from the official Qwen repository and verify it on this device? Mobile data charges may apply.",
+                [{ text: "Cancel", style: "cancel" }, { text: "Download & Install", onPress: () => {
+                  setSlmInstalling(true);
+                  void import("@/src/domain/slm/bootstrap").then(m => m.downloadPrivateLuddishForTest())
+                    .then(ok => showToast(ok ? "On-device AI model verified and registered." :
+                      "Download or verification failed. Check storage, network and device compatibility.",
+                      ok ? "neutral" : "growling"))
+                    .catch(() => showToast("On-device AI model download failed.", "growling"))
+                    .finally(() => setSlmInstalling(false));
+                } }]);
+            }}
             style={[s.rowItem, s.divider]}>
             <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>Download SLM Model</Text>
-              <Text style={s.rowHint}>Official Qwen GGUF · about 491 MB. After downloading, use Install SLM Model below.</Text>
+              <Text style={s.rowLabel}>{slmInstalling ? "Downloading or verifying…" : "Download On-device AI Model"}</Text>
+              <Text style={s.rowHint}>About 491 MB from official Qwen. Downloads only with your permission.</Text>
             </View>
             <ChevronRight size={20} color={colors.muted} />
           </Pressable>
@@ -515,7 +528,7 @@ export default function SettingsScreen() {
             style={[s.rowItem, s.divider, { opacity: slmInstalling || slmActivity.registered ? 0.5 : 1 }]}>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{slmInstalling ? "Verifying model…" :
-                slmActivity.registered ? "Model runtime registered" : "Install SLM Model"}</Text>
+                slmActivity.registered ? "Model runtime registered" : "Install On-device AI Model"}</Text>
               <Text style={s.rowHint}>Select the approved GGUF file on your phone. It is copied into private storage and verified.</Text>
             </View>
           </Pressable>
