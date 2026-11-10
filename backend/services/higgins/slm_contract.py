@@ -13,8 +13,8 @@ from pydantic import Field, model_validator
 
 from services.higgins.contracts import Wire
 
-SLMRole = Literal["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding"]
-SLMOperation = Literal["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding"]
+SLMRole = Literal["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding", "higgins_escalation_assessment"]
+SLMOperation = Literal["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding", "escalation_assessment"]
 
 
 class SLMReference(Wire):
@@ -54,6 +54,13 @@ class SLMCaseFinding(Wire):
     advice: str | None = Field(default=None, max_length=1500)
 
 
+class SLMEscalationAssessment(Wire):
+    decision: Literal["proceed_local", "escalate", "additional_evidence_required"]
+    rationale: str = Field(min_length=1, max_length=3000)
+    evidence_ids: list[str] = Field(min_length=1, max_length=64)
+    material_gaps: list[str] = Field(max_length=12)
+
+
 class SLMReasoningAnswer(Wire):
     observations: list[SLMObservation] = Field(max_length=24)
     contradictions: list[SLMObservation] = Field(max_length=24)
@@ -61,6 +68,7 @@ class SLMReasoningAnswer(Wire):
     verification_suggestions: list[SLMObservation] = Field(max_length=24)
     draft_explanation: str | None = Field(default=None, max_length=3000)
     case_finding: SLMCaseFinding | None = None
+    escalation_assessment: SLMEscalationAssessment | None = None
 
 
 class SLMReasoningResult(Wire):
@@ -98,6 +106,12 @@ def accept_advisory_reasoning(
                 raise ValueError("duplicate_slm_citation")
             if any(evidence_id not in permitted for evidence_id in observation.evidence_ids):
                 raise ValueError("unrecognised_slm_evidence")
+    if request.operation == "escalation_assessment":
+        assessment = result.answer.escalation_assessment
+        if assessment is None or any(eid not in permitted for eid in assessment.evidence_ids):
+            raise ValueError("invalid_escalation_assessment")
+        if assessment.decision == "proceed_local" and assessment.material_gaps:
+            raise ValueError("unresolved_material_gaps")
     if request.operation == "case_finding" and result.answer.case_finding is None:
         raise ValueError("missing_case_finding")
     if request.operation == "case_finding" and any(
