@@ -2,8 +2,8 @@ import { useRouter } from "expo-router";
 import Eye from "lucide-react-native/icons/eye";
 import Lock from "lucide-react-native/icons/lock";
 import ShieldCheck from "lucide-react-native/icons/shield-check";
-import React from "react";
-import { ScrollView, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandBanner } from "@/src/components/BrandBanner";
@@ -34,6 +34,25 @@ export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { adapterLabel } = useApollo();
+  const [checkingCompatibility, setCheckingCompatibility] = useState(false);
+  const [compatibilityMessage, setCompatibilityMessage] = useState("");
+  const [compatible, setCompatible] = useState(false);
+  const checkCompatibility = async () => {
+    if (checkingCompatibility) return;
+    setCheckingCompatibility(true);
+    try {
+      const slm = await import("@/src/domain/slm/bootstrap");
+      const result = await slm.checkRequiredSLMCompatibility();
+      setCompatibilityMessage(result.reason);
+      setCompatible(result.compatible);
+      if (result.compatible) router.push("/privacy-disclosure");
+      else Alert.alert("Device not compatible", result.reason + " ApolloSG setup cannot continue.");
+    } catch {
+      setCompatible(false);
+      setCompatibilityMessage("Required on-device AI compatibility check failed.");
+      Alert.alert("Device not compatible", "ApolloSG setup cannot continue without the required local AI.");
+    } finally { setCheckingCompatibility(false); }
+  };
 
   return (
     <View style={s.root} testID="initial-onboarding-root">
@@ -70,8 +89,9 @@ export default function Onboarding() {
 
       </ScrollView>
       <View style={[s.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
-        <Button testID="onboarding-start-button" label="Continue" onPress={() => router.push("/privacy-disclosure")} icon={<ShieldCheck size={18} color={colors.onBrandPrimary} />} />
-        <Text style={s.note}>Next: the privacy statement — exactly what leaves your device and when.</Text>
+        <Button testID="onboarding-start-button" label={checkingCompatibility ? "Checking device…" : "Check compatibility & continue"} onPress={checkCompatibility} icon={<ShieldCheck size={18} color={colors.onBrandPrimary} />} />
+        {compatibilityMessage ? <Text style={s.note}>{compatibilityMessage}</Text> : null}
+        <Text style={s.note}>ApolloSG requires a working on-device AI model before setup can continue.</Text>
       </View>
     </View>
   );
