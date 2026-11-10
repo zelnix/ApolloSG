@@ -22,6 +22,8 @@ class TestOnDeviceVerdictAuthority(unittest.TestCase):
         self.assertNotIn("_commit_flyby(", body)
         self.assertNotIn("provider.generate(", body)
         self.assertNotIn("claim_magnum_call(", body)
+        self.assertNotIn("ai_settings.investigation_model(", body)
+        self.assertNotIn('"provider_model": job_model', body)
 
     def test_handoff_enabled_by_default_but_can_be_disabled(self):
         source = (ROOT / "services/higgins/slm_advisory.py").read_text(encoding="utf-8")
