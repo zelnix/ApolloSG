@@ -368,6 +368,10 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     await _slm_stage(owner, case, job, "higgins_triage")
     fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress)
     await _slm_stage(owner, case, job, "tc_hawkeye")
+    # Hawkeye determines whether deeper investigation is necessary. A resolved
+    # case skips Magnum DI; an unresolved case requests its existing local role.
+    if not fly_by.resolved:
+        await _slm_stage(owner, case, job, "magnum_di")
     slm_finding = await _await_case_finding(owner, case, job, progress)
     if slm_finding:
         committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
