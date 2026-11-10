@@ -4,3 +4,5 @@ export async function installPrivateLuddishForTest(_sourceUri: string): Promise<
 export async function stopSharedLuddish(): Promise<void> {}
 
 export async function isPrivateLuddishModelMissing(): Promise<boolean> { return false; }
+
+export async function downloadPrivateLuddishForTest(): Promise<boolean> { return false; }
