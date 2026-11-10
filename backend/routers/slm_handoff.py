@@ -72,19 +72,34 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
     """Case-scoped evidence for the on-device Finding, including retained investigative results."""
     gathered = []
     total = 0
-    for row in await repo.list_evidence(owner, case_id):
-        # Include original and derived readable case evidence, not merely user-typed
-        # messages. On-device Findings need the same textual record Hawkeye saw.
+    rows = await repo.list_evidence(owner, case_id)
+    # The current SLM wire format accepts text only. Never pretend that an
+    # unrepresented original image/document/audio was examined by Luddish.
+    unsupported = [row for row in rows
+                   if row.get("origin") == "user_submission"
+                   and row.get("kind") in ("image", "document", "audio", "attachment")
+                   and row.get("availability") == "available"]
+    if unsupported and include_checks:
+        raise http(422, "unsupported_evidence",
+                   "This on-device Finding cannot examine original image, document or audio evidence; a text-only Finding would be incomplete.")
+    texts = {}
+    for row in rows:
         readable = row.get("kind") in ("text", "url", "observation", "source_snapshot")
         investigative = row.get("origin") in ("apollo_inference", "external_source")
         if not readable or (investigative and not include_checks):
             continue
         if row.get("availability") != "available":
             continue
-        raw = await repo.read_bytes(owner, case_id, row["evidence_id"])
-        text = raw.decode("utf-8", errors="replace").strip()
+        text = (await repo.read_bytes(owner, case_id, row["evidence_id"])).decode("utf-8", errors="replace").strip()
+        if text:
+            texts[row["evidence_id"]] = text
+    for row in rows:
+        text = texts.get(row["evidence_id"])
         if not text:
             continue
+        parent_text = texts.get(row.get("parent_id"))
+        if parent_text and text in parent_text:
+            continue  # Exact derived clue already present in the parent.
         total += len(text)
         if total > 120000 or len(gathered) >= 64:
             raise http(413, "budget_exhausted", "The on-device evidence limit was exceeded; nothing has been shortened or silently omitted.")
