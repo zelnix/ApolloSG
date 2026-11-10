@@ -373,8 +373,10 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
     source = {"type": "text", "sender": body.sender or None, "preview": body.text or None, "received_at": now_utc(),
               "content_complete": body.content_complete}
 
-    if not triage_result.should_escalate:
-        # Deterministic Triage resolved NO THREAT or LIMITED → acknowledge intake, zero Gemini calls.
+    from services.higgins.triage_readiness import background_text_ready
+    readiness = background_text_ready(body.text, sender=body.sender, content_complete=body.content_complete)
+    if not (triage_result.should_escalate or readiness.ready):
+        # Triage admits evidence for investigation; its preliminary threat label is not the gate.
         _log_triage = __import__("logging").getLogger("apollo.triage")
         _log_triage.info("background_text_triage device=%s submission=%s outcome=%s",
                           owner, body.submission_id[:12], triage_result.outcome.value)
