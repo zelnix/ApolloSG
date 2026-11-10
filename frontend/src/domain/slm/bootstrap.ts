@@ -7,7 +7,11 @@ export async function isPrivateLuddishModelMissing(): Promise<boolean> { return 
 
 export async function downloadPrivateLuddishForTest(): Promise<boolean> { return false; }
 
-export async function checkRequiredSLMCompatibility(): Promise<{ compatible: boolean; reason: string }> {
+export type SLMCompatibilityStage = "hardware" | "model_integrity" | "runtime_registration" | "inference" | "response_validation" | "complete" | "failed";
+
+export async function checkRequiredSLMCompatibility(
+  _onStage?: (stage: SLMCompatibilityStage) => void,
+): Promise<{ compatible: boolean; reason: string }> {
   return { compatible: false, reason: "This platform cannot run ApolloSG's required On-device AI model." };
 }
 export async function rollbackSLMSetup(): Promise<void> {}
