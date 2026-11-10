@@ -116,7 +116,21 @@ export class LocalLlamaRuntime implements SLMAdapter {
       });
       // No response logging. Validation of references and allowed fields occurs
       // in runSLM() before any result can be returned to a caller.
-      return JSON.parse(result.text);
+      // llama.rn may wrap otherwise valid JSON in markdown fences or a brief
+      // preamble. Extract exactly one JSON object; the shared contract validator
+      // still rejects unknown keys, invented references and verdict fields.
+      const raw = result.text.trim();
+      const unfenced = raw.replace(/^\x60\x60\x60(?:json)?\\s*/i, "").replace(/\\s*\x60\x60\x60$/, "").trim();
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(unfenced);
+      } catch {
+        const first = unfenced.indexOf("{");
+        const last = unfenced.lastIndexOf("}");
+        if (first < 0 || last <= first) throw new Error("On-device AI returned no JSON object");
+        parsed = JSON.parse(unfenced.slice(first, last + 1));
+      }
+      return parsed;
     };
     // Ensure failed calls do not poison the next queued inference.
     const run = this.queue.then(execute);
