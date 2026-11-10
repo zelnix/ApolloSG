@@ -1,4 +1,5 @@
 import * as Linking from "expo-linking";
+import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
 import Activity from "lucide-react-native/icons/activity";
 import Bell from "lucide-react-native/icons/bell";
@@ -96,6 +97,34 @@ export default function SettingsScreen() {
   const [showRetrofit, setShowRetrofit] = useState(false);
   const showReasons = useShowResultReasons();
   const slmActivity = useSyncExternalStore(subscribeSLMActivity, getSLMActivitySnapshot, getSLMActivitySnapshot);
+  const [slmInstalling, setSlmInstalling] = useState(false);
+  const slmTestAvailable = Platform.OS === "android" &&
+    (__DEV__ || process.env.EXPO_PUBLIC_SLM_TEST_MODE === "true");
+  const installSlmModel = useCallback(async () => {
+    if (!slmTestAvailable || slmInstalling) return;
+    setSlmInstalling(true);
+    try {
+      const selection = await DocumentPicker.getDocumentAsync({
+        type: "application/octet-stream", copyToCacheDirectory: true, multiple: false,
+      });
+      if (selection.canceled || !selection.assets?.length) return;
+      const selected = selection.assets[0];
+      if (selected.name !== CANDIDATE_FILE) {
+        showToast("Select the exact approved Qwen GGUF model file.", "growling");
+        return;
+      }
+      const { installPrivateLuddishForTest } = await import("@/src/domain/slm/bootstrap");
+      const installed = await installPrivateLuddishForTest(selected.uri);
+      showToast(installed
+        ? "Model verified and runtime registered. Local inference is not yet confirmed."
+        : "Model installation failed. Check the file checksum, available memory and existing model.",
+        installed ? "neutral" : "growling");
+    } catch {
+      showToast("Could not import the model from your device.", "growling");
+    } finally {
+      setSlmInstalling(false);
+    }
+  }, [slmTestAvailable, slmInstalling, showToast]);
 
   // ── Linked email accounts ──
   interface LinkedEmail { email: string; connected_at?: string }
@@ -460,12 +489,25 @@ export default function SettingsScreen() {
             <Text style={s.rowHint}>Engine: llama.rn (local GGUF, optional)</Text>
             <Text style={s.rowHint}>Candidate model: Qwen2.5-0.5B-Instruct · Q4_K_M</Text>
             <Text style={s.rowHint}>Model file: {CANDIDATE_FILE}</Text>
-            <Text style={s.rowHint} testID="settings-slm-status">Status: {!__DEV__ ? "Disabled in release builds" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
+            <Text style={s.rowHint} testID="settings-slm-status">Status: {!slmTestAvailable ? "Disabled in this build" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
             <Text style={s.rowHint}>Loaded model: {slmActivity.modelId ?? "None confirmed"}</Text>
             <Text style={s.rowHint}>Last verified local inference: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
             <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the SLM output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
           </View>
         </View>
+        {slmTestAvailable ? (
+          <Pressable testID="settings-install-slm" accessibilityRole="button"
+            accessibilityLabel="Install SLM model from device"
+            disabled={slmInstalling || slmActivity.registered}
+            onPress={() => void installSlmModel()}
+            style={[s.rowItem, s.divider, { opacity: slmInstalling || slmActivity.registered ? 0.5 : 1 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowLabel}>{slmInstalling ? "Verifying model…" :
+                slmActivity.registered ? "Model runtime registered" : "Install SLM Model"}</Text>
+              <Text style={s.rowHint}>Select the approved GGUF file on your phone. It is copied into private storage and verified.</Text>
+            </View>
+          </Pressable>
+        ) : null}
         <NavRow label="Minimise ApolloSG" hint="Move ApolloSG to the background" onPress={() => void minimiseApp(showToast)} testID="settings-minimise" />
         <NavRow label="Retrofit new enhancements" hint="Apply the latest reporting format to all past investigations" onPress={() => setShowRetrofit(true)} testID="settings-retrofit" />
       </Group>
