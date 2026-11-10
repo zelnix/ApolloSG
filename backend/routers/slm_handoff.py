@@ -97,7 +97,7 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
     and active job. No device event is published if the pilot is disabled, the
     device is not native or there is no admissible submitted evidence.
     """
-    if os.getenv("APOLLO_SLM_HANDOFF", "").strip().lower() != "on" or role not in QUESTIONS:
+    if os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() != "on" or role not in QUESTIONS:
         return None
     case, _job = await _active_case_job(owner, case_id, job_id, revision)
     device = repo.device_profile(case) or {}
