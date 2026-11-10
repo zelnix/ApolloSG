@@ -59,6 +59,21 @@ export function LaunchSplash() {
   );
 }
 
+/** Same artwork and message placement for pre-navigation compatibility checks. */
+export function PreparingApolloSplash({ message }: { message: string }) {
+  const { width, height } = useWindowDimensions();
+  const isTablet = Math.min(width, height) >= 600;
+  return (
+    <View style={[StyleSheet.absoluteFill, s.root]} testID="compatibility-splash">
+      <Image source={isTablet ? TABLET_ARTWORK : PHONE_ARTWORK} style={s.art} contentFit="contain"
+        accessibilityLabel="ApolloSG Scam Guard" />
+      <View style={[s.loadingMessage, isTablet && s.loadingMessageTablet]} accessibilityLiveRegion="polite">
+        <Text style={s.loadingText}>{message}</Text>
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   root: { backgroundColor: ARTWORK_WHITE, zIndex: 1000, elevation: 1000 },
   art: { flex: 1, width: "100%" },
