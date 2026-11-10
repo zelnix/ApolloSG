@@ -23,12 +23,13 @@ def test_unavailable_assessment_does_not_trigger_cloud():
     assert 'return Outcome("device_unavailable"' in source[unavailable:cloud]
 
 
-def test_magnum_unavailability_retains_local_finding_path():
+def test_magnum_unavailability_never_claims_local_resolution():
     source = (ROOT / "services/higgins/coordinator.py").read_text()
     start = source.index('if decision == "escalate":')
     end = source.index('slm_finding = await _await_case_finding(', start)
     assert 'magnum_available = await _magnum_external_evidence(' in source[start:end]
     assert 'if not magnum_available:' in source[start:end]
+    assert 'return Outcome("device_unavailable"' in source[start:end]
 
 
 def test_assessment_contract_requires_cited_evidence():
