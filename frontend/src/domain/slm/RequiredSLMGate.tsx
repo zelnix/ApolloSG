@@ -6,14 +6,14 @@ import { AppState, Text, View, Pressable } from "react-native";
 import { PreparingApolloSplash } from "@/src/components/LaunchSplash";
 import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackSLMSetup } from "./bootstrap";
 
-type State = { status: "checking" | "ready" | "incompatible"; reason: string };
+type State = { status: "checking" | "ready" | "incompatible"; reason: string; stage?: string };
 
 export function RequiredSLMGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ status: "checking", reason: "" });
   const generation = useRef(0);
   const verify = useCallback(async (install = false) => {
     const attempt = ++generation.current;
-    setState({ status: "checking", reason: "" });
+    setState({ status: "checking", reason: "", stage: "hardware" });
     let deadline: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       deadline = setTimeout(() => reject(new Error("timeout")), install ? 120000 : 45000);
@@ -24,7 +24,9 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
           const installed = await downloadPrivateLuddishForTest();
           if (!installed) return { compatible: false, reason: "The required on-device AI model could not be installed." };
         }
-        return checkRequiredSLMCompatibility();
+        return checkRequiredSLMCompatibility(stage => {
+          if (attempt === generation.current) setState({ status: "checking", reason: "", stage });
+        });
       })()]);
       if (attempt !== generation.current) return;
       if (!admission.compatible) {
@@ -50,7 +52,12 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
   }, [verify]);
   if (state.status === "ready") return <>{children}</>;
   if (state.status === "checking") {
-    return <PreparingApolloSplash message="Preparing ApolloSG… Checking device compatibility" />;
+    const descriptions: Record<string, string> = {
+      hardware: "Checking device hardware", model_integrity: "Verifying local AI model",
+      runtime_registration: "Preparing AI runtime", inference: "Loading AI and testing reasoning",
+      response_validation: "Validating AI response",
+    };
+    return <PreparingApolloSplash message={"Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility")} />;
   }
   return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
       <Text style={{ fontSize: 22, fontWeight: "700", textAlign: "center" }}>ApolloSG cannot start on this device</Text>
