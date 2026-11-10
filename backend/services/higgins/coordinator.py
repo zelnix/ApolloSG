@@ -136,8 +136,8 @@ async def _commit_slm_finding(owner: str, case: dict, job: dict, payload: dict,
     advice_text = finding.get("advice")
     response_data = {
         "overview": finding["explanation"],
-        "explanationMarkdown": finding["explanation"] + "\\n\\n" +
-            "\\n".join("- " + r["text"] for r in reasons),
+        "explanationMarkdown": finding["explanation"] + "\n\n" +
+            "\n".join("- " + r["text"] for r in reasons),
         "assessment": outcomes.ASSESSMENT[outcome],
         "outcome": outcome,
         "attention": "review" if concerns else "none",
