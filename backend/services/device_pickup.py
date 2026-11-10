@@ -41,14 +41,21 @@ async def hold(owner: str, case_id: str) -> bool:
     try:
         rows = await repo.list_evidence(owner, case_id)
         originals = []
+        evidence_content = []
         for row in rows:
-            if row.get("origin") != "user_submission" or row.get("parent_id") or row.get("kind") not in ("text", "url"):
+            if row.get("availability") != "available":
+                continue
+            if row.get("kind") not in ("text", "url", "observation", "source_snapshot"):
                 continue
             try:
                 body = (await repo.read_bytes(owner, case_id, row["evidence_id"])).decode("utf-8")
             except HTTPException:
-                continue
-            originals.append({"evidenceId": row["evidence_id"], "kind": row["kind"], "body": body})
+                # Never silently certify a snapshot missing available evidence.
+                raise
+            evidence_content.append({"evidenceId": row["evidence_id"], "kind": row["kind"],
+                                     "origin": row.get("origin"), "body": body})
+            if row.get("origin") == "user_submission" and not row.get("parent_id") and row.get("kind") in ("text", "url"):
+                originals.append({"evidenceId": row["evidence_id"], "kind": row["kind"], "body": body})
         source = {k: _plain(v) for k, v in (doc.get("source_metadata") or {}).items() if k in IDENTIFIERS and v not in (None, "", [])}
         snapshot = {
             "case": (await repo.case_view(doc)).wire(),
@@ -56,6 +63,7 @@ async def hold(owner: str, case_id: str) -> bool:
             "sources": await repo.sources(owner, case_id),
             "evidence": [repo.evidence_view(r).wire() for r in rows],
             "originals": originals,
+            "evidenceContent": evidence_content,
             "source": source,
         }
         now = now_utc()
@@ -87,6 +95,10 @@ def needs_result(snapshot: dict) -> bool:
 def missing(snapshot: dict, saved: dict) -> list[str]:
     """What the phone says it hasn't saved yet, of what the server holds for it. Empty: its copy is complete."""
     out: list[str] = []
+    required_ids = {e.get("evidenceId") for e in snapshot.get("evidenceContent") or []}
+    saved_ids = set(saved.get("evidenceIds") or [])
+    if not required_ids.issubset(saved_ids):
+        out.append("the investigation evidence")
     kinds = {o.get("kind") for o in snapshot.get("originals") or []}
     if "text" in kinds and not saved.get("text"):
         out.append("the text")
