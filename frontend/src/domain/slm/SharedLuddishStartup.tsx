@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useApollo } from "@/src/store/ApolloContext";
+import { getOnDeviceAIDownloadState } from "./downloadStatus";
 
 export function SharedLuddishStartup(): null {
   const { ready } = useApollo();
@@ -23,7 +24,7 @@ export function SharedLuddishStartup(): null {
       void import("./bootstrap").then(async (module) => {
         if (cancelled) return;
         const started = await module.startSharedLuddish();
-        if (started || cancelled || prompted.current) return;
+        if (started || cancelled || prompted.current || ["downloading", "verifying", "registering"].includes(getOnDeviceAIDownloadState().phase)) return;
         if (!(await module.isPrivateLuddishModelMissing()) || cancelled) return;
         prompted.current = true;
         Alert.alert("On-device AI needs to be setup",
@@ -33,7 +34,7 @@ export function SharedLuddishStartup(): null {
               "You can download and set up On-device AI anytime in Settings. ApolloSG will still work, but some AI-assisted detection and protection capabilities will be limited until setup is complete.",
               [{ text: "OK" }, { text: "Open Settings", onPress: () => router.push("/settings") }],
             ) },
-           { text: "Download & Install", onPress: () => { void module.downloadPrivateLuddishForTest().then((ok) => Alert.alert("On-device AI", ok ? "Model downloaded and verified. Local inference still needs testing." : "Download or verification failed. Check internet access, available storage and device compatibility.")); } }]);
+           { text: "Download & Install", onPress: () => { router.push("/settings"); void module.downloadPrivateLuddishForTest(); } }]);
       }).catch(() => undefined);
     }, 1500);
     return () => { cancelled = true; clearTimeout(handle); };
