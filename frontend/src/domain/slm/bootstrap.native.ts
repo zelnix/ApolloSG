@@ -131,3 +131,41 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
   })().finally(() => { download = null; });
   return download;
 }
+
+/** Compatibility admission before protection setup. The app cannot uninstall
+ * itself; rollback is limited to ApolloSG-owned model files and runtime state.
+ */
+export async function checkRequiredSLMCompatibility(): Promise<{ compatible: boolean; reason: string }> {
+  if (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") {
+    return { compatible: false, reason: "The required local AI model is not enabled in this build." };
+  }
+  if (!Device.totalMemory || Device.totalMemory < 3 * 1024 * 1024 * 1024) {
+    return { compatible: false, reason: "This device does not meet the required memory capacity." };
+  }
+  const started = await startSharedLuddish();
+  if (!started || !getSharedSLM()) {
+    return { compatible: false, reason: "The required local AI model could not be verified or started." };
+  }
+  // Real inference is essential: model presence and loading alone do not prove compatibility.
+  const { runSLM } = await import("./index.ts");
+  const result = await runSLM({
+    role: "case_finding", operation: "case_finding",
+    question: "Compatibility self-test. Assess this synthetic, non-user message.",
+    evidence: [{ evidenceId: "compatibility-test", text: "Synthetic test: an unknown sender claims to be a bank. No independent checks were performed." }],
+  }, getSharedSLM());
+  if (result.status !== "completed" || !result.answer.caseFinding) {
+    await stopSharedLuddish();
+    return { compatible: false, reason: "The local AI model did not complete its required reasoning test." };
+  }
+  return { compatible: true, reason: "On-device AI compatibility verified." };
+}
+
+export async function rollbackSLMSetup(): Promise<void> {
+  await stopSharedLuddish();
+  // Only the model file owned by this app is deleted. No system installation
+  // or unrelated user data can be rolled back by an ordinary mobile app.
+  try {
+    const model = new File(Paths.document, CANDIDATE_FILE);
+    if (model.exists) model.delete();
+  } catch { /* retain failure as incompatible; no protection activation */ }
+}
