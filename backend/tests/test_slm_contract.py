@@ -78,6 +78,36 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             result(simulated=True)
 
+    def test_case_finding_accepts_cited_reasons(self):
+        req = SLMReasoningRequest.model_validate({
+            **request().wire(), "role": "case_finding", "operation": "case_finding",
+        })
+        answer = result().answer.wire()
+        answer["caseFinding"] = {
+            "outcome": "unlikely_scam",
+            "explanation": "This appears to be a routine message, but its sender is not verified.",
+            "reasons": [{"text": "No payment request in the supplied message", "evidenceIds": ["E-1"]}],
+            "uncertainty": "Sender identity not authenticated",
+            "advice": "Visit the official website directly.",
+        }
+        accepted = accept_advisory_reasoning(req, result(answer=answer))
+        self.assertEqual(accepted.case_finding.outcome, "unlikely_scam")
+
+    def test_case_finding_requires_grounded_reasons(self):
+        req = SLMReasoningRequest.model_validate({
+            **request().wire(), "role": "case_finding", "operation": "case_finding",
+        })
+        with self.assertRaisesRegex(ValueError, "missing_case_finding"):
+            accept_advisory_reasoning(req, result())
+        answer = result().answer.wire()
+        answer["caseFinding"] = {
+            "outcome": "not_scam", "explanation": "Verified genuine",
+            "reasons": [{"text": "Verified", "evidenceIds": ["invented"]}],
+            "uncertainty": None, "advice": None,
+        }
+        with self.assertRaisesRegex(ValueError, "unrecognised_slm_evidence"):
+            accept_advisory_reasoning(req, result(answer=answer))
+
 
 if __name__ == "__main__":
     unittest.main()
