@@ -14,7 +14,7 @@ from pydantic import Field, model_validator
 from services.higgins.contracts import Wire
 
 SLMRole = Literal["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins"]
-SLMOperation = Literal["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation"]
+SLMOperation = Literal["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding"]
 
 
 class SLMReference(Wire):
@@ -46,12 +46,21 @@ class SLMObservation(Wire):
     evidence_ids: list[str] = Field(max_length=64)
 
 
+class SLMCaseFinding(Wire):
+    outcome: Literal["scam", "likely_scam", "unlikely_scam", "not_scam"]
+    explanation: str = Field(min_length=1, max_length=3000)
+    reasons: list[SLMObservation] = Field(min_length=1, max_length=12)
+    uncertainty: str | None = Field(default=None, max_length=1500)
+    advice: str | None = Field(default=None, max_length=1500)
+
+
 class SLMReasoningAnswer(Wire):
     observations: list[SLMObservation] = Field(max_length=24)
     contradictions: list[SLMObservation] = Field(max_length=24)
     alternative_explanations: list[SLMObservation] = Field(max_length=24)
     verification_suggestions: list[SLMObservation] = Field(max_length=24)
     draft_explanation: str | None = Field(default=None, max_length=3000)
+    case_finding: SLMCaseFinding | None = None
 
 
 class SLMReasoningResult(Wire):
@@ -82,10 +91,13 @@ def accept_advisory_reasoning(
         result.answer.contradictions,
         result.answer.alternative_explanations,
         result.answer.verification_suggestions,
+        result.answer.case_finding.reasons if result.answer.case_finding else [],
     ):
         for observation in group:
             if len(set(observation.evidence_ids)) != len(observation.evidence_ids):
                 raise ValueError("duplicate_slm_citation")
             if any(evidence_id not in permitted for evidence_id in observation.evidence_ids):
                 raise ValueError("unrecognised_slm_evidence")
+    if request.operation == "case_finding" and result.answer.case_finding is None:
+        raise ValueError("missing_case_finding")
     return result.answer
