@@ -96,7 +96,11 @@ function valueOf(fields: EvidenceField[], label: RegExp): string | null {
 
 /** The header fields a kept original records: its saved fields, else the header lines its own text carries. */
 export function headerFields(src: Pick<OriginalSource, "fields" | "text">): EvidenceField[] {
-  return src.fields?.length ? src.fields : parseHeaders(src.text).fields;
+  const parsed = parseHeaders(src.text).fields;
+  const saved = src.fields ?? [];
+  // A capture may carry provenance (e.g. "Source app: Gmail") without the
+  // email headers. Do not let that one saved field hide captured From/Subject.
+  return [...saved, ...parsed.filter((f) => !saved.some((x) => x.label.trim().toLowerCase() === f.label.trim().toLowerCase()))];
 }
 
 /** The platform named BY THE CAPTURE. A scam message that merely mentions WhatsApp is still an SMS. */
@@ -125,7 +129,7 @@ const KIND_NOUN: Record<string, string> = {
 export function describeArtefact(src: OriginalSource, hasImage = false): ArtefactView {
   const parsed = parseHeaders(src.text);
   // Saved fields win over parsed ones: they came straight from the mailbox/OS, not from the body.
-  const fields = src.fields?.length ? src.fields : parsed.fields;
+  const fields = headerFields(src);
   const platform = capturedPlatform(fields);
   const isChatApp = !!platform && CHAT_APPS.some((p) => new RegExp(`\\b${p}\\b`, "i").test(platform));
   const isPostPlatform = !!platform && POST_PLATFORMS.some((p) => new RegExp(`\\b${p}\\b`, "i").test(platform));
