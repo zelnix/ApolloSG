@@ -28,6 +28,7 @@ import { startDeviceProtectionMonitor } from "@/src/store/deviceProtectionStore"
 import { useTheme } from "@/src/theme";
 import { installTwelveHourClock } from "@/src/utils/twelveHourClock";
 import { SharedLuddishStartup } from "@/src/domain/slm/SharedLuddishStartup";
+import { RequiredSLMGate } from "@/src/domain/slm/RequiredSLMGate";
 
 // Every time Apollo shows is on the 12-hour clock, in this device's own time zone.
 installTwelveHourClock();
@@ -113,6 +114,7 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
+      <RequiredSLMGate>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.surface }}>
           <SafeAreaProvider>
@@ -146,6 +148,7 @@ export default function RootLayout() {
           </SafeAreaProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
+      </RequiredSLMGate>
     </ErrorBoundary>
   );
 }
