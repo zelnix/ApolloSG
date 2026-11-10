@@ -277,10 +277,10 @@ export default function SupportScreen() {
 
       {/* SLM is an optional advisory capability, not a protection or cloud-service check. */}
       <Section title="On-device AI" testID="support-slm-section">
-        <Body style={s.detail}>These are local runtime facts, not an inference benchmark. Installing an APK does not install a model. No cloud AI response proves local inference.</Body>
+        <Body style={s.detail}>These are local runtime facts, not an inference benchmark. Installing an APK does not install a model. No cloud response proves On-device AI inference.</Body>
         <InfoRow label="Native platform" value={Platform.OS === "android" || Platform.OS === "ios" ? (appDevice.data?.app.nativeBuild ? "Native app" : "Not verified") : "Not supported in this preview"} />
         <InfoRow label="On-device AI startup policy" value={(!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") ? "Disabled in this build" : Platform.OS === "android" || Platform.OS === "ios" ? "Test-device admission enabled" : "Unavailable on this platform"} />
-        <InfoRow label="AI version" value="ODAI-Q2.5-0.5B-Q4KM-v1" />
+        <InfoRow label="On-device AI version" value="ODAI-Q2.5-0.5B-Q4KM-v1" />
         <InfoRow label="Model installed" value="Not verified" />
         <InfoRow label="Model SHA-256" value="Not verified" />
         <InfoRow label="Model loaded" value={getSharedSLM() ? "Runtime registered" : "No runtime registered"} />
