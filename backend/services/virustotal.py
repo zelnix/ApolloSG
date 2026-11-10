@@ -8,10 +8,8 @@ Free tier: 4 lookups/minute, 500/day. Sufficient for personal email volume.
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import os
-import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -20,17 +18,12 @@ import httpx
 from dotenv import load_dotenv
 from core.config import logger
 from core.resilience import resilient_get
+from services.virustotal_quota import rate_limit as _rate_limit
 
 load_dotenv()
 
 VT_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 VT_API_URL = "https://www.virustotal.com/api/v3"
-
-# Rate limiter for free tier (4 requests/minute)
-_last_request_times: list[float] = []
-_rate_lock = asyncio.Lock()
-MAX_REQUESTS_PER_MINUTE = 4
-
 
 @dataclass
 class ScanResult:
@@ -42,20 +35,6 @@ class ScanResult:
     total_engines: int = 0
     malware_names: list[str] = field(default_factory=list)
     detail: str = ""
-
-
-async def _rate_limit() -> None:
-    """Enforce free-tier rate limit: max 4 requests per 60 seconds."""
-    async with _rate_lock:
-        now = time.monotonic()
-        # Remove requests older than 60 seconds
-        _last_request_times[:] = [t for t in _last_request_times if now - t < 60]
-        if len(_last_request_times) >= MAX_REQUESTS_PER_MINUTE:
-            wait = 60 - (now - _last_request_times[0])
-            if wait > 0:
-                logger.info("VirusTotal rate limit: waiting %.1fs", wait)
-                await asyncio.sleep(wait)
-        _last_request_times.append(time.monotonic())
 
 
 def compute_sha256(data: bytes) -> str:
