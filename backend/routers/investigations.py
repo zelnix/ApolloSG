@@ -483,7 +483,7 @@ async def get_case(case_id: str, request: Request):
 @router.get("/investigations/{case_id}/di")
 async def get_di_transactions(case_id: str, request: Request):
     """How this case was investigated, for the DI tab: the recorded decision path (Higgins Triage → TC Hawkeye →
-    Magnum DI → Evidence Lock) and each Magnum DI transaction described — whether it finished, live or the preview
+    Magnum DI when needed → Higgins Luddish Findings) and each Magnum DI transaction described — whether it finished, live or the preview
     simulator, and what it was handed. Token counts, cost, the prompts, the full reply and rule-book codes stay in
     the Admin Portal. Evidence is untouched by this view."""
     from services.higgins.di_record import decision_trace, get_di_records
@@ -891,7 +891,7 @@ async def complete_upload(case_id: str, upload_id: str, body: ExpectedRevision, 
 
 # ------------------------------------------------------------------ turns / jobs
 async def _follow_up(owner: str, case: dict, body: SubmitTurn) -> Optional[dict]:
-    """Every follow-up on a case that has been investigated is answered from the case's locked findings — no job, no
+    """Every follow-up on a case that has been investigated is answered from the case's stored Findings — no job, no
     AI call, no second investigation. This holds for an answer to Magnum DI's own question too, and when the follow-up
     brings something new (a link, an email, a number or fresh evidence): the case's one investigation is never reopened.
 
