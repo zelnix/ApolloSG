@@ -1,7 +1,7 @@
 /** Global fail-closed admission boundary for all ApolloSG routes.
  * This must mount outside ApolloProvider and the navigation stack.
  */
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppState, Text, View, Pressable } from "react-native";
 import { PreparingApolloSplash } from "@/src/components/LaunchSplash";
 import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackSLMSetup } from "./bootstrap";
@@ -10,16 +10,35 @@ type State = { status: "checking" | "ready" | "incompatible"; reason: string };
 
 export function RequiredSLMGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ status: "checking", reason: "" });
+  const generation = useRef(0);
   const verify = useCallback(async (install = false) => {
+    const attempt = ++generation.current;
     setState({ status: "checking", reason: "" });
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      deadline = setTimeout(() => reject(new Error("timeout")), install ? 120000 : 45000);
+    });
     try {
-      if (install) await downloadPrivateLuddishForTest();
-      const admission = await checkRequiredSLMCompatibility();
-      if (!admission.compatible) await rollbackSLMSetup();
-      setState({ status: admission.compatible ? "ready" : "incompatible", reason: admission.reason });
-    } catch {
-      await rollbackSLMSetup().catch(() => undefined);
-      setState({ status: "incompatible", reason: "Required on-device AI verification failed." });
+      const admission = await Promise.race([timeout, (async () => {
+        if (install) {
+          const installed = await downloadPrivateLuddishForTest();
+          if (!installed) return { compatible: false, reason: "The required on-device AI model could not be installed." };
+        }
+        return checkRequiredSLMCompatibility();
+      })()]);
+      if (attempt !== generation.current) return;
+      if (!admission.compatible) {
+        setState({ status: "incompatible", reason: admission.reason });
+        void rollbackSLMSetup().catch(() => undefined);
+      } else setState({ status: "ready", reason: "" });
+    } catch (error) {
+      if (attempt !== generation.current) return;
+      setState({ status: "incompatible", reason: error instanceof Error && error.message === "timeout"
+        ? "Device compatibility could not be verified within the startup time limit. ApolloSG has not started protection."
+        : "Required on-device AI verification failed." });
+      void rollbackSLMSetup().catch(() => undefined);
+    } finally {
+      if (deadline) clearTimeout(deadline);
     }
   }, []);
   useEffect(() => {
@@ -27,7 +46,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
     const subscription = AppState.addEventListener("change", next => {
       if (next === "active") void verify();
     });
-    return () => subscription.remove();
+    return () => { generation.current++; subscription.remove(); };
   }, [verify]);
   if (state.status === "ready") return <>{children}</>;
   if (state.status === "checking") {
