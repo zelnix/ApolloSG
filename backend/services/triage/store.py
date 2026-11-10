@@ -28,6 +28,20 @@ def incomplete_only(wire: dict) -> bool:
             and not any(g.get("code") == "INSUFFICIENT_EVIDENCE" for g in wire.get("coverageGaps") or []))
 
 
+def readiness_patrol_text(readiness: dict) -> dict:
+    """Higgins readiness is not a threat finding; preserve a clear next step."""
+    if readiness["ready"]:
+        return {"state": "resting", "status": "resolved",
+                "headline": "Evidence passed to TC Hawkeye",
+                "what_happened": "There was enough evidence to begin an investigation.",
+                "why": [], "what_to_do": "Review the investigation for findings."}
+    return {"state": "resting", "status": "resolved",
+            "headline": "Investigation could not begin",
+            "what_happened": readiness["higginsExplanation"],
+            "why": [readiness["reason"]],
+            "what_to_do": readiness["higginsExplanation"]}
+
+
 def patrol_text(wire: dict, category: str) -> dict:
     """What the Patrol record says and how it is filed, from the Triage record alone (mirror for display:
     frontend src/domain/luddish/present.ts). Plain words: no rule counts, no internal names, nothing cut short."""
@@ -94,17 +108,7 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
     event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"apollo-triage:{device_id}:{investigation.investigation_id}"))
     text = patrol_text(wire, category)
     if investigation_readiness is not None:
-        if investigation_readiness["ready"]:
-            text = {"state": "resting", "status": "resolved",
-                    "headline": "Evidence passed to TC Hawkeye",
-                    "what_happened": "There was enough evidence to begin an investigation.",
-                    "why": [], "what_to_do": "Review the investigation for findings."}
-        else:
-            text = {"state": "resting", "status": "resolved",
-                    "headline": "Investigation could not begin",
-                    "what_happened": investigation_readiness["higginsExplanation"],
-                    "why": [investigation_readiness["reason"]],
-                    "what_to_do": investigation_readiness["higginsExplanation"]}
+        text = readiness_patrol_text(investigation_readiness)
     gaps = investigation.coverage_gaps
     at = investigation.evaluated_at or now_utc()
     document = {
