@@ -1,5 +1,5 @@
 /**
- * Optional SLM must never hold the native splash or core Apollo startup.
+ * Required SLM compatibility is checked at onboarding before activation.
  * Mounts inside the existing ApolloProvider, then waits for ready state before
  * dynamically loading native/model code. Web and release builds stay inert.
  */
@@ -25,7 +25,7 @@ export function SharedLuddishStartup(): null {
         if (cancelled) return;
         const started = await module.startSharedLuddish();
         if (started || cancelled || prompted.current || ["downloading", "verifying", "registering"].includes(getOnDeviceAIDownloadState().phase)) return;
-        if (!(await module.isPrivateLuddishModelMissing()) || cancelled) return;
+        if (cancelled) return;
         prompted.current = true;
         Alert.alert("ApolloSG requires on-device AI",
           "ApolloSG cannot activate on this device until the local AI model is installed and verified. If the device cannot run it, setup cannot continue.",
