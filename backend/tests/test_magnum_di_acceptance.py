@@ -470,22 +470,23 @@ class TestMagnumAssessmentReconciliation:
         assert response.assessment == "no_concern_found_within_scope"
         assert response.uncertainties == ["Sender identity not independently verified"]
 
-    def test_action_needed_does_not_reconcile(self):
+    def test_action_needed_still_requires_an_action(self):
         data = self._response()
         data["attention"] = "action_needed"
         response, errors = validate(data, revision=1, evidence_ids=set(),
                                     source_ids=set(), capability_ids=set(),
                                     pending_question=None, provider_complete=True)
         assert response is None
-        assert any("requires assessment" in e for e in errors)
+        assert any("requires at least one action" in e for e in errors)
 
-    def test_established_threat_cannot_be_lowered(self):
+    def test_deeper_investigator_can_overturn_hawkeye_floor(self):
         response, errors = validate(self._response(), revision=1, evidence_ids=set(),
                                     source_ids=set(), capability_ids=set(),
                                     pending_question=None, provider_complete=True,
                                     floor={"outcome": "scam", "established": True})
-        assert response is None
-        assert any("established threat" in e for e in errors)
+        assert not errors
+        assert response is not None
+        assert response.outcome == "unlikely_scam"
 
     def test_partial_investigation_can_report_decisive_scam_evidence(self):
         data = self._response()
