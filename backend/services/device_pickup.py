@@ -45,17 +45,24 @@ async def hold(owner: str, case_id: str) -> bool:
         for row in rows:
             if row.get("availability") != "available":
                 continue
-            if row.get("kind") not in ("text", "url", "observation", "source_snapshot"):
-                continue
+            kind = row.get("kind")
             try:
-                body = (await repo.read_bytes(owner, case_id, row["evidence_id"])).decode("utf-8")
+                data = await repo.read_bytes(owner, case_id, row["evidence_id"])
             except HTTPException:
-                # Never silently certify a snapshot missing available evidence.
+                # Never certify a snapshot that omits evidence marked available.
                 raise
-            evidence_content.append({"evidenceId": row["evidence_id"], "kind": row["kind"],
-                                     "origin": row.get("origin"), "body": body})
-            if row.get("origin") == "user_submission" and not row.get("parent_id") and row.get("kind") in ("text", "url"):
-                originals.append({"evidenceId": row["evidence_id"], "kind": row["kind"], "body": body})
+            item = {"evidenceId": row["evidence_id"], "kind": kind,
+                    "origin": row.get("origin"), "mediaType": row.get("media_type")}
+            if kind in ("text", "url", "observation", "source_snapshot"):
+                body = data.decode("utf-8")
+                item["body"] = body
+            else:
+                # Keep original binary bytes, not an inferred transcription.
+                import base64
+                item["base64"] = base64.b64encode(data).decode("ascii")
+            evidence_content.append(item)
+            if row.get("origin") == "user_submission" and not row.get("parent_id") and kind in ("text", "url"):
+                originals.append({"evidenceId": row["evidence_id"], "kind": kind, "body": body})
         source = {k: _plain(v) for k, v in (doc.get("source_metadata") or {}).items() if k in IDENTIFIERS and v not in (None, "", [])}
         snapshot = {
             "case": (await repo.case_view(doc)).wire(),
