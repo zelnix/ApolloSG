@@ -4,7 +4,7 @@
  * dynamically loading native/model code. Web and release builds stay inert.
  */
 import { useEffect, useRef } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useApollo } from "@/src/store/ApolloContext";
 
@@ -27,9 +27,10 @@ export function SharedLuddishStartup(): null {
         if (!(await module.isPrivateLuddishModelMissing()) || cancelled) return;
         prompted.current = true;
         Alert.alert("On-device AI model needed",
-          "The Qwen model is not installed. Download the approved GGUF file, then open Settings to install and verify it. ApolloSG can still run without the model.",
+          "The Qwen model is not installed (about 491 MB). Download it from the official Qwen repository, then install it from Settings. ApolloSG can still run without it.",
           [{ text: "Later", style: "cancel" },
-           { text: "Open Settings", onPress: () => router.push("/settings") }]);
+           { text: "Open Settings", onPress: () => router.push("/settings") },
+           { text: "Download Model", onPress: () => { void Linking.openURL("https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true"); } }]);
       }).catch(() => undefined);
     }, 1500);
     return () => { cancelled = true; clearTimeout(handle); };
