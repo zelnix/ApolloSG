@@ -46,8 +46,8 @@ export default function Onboarding() {
       if (result.compatible) router.push("/privacy-disclosure");
       else Alert.alert("Device not compatible", result.reason + " ApolloSG setup cannot continue.");
     } catch {
-      setCompatibilityMessage("Required on-device AI compatibility check failed.");
-      Alert.alert("Device not compatible", "ApolloSG setup cannot continue without the required local AI.");
+      setCompatibilityMessage("Required On-device AI compatibility check failed.");
+      Alert.alert("Device not compatible", "ApolloSG setup cannot continue without the required On-device AI.");
     } finally { setCheckingCompatibility(false); }
   };
 
@@ -88,7 +88,7 @@ export default function Onboarding() {
       <View style={[s.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
         <Button testID="onboarding-start-button" label={checkingCompatibility ? "Checking device…" : "Check compatibility & continue"} onPress={checkCompatibility} icon={<ShieldCheck size={18} color={colors.onBrandPrimary} />} />
         {compatibilityMessage ? <Text style={s.note}>{compatibilityMessage}</Text> : null}
-        <Text style={s.note}>ApolloSG requires a working on-device AI model before setup can continue.</Text>
+        <Text style={s.note}>ApolloSG requires a working On-device AI model before setup can continue.</Text>
       </View>
     </View>
   );
