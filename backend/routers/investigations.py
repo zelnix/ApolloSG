@@ -1429,9 +1429,12 @@ async def confirm_commit(case_id: str, request: Request):
                                                      {"_id": 0, "updated_at": 1})
         removed_at = repo.utc(gone["updated_at"]).isoformat() if gone and gone.get("updated_at") else None
         return JSONResponse({"purged": True, "status": "already_clean", "removedAt": removed_at}, headers=NO_STORE)
-    # Only purge a finished investigation: one with a completed response, or a finished check whose copy was kept.
-    if not case.get("response_ciphertext") and held is None:
-        raise http(409, "conflict", "Cannot confirm commit for an investigation that has no completed response.")
+    # Never delete an active or unfinished investigation, even if an older
+    # pickup snapshot remains from a previous completed turn.
+    if case.get("active_job_id") or case.get("status") not in device_pickup.FINISHED:
+        raise http(409, "conflict", "This investigation is not finished; its evidence cannot be deleted.")
+    if not case.get("response_ciphertext") and not held:
+        raise http(409, "conflict", "Cannot confirm commit without a completed investigation.")
     # The result reaches Threats and history first: once purged, the server can no longer project it.
     await project_case_now(owner, case_id)
     # Purge: revoke the case (marks deleted, rotates epoch) then run cleanup
