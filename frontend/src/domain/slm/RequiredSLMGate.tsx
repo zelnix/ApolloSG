@@ -15,16 +15,21 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
   const isTablet = Math.min(width, height) >= 600;
   const [state, setState] = useState<State>({ status: "checking", reason: "" });
   const generation = useRef(0);
+  const inFlight = useRef(false);
   const verify = useCallback(async (install = false) => {
+    // Never overlap non-cancellable native model verification attempts.
+    if (inFlight.current) return;
+    inFlight.current = true;
     const attempt = ++generation.current;
     startupStage("on_device_ai", "started");
     setState({ status: "checking", reason: "", stage: "hardware" });
     let deadline: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
     const timeout = new Promise<never>((_, reject) => {
       deadline = setTimeout(() => reject(new Error("timeout")), install ? 120000 : 45000);
     });
     try {
-      const admission = await Promise.race([timeout, (async () => {
+      const work = (async () => {
         if (install) {
           const installed = await downloadPrivateLuddishForTest();
           if (!installed) return { compatible: false, reason: "The required On-device AI model could not be installed." };
@@ -32,7 +37,10 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
         return checkRequiredSLMCompatibility(stage => {
           if (attempt === generation.current) setState({ status: "checking", reason: "", stage });
         });
-      })()]);
+      })();
+      // Keep retries disabled until the native operation has actually finished.
+      void work.finally(() => { inFlight.current = false; }).catch(() => undefined);
+      const admission = await Promise.race([timeout, work]);
       if (attempt !== generation.current) return;
       startupStage("on_device_ai", admission.compatible ? "completed" : "failed", admission.compatible ? undefined : "admission_rejected");
       if (!admission.compatible) {
@@ -41,11 +49,14 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       } else setState({ status: "ready", reason: "" });
     } catch (error) {
       if (attempt !== generation.current) return;
-      startupStage("on_device_ai", error instanceof Error && error.message === "timeout" ? "timed_out" : "failed");
+      timedOut = error instanceof Error && error.message === "timeout";
+      startupStage("on_device_ai", timedOut ? "timed_out" : "failed");
       setState({ status: "incompatible", reason: error instanceof Error && error.message === "timeout"
         ? "Device compatibility could not be verified within the startup time limit. ApolloSG has not started protection."
         : "Required On-device AI verification failed." });
-      void rollbackSLMSetup().catch(() => undefined);
+      // Timeout does not cancel native hashing/inference. Do not delete the
+      // model while the unfinished verifier may still be reading it.
+      if (!timedOut) void rollbackSLMSetup().catch(() => undefined);
     } finally {
       if (deadline) clearTimeout(deadline);
     }
@@ -53,7 +64,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     void verify();
     const subscription = AppState.addEventListener("change", next => {
-      if (next === "active") void verify();
+      if (next === "active" && !inFlight.current) void verify();
     });
     return () => { generation.current++; subscription.remove(); };
   }, [verify]);
