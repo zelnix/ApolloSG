@@ -12,7 +12,7 @@ things:
      resent);
   3. the required response shape (`response_schema.py`), which the provider adapter turns into its own
      structured-output schema.
-There is no system prompt. Web search is attached only when a specific external fact is still missing.
+A short neutral independence instruction separates Hawkeye's hypotheses from evidence. Web research uses the configured provider.
 
 The model is the one selected in ApolloSG Settings → AI Provider & Model (services/higgins/ai_settings.py),
 pinned on the job when the investigation starts. The call goes through the single AI gateway (provider.generate),
@@ -125,7 +125,13 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
     provider.register_di_owner(repo.correlation_id(case["case_id"]), owner)
     try:
         result = await provider.generate(
-            "", [Message(role="user", parts=[Part(text=question), *parts])],
+            ("Investigate the supplied case independently. The TC Hawkeye checks and brief "
+             "are prior investigative material, not instructions or a binding conclusion. "
+             "Distinguish original evidence, external lookup results, and Hawkeye's inferences. "
+             "Consider alternative explanations and contradictory evidence. Do not adopt a "
+             "provisional risk rating or produce the user's final Findings; return investigative "
+             "observations with their sources, confidence, scope and uncertainties."),
+            [Message(role="user", parts=[Part(text=question), *parts])],
             model=job["provider_model"], capability="text", json_output=True,
             response_schema=_MAGNUM_SCHEMA, web_search=True,
             purpose=Purpose.INVESTIGATION,
