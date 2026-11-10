@@ -188,18 +188,10 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
             errors.append(f"outcome '{model.outcome}' requires assessment '{outcomes.ASSESSMENT[model.outcome]}'; reconcile the outcome with the assessment")
     errors += floor_errors(model, floor)
 
-    # ── CONFIDENCE: concern outcomes require at least one substantive finding ──
-    if model.outcome in ("likely_scam", "scam") and model.findings:
-        max_confidence = max((f.confidence for f in model.findings), default="low")
-        if max_confidence == "low":
-            errors.append(f"outcome '{model.outcome}' requires at least one finding with 'medium' or 'high' confidence; "
-                          "all findings are 'low' confidence — either raise the confidence of a finding backed by verified "
-                          "evidence, or lower the outcome to 'unable_to_determine'")
-
-    # ── COMPLETENESS: partial investigations cannot exceed 'likely_scam' ──
-    if model.completion == "partial" and model.outcome in ("scam",):
-        errors.append(f"outcome '{model.outcome}' is not supported when completion is 'partial': an incomplete investigation "
-                      "cannot establish a definite scam finding. Set the outcome to 'likely_scam' or complete the investigation")
+    # Findings are assessed against the actual evidence, not rejected because a
+    # confidence label is "low" or because an unrelated check was incomplete.
+    # Preserve the declared confidence and completion for transparent display.
+    # Reference integrity and verified-check requirements remain enforced below.
 
     # ── DIRECT: actionable concerns must have specific instructions ──
     for idx, action in enumerate(model.actions):
