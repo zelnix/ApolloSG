@@ -24,7 +24,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       const admission = await Promise.race([timeout, (async () => {
         if (install) {
           const installed = await downloadPrivateLuddishForTest();
-          if (!installed) return { compatible: false, reason: "The required on-device AI model could not be installed." };
+          if (!installed) return { compatible: false, reason: "The required On-device AI model could not be installed." };
         }
         return checkRequiredSLMCompatibility(stage => {
           if (attempt === generation.current) setState({ status: "checking", reason: "", stage });
@@ -41,7 +41,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       startupStage("on_device_ai", error instanceof Error && error.message === "timeout" ? "timed_out" : "failed");
       setState({ status: "incompatible", reason: error instanceof Error && error.message === "timeout"
         ? "Device compatibility could not be verified within the startup time limit. ApolloSG has not started protection."
-        : "Required on-device AI verification failed." });
+        : "Required On-device AI verification failed." });
       void rollbackSLMSetup().catch(() => undefined);
     } finally {
       if (deadline) clearTimeout(deadline);
@@ -68,7 +68,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       <Text style={{ textAlign: "center" }}>{state.reason}</Text>
       <Text style={{ textAlign: "center" }}>No ApolloSG protection has been started. You can remove the app using your device settings.</Text>
       <Pressable accessibilityRole="button" onPress={() => { void verify(true); }}>
-        <Text style={{ fontWeight: "700" }}>Install required AI and retry</Text>
+        <Text style={{ fontWeight: "700" }}>Install required On-device AI and retry</Text>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => { void verify(); }}>
         <Text style={{ fontWeight: "700" }}>Retry compatibility check</Text>
