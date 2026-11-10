@@ -52,7 +52,7 @@ class AdvisoryStart(Wire):
 
 
 def _enabled() -> None:
-    if os.getenv("APOLLO_SLM_HANDOFF", "").strip().lower() != "on":
+    if os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() != "on":
         raise http(404, "not_found", "Luddish on-device pilot is not enabled.")
 
 
