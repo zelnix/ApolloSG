@@ -74,7 +74,7 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
     total = 0
     for row in await repo.list_evidence(owner, case_id):
         submitted = row.get("origin") == "user_submission" and row.get("kind") in ("text", "url")
-        checks = include_checks and row.get("client_item_id") == "tc-flyby-checks"
+        checks = include_checks and row.get("client_item_id") == "tc-flyby-di-checks"
         if not (submitted or checks):
             continue
         if row.get("availability") != "available":
