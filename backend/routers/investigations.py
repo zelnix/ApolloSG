@@ -1388,8 +1388,10 @@ async def _saved_report(request: Request) -> Optional[dict]:
     saved = body.get("saved") if isinstance(body, dict) else None
     if saved is None:
         return None
-    if not isinstance(saved, dict) or set(saved) - {"text", "link", "result", "headers", "evidenceIds"} \
+    if not isinstance(saved, dict) or set(saved) - {"text", "link", "result", "headers", "evidenceIds", "evidenceDigests"} \
             or any(not isinstance(saved.get(k, False), bool) for k in ("text", "link", "result")) \
+            or not isinstance(saved.get("evidenceDigests", {}), dict) or len(saved.get("evidenceDigests", {})) > 1000 \
+            or any(not isinstance(k, str) or len(k) > 80 or not isinstance(v, str) or len(v) != 64 or any(ch not in "0123456789abcdef" for ch in v) for k, v in saved.get("evidenceDigests", {}).items()) \
             or not isinstance(saved.get("evidenceIds", []), list) or len(saved.get("evidenceIds", [])) > 1000 \
             or any(not isinstance(eid, str) or len(eid) > 80 for eid in saved.get("evidenceIds", [])) \
             or not isinstance(saved.get("headers", []), list) or len(saved.get("headers", [])) > 20 \
