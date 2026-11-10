@@ -87,7 +87,7 @@ for (const decision of ["proceed_local", "escalate", "additional_evidence_requir
     const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local-test", async () => ({
       completion: async ({ messages }) => {
         assert.match(messages[0].content, /For escalation_assessment include escalationAssessment/);
-        assert.match(messages[0].content, /For all other operations omit escalationAssessment/);
+        assert.match(messages[0].content, /for all other operations omit escalationAssessment/i);
         return { text: JSON.stringify({
           observations: [], contradictions: [], alternativeExplanations: [],
           verificationSuggestions: [], draftExplanation: null,
