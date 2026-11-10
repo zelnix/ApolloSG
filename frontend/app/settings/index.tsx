@@ -110,7 +110,7 @@ export default function SettingsScreen() {
       if (selection.canceled || !selection.assets?.length) return;
       const selected = selection.assets[0];
       if (selected.name !== CANDIDATE_FILE) {
-        showToast("Select the exact approved Qwen GGUF model file.", "growling");
+        showToast("Select the approved On-device AI package.", "growling");
         return;
       }
       const { installPrivateLuddishForTest } = await import("@/src/domain/slm/bootstrap");
@@ -486,13 +486,13 @@ export default function SettingsScreen() {
         <View testID="settings-slm-info" style={[s.rowItem, s.divider, { alignItems: "flex-start" }]}>
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text style={s.rowLabel}>On-device AI</Text>
-            <Text style={s.rowHint}>Engine: llama.rn (local GGUF, optional)</Text>
-            <Text style={s.rowHint}>Candidate model: Qwen2.5-0.5B-Instruct · Q4_K_M</Text>
-            <Text style={s.rowHint}>Model file: {CANDIDATE_FILE}</Text>
+            <Text style={s.rowHint}>Engine: On-device AI (local, optional)</Text>
+            <Text style={s.rowHint}>On-device AI version: ODAI-Q2.5-0.5B-Q4KM-v1</Text>
+            <Text style={s.rowHint}>AI package: verified local installation</Text>
             <Text style={s.rowHint} testID="settings-slm-status">Status: {!slmTestAvailable ? "Disabled in this build" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
             <Text style={s.rowHint}>Loaded model: {slmActivity.modelId ?? "None confirmed"}</Text>
             <Text style={s.rowHint}>Last verified local inference: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
-            <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the SLM output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
+            <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the On-device AI output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
           </View>
         </View>
         {slmTestAvailable && !slmActivity.registered ? (
@@ -501,7 +501,7 @@ export default function SettingsScreen() {
             disabled={slmInstalling}
             onPress={() => {
               confirmDialog("Download On-device AI model?",
-                "Download about 491 MB from the official Qwen repository and verify it on this device? Mobile data charges may apply.",
+                "Download approximately 491 MB from the official AI package source and verify it on this device? Mobile data charges may apply.",
                 [{ text: "Cancel", style: "cancel" }, { text: "Download & Install", onPress: () => {
                   setSlmInstalling(true);
                   void import("@/src/domain/slm/bootstrap").then(m => m.downloadPrivateLuddishForTest())
@@ -515,14 +515,14 @@ export default function SettingsScreen() {
             style={[s.rowItem, s.divider]}>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{slmInstalling ? "Downloading or verifying…" : "Download On-device AI Model"}</Text>
-              <Text style={s.rowHint}>About 491 MB from official Qwen. Downloads only with your permission.</Text>
+              <Text style={s.rowHint}>Approximately 491 MB from the official source. Downloads only with your permission.</Text>
             </View>
             <ChevronRight size={20} color={colors.muted} />
           </Pressable>
         ) : null}
         {slmTestAvailable ? (
           <Pressable testID="settings-install-slm" accessibilityRole="button"
-            accessibilityLabel="Install SLM model from device"
+            accessibilityLabel="Install On-device AI from device"
             disabled={slmInstalling || slmActivity.registered}
             onPress={() => void installSlmModel()}
             style={[s.rowItem, s.divider, { opacity: slmInstalling || slmActivity.registered ? 0.5 : 1 }]}>
