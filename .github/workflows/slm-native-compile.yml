@@ -11,6 +11,9 @@ on:
       - 'frontend/package.json'
       - 'frontend/yarn.lock'
       - '.github/workflows/slm-native-compile.yml'
+      - 'backend/services/google_web_risk.py'
+      - 'backend/services/virustotal.py'
+      - 'backend/services/virustotal_url.py'
   workflow_dispatch:
     inputs:
       build_debug:
