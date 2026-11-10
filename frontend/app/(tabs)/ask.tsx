@@ -621,7 +621,7 @@ export default function Ask() {
         {investigationMode && state.phase === "failed" && !state.caseData ? <Button testID="ask-retry-button" label={caseBusy ? "Retrying…" : "Retry"} disabled={caseBusy} onPress={() => void retry()} style={{ marginTop: spacing.md }} /> : null}
         {investigationMode && state.undeleted ? <Button testID="ask-retry-delete" variant="ghost" label="Try deleting again" onPress={() => void retryDelete()} /> : null}
         {investigationMode ? <Button testID="ask-clear-temporary-history" label="Clear this investigation" variant="ghost" onPress={() => void deleteInvestigation()} /> : null}
-        {investigationMode ? <Text testID="ask-processing-state" style={[s.subtitle, { paddingHorizontal: spacing.lg, paddingTop: spacing.xs }]}>{caseStatus}</Text> : null}
+        {investigationMode && caseBusy ? <Text testID="ask-processing-state" style={[s.subtitle, { paddingHorizontal: spacing.lg, paddingTop: spacing.xs }]}>{caseStatus}</Text> : null}
         {spacer > 0 ? <View style={{ height: spacer }} testID="ask-top-spacer" /> : null}
       </ScrollView>
 
