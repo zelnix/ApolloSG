@@ -11,6 +11,8 @@ import type { LocalLlamaRuntime } from "./llamaRnRuntime.ts";
 
 let runtime: LocalLlamaRuntime | null = null;
 let startup: Promise<boolean> | null = null;
+let download: Promise<boolean> | null = null;
+const MODEL_DOWNLOAD_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf";
 
 export function startSharedLuddish(): Promise<boolean> {
   // Candidate model has not cleared product safety or physical-device QA.
@@ -73,4 +75,39 @@ export async function stopSharedLuddish(): Promise<void> {
 export function isPrivateLuddishModelMissing(): boolean {
   try { return !new File(Paths.document, CANDIDATE_FILE).exists; }
   catch { return false; }
+}
+
+/** Explicitly consented download to private storage; never runs on startup. */
+export function downloadPrivateLuddishForTest(): Promise<boolean> {
+  if (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") return Promise.resolve(false);
+  if (runtime || startup) return Promise.resolve(false);
+  if (download) return download;
+  download = (async () => {
+    const dest = new File(Paths.document, CANDIDATE_FILE);
+    if (dest.exists) return startSharedLuddish();
+    try {
+      await File.downloadFileAsync(MODEL_DOWNLOAD_URL, dest, { idempotent: false });
+      const admitted = await verifyPrivateGGUF({
+        uri: dest.uri, exists: dest.exists, size: dest.size,
+        open: () => dest.open(FileMode.ReadOnly),
+      }, Device.totalMemory ?? null);
+      if (!admitted.available) {
+        if (dest.exists) dest.delete();
+        return false;
+      }
+      // Release the download lock before startup checks (no network fallback).
+      const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
+      const created = createLuddishOnDevice({
+        modelUri: admitted.uri, modelId: admitted.modelId, deviceAdmitted: true,
+      });
+      if (!created) { if (dest.exists) dest.delete(); return false; }
+      runtime = created;
+      setSharedSLM(created);
+      return true;
+    } catch {
+      try { if (dest.exists) dest.delete(); } catch { /* best effort */ }
+      return false;
+    }
+  })().finally(() => { download = null; });
+  return download;
 }
