@@ -69,7 +69,7 @@ async def _active_case_job(owner: str, case_id: str, job_id: str, revision: int)
 
 
 async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = False) -> list[SLMReference]:
-    """Only user-submitted text/URLs are eligible. Never include prior cases or KB."""
+    """Case-scoped evidence for the on-device Finding, including retained investigative results."""
     gathered = []
     total = 0
     for row in await repo.list_evidence(owner, case_id):
@@ -84,8 +84,8 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
         if not text:
             continue
         total += len(text)
-        if total > 10000 or len(gathered) >= 16:
-            raise http(413, "budget_exhausted", "Too much material for this on-device pilot; nothing has been shortened.")
+        if total > 120000 or len(gathered) >= 64:
+            raise http(413, "budget_exhausted", "The on-device evidence limit was exceeded; nothing has been shortened or silently omitted.")
         gathered.append(SLMReference(evidence_id=row["evidence_id"], text=text))
     return gathered
 
