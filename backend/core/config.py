@@ -15,7 +15,6 @@ logger = logging.getLogger("apollo")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-SAFE_BROWSING_API_KEY = os.environ.get("SAFE_BROWSING_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 # The other AI providers ApolloSG Settings can select for investigations (services/higgins/adapters). Server-side only.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -23,8 +22,6 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 # Gate 8 — optional breach intelligence (Have I Been Pwned). Empty → /api/account/breach reports "not_configured".
 HIBP_API_KEY = os.environ.get("HIBP_API_KEY", "")
 URL_HMAC_SECRET = os.environ["URL_HMAC_SECRET"]
-SB_ENDPOINT = "https://safebrowsing.googleapis.com/v4/threatMatches:find"
-SB_THREAT_TYPES = ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"]
 
 TOKEN_TTL_DAYS = 365
 
