@@ -48,6 +48,9 @@ export function LaunchSplash() {
     opacity.value = withDelay(SETTLE_MS, withTiming(0, { duration: FADE_MS }, (finished) => { if (finished) runOnJS(setVisible)(false); }));
   }, [done, opacity]);
 
+  useEffect(() => {
+    if (!visible) startupStage("navigation", "completed", "splash_hidden");
+  }, [visible]);
   const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
   if (!visible) return null;
   return (
