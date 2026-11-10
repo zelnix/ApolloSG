@@ -331,7 +331,8 @@ class BackgroundTextIn(Wire):
 
 async def _record_triage_history(owner: str, triage_result, *, category: str, source: dict | None = None,
                                  client_submission_id: str | None = None,
-                                 investigation_case_id: str | None = None) -> None:
+                                 investigation_case_id: str | None = None,
+                                 investigation_readiness: dict | None = None) -> None:
     """Save a completed Triage Investigation to Patrol History — every outcome, zero Gemini calls."""
     from services.triage import record_triage_history
     if triage_result.investigation is None:
@@ -340,7 +341,8 @@ async def _record_triage_history(owner: str, triage_result, *, category: str, so
         await record_triage_history(owner, triage_result.investigation, category=category, source=source,
                                     evidence_source="device_submission",  # the captured notification this device sent
                                     client_submission_id=client_submission_id,
-                                    investigation_case_id=investigation_case_id)
+                                    investigation_case_id=investigation_case_id,
+                                    investigation_readiness=investigation_readiness)
     except Exception as exc:
         __import__("logging").getLogger("apollo.triage").warning(
             "triage_history_write_failed owner=%s error=%s", owner, type(exc).__name__)
@@ -381,7 +383,9 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
         _log_triage.info("background_text_triage device=%s submission=%s outcome=%s",
                           owner, body.submission_id[:12], triage_result.outcome.value)
         await _record_triage_history(owner, triage_result, category="message", source=source,
-                                     client_submission_id=body.submission_id)
+                                     client_submission_id=body.submission_id,
+                                     investigation_readiness={"ready": False, "reason": readiness.reason,
+                                                              "higginsExplanation": readiness.explanation})
         return JSONResponse({
             "caseId": None,
             "jobId": None,
@@ -420,7 +424,8 @@ async def background_text_intake(body: BackgroundTextIn, request: Request):
         {"$set": case_update})
     await _record_triage_history(owner, triage_result, category="message", source=source,
                                  client_submission_id=body.submission_id,
-                                 investigation_case_id=data["case"]["id"])
+                                 investigation_case_id=data["case"]["id"],
+                                 investigation_readiness={"ready": True, "reason": readiness.reason})
     return JSONResponse({"caseId": data["case"]["id"], "jobId": data.get("job", {}).get("id") if data.get("job") else None,
                          "acceptedAt": now_utc().isoformat(),
                          "triage": triage_result.wire(),
