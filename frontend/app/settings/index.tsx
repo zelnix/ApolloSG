@@ -495,6 +495,18 @@ export default function SettingsScreen() {
             <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the SLM output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
           </View>
         </View>
+        {slmTestAvailable && !slmActivity.registered ? (
+          <Pressable testID="settings-download-slm" accessibilityRole="link"
+            accessibilityLabel="Download approved Qwen model from Hugging Face"
+            onPress={() => { void Linking.openURL("https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true"); }}
+            style={[s.rowItem, s.divider]}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowLabel}>Download SLM Model</Text>
+              <Text style={s.rowHint}>Official Qwen GGUF · about 491 MB. After downloading, use Install SLM Model below.</Text>
+            </View>
+            <ChevronRight size={20} color={colors.muted} />
+          </Pressable>
+        ) : null}
         {slmTestAvailable ? (
           <Pressable testID="settings-install-slm" accessibilityRole="button"
             accessibilityLabel="Install SLM model from device"
