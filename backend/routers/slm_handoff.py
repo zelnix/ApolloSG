@@ -34,6 +34,7 @@ QUESTIONS = {
     "tc_hawkeye": "Identify contradictions, alternative explanations and specific corroboration to pursue. Do not invent facts.",
     "magnum_di": "Analyse unresolved evidence gaps and propose independent verification. Do not decide a verdict.",
     "luddish": "Draft a plain-English explanation limited to supplied material, retaining all uncertainty.",
+    "higgins_escalation_assessment": "Sanity-check Hawkeye evidence: provenance, coverage, contradictions, unsupported claims and material gaps. Decide proceed_local only when the supplied evidence is sufficient; escalate only when independent deeper investigation can materially help; otherwise additional_evidence_required. Cite evidence IDs. Do not produce a scam verdict.",
     "case_finding": "Evaluate the supplied investigation evidence and produce Findings with cited reasons, not a legal verdict. Preserve source attribution and uncertainty; do not invent verification.",
 }
 OPERATION = {
@@ -42,6 +43,7 @@ OPERATION = {
     "magnum_di": "evidence_reasoning",
     "luddish": "explanation",
     "case_finding": "case_finding",
+    "higgins_escalation_assessment": "escalation_assessment",
 }
 
 
@@ -129,7 +131,7 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
             return None
         return {"request": repo.dec_json(existing["request_ciphertext"]),
                 "expiresAt": repo.utc(existing["expires_at"]).isoformat()}
-    evidence = await _source_evidence(owner, case_id, include_checks=(role == "case_finding"))
+    evidence = await _source_evidence(owner, case_id, include_checks=(role in ("case_finding", "higgins_escalation_assessment")))
     if not evidence:
         return None
     issued = SLMReasoningRequest(
