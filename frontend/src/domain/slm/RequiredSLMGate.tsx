@@ -2,7 +2,8 @@
  * This must mount outside ApolloProvider and the navigation stack.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState, Text, View, Pressable } from "react-native";
+import { AppState, Text, View, Pressable, ScrollView, useWindowDimensions } from "react-native";
+import { Image } from "expo-image";
 import { PreparingApolloSplash } from "@/src/components/LaunchSplash";
 import { startupStage } from "@/src/startup/startupStages";
 import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackSLMSetup } from "./bootstrap";
@@ -10,6 +11,8 @@ import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackS
 type State = { status: "checking" | "ready" | "incompatible"; reason: string; stage?: string };
 
 export function RequiredSLMGate({ children }: { children: ReactNode }) {
+  const { width, height } = useWindowDimensions();
+  const isTablet = Math.min(width, height) >= 600;
   const [state, setState] = useState<State>({ status: "checking", reason: "" });
   const generation = useRef(0);
   const verify = useCallback(async (install = false) => {
@@ -63,15 +66,22 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
     };
     return <PreparingApolloSplash message={"Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility")} />;
   }
-  return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
-      <Text style={{ fontSize: 22, fontWeight: "700", textAlign: "center" }}>ApolloSG cannot start on this device</Text>
-      <Text style={{ textAlign: "center" }}>{state.reason}</Text>
-      <Text style={{ textAlign: "center" }}>No ApolloSG protection has been started. You can remove the app using your device settings.</Text>
-      <Pressable accessibilityRole="button" onPress={() => { void verify(true); }}>
-        <Text style={{ fontWeight: "700" }}>Install required On-device AI and retry</Text>
+  return <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingVertical: 32 }} testID="slm-admission-error">
+    <Image source={isTablet ? require("@/assets/images/splash-full-tablet.webp") : require("@/assets/images/splash-full.webp")}
+      style={{ width: "100%", height: Math.min(height * 0.49, isTablet ? 420 : 350) }}
+      contentFit="contain" accessibilityLabel="ApolloSG Scam Guard" />
+    <View style={{ width: "100%", maxWidth: 460, alignItems: "center", gap: 14, paddingTop: 12 }}>
+      <Text style={{ fontSize: 21, fontWeight: "700", color: "#183153", textAlign: "center" }}>ApolloSG needs your attention</Text>
+      <Text style={{ fontSize: 15, color: "#183153", textAlign: "center" }}>{state.reason}</Text>
+      <Text style={{ fontSize: 14, color: "#42546A", textAlign: "center" }}>Protection has not started. You can retry the check or install the required On-device AI model.</Text>
+      <Pressable accessibilityRole="button" style={{ backgroundColor: "#183153", borderRadius: 10, paddingVertical: 14, paddingHorizontal: 22, width: "100%", alignItems: "center" }}
+        onPress={() => { void verify(); }}>
+        <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>Retry compatibility check</Text>
       </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => { void verify(); }}>
-        <Text style={{ fontWeight: "700" }}>Retry compatibility check</Text>
+      <Pressable accessibilityRole="button" style={{ borderWidth: 1, borderColor: "#183153", borderRadius: 10, paddingVertical: 14, paddingHorizontal: 18, width: "100%", alignItems: "center" }}
+        onPress={() => { void verify(true); }}>
+        <Text style={{ color: "#183153", fontWeight: "700", textAlign: "center" }}>Install On-device AI and retry</Text>
       </Pressable>
-  </View>;
+    </View>
+  </ScrollView>;
 }
