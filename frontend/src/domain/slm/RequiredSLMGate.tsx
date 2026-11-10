@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AppState, Text, View, Pressable } from "react-native";
 import { PreparingApolloSplash } from "@/src/components/LaunchSplash";
+import { startupStage } from "@/src/startup/startupStages";
 import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackSLMSetup } from "./bootstrap";
 
 type State = { status: "checking" | "ready" | "incompatible"; reason: string; stage?: string };
@@ -13,6 +14,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
   const generation = useRef(0);
   const verify = useCallback(async (install = false) => {
     const attempt = ++generation.current;
+    startupStage("on_device_ai", "started");
     setState({ status: "checking", reason: "", stage: "hardware" });
     let deadline: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
@@ -29,12 +31,14 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
         });
       })()]);
       if (attempt !== generation.current) return;
+      startupStage("on_device_ai", admission.compatible ? "completed" : "failed", admission.compatible ? undefined : "admission_rejected");
       if (!admission.compatible) {
         setState({ status: "incompatible", reason: admission.reason });
         void rollbackSLMSetup().catch(() => undefined);
       } else setState({ status: "ready", reason: "" });
     } catch (error) {
       if (attempt !== generation.current) return;
+      startupStage("on_device_ai", error instanceof Error && error.message === "timeout" ? "timed_out" : "failed");
       setState({ status: "incompatible", reason: error instanceof Error && error.message === "timeout"
         ? "Device compatibility could not be verified within the startup time limit. ApolloSG has not started protection."
         : "Required on-device AI verification failed." });
@@ -53,9 +57,9 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
   if (state.status === "ready") return <>{children}</>;
   if (state.status === "checking") {
     const descriptions: Record<string, string> = {
-      hardware: "Checking device hardware", model_integrity: "Verifying local AI model",
-      runtime_registration: "Preparing AI runtime", inference: "Loading AI and testing reasoning",
-      response_validation: "Validating AI response",
+      hardware: "Checking device hardware", model_integrity: "Verifying On-device AI model",
+      runtime_registration: "Preparing On-device AI runtime", inference: "Loading On-device AI and testing reasoning",
+      response_validation: "Validating On-device AI response",
     };
     return <PreparingApolloSplash message={"Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility")} />;
   }
