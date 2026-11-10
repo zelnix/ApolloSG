@@ -34,7 +34,7 @@ QUESTIONS = {
     "tc_hawkeye": "Identify contradictions, alternative explanations and specific corroboration to pursue. Do not invent facts.",
     "magnum_di": "Analyse unresolved evidence gaps and propose independent verification. Do not decide a verdict.",
     "luddish": "Draft a plain-English explanation limited to supplied material, retaining all uncertainty.",
-    "case_finding": "Assess all supplied evidence together and return one of the four Findings with cited reasons. Do not invent verification.",
+    "case_finding": "Evaluate the supplied investigation evidence and produce Findings with cited reasons, not a legal verdict. Preserve source attribution and uncertainty; do not invent verification.",
 }
 OPERATION = {
     "higgins_triage": "investigation_readiness",
@@ -74,7 +74,7 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
     total = 0
     for row in await repo.list_evidence(owner, case_id):
         submitted = row.get("origin") == "user_submission" and row.get("kind") in ("text", "url")
-        checks = include_checks and row.get("client_item_id") == "tc-flyby-di-checks"
+        checks = include_checks and row.get("client_item_id") in ("tc-flyby-di-checks", "magnum-di-external-investigation")
         if not (submitted or checks):
             continue
         if row.get("availability") != "available":
