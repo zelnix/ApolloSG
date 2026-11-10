@@ -26,10 +26,13 @@ export function SharedLuddishStartup(): null {
         if (started || cancelled || prompted.current) return;
         if (!(await module.isPrivateLuddishModelMissing()) || cancelled) return;
         prompted.current = true;
-        Alert.alert("On-device AI model needed",
-          "The Qwen model is not installed (about 491 MB). Download and verify it now using your internet connection? ApolloSG works without it.",
-          [{ text: "Later", style: "cancel" },
-           { text: "Open Settings", onPress: () => router.push("/settings") },
+        Alert.alert("On-device AI needs to be setup",
+          "The On-device AI is not installed. Would you like to download (approx 491 MB) and setup?",
+          [{ text: "Later", style: "cancel", onPress: () => Alert.alert(
+              "Set up On-device AI later",
+              "You can download and set up On-device AI anytime in Settings. ApolloSG will still work, but some AI-assisted detection and protection capabilities will be limited until setup is complete.",
+              [{ text: "OK" }, { text: "Open Settings", onPress: () => router.push("/settings") }],
+            ) },
            { text: "Download & Install", onPress: () => { void module.downloadPrivateLuddishForTest().then((ok) => Alert.alert("On-device AI", ok ? "Model downloaded and verified. Local inference still needs testing." : "Download or verification failed. Check internet access, available storage and device compatibility.")); } }]);
       }).catch(() => undefined);
     }, 1500);
