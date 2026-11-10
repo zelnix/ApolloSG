@@ -33,6 +33,8 @@ jobs:
     env:
       CI: '1'
       APOLLO_SLM_NATIVE: 'on'
+      # Explicitly scoped to this standalone slm test APK; never a general store-release default.
+      EXPO_PUBLIC_SLM_TEST_MODE: 'true'
       EXPO_PUBLIC_APP_ENV: production
       EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE: guarddog_production
       EXPO_PUBLIC_GUARDDOG_RULE_BUNDLE_URL: https://threat-patrol-1.emergent.host/api/guarddog/rules
