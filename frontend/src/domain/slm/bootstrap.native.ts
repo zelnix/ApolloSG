@@ -1,5 +1,5 @@
-/** Native-only Luddish startup. Only a test-device GGUF already in app
- * private documents can enable the shared runtime. No auto-downloads.
+/** Native-only Luddish startup for pre-production builds.
+ * The model is verified in app-private storage before admission.
  * The one instance services Ask Higgins and all investigation roles.
  */
 import * as Device from "expo-device";
@@ -17,8 +17,6 @@ let download: Promise<boolean> | null = null;
 const MODEL_DOWNLOAD_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf";
 
 export function startSharedLuddish(): Promise<boolean> {
-  // Candidate model has not cleared product safety or physical-device QA.
-  if (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") return Promise.resolve(false);
   if (runtime) return Promise.resolve(true);
   if (startup) return startup;
   startup = (async () => {
@@ -48,7 +46,6 @@ export function startSharedLuddish(): Promise<boolean> {
  * Always rehashes the private copy before making a model available.
  */
 export async function installPrivateLuddishForTest(sourceUri: string): Promise<boolean> {
-  if (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") return false;
   if (runtime || startup) return false;
   const source = new File(sourceUri);
   const dest = new File(Paths.document, CANDIDATE_FILE);
@@ -81,7 +78,6 @@ export function isPrivateLuddishModelMissing(): boolean {
 
 /** Explicitly consented download to private storage; never runs on startup. */
 export function downloadPrivateLuddishForTest(): Promise<boolean> {
-  if (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") return Promise.resolve(false);
   if (download) return download;
   if (runtime || startup) return Promise.resolve(false);
   updateOnDeviceAIDownload({ phase: "downloading", receivedBytes: 0, totalBytes: 0, error: undefined });
@@ -136,9 +132,6 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
  * itself; rollback is limited to ApolloSG-owned model files and runtime state.
  */
 export async function checkRequiredSLMCompatibility(): Promise<{ compatible: boolean; reason: string }> {
-  if (!__DEV__ && process.env.EXPO_PUBLIC_SLM_TEST_MODE !== "true") {
-    return { compatible: false, reason: "The required local AI model is not enabled in this build." };
-  }
   if (!Device.totalMemory || Device.totalMemory < 3 * 1024 * 1024 * 1024) {
     return { compatible: false, reason: "This device does not meet the required memory capacity." };
   }
