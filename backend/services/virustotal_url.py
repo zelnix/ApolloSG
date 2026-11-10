@@ -22,7 +22,7 @@ VT_API_URL = "https://www.virustotal.com/api/v3"
 
 # Share the existing in-process VirusTotal limiter with file-hash lookups.
 # This is NOT a cross-worker or account-wide quota guarantee.
-from services.virustotal import _rate_limit
+from services.virustotal import _rate_limit, quota_wait_seconds, note_quota_failure
 
 
 @dataclass
@@ -53,6 +53,9 @@ async def check_url(url: str) -> URLRepResult:
         return URLRepResult(url=url, verdict="not_configured",
                             detail="VIRUSTOTAL_API_KEY is not set.")
 
+    if quota_wait_seconds() > 0:
+        return URLRepResult(url=url, verdict="error",
+                            detail="VirusTotal quota temporarily unavailable (previous HTTP 429); URL not checked.")
     await _rate_limit()
 
     try:
@@ -66,8 +69,9 @@ async def check_url(url: str) -> URLRepResult:
             return URLRepResult(url=url, verdict="unknown",
                                 detail="URL not yet analysed by VirusTotal.")
         if resp.status_code == 429:
+            note_quota_failure(resp.headers.get("Retry-After"))
             return URLRepResult(url=url, verdict="error",
-                                detail="VirusTotal rate limit exceeded.")
+                                detail="VirusTotal returned HTTP 429 (rate or daily quota exhausted); URL not checked.")
         if resp.status_code != 200:
             return URLRepResult(url=url, verdict="error",
                                 detail=f"VirusTotal returned HTTP {resp.status_code}.")
