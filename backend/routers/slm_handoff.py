@@ -34,12 +34,14 @@ QUESTIONS = {
     "tc_hawkeye": "Identify contradictions, alternative explanations and specific corroboration to pursue. Do not invent facts.",
     "magnum_di": "Analyse unresolved evidence gaps and propose independent verification. Do not decide a verdict.",
     "luddish": "Draft a plain-English explanation limited to supplied material, retaining all uncertainty.",
+    "case_finding": "Assess all supplied evidence together and return one of the four Findings with cited reasons. Do not invent verification.",
 }
 OPERATION = {
     "higgins_triage": "investigation_readiness",
     "tc_hawkeye": "evidence_reasoning",
     "magnum_di": "evidence_reasoning",
     "luddish": "explanation",
+    "case_finding": "case_finding",
 }
 
 
