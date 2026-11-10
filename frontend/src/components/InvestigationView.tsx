@@ -388,7 +388,7 @@ function buildTimeline(state: CaseState): TimelineEntry[] {
       });
     }
   } else if (phase === "failed") {
-    entries.push({ title: "Investigation incomplete", body: failure?.message ?? state.error ?? "The investigation could not be completed.", at: caseData?.updatedAt ?? caseData?.createdAt ?? "", iconType: "failed", entryKind: "error" });
+    entries.push({ title: "Investigation incomplete", body: "The investigation did not pass ApolloSG’s validation. See Findings for the outcome and DI for the detailed reason.", at: caseData?.updatedAt ?? caseData?.createdAt ?? "", iconType: "failed", entryKind: "error" });
   } else if (phase === "expired") {
     entries.push({ title: "Server copy cleaned up", body: "Original evidence was cleaned up from the server. Saved findings remain on this device.", at: caseData?.updatedAt ?? "", iconType: "failed", entryKind: "process" });
   }
