@@ -492,9 +492,15 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         magnum_available = await _magnum_external_evidence(
             owner, case, job, payload["message"], magnum_rows, progress)
         if not magnum_available:
-            # One consistent unavailable outcome: no retry loop, no fabricated
-            # external findings. Luddish may still evaluate retained local evidence.
-            log.warning("magnum_unavailable_case_continues_locally case=%s", case["case_id"])
+            # The assessment already established that the local evidence needs
+            # independent investigation. Never reinterpret a provider failure as
+            # sufficient evidence or let a later model guess a final verdict.
+            log.warning("magnum_unavailable_material_gaps case=%s", case["case_id"])
+            return Outcome("device_unavailable", errors=[
+                "Magnum DI was unavailable. Hawkeye's evidence and Higgins Escalation "
+                "Assessment are retained, but material questions remain unresolved: " +
+                "; ".join(assessment.get("materialGaps") or ["independent verification required"])
+            ])
     slm_finding = await _await_case_finding(owner, case, job, progress)
     if slm_finding:
         committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
