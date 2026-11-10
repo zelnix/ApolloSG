@@ -1440,9 +1440,13 @@ async def confirm_commit(case_id: str, request: Request):
     # Purge: revoke the case (marks deleted, rotates epoch) then run cleanup
     await repo.revoke(owner, case_id, "expired")
     cleanup_status = await repo.run_cleanup(owner, case_id)
-    await device_pickup.confirmed(owner, case_id)
-    removed_at = now_utc().isoformat() if cleanup_status == "complete" else None  # a failed clean-up is retried; no time is claimed
-    return JSONResponse({"purged": True, "status": cleanup_status, "removedAt": removed_at}, headers=NO_STORE)
+    if cleanup_status == "complete":
+        await device_pickup.confirmed(owner, case_id)
+    # Preserve the pickup record when cleanup fails, so retry and recovery
+    # remain possible. Never report a failed purge as completed.
+    removed_at = now_utc().isoformat() if cleanup_status == "complete" else None
+    return JSONResponse({"purged": cleanup_status == "complete", "status": cleanup_status,
+                         "removedAt": removed_at}, headers=NO_STORE)
 
 
 # Reuse the authenticated investigation router; no second server or investigation engine.
