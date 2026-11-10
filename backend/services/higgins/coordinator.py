@@ -374,6 +374,12 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
         if committed is not None:
             return committed
+    # SLM-led cases must not silently fall back to Hawkeye's old score or
+    # to a cloud model when local inference is unavailable or invalid.
+    return Outcome("device_unavailable", errors=[
+        "An evidence-grounded on-device SLM Finding was not received. "
+        "ApolloSG cannot complete this investigation on this device."
+    ])
     if fly_by.resolved:
         committed = await _commit_flyby(owner, case, job, payload, fly_by, capability_ids)
         if committed is not None:
