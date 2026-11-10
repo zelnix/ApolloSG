@@ -25,7 +25,8 @@ test("native adapter passes case evidence to the model but never calls a network
     return {
       completion: async ({ messages }) => {
         calls.push(messages[1].content);
-        assert.match(messages[0].content, /never decide scam verdicts/i);
+        assert.match(messages[0].content, /An evidenceIds entry must cite ONLY IDs supplied in the input/i);
+        assert.match(messages[0].content, /For case_finding include caseFinding/i);
         return { text: result };
       },
       release: async () => { released++; },
