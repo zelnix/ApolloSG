@@ -334,7 +334,7 @@ async def _with_history(owner: str, case: dict, response: HigginsResponse) -> tu
 def _with_evidence(case: dict, response: HigginsResponse, record: dict, provider_result: ProviderResult) -> HigginsResponse:
     """Build a display-oriented evidence summary from stored findings and provenance.
 
-    This is not an Evidence Lock stage, investigation gate or source of authority.
+    This summary does not gate investigation, alter source records or replace stored Findings.
     Original evidence and accepted Findings remain in their existing repositories.
     """
     try:
