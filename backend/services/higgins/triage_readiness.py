@@ -14,6 +14,7 @@ from services.higgins.tc_flyby.triage import extract
 class Readiness:
     ready: bool
     reason: str
+    explanation: str = ""
 
 
 def background_text_ready(text: str, *, sender: str = "", content_complete: bool = True) -> Readiness:
@@ -23,7 +24,7 @@ def background_text_ready(text: str, *, sender: str = "", content_complete: bool
     separately retained on the case and must never be hidden.
     """
     if not text or not text.strip():
-        return Readiness(False, "no_message_content")
+        return Readiness(False, "no_message_content", "I can’t begin an investigation because there’s no message content to examine. Please share the message or another piece of evidence.")
     entities = extract(text)
     if entities.urls or entities.hosts or entities.emails or entities.payment_details:
         return Readiness(True, "investigable_identifier")
@@ -39,4 +40,4 @@ def background_text_ready(text: str, *, sender: str = "", content_complete: bool
         return Readiness(True, "investigable_message_conduct")
     # A sender label alone, a generic time/number, or an intelligence-provider
     # failure is not sufficient evidence to investigate a particular claim.
-    return Readiness(False, "no_investigable_subject")
+    return Readiness(False, "no_investigable_subject", "I can’t begin an investigation from this information alone. Please share the message, link, request, or other details you want me to check.")
