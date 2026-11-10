@@ -27,14 +27,10 @@ export function SharedLuddishStartup(): null {
         if (started || cancelled || prompted.current || ["downloading", "verifying", "registering"].includes(getOnDeviceAIDownloadState().phase)) return;
         if (!(await module.isPrivateLuddishModelMissing()) || cancelled) return;
         prompted.current = true;
-        Alert.alert("On-device AI needs to be setup",
-          "The On-device AI is not installed. Would you like to download (approx 491 MB) and setup?",
-          [{ text: "Later", style: "cancel", onPress: () => Alert.alert(
-              "Set up On-device AI later",
-              "You can download and set up On-device AI anytime in Settings. ApolloSG will still work, but some AI-assisted detection and protection capabilities will be limited until setup is complete.",
-              [{ text: "OK" }, { text: "Open Settings", onPress: () => router.push("/settings") }],
-            ) },
-           { text: "Download & Install", onPress: () => { router.push("/settings"); void module.downloadPrivateLuddishForTest(); } }]);
+        Alert.alert("ApolloSG requires on-device AI",
+          "ApolloSG cannot activate on this device until the local AI model is installed and verified. If the device cannot run it, setup cannot continue.",
+          [{ text: "Exit setup", style: "cancel", onPress: () => router.replace("/onboarding") },
+           { text: "Install required AI", onPress: () => { router.push("/settings"); void module.downloadPrivateLuddishForTest(); } }]);
       }).catch(() => undefined);
     }, 1500);
     return () => { cancelled = true; clearTimeout(handle); };
