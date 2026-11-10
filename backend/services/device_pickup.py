@@ -10,7 +10,6 @@ The phone fetches it with GET /investigations/{id}/pickup. Stored encrypted, lik
 from __future__ import annotations
 
 from datetime import datetime
-import base64
 from typing import Any, Optional
 
 from fastapi import HTTPException
@@ -52,17 +51,17 @@ async def hold(owner: str, case_id: str) -> bool:
             except HTTPException:
                 # Never certify a snapshot that omits evidence marked available.
                 raise
-            item = {"evidenceId": row["evidence_id"], "kind": kind,
-                    "origin": row.get("origin"), "mediaType": row.get("media_type")}
-            if kind in ("text", "url", "observation", "source_snapshot"):
-                body = data.decode("utf-8")
-                item["body"] = body
-            else:
-                # Keep original binary bytes, not an inferred transcription.
-                item["base64"] = base64.b64encode(data).decode("ascii")
-            evidence_content.append(item)
+            # The existing authenticated evidence-content endpoint transfers
+            # individual bytes. Never embed up to 64 MiB of case files in a
+            # single MongoDB pickup document.
+            import hashlib
+            evidence_content.append({
+                "evidenceId": row["evidence_id"], "kind": kind,
+                "origin": row.get("origin"), "mediaType": row.get("media_type"),
+                "byteLength": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+            })
             if row.get("origin") == "user_submission" and not row.get("parent_id") and kind in ("text", "url"):
-                originals.append({"evidenceId": row["evidence_id"], "kind": kind, "body": body})
+                originals.append({"evidenceId": row["evidence_id"], "kind": kind, "body": data.decode("utf-8")})
         source = {k: _plain(v) for k, v in (doc.get("source_metadata") or {}).items() if k in IDENTIFIERS and v not in (None, "", [])}
         snapshot = {
             "case": (await repo.case_view(doc)).wire(),
