@@ -69,14 +69,15 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> dict | Non
         return None
     try:
         # Issue a stage-specific request on the already-authenticated case's
-        # existing event stream. Never wait for a phone or a local model.
+        # existing event stream. Wait only when a valid request was issued.
         from routers.slm_handoff import issue_stage_request
         issued = await issue_stage_request(owner, case["case_id"], job["job_id"],
                                            case["revision"], role)
-        if issued:
-            await repo.emit(owner, case["case_id"], job["job_id"],
-                            "slm_advisory_request", issued,
-                            case["revision"], repo.utc(case["expires_at"]))
+        if not issued:
+            return None
+        await repo.emit(owner, case["case_id"], job["job_id"],
+                        "slm_advisory_request", issued,
+                        case["revision"], repo.utc(case["expires_at"]))
         import asyncio
         advice = None
         for _ in range(30):
