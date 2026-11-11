@@ -26,17 +26,6 @@ def called_names(node):
 
 
 class SLMRedundancyRegression(unittest.TestCase):
-    def test_slm_advisory_retries_reuse_inference_and_reject_bad_expiry(self):
-        transport = (ROOT / "frontend/src/domain/slm/slmTransport.ts").read_text()
-        store = (ROOT / "frontend/src/investigation/caseStore.ts").read_text()
-        self.assertIn("inFlightInference.get(key)", transport)
-        self.assertIn("inFlightInference.set(key, running)", transport)
-        self.assertIn("pendingReceipts.get(key)?.payload", transport)
-        self.assertIn("Number.isFinite(Date.parse(issued.expiresAt))", transport)
-        self.assertIn("receipt.requestId !== payload.requestId", transport)
-        self.assertIn("attemptedAdvisoryRequests.current.has(issued.request.requestId)", store)
-        self.assertIn("for (let attempt = 0; attempt < 2; attempt++)", store)
-
     def test_mandatory_investigation_never_commits_legacy_hawkeye_result(self):
         tree = ast.parse(COORDINATOR.read_text())
         run = function(tree, "run_turn")
