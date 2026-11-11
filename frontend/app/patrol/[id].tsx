@@ -261,29 +261,33 @@ function useCaseInvestigation(event: PatrolEvent | undefined): DeviceInvestigati
 
 function threatCaseState(event: PatrolEvent, investigation: DeviceInvestigation | null): CaseState {
   const caseId = event.investigation_case_id ?? event.patrol_record?.investigationCaseId ?? null;
-  const caseData: InvestigationCase | null = investigation ? {
-    schemaVersion: 1 as const,
-    id: investigation.caseId,
+  // Device-local display projection only. Empty retention fields are not server retention claims.
+  const validGates: InvestigationCase["gates"] = investigation?.gates.filter(
+    (g): g is InvestigationCase["gates"][number] =>
+      ["site", "link", "text", "call", "network", "account", "email", "app", "file", "device"].includes(g)
+  ) ?? [];
+  const caseData: InvestigationCase | null = caseId || investigation ? {
+    schemaVersion: 1,
+    id: investigation?.caseId ?? caseId!,
     revision: 0,
-    status: investigation.status,
-    question: investigation.question,
-    createdAt: investigation.createdAt,
-    updatedAt: investigation.completedAt,
-    response: investigation.response,
-    gates: investigation.gates,
-    answeredBy: investigation.answeredBy ?? null,
-    settledReason: investigation.settledReason ?? null,
-    simulated: investigation.simulated,
-    origin: investigation.origin ?? null,
-  } : caseId ? {
-    schemaVersion: 1 as const,
-    id: caseId,
-    revision: 0,
-    status: "completed",
-    question: event.what_happened ?? event.headline ?? "",
-    createdAt: event.occurred_at,
-    updatedAt: event.resolved_at ?? event.occurred_at,
-    response: null,
+    status: investigation?.response ? "complete" : "partial",
+    createdAt: investigation?.createdAt ?? event.occurred_at,
+    updatedAt: investigation?.completedAt ?? event.resolved_at ?? event.occurred_at,
+    expiresAt: "",
+    evidenceExpiresAt: null,
+    reportExpiresAt: null,
+    retentionClass: "device_projection",
+    reportByteSize: 0,
+    response: investigation?.response ?? null,
+    gates: validGates,
+    activeJobId: null,
+    pendingDeviceRequestIds: [],
+    inventory: { total: 0, examined: 0, partial: 0, unavailable: 0, purged: 0, contentExpired: 0 },
+    cleanupStatus: "not_due",
+    answeredBy: investigation?.answeredBy ?? null,
+    settledReason: investigation?.settledReason ?? null,
+    simulated: investigation?.simulated,
+    origin: investigation?.origin ?? event.origin ?? null,
   } : null;
   return {
     phase: investigation?.response ? "answered" : "answered",
