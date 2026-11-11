@@ -505,6 +505,13 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
                                                 {"$set": {"routing.fidelity": {**fidelity, "at": now_utc()}}})
     return Outcome("committed", commit=commit, case=updated)
 
+def decision_requires_independent_review(hawkeye_result) -> bool:
+    """Conservative consistency gate, never a new scoring engine."""
+    return getattr(hawkeye_result, "next_step", None) == "magnum_di" or (
+        getattr(hawkeye_result, "route", None) == "magnum_di"
+    )
+
+
 
 async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     """Run Wright Triage, TC Hawkeye, mandatory SLM escalation assessment,
@@ -556,6 +563,15 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         return Outcome("device_unavailable", errors=[
             "Higgins Escalation Assessment was unavailable. Hawkeye's investigation "
             "is retained, but no escalation or final Finding was authorised."
+        ])
+    # Phase 7: an on-device recommendation is not permission to disregard
+    # unresolved, evidence-backed Hawkeye concerns. The native model may ask
+    # for more evidence or escalate, but cannot downgrade a mandatory escalation.
+    if decision_requires_independent_review(hawkeye_result) and assessment["decision"] == "proceed_local":
+        return Outcome("device_unavailable", errors=[
+            "TC Hawkeye identified unresolved investigative concerns but the on-device "
+            "assessment proposed proceeding locally. The conflicting assessments "
+            "require review; no final Finding was authorised."
         ])
     decision = assessment["decision"]
     if decision == "additional_evidence_required":
