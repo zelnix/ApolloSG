@@ -86,8 +86,8 @@ function recordHealthCheck(health: ProtectionHealthSnapshot): void {
     const state = gate.resolved?.coverageState;
     if (state === "active_verified") active.push(gate.title);
     else if (state === "active_unverified") unverified.push(gate.title);
-    else if (state === "stopped" || state === "was_active") stopped.push(gate.title);
-    else if (state === "unavailable" || state === "not_supported") unavailable.push(gate.title);
+    else if (state === "disabled_by_user") stopped.push(gate.title);
+    else if (state === "temporarily_unavailable" || state === "unsupported") unavailable.push(gate.title);
     // "unknown" and "checking" are neutral — not counted as issues
   }
 
