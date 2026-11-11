@@ -127,11 +127,19 @@ export class LocalLlamaRuntime implements SLMAdapter {
   async infer(request: SLMRequest): Promise<unknown> {
     if (this.closed) throw new Error("SLM runtime closed");
     const execute = async (): Promise<unknown> => {
+      const userPrompt = promptFor(request);
+      // Conservative preflight, not a substitute for native tokenizer counts.
+      // Refuse oversized requests before llama.rn can truncate evidence.
+      // Reserve space for system instructions, chat-template overhead and output.
+      const maxPromptChars = Math.max(0, (this.nCtx - 768 - 1200) * 2);
+      if (userPrompt.length > maxPromptChars) {
+        throw new Error("SLM input exceeds conservative context budget; evidence was not truncated");
+      }
       const context = await this.load();
       const result = await context.completion({
         messages: [
           { role: "system", content: INSTRUCTIONS },
-          { role: "user", content: promptFor(request) },
+          { role: "user", content: userPrompt },
         ],
         n_predict: 768,
         temperature: 0.1,
