@@ -34,8 +34,8 @@ class EvidenceCoverageTests(unittest.IsolatedAsyncioTestCase):
         self.source, self.store = load_source()
 
     def add(self, evidence_id, kind, text=None, **other):
-        self.store.rows.append({"evidence_id": evidence_id, "kind": kind,
-                                "origin": "user_submission", "availability": "available", **other})
+        self.store.rows.append({**{"evidence_id": evidence_id, "kind": kind,
+                                  "origin": "user_submission", "availability": "available"}, **other})
         if text is not None:
             self.store.data[evidence_id] = text
 
