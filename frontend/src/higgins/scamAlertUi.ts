@@ -35,7 +35,7 @@ export function homeRegion(): string {
   return code === "GB" ? "UK" : EU_MEMBERS.has(code) ? "EU" : code;
 }
 /** An alert belongs in the main list when it applies everywhere or only in the device's own country. */
-export const appliesHere = (a: GovernmentAlert, home: string) => a.appliesIn === "everywhere" || a.appliesIn === "global" || a.appliesIn === home;
+export const appliesHere = (a: GovernmentAlert, home: string) => a.appliesIn === "everywhere" || a.appliesIn === home;
 
 export const SEVERITY_TONE: Record<GovernmentAlert["severity"], Tone> = { EXTREME: "barking", HIGH: "growling", MODERATE: "ears_up", LOW: "neutral" };
 export const SEVERITY_RANK: Record<GovernmentAlert["severity"], number> = { EXTREME: 3, HIGH: 2, MODERATE: 1, LOW: 0 };
