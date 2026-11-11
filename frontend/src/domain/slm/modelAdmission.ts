@@ -1,6 +1,6 @@
 /** Fast on-device model admission: private file, plausible size, RAM and GGUF header.
  * Full-file SHA-256 was removed from startup and installation by product decision.
- * Native model loading and the mandatory inference self-test remain fail-closed.
+ * Native model loading remains required before the app starts.
  */
 export const CANDIDATE_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf";
 export const MIN_DEVICE_RAM_BYTES = 3 * 1024 * 1024 * 1024;
