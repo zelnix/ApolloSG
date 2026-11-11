@@ -1,14 +1,7 @@
 name: SLM Android native prebuild smoke
 
+# Manual-only during SLM physical-device development; retain for deliberate verification.
 on:
-  push:
-    branches: [slm]
-    paths:
-      - 'frontend/app.config.js'
-      - 'frontend/package.json'
-      - 'frontend/yarn.lock'
-      - 'frontend/src/domain/slm/**'
-      - '.github/workflows/slm-native-prebuild.yml'
   workflow_dispatch:
 
 permissions:
