@@ -15,6 +15,7 @@ on:
       - 'frontend/src/investigation/types.ts'
       - 'backend/tests/test_slm_advisory_stage.py'
       - 'backend/tests/test_slm_wait_deadline.py'
+      - 'backend/tests/test_slm_replay.py'
       - 'backend/tests/test_higgins_escalation_contract.py'
       - 'backend/tests/test_slm_contract.py'
       - 'backend/tests/test_slm_redundancy_regression.py'
@@ -87,6 +88,7 @@ jobs:
           PYTHONPATH=. python tests/test_slm_contract.py
           PYTHONPATH=. python tests/test_slm_advisory_stage.py
           PYTHONPATH=. python tests/test_slm_wait_deadline.py
+          PYTHONPATH=. python tests/test_slm_replay.py
           PYTHONPATH=. python tests/test_slm_redundancy_regression.py
           PYTHONPATH=. python tests/test_slm_mandatory_behaviour.py
           python -c "import runpy; t = runpy.run_path('tests/test_no_evidence_lock_stage.py'); t['test_investigation_coordinator_has_no_evidence_lock_stage'](); t['test_existing_evidence_and_findings_persistence_are_retained'](); print('Evidence Lock regression: 2 passed')"
