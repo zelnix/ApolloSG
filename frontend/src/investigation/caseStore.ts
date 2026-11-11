@@ -153,14 +153,25 @@ export function useInvestigation(boundOperationId?: string | null) {
             issued.request.requestId && !attemptedAdvisoryRequests.current.has(issued.request.requestId)) {
           if (attemptedAdvisoryRequests.current.size > 256) attemptedAdvisoryRequests.current.clear();
           attemptedAdvisoryRequests.current.add(issued.request.requestId);
-          void submitIssuedAdvisory(caseId, issued, adapter)
-            .then((result) => {
-              // A failed submission must remain retryable after SSE reconnect.
-              if (result.status !== "accepted") attemptedAdvisoryRequests.current.delete(issued.request.requestId);
-            })
-            .catch(() => {
+          // SSE cursors advance even if the HTTP result submission fails, so
+          // replay cannot depend on the server resending this event.
+          void (async () => {
+            try {
+              for (let attempt = 0; attempt < 2; attempt++) {
+                if (!live() || Date.parse(issued.expiresAt) <= Date.now()) break;
+                try {
+                  const result = await submitIssuedAdvisory(caseId, issued, adapter);
+                  if (result.status === "accepted") return;
+                  if (result.status === "invalid_output") break;
+                } catch {
+                  // Lost receipt or temporary network error: retry once using
+                  // the same server request ID, never a new case request.
+                }
+              }
+            } finally {
               attemptedAdvisoryRequests.current.delete(issued.request.requestId);
-            });
+            }
+          })();
         }
       }
       else if (event.type === "retry_scheduled") update((previous) => ({ progress: [...previous.progress.slice(-6), event.payload.failure.message], phase: "working" }));
