@@ -4,6 +4,7 @@
 import { runWrightSemanticSources } from "./wrightSemanticRunner.ts";
 import type { WrightSemanticResult } from "./wrightSemanticContract.ts";
 import type { SLMAdapter, SLMReference } from "./index.ts";
+import { validateWrightSemantic } from "./wrightSemanticContract.ts";
 
 export type WrightPhase6Result =
   | { status: "complete"; semantic: WrightSemanticResult; windows: number }
@@ -46,6 +47,8 @@ export async function assessMandatoryWright(
   if ((classification === "scam_indicators" || classification === "legitimate_context" ||
       coercion === "present" || Object.values(exposure).includes("CONFIRMED")) && !refs.length)
     return { status: "limited", reason: "missing_source_citations" };
+  if (refs.length > 32 || !validateWrightSemantic(semantic, evidence.map(e => e.evidenceId)))
+    return { status: "limited", reason: "synthesis_contract_failed" };
   return { status: "complete", semantic, windows: run.interpretations.length };
 }
 
