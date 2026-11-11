@@ -5,10 +5,11 @@
  * advisory: investigation, scoring, Evidence Lock and user-visible verdicts stay in
  * their existing authoritative components.
  */
+import { validateWrightSemantic, type WrightSemanticResult } from "./wrightSemanticContract.ts";
 import { recordSuccessfulSLMInference } from "./sharedRuntime.ts";
 
-export type SLMRole = "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding" | "higgins_escalation_assessment";
-export type SLMOperation = "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding" | "escalation_assessment";
+export type SLMRole = "wright_triage" | "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding" | "higgins_escalation_assessment";
+export type SLMOperation = "wright_semantic" | "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding" | "escalation_assessment";
 
 export interface SLMReference {
   /** Only references supplied to this invocation may be cited by the model. */
@@ -56,6 +57,7 @@ export interface SLMAnswer {
   draftExplanation: string | null;
   caseFinding?: SLMCaseFinding | null;
   escalationAssessment?: SLMEscalationAssessment | null;
+  wrightSemantic?: WrightSemanticResult;
 }
 
 export interface SLMAdapter {
@@ -68,8 +70,8 @@ export type SLMRun =
   | { status: "completed"; execution: "on_device"; modelId: string; answer: SLMAnswer }
   | { status: "unavailable" | "invalid_output"; execution: "none"; reason: string };
 
-const ROLES: readonly SLMRole[] = ["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding", "higgins_escalation_assessment"];
-const OPERATIONS: readonly SLMOperation[] = ["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding", "escalation_assessment"];
+const ROLES: readonly SLMRole[] = ["wright_triage", "higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding", "higgins_escalation_assessment"];
+const OPERATIONS: readonly SLMOperation[] = ["wright_semantic", "investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding", "escalation_assessment"];
 const MAX_EVIDENCE = 64;
 const MAX_CHARS = 120_000;
 const MAX_OBSERVATIONS = 24;
@@ -113,6 +115,10 @@ function validEscalation(value: unknown, refs: Set<string>): value is SLMEscalat
 
 function validate(value: unknown, refs: Set<string>, operation: SLMOperation): SLMAnswer | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  if (operation === "wright_semantic") {
+    const semantic = validateWrightSemantic(value, [...refs]);
+    return semantic ? { observations: [], contradictions: [], alternativeExplanations: [], verificationSuggestions: [], draftExplanation: null, wrightSemantic: semantic } : null;
+  }
   const a = value as Record<string, unknown>;
   // Unexpected fields (including a model-authored verdict or score) must not leak downstream.
   const permitted = new Set(["observations", "contradictions", "alternativeExplanations",
@@ -139,6 +145,7 @@ function validate(value: unknown, refs: Set<string>, operation: SLMOperation): S
 /** Privacy-safe contract diagnostics: field names and error classes only, never model text. */
 function contractFailure(value: unknown, refs: Set<string>, operation: SLMOperation): string {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "not_object";
+  if (operation === "wright_semantic") return "wright_semantic_contract_failed";
   const a = value as Record<string, unknown>;
   const allowed = new Set(["observations", "contradictions", "alternativeExplanations", "verificationSuggestions", "draftExplanation", "caseFinding", "escalationAssessment"]);
   if (Object.keys(a).some(k => !allowed.has(k))) return "unexpected_field";
@@ -169,6 +176,7 @@ function contractFailure(value: unknown, refs: Set<string>, operation: SLMOperat
  */
 export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): Promise<SLMRun> {
   if (!ROLES.includes(request.role) || !OPERATIONS.includes(request.operation) ||
+      (request.operation === "wright_semantic" && request.role !== "wright_triage") ||
       !Array.isArray(request.evidence) || request.evidence.length > MAX_EVIDENCE ||
       typeof request.question !== "string" || request.question.length > MAX_TEXT ||
       request.evidence.some((e) => !e || typeof e.evidenceId !== "string" ||
