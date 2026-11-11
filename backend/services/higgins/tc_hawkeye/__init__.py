@@ -265,7 +265,7 @@ async def _kb_stage(plan_: Plan, text: str) -> None:
                         check.facts.append(_kb_fact(entry, f"ApolloSG's library holds an official alert that mentions “{check.subject}” (“{entry.get('title')}”). "
                                                            "That is context, not proof about this case."))
         except Exception:  # noqa: BLE001 — the KB can never break an investigation
-            log.warning("tc_flyby_kb_stage_failed kind=%s", check.kind, exc_info=True)
+            log.warning("tc_hawkeye_kb_stage_failed kind=%s", check.kind, exc_info=True)
 
 
 # ── Stage 3: applying targeted search answers ───────────────────────────────
@@ -391,7 +391,7 @@ async def _item(owner: str, case: dict, client_item_id: str, text: str, label: s
     if existing:
         return existing["evidence_id"]
     item = await ev.ingest_text(owner, case, client_item_id, text, kind="observation", origin="apollo_inference", label=label,
-                                meta={"source": "tc_flyby_di"}, coverage=Coverage(status="examined", unit="items", total=1, examined=1))
+                                meta={"source": "tc_hawkeye_di"}, coverage=Coverage(status="examined", unit="items", total=1, examined=1))
     return item.id
 
 
@@ -450,10 +450,10 @@ async def investigate(owner: str, case: dict, job: dict, question: str, rows: li
     validated on-device SLM Finding before committing the case.
     """
     case_id = case["case_id"]
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
-    if stored and stored.get("tc_flyby_ciphertext"):
-        record = repo.dec_json(stored["tc_flyby_ciphertext"])
-        await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$inc": {"routing.tc_flyby.reusedOnRetry": 1}})
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_hawkeye_ciphertext": 1})
+    if stored and stored.get("tc_hawkeye_ciphertext"):
+        record = repo.dec_json(stored["tc_hawkeye_ciphertext"])
+        await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$inc": {"routing.tc_hawkeye.reusedOnRetry": 1}})
     else:
         record = await _run(owner, case, job, question, rows, progress, triage_advice=triage_advice, hawkeye_advice=hawkeye_advice)
     usage = record["search"]["tokens"]
@@ -565,7 +565,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     summary = _summary(plan_, decision, issues, magnum_search, searched)
     summary["floor"] = floor
     await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$set": {
-        "tc_flyby_ciphertext": repo.enc_json(record), "routing.tc_flyby": summary, "routing.answeredBy": summary["answeredBy"]}})
+        "tc_hawkeye_ciphertext": repo.enc_json(record), "routing.tc_hawkeye": summary, "routing.answeredBy": summary["answeredBy"]}})
     return record
 
 
@@ -575,10 +575,10 @@ _ESTABLISHED = ("concern", "anomaly", "clear", "weak")
 async def established(owner: str, case_id: str, limit: int = 4) -> list[str]:
     """What TC Hawkeye established about this case, word for word from its check record: live facts only (never ApolloSG
     knowledge, never what a lookup didn't find), warning signs first. Kept and shown when Magnum DI couldn't finish."""
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
-    if not stored or not stored.get("tc_flyby_ciphertext"):
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_hawkeye_ciphertext": 1})
+    if not stored or not stored.get("tc_hawkeye_ciphertext"):
         return []
-    facts = [f for c in repo.dec_json(stored["tc_flyby_ciphertext"]).get("checks") or [] for f in c.get("facts") or []
+    facts = [f for c in repo.dec_json(stored["tc_hawkeye_ciphertext"]).get("checks") or [] for f in c.get("facts") or []
              if f.get("class") == "live_evidence" and f.get("signal") in _ESTABLISHED and str(f.get("text") or "").strip()]
     facts.sort(key=lambda f: _ESTABLISHED.index(f["signal"]))
     return list(dict.fromkeys(str(f["text"]).strip() for f in facts))[:limit]
@@ -588,10 +588,10 @@ async def discard_response(owner: str, case: dict) -> None:
     """TC Hawkeye's composed result failed Apollo's validation: Magnum DI takes the case instead, with TC Hawkeye's
     brief and with web search on, since TC Hawkeye's conclusion can't be relied on."""
     case_id = case["case_id"]
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
-    if not stored or not stored.get("tc_flyby_ciphertext"):
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_hawkeye_ciphertext": 1})
+    if not stored or not stored.get("tc_hawkeye_ciphertext"):
         return
-    record = repo.dec_json(stored["tc_flyby_ciphertext"])
+    record = repo.dec_json(stored["tc_hawkeye_ciphertext"])
     checks = [Check.from_wire(c) for c in record["checks"]]
     whole = [{"capability": "reasoning", "evidenceIds": [], "checkId": None,
               "text": "TC Hawkeye's own result didn't pass Apollo's validation, so investigate the whole case."}]
@@ -600,5 +600,5 @@ async def discard_response(owner: str, case: dict) -> None:
     record["items"]["brief"] = await _item(owner, case, BRIEF_ITEM_ID, brief, "TC Hawkeye brief for Magnum DI")
     record.update(response=None, decision=None, magnumSearch=True, issues=None)
     await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$set": {
-        "tc_flyby_ciphertext": repo.enc_json(record), "routing.answeredBy": "magnum_di", "routing.tc_flyby.resolved": False,
-        "routing.tc_flyby.magnumNeeded": True, "routing.tc_flyby.magnumSearch": True, "routing.tc_flyby.answeredBy": "magnum_di"}})
+        "tc_hawkeye_ciphertext": repo.enc_json(record), "routing.answeredBy": "magnum_di", "routing.tc_hawkeye.resolved": False,
+        "routing.tc_hawkeye.magnumNeeded": True, "routing.tc_hawkeye.magnumSearch": True, "routing.tc_hawkeye.answeredBy": "magnum_di"}})
