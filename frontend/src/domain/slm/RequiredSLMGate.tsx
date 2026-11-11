@@ -2,7 +2,7 @@
  * This must mount outside ApolloProvider and the navigation stack.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState, Text, View, Pressable, ScrollView, useWindowDimensions } from "react-native";
+import { Text, View, Pressable, ScrollView, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { PreparingApolloSplash } from "@/src/components/LaunchSplash";
 import { startupStage } from "@/src/startup/startupStages";
@@ -54,8 +54,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       setState({ status: "incompatible", reason: error instanceof Error && error.message === "timeout"
         ? "Device compatibility could not be verified within the startup time limit. ApolloSG has not started protection."
         : "Required On-device AI verification failed." });
-      // Timeout does not cancel native hashing/inference. Do not delete the
-      // model while the unfinished verifier may still be reading it.
+      // Timeout does not cancel native loading. Preserve the installed model.
       if (!timedOut) void rollbackSLMSetup().catch(() => undefined);
     } finally {
       if (deadline) clearTimeout(deadline);
@@ -63,16 +62,13 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     void verify();
-    const subscription = AppState.addEventListener("change", next => {
-      if (next === "active" && !inFlight.current) void verify();
-    });
-    return () => { generation.current++; subscription.remove(); };
+    return () => { generation.current++; };
   }, [verify]);
   if (state.status === "ready") return <>{children}</>;
   if (state.status === "checking") {
     const descriptions: Record<string, string> = {
       hardware: "Checking device hardware", model_integrity: "Verifying On-device AI model",
-      runtime_registration: "Preparing On-device AI runtime", inference: "Loading On-device AI and testing reasoning",
+      runtime_registration: "Preparing On-device AI runtime", inference: "Loading On-device AI model",
       response_validation: "Validating On-device AI response",
     };
     return <PreparingApolloSplash message={"Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility")} />;
