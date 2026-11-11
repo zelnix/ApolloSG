@@ -1,29 +1,22 @@
-"""Investigation coordinator: Higgins Triage → TC Hawkeye → Magnum DI.
+"""ApolloSG case coordinator: Apollo/user → Higgins Triage → TC Hawkeye → Higgins.
 
-On the first turn of a case, Higgins Triage decides what needs checking and TC Hawkeye runs those checks the
-cheapest reliable way (official sources → Apollo KB → one targeted web search call). When TC Hawkeye
-reliably settles the case, its result is committed and Magnum DI is not called at all.
+Higgins Triage requests on-device SLM support before TC Hawkeye investigates.
+TC Hawkeye returns evidence-backed investigation material; its hypotheses do not
+become verified facts merely because they were generated or repeated by an SLM.
+Higgins then requires an on-device SLM escalation assessment. If escalation is
+necessary, Magnum DI obtains additional independent investigation material using
+the configured external provider. If not, no Magnum DI call is made.
 
-Otherwise Magnum DI makes its call with the existing configured model. The request contains exactly three
-things:
-  1. the person's question, once;
-  2. the case evidence Magnum DI needs — the submitted material itself plus TC Hawkeye's brief of what is
-     still unresolved — each item labelled with its id and kind (raw lookups TC Hawkeye already settled are not
-     resent);
-  3. the required response shape (`response_schema.py`), which the provider adapter turns into its own
-     structured-output schema.
-A short neutral independence instruction separates Hawkeye's hypotheses from evidence. Web research uses the configured provider.
+In either successful path, the required on-device SLM Finding is validated and
+committed through the existing case repository. Higgins Luddish presents the
+established result in plain language without changing its evidence or verdict.
+A missing, invalid or expired required SLM result cannot be replaced by a TC
+Hawkeye score or a cloud model; the case remains incomplete.
 
-The model is the one selected in ApolloSG Settings → AI Provider & Model (services/higgins/ai_settings.py),
-pinned on the job when the investigation starts. The call goes through the single AI gateway (provider.generate),
-never a provider SDK. TC Hawkeye makes no AI call.
-
-ONE MAGNUM DI CALL PER CORRELATED CASE, AT MOST. There are no tool rounds, no nested research calls, no model
-escalation, no Pro fallback, no second call to present the answer and no retry: Higgins shows what this one call
-returned, or why it failed. The call is claimed atomically for the case (repository.claim_magnum_call) before anything
-is sent, so a follow-up, retry, Resubmit, new job, recovered job or restart can never make a second one. Cases TC Hawkeye
-settles use none. Follow-up questions are answered from the case's stored Findings and ApolloSG's approved knowledge
-(routers/investigations._follow_up), never by another investigation.
+Magnum DI is limited to one external call per correlated case, claimed atomically.
+Follow-ups use stored findings and approved knowledge rather than launching
+another investigation. Owner, device, case, job, epoch, revision, evidence citation
+and expiry boundaries remain authoritative throughout the handoff.
 """
 from __future__ import annotations
 
@@ -459,8 +452,11 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
 
 async def _commit_flyby(owner: str, case: dict, job: dict, payload: dict, fly_by: tc_flyby.FlyByOutcome,
                         capability_ids: set[str]) -> Optional[Outcome]:
-    """TC Hawkeye settled the case: its result passes the same validation as Magnum DI's, then commits.
-    None when it doesn't validate — Magnum DI then takes the case."""
+    """Legacy direct TC Hawkeye commit path; not called by the active run_turn.
+
+    Retained pending complete reference inventory and mandatory-SLM regression
+    tests. Do not use this path to bypass escalation assessment or SLM Finding.
+    """
     rows = await repo.list_evidence(owner, case["case_id"])
     evidence_ids = {row["evidence_id"] for row in rows}
     source_ids = {s["id"] for s in await repo.sources(owner, case["case_id"])}
@@ -477,10 +473,11 @@ async def _commit_flyby(owner: str, case: dict, job: dict, payload: dict, fly_by
 
 
 async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
-    """The case's investigation: Higgins Triage → TC Hawkeye → (only if needed) Magnum DI's one call for the case.
+    """Run Higgins Triage, TC Hawkeye, mandatory SLM escalation assessment,
+    optional Magnum DI external investigation, and mandatory SLM Finding commit.
 
-    Magnum DI flow: claim the case's one call → send question and evidence → validate the schema-shaped response
-    → commit. No autonomous tool rounds, reassessment cycles, repair loops or retries.
+    Magnum DI contributes independent evidence only when escalation is required;
+    it never substitutes for the on-device Finding or Higgins presentation.
     """
     payload = repo.dec_json(job["payload_ciphertext"])
     device = repo.device_profile(case)
