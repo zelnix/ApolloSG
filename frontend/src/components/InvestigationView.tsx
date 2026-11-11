@@ -33,7 +33,7 @@ import { outsideResearch } from "@/src/domain/diTrace";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
 import { DetailedFindingsBrief } from "@/src/components/report/DetailedFindingsBrief";
 import { RelatedCases } from "@/src/components/report/RelatedCases";
-import { investigationVerdict } from "@/src/domain/briefVerdict";
+import { investigationVerdict, type BriefVerdict } from "@/src/domain/briefVerdict";
 import { SourceList } from "@/src/components/report/SourceList";
 import { SourceSummaryCard } from "@/src/components/report/SourceSummaryCard";
 import { sourceKind } from "@/src/domain/caseSourceSummary";
