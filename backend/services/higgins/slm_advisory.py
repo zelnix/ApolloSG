@@ -15,7 +15,7 @@ from services.higgins.slm_contract import (
     SLMReasoningRequest, SLMReasoningResult, accept_advisory_reasoning,
 )
 
-ROLES = frozenset(("higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "case_finding", "higgins_escalation_assessment"))
+ROLES = frozenset(("wright_triage", "higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "case_finding", "higgins_escalation_assessment"))
 
 
 def enabled() -> bool:
@@ -70,6 +70,7 @@ async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> di
                 "alternativeExplanations": [item.wire() for item in answer.alternative_explanations],
                 "verificationSuggestions": [item.wire() for item in answer.verification_suggestions],
                 "draftExplanation": answer.draft_explanation,
+                "wrightSemantic": answer.wright_semantic.wire() if answer.wright_semantic else None,
                 "caseFinding": answer.case_finding.wire() if answer.case_finding else None,
                 "escalationAssessment": answer.escalation_assessment.wire() if answer.escalation_assessment else None,
                 "classification": "unverified_slm_advisory",
