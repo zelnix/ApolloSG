@@ -62,3 +62,12 @@ test("SLM handoff retries do not depend on SSE replay or mint a new request", as
   assert.match(source, /submitIssuedAdvisory\(caseId, issued, adapter\)/);
   assert.match(source, /attemptedAdvisoryRequests\.current\.delete\(issued\.request\.requestId\)/);
 });
+
+test("lost acknowledgement retries reuse the identical SLM result without another inference", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../src/domain/slm/slmTransport.ts", import.meta.url), "utf8");
+  assert.match(source, /pendingReceipts\.get\(key\)\?\.payload/);
+  assert.match(source, /if \(!payload\) \{[\s\S]*?reasonForCase\(issued\.request, adapter\)/);
+  assert.match(source, /pendingReceipts\.set\(key, \{ expiresAt: expiry, payload \}\)/);
+  assert.match(source, /pendingReceipts\.delete\(key\)/);
+});
