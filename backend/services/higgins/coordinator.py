@@ -35,7 +35,7 @@ from services.higgins import ai_settings
 from services.higgins import provider
 from services.higgins.ai_request import Message, Part
 from services.higgins import repository as repo
-from services.higgins import tc_flyby as tc_hawkeye  # Existing module path retained for compatibility
+from services.higgins import tc_hawkeye
 from services.higgins.contracts import Coverage, HigginsResponse, ProviderResult, TurnCommit, Usage
 from services.higgins.response_schema import response_schema
 from services.higgins.tools import grounding_sources

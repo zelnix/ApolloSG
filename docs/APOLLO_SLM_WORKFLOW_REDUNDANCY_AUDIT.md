@@ -56,3 +56,9 @@ The active coordinator now refers to the investigator as `tc_hawkeye`, and inves
 ## Hawkeye technical-gap propagation: web search
 
 For an unavailable TC Hawkeye web lookup, the existing check now retains the provider reason code and human-readable explanation together in `check.open_issue`, and records the same explanation as a missing-evidence fact. This propagates through the existing serialized checks item to the Higgins SLM evidence request, without another search or investigator. It does not establish coverage for every provider, token/context exhaustion, or final display; those still require tracing and behavioural acceptance tests. Existing `tc_flyby` persistence identifiers remain for stored-case compatibility.
+
+## TC Hawkeye service entry point and raw source fields
+
+The active coordinator now imports `services.higgins.tc_hawkeye`, a named entry point delegating to the existing implementation without a second engine. The result type is `HawkeyeOutcome`, with the previous `FlyByOutcome` alias retained for callers. Historical `tc_flyby` package and persistence keys remain for compatibility; full package migration requires a complete reference scan and tests.
+
+Removed the synthesized `Web search unavailable (reason): note` explanation from TC Hawkeye. The existing evidence fact instead retains only the lookup result's supplied `status`, `reason`, and `note` fields in JSON form. Higgins SLM interprets these fields. The lookup wrapper does not currently expose every underlying HTTP response or numeric error code, so this change must not be represented as raw provider payload preservation. Tests were not run.

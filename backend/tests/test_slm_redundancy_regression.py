@@ -41,9 +41,15 @@ class SLMRedundancyRegression(unittest.TestCase):
 
     def test_hawkeye_unavailable_lookup_preserves_reason(self):
         hawkeye = (ROOT / "backend/services/higgins/tc_flyby/__init__.py").read_text()
-        self.assertIn('reason = str(answer.get("reason") or "unspecified")', hawkeye)
-        self.assertIn('check.open_issue = f"Web search unavailable ({reason}): {note}"', hawkeye)
-        self.assertIn('fact(check.open_issue, "missing", topic="web_search")', hawkeye)
+        self.assertIn('for key in ("status", "reason", "note") if key in answer', hawkeye)
+        self.assertNotIn('Web search unavailable ({reason})', hawkeye)
+
+    def test_tc_hawkeye_service_entrypoint(self):
+        coordinator = COORDINATOR.read_text()
+        self.assertIn("from services.higgins import tc_hawkeye", coordinator)
+        facade = (ROOT / "backend/services/higgins/tc_hawkeye.py").read_text()
+        self.assertIn("HawkeyeOutcome", facade)
+        self.assertIn("investigate", facade)
 
     def test_finding_prompt_preserves_technical_gaps(self):
         handoff = (ROOT / "backend/routers/slm_handoff.py").read_text()

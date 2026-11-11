@@ -48,7 +48,7 @@ _SEARCH_SIGNAL = {"WARNING": "weak", "OFFICIAL": "clear", "FOUND_ELSEWHERE": "we
 
 
 @dataclass
-class FlyByOutcome:
+class HawkeyeOutcome:
     resolved: bool
     answered_by: str
     response: dict | None = None
@@ -59,6 +59,9 @@ class FlyByOutcome:
     usage: dict = field(default_factory=dict)
     simulated: bool = False
     model: str | None = None
+
+
+FlyByOutcome = HawkeyeOutcome  # Legacy import compatibility
 
 
 # ── Higgins Triage's extraction: every input made investigation-ready ─────────
@@ -294,12 +297,10 @@ def _apply(check: Check, answer: dict, plan_: Plan) -> None:
     if status == "UNAVAILABLE":
         # Not searched (one search per case, not set up, a failure): missing evidence, never a pass.
         check.status = "unavailable"
-        # Preserve the provider's machine-readable failure reason alongside its
-        # explanation. Higgins must not mistake an unavailable lookup for a pass.
-        reason = str(answer.get("reason") or "unspecified")
-        note = str(answer.get("note") or "The lookup could not be completed.")
-        check.open_issue = f"Web search unavailable ({reason}): {note}"
-        check.facts.append(fact(check.open_issue, "missing", topic="web_search"))
+        # Retain source-provided fields; Higgins SLM interprets their meaning.
+        check.open_issue = ""
+        check.facts.append(fact(json.dumps({key: answer[key] for key in ("status", "reason", "note") if key in answer},
+                                           ensure_ascii=False, default=str), "missing", topic="web_search"))
         return
     check.route = "web_search"
     sources = answer.get("sources") or []
@@ -440,7 +441,7 @@ def _summary(plan_: Plan, decision: deciding.Decision | None, issues: list[decid
 
 
 # ── Entry point ─────────────────────────────────────────────────────────────
-async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> FlyByOutcome:
+async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> HawkeyeOutcome:
     """Run TC Hawkeye checks and retain their evidence-backed investigation record.
 
     Accepted Higgins Triage and Hawkeye SLM suggestions may reorder existing
@@ -459,11 +460,11 @@ async def investigate(owner: str, case: dict, job: dict, question: str, rows: li
     common = {"usage": {"input_tokens": usage.get("input") or None, "output_tokens": usage.get("output") or None},
               "simulated": record["search"]["simulated"], "model": record["search"]["model"]}
     if record.get("response"):
-        return FlyByOutcome(True, record["decision"]["answeredBy"], response=record["response"], **common)
+        return HawkeyeOutcome(True, record["decision"]["answeredBy"], response=record["response"], **common)
     issues = record.get("issues")
     needed = None if issues is None else {e for i in issues for e in i["evidenceIds"]}
     rows_ = await _magnum_rows(owner, case, record["items"]["brief"], needed, set(record.get("settled") or []))
-    return FlyByOutcome(False, "magnum_di", rows=rows_, magnum_search=record["magnumSearch"], floor=record.get("floor"), **common)
+    return HawkeyeOutcome(False, "magnum_di", rows=rows_, magnum_search=record["magnumSearch"], floor=record.get("floor"), **common)
 
 
 async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> dict:
