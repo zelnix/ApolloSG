@@ -161,9 +161,9 @@ function patrolEventLimitations(e: PatrolEvent): string[] {
   const triage = e.triage_investigation;
   if (triage?.outcome === "LIMITED_UNABLE_TO_DETERMINE") lims.push("Triage outcome: limited — unable to determine.");
   if (triage) {
-    const incomplete = triage.rules?.filter((r) => r.result === "unavailable");
+    const incomplete = triage.rules?.filter((r) => r.result === "coverage_gap");
     if (incomplete?.length) {
-      for (const r of incomplete) lims.push(`Check unavailable: ${r.id}`);
+      for (const r of incomplete) lims.push(`Check limitation: ${r.title}${r.coverageGap ? ` (${r.coverageGap})` : ""}`);
     }
   }
   return lims;
