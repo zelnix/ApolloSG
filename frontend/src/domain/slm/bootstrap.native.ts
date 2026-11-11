@@ -1,5 +1,5 @@
 /** Native-only Luddish startup for pre-production builds.
- * The model is verified in app-private storage before admission.
+ * The model header and file location are checked before native inference admission.
  * The one instance services Ask Higgins and all investigation roles.
  */
 import * as Device from "expo-device";
@@ -45,7 +45,7 @@ export function startSharedLuddish(): Promise<boolean> {
 
 /** Explicit local test provisioning entry point. Requires an already-local
  * selected source URI. No external download or implicit import on boot.
- * Always rehashes the private copy before making a model available.
+ * Checks the private copy before making a model available.
  */
 export async function installPrivateLuddishForTest(sourceUri: string): Promise<boolean> {
   if (runtime || startup) return false;
@@ -208,7 +208,7 @@ export async function checkRequiredSLMCompatibility(
       return { compatible: false, reason: "This device does not meet the required memory capacity." };
     }
     mark("model_integrity");
-    // The shared runtime is registered after model checksum verification.
+    // The shared runtime is registered after model file admission.
     const started = await startSharedLuddish();
     mark("runtime_registration");
     if (!started || !getSharedSLM()) {
