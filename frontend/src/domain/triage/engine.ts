@@ -205,8 +205,8 @@ const MESSAGE: Record<string, (ev: TriageEvidence) => Verdict> = {
   "MSG-03": flag("identity_request", "banking or card credential request"),
   "MSG-04": flag("safe_account", "transfer to a safe/protected account"),
   "MSG-05": flag("gift_cards", "gift-card payment request"),
-  "MSG-06": flag("remote_access", "remote access or screen sharing request"),
-  "MSG-07": flag("install_request", "app or software installation request"),
+  "MSG-06": flag("remote_access", "remote access or screen sharing request", ["threat", "code_request", "login_request", "identity_request", "unknown_sender"]),
+  "MSG-07": flag("install_request", "app or software installation request", ["threat", "code_request", "login_request", "identity_request", "unknown_sender"]),
   "MSG-08": (ev) => {
     if (ev.signals?.brand_kind !== "government") return unmet("no authority impersonation observed");
     return ["payment_request", "identity_request", "code_request", "threat"].some((s) => sig(ev, s))
@@ -231,10 +231,12 @@ const MESSAGE: Record<string, (ev: TriageEvidence) => Verdict> = {
       : unmet("brand claim without both a consequential action and an inconsistent destination");
   },
   "MSG-15": flag("guaranteed_returns", "guaranteed-return approach", ["payment_request", "crypto", "money_request"]),
-  "MSG-16": flag("job_offer", "job offer with payment or credential harvesting", ["payment_request", "crypto", "gift_cards", "identity_request"]),
+  "MSG-16": flag("job_offer", "job offer with payment or credential harvesting", ["crypto", "gift_cards", "identity_request"]),
   "MSG-17": flag("romance_escalation", "romance interaction with a financial request"),
-  "MSG-18": flag("identity_request", "sensitive identity request with impersonation", ["claimed_brand", "unknown_sender"]),
-  "MSG-19": flag("platform_switch", "platform switching with another scam mechanic", ["payment_request", "crypto", "job_offer", "guaranteed_returns", "identity_request"]),
+  "MSG-18": (ev) => sig(ev, "identity_request") && (ev.brand_mismatch || ev.deceptive_destination || sig(ev, "lookalike_name"))
+    ? met("sensitive identity request", "corroborated sender or destination deception")
+    : unmet("identity request without corroborated impersonation"),
+  "MSG-19": flag("platform_switch", "platform switching with another scam mechanic", ["crypto", "guaranteed_returns", "identity_request", "code_request"]),
   "MSG-20": combination("threat", "urgency or threat with a consequential action and a supporting anomaly",
     ["payment_request", "login_request", "identity_request", "code_request", "money_request"],
     ["unknown_sender", "new_number", "platform_switch", "brand_mismatch", "link_threat"]),
@@ -245,16 +247,18 @@ const MESSAGE: Record<string, (ev: TriageEvidence) => Verdict> = {
     const moderate = ["urgency", "threat", "payment_request", "unknown_sender", "platform_switch", "job_offer",
       "guaranteed_returns", "crypto", "new_number", "login_request"].filter((name) => sig(ev, name));
     const consequential = ["payment_request", "login_request", "crypto", "identity_request"].some((s) => sig(ev, s));
-    return moderate.length >= 3 && consequential
-      ? met(`coherent scam pattern: ${moderate.join(", ")}`)
-      : unmet(`${moderate.length} moderate indicator(s) — no coherent scam pattern`);
+    const corroborated = !!(ev.brand_mismatch || ev.deceptive_destination
+      || ev.link_outcome === "POSSIBLE_THREAT_IDENTIFIED" || sig(ev, "lookalike_name"));
+    return moderate.length >= 3 && consequential && corroborated
+      ? met(`corroborated scam pattern: ${moderate.join(", ")}`, "independent deception or malicious-destination evidence")
+      : unmet(`${moderate.length} moderate indicator(s); no corroborated deceptive mechanism`);
   },
   "PAY-01": (ev) => (!sig(ev, "instant_payment") ? unmet("no instant-payment request observed")
-    : ev.signals?.claimed_brand || sig(ev, "family_claim")
+    : (ev.signals?.claimed_brand || sig(ev, "family_claim")) && (ev.brand_mismatch || ev.deceptive_destination || sig(ev, "lookalike_name"))
       ? met("instant-payment request", "authority, family or business impersonation")
       : unmet("instant-payment use alone is not a threat")),
   "PAY-02": (ev) => (!sig(ev, "instant_payment") ? unmet("no instant-payment request observed")
-    : (sig(ev, "urgency") || sig(ev, "threat")) && sig(ev, "unknown_sender")
+    : (sig(ev, "urgency") || sig(ev, "threat")) && sig(ev, "unknown_sender") && (ev.brand_mismatch || ev.deceptive_destination || ev.link_outcome === "POSSIBLE_THREAT_IDENTIFIED")
       ? met("instant-payment request", "urgency or threat", "sender anomaly")
       : unmet("instant-payment use alone is not a threat")),
   "PAY-03": (ev) => (!sig(ev, "instant_payment") ? unmet("no instant-payment request observed")
