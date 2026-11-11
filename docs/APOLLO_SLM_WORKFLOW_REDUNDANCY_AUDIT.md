@@ -74,3 +74,7 @@ Magnum DI provider failures and non-STOP completion now attempt to retain the ob
 ## SLM evidence handoff fidelity
 
 Removed a silent substring-based omission of derived evidence whose text was already present in its parent. Both records now remain available with their distinct evidence IDs and provenance. UTF-8 decoding now fails explicitly rather than silently replacing malformed bytes. Existing evidence-size limits remain fail-closed. Also corrected a stale source-level regression assertion left behind by the full Hawkeye lookup-payload preservation change. This does not establish that all upstream source adapters retain raw payloads or that the native SLM can consume every binary evidence type. Automated tests were not run.
+
+## Magnum DI response-text fidelity
+
+The existing Magnum DI evidence item now includes the provider-result text alongside parsed investigation fields, grounding, and finish reason. Non-STOP provider results likewise attempt to retain their returned text alongside the original finish reason. This prevents the coordinator's parsed-object path from being the sole preserved representation of the model output. These are the fields exposed by the current provider-result interface, not a guarantee of complete raw transport/HTTP fidelity. No extra model call or post-processing stage was introduced. Runtime tests not executed.

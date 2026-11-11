@@ -63,6 +63,7 @@ class SLMRedundancyRegression(unittest.TestCase):
         self.assertIn('"code": exc.code', coordinator)
         self.assertIn('"message": str(exc)', coordinator)
         self.assertIn('"finishReason": result.finish_reason', coordinator)
+        self.assertIn('"responseText": result.text', coordinator)
         self.assertIn('await _retain_magnum_limitation(owner, case, {', coordinator)
 
     def test_finding_prompt_preserves_technical_gaps(self):

@@ -207,7 +207,7 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
         await _retain_magnum_limitation(owner, case, {
             "status": "incomplete", "finishReason": result.finish_reason,
             "provider": result.provider, "model": result.model,
-            "grounding": result.grounding,
+            "responseText": result.text, "grounding": result.grounding,
         })
         return False
     try:
@@ -219,7 +219,8 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
         retained = json.dumps({
             "investigator": "Magnum DI", "provider": result.provider,
             "model": result.model, "simulated": result.simulated,
-            "investigation": findings, "grounding": result.grounding,
+            "investigation": findings, "responseText": result.text,
+            "finishReason": result.finish_reason, "grounding": result.grounding,
         }, ensure_ascii=False, default=str)
         await ev.ingest_text(
             owner, case, _MAGNUM_EVIDENCE_ID, retained, kind="observation",
