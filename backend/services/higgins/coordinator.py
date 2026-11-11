@@ -535,7 +535,16 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         # A follow-up is answered from the case's stored Findings (routers/investigations._follow_up), never by
         # another investigation: this turn sends nothing.
         return Outcome("call_limit_reached", errors=["a follow-up is answered from the case's findings, not by another investigation"])
-    triage_advice = await _slm_stage(owner, case, job, "higgins_triage")
+    # Phase 6: Wright's on-device semantic assessment is mandatory for every
+    # first-turn investigation. Never silently fall back to deterministic-only
+    # or external-model triage if the native model cannot provide valid output.
+    semantic_advice = await _slm_stage(owner, case, job, "wright_triage")
+    if not semantic_advice or not semantic_advice.get("wrightSemantic"):
+        return Outcome("device_unavailable", errors=[
+            "Wright Triage could not complete its required on-device semantic assessment. "
+            "The result is Limited / Unable to Determine; no clear or scam verdict was authorised."
+        ])
+    triage_advice = semantic_advice
     # TC Hawkeye investigates using the prepared case and its own evidence-backed
     # checks; it does not need a second pre-investigation SLM advisory request.
     hawkeye_result = await tc_hawkeye.investigate(owner, case, job, payload["message"], rows, progress,
