@@ -603,7 +603,7 @@ function TierRow({ tier, colors, s, testID }: {
         {tier.detail ? <Text style={s.tierDetail}>{tier.detail}</Text> : null}
         {tier.businessUnits.length > 0 ? (
           <View style={{ gap: 2, marginTop: 2 }}>
-            {tier.tier === "caller" && !tier.entity ? (
+            {tier.tier === "caller" ? (
               <Text style={[s.tierLabel, { marginBottom: 2, color: colors.onSurfaceSecondary }]}>What to do</Text>
             ) : null}
             {tier.businessUnits.map((bu, i) => (
