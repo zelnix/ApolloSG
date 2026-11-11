@@ -53,3 +53,12 @@ test("never forwards a verdict or unknown evidence citation in the advisory enve
   });
   assert.equal(unknown.status, "invalid_output");
 });
+
+test("SLM handoff retries do not depend on SSE replay or mint a new request", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../src/investigation/caseStore.ts", import.meta.url), "utf8");
+  assert.match(source, /for \(let attempt = 0; attempt < 2; attempt\+\+\)/);
+  assert.match(source, /Date\.parse\(issued\.expiresAt\) <= Date\.now\(\)/);
+  assert.match(source, /submitIssuedAdvisory\(caseId, issued, adapter\)/);
+  assert.match(source, /attemptedAdvisoryRequests\.current\.delete\(issued\.request\.requestId\)/);
+});
