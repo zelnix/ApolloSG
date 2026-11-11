@@ -124,6 +124,11 @@ export class LocalLlamaRuntime implements SLMAdapter {
     return this.loading;
   }
 
+  /** Initialise the native model without generating a synthetic investigation. */
+  async prepare(): Promise<void> {
+    await this.load();
+  }
+
   async infer(request: SLMRequest): Promise<unknown> {
     if (this.closed) throw new Error("SLM runtime closed");
     const execute = async (): Promise<unknown> => {
