@@ -16,8 +16,8 @@ and Higgins Explanation Intelligence back to one consistent classification.
     8  Real Estate, Rental & Credit Fraud                  926-1000
 
 This extends the approved taxonomy — it never replaces it. Existing KB scam patterns
-(services.higgins.tc_flyby.patterns.PATTERNS) and the scoring engine's decisive mechanisms
-(services.higgins.tc_flyby.scoring._decisive_mechanism) are mapped into these eight domains as
+(services.higgins.tc_hawkeye.patterns.PATTERNS) and the scoring engine's decisive mechanisms
+(services.higgins.tc_hawkeye.scoring._decisive_mechanism) are mapped into these eight domains as
 subcategories; no KB record, identifier or evidence is renamed, removed or restructured by this
 classification — it is purely an additional label attached to what was already established.
 Phishing, credential theft, tech-support and investment/crypto scams are represented here as
@@ -32,8 +32,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from services.higgins.tc_flyby.finding_rules import IPDMCChecks
-from services.higgins.tc_flyby.triage import Plan
+from services.higgins.tc_hawkeye.finding_rules import IPDMCChecks
+from services.higgins.tc_hawkeye.triage import Plan
 
 MASTER_DOMAINS: tuple[dict, ...] = (
     {"code": 1, "name": "Account Takeover & Authentication Exploitation", "range": [1, 125]},

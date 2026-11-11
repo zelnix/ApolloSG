@@ -62,9 +62,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from services.higgins.tc_flyby.checks import corroborated_impersonation
-from services.higgins.tc_flyby.finding_rules import IPDMCChecks, established_scam_rules
-from services.higgins.tc_flyby.triage import Plan
+from services.higgins.tc_hawkeye.checks import corroborated_impersonation
+from services.higgins.tc_hawkeye.finding_rules import IPDMCChecks, established_scam_rules
+from services.higgins.tc_hawkeye.triage import Plan
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -507,7 +507,7 @@ def _investigation_failure(plan: Plan) -> list[str]:
     required investigative operation from completing or being processed reliably. A successfully
     completed check that simply found nothing (status "not_found") is never a failure — only a check
     that stayed "unavailable", a sub-service within an otherwise-resolved check that could not be
-    reached (e.g. "Google Safe Browsing could not be checked for …" — services.higgins.tc_flyby.
+    reached (e.g. "Google Safe Browsing could not be checked for …" — services.higgins.tc_hawkeye.
     official.answer — a "missing" fact on a check that isn't itself "not_found"), a provider failure
     nothing else already resolved, or evidence TC Hawkeye submitted but couldn't extract/decode/parse/
     analyse (`plan.gaps`) qualify."""

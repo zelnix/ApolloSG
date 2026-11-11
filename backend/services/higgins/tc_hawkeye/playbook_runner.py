@@ -38,9 +38,9 @@ lookup family. This module never changes the Findings Rating — it reads the ex
 """
 from __future__ import annotations
 
-from services.higgins.tc_flyby import playbooks as pb
-from services.higgins.tc_flyby.finding_rules import IPDMCChecks
-from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Plan
+from services.higgins.tc_hawkeye import playbooks as pb
+from services.higgins.tc_hawkeye.finding_rules import IPDMCChecks
+from services.higgins.tc_hawkeye.triage import CONSEQUENTIAL, Plan
 
 # official.py's own signal vocabulary: a fact carrying one of these signals is real evidence that was
 # already read, but is explicitly never a standalone, completed verification outcome — `weak` only

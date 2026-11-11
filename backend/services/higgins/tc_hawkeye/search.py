@@ -34,7 +34,7 @@ from services import reusable_intel as intel
 from services import sufficiency
 from services.higgins import brand_domains, knowledge
 from services.higgins.llm_boundary import redact_registration_numbers, strip_credentials
-from services.higgins.tc_flyby.triage import Check, digits
+from services.higgins.tc_hawkeye.triage import Check, digits
 
 SITE = "tc_flyby_search"   # this call site, in the reuse counters
 # Check kinds whose lookups are about public identifiers, and how their subject is keyed. Others (an exact phrase from
@@ -133,7 +133,7 @@ def names(check: Check, text: str) -> bool:
         number = digits(check.subject)
         return bool(number) and any(number in n for n in _numbers(text) + [digits(text)] if len(number) >= 6)
     if check.kind == "company":
-        from services.higgins.tc_flyby import _core
+        from services.higgins.tc_hawkeye import _core
         core = _core(check.subject)
         return bool(core) and core in " ".join(_core(low).split())
     if check.kind == "phrase":

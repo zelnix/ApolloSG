@@ -11,8 +11,8 @@ import json
 import re
 
 from services.higgins import outcomes
-from services.higgins.tc_flyby.decide import WARNING, Decision, corroborated_impersonation, signals
-from services.higgins.tc_flyby.triage import Check, Plan
+from services.higgins.tc_hawkeye.decide import WARNING, Decision, corroborated_impersonation, signals
+from services.higgins.tc_hawkeye.triage import Check, Plan
 
 ROUTE_LABEL = {"tc_flyby_official": "official source checks", "tc_flyby_kb": "ApolloSG's knowledge base", "tc_flyby_search": "a targeted web search"}
 
@@ -1011,7 +1011,7 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
         result = undetermined(plan_, checks, material, flyby_item, outcome=decision.outcome or "unlikely_scam")
     final = _with_gaps(result, plan_)
     # Attach the Findings Rating (0-100, Apollo PRD v2.2 §2) and its explainable breakdown.
-    from services.higgins.tc_flyby import finding_rules, findings_brief, scoring, taxonomy
+    from services.higgins.tc_hawkeye import finding_rules, findings_brief, scoring, taxonomy
     ipdmc = finding_rules.gather_ipdmc(plan_)
     breakdown = scoring.score_plan(plan_, ipdmc)
     final["findingsRating"] = breakdown.rating
@@ -1022,7 +1022,7 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
     # TC Hawkeye Detection Framework (Apollo PRD v2.3 §4/§4.5) — which of the 14 named mechanisms
     # fired, from the same Plan/IPDMCChecks data already gathered above. Structural output only —
     # never changes the Findings Rating, which scoring.py alone computes.
-    from services.higgins.tc_flyby import mechanisms, playbook_runner
+    from services.higgins.tc_hawkeye import mechanisms, playbook_runner
     final["mechanisms"] = [m.wire() for m in mechanisms.run_all(plan_, ipdmc)]
     # Verification Playbooks (PRD v2.3 §7.5) — every playbook that applies to this case's taxonomy
     # variant code, run against real investigation evidence; a step with no real source is honestly
