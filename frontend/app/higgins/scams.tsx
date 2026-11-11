@@ -27,7 +27,7 @@ const HOME = homeRegion();
 const regionMatch = (a: GovernmentAlert, f: RegionFilter) =>
   f === "ALL" ? true
   : f === "AU" ? a.region === "AU" || a.australianRelevance === "confirmed" || a.appliesIn === "everywhere"
-  : f === "GLOBAL" ? a.appliesIn === "everywhere" || a.appliesIn === "everywhere"
+  : f === "GLOBAL" ? a.appliesIn === "everywhere"
   : a.region === f;
 
 type SortMode = "latest" | "severity";
