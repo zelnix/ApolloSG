@@ -137,6 +137,31 @@ class TestAdvisoryRead(unittest.TestCase):
             self.assertIsNone(self.read())
         self.assertEqual(len(collection.queries), 1)
 
+    def test_slm_questions_prioritise_only_existing_checks(self):
+        from types import SimpleNamespace
+        checks = [
+            SimpleNamespace(subject="Phone number", question="Check caller number"),
+            SimpleNamespace(subject="Business licence", question="Verify licence registration"),
+            SimpleNamespace(subject="Website", question="Inspect website domain"),
+        ]
+        original_ids = {id(check) for check in checks}
+        advice = {"verificationSuggestions": [
+            {"text": "Verify business licence registration", "evidenceIds": ["E-1"]}
+        ]}
+        slm_advisory.prioritise_existing_checks(checks, None, advice)
+        self.assertEqual(checks[0].subject, "Business licence")
+        self.assertEqual({id(check) for check in checks}, original_ids)
+        self.assertEqual(len(checks), 3)
+
+    def test_no_slm_advice_preserves_deterministic_order(self):
+        from types import SimpleNamespace
+        checks = [
+            SimpleNamespace(subject="Website", question="Check domain"),
+            SimpleNamespace(subject="Business licence", question="Verify registration"),
+        ]
+        slm_advisory.prioritise_existing_checks(checks, None, {})
+        self.assertEqual([check.subject for check in checks], ["Website", "Business licence"])
+
     def test_only_bounded_verification_suggestions_can_be_returned(self):
         self.assertEqual(slm_advisory.advisory_verification_questions({
             "verificationSuggestions": [{"text": "Check A"}] * 50,
