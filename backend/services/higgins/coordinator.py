@@ -173,7 +173,15 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
 
     # Prepare the complete evidence before claiming the single external call.
     # A local preparation error must not consume the case's call allowance.
-    parts, _marks, _words = await ev.model_parts(owner, case, rows)
+    parts, _marks, evidence_words = await ev.model_parts(owner, case, rows)
+    if evidence_words > ev.EVIDENCE_WORD_LIMIT:
+        await _retain_magnum_limitation(owner, case, {
+            "status": "evidence_over_provider_budget",
+            "evidenceWords": evidence_words,
+            "providerBudgetWords": ev.EVIDENCE_WORD_LIMIT,
+            "message": "Full original evidence retained. Magnum DI cannot examine it in its one permitted provider call; no material has been silently omitted.",
+        })
+        return False
     if not await repo.claim_magnum_call(owner, case["case_id"], job["job_id"]):
         log.warning("magnum_call_already_claimed case=%s", case["case_id"])
         return False
@@ -476,13 +484,9 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     rows = await repo.list_evidence(owner, case["case_id"])
     first_turn = not case.get("response_revision") and not payload.get("answerToQuestionId")
 
-    # Too much written evidence for one investigation. Apollo sends NOTHING rather than quietly
-    # shortening, sampling or dropping any of it, and no evidence is marked as examined — so this is
-    # decided before TC Hawkeye reads anything.
-    _parts, _marks, evidence_words = await ev.model_parts(owner, case, rows)
-    if evidence_words > ev.EVIDENCE_WORD_LIMIT:
-        return Outcome("evidence_too_large", evidence_words=evidence_words,
-                       errors=[f"written evidence is {evidence_words} words; Apollo's limit for one investigation is {ev.EVIDENCE_WORD_LIMIT}"])
+    # TC Hawkeye examines locally retained text, including long sources. Do not
+    # apply Magnum DI's single-provider-call budget to this local investigation.
+    # External transfer is independently budgeted before the Magnum call.
 
     # ── Step 2: Wright Triage → TC Hawkeye (first turn only) ──
     if not first_turn:
