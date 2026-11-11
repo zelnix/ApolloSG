@@ -20,7 +20,7 @@ export interface EarlierCheck {
   /** "check": the person checked it before; "case": a case on this phone is about it. */
   source: "check" | "case";
   /** Who started the case, when it is one. */
-  origin: "user" | "apollo" | null;
+  origin: "user" | "apollo" | "sample_check" | null;
   at: string;
   state: ApolloState;
   summary: string;
