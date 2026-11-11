@@ -1,5 +1,5 @@
 /**
- * Shared SLM boundary for Higgins Triage, TC Hawkeye, Magnum DI and Luddish.
+ * Shared SLM boundary for Wright Triage, TC Hawkeye, Magnum DI and Luddish.
  * This file deliberately contains no model runtime, server transport or Gemini routing.
  * A native model adapter must be supplied explicitly by the app. All responses are
  * advisory: investigation, scoring, Evidence Lock and user-visible verdicts stay in
