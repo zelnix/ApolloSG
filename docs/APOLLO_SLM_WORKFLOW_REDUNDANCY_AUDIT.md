@@ -52,3 +52,7 @@ This note records a source-level audit and documentation alignment, **not** succ
 ## TC Hawkeye naming (compatibility-preserving pass)
 
 The active coordinator now refers to the investigator as `tc_hawkeye`, and investigator descriptions no longer call it a fly-by. The underlying Python package `services.higgins.tc_flyby`, stored keys (`tc_flyby_ciphertext`, `routing.tc_flyby`), persisted evidence IDs, telemetry names, and legacy test filenames remain unchanged for compatibility. This is **not yet a full package/schema rename**; a complete reference inventory, migration/alias strategy, and regression execution are required before removing those legacy identifiers. The investigation sequence and evidence handling were not changed in this pass.
+
+## Hawkeye technical-gap propagation: web search
+
+For an unavailable TC Hawkeye web lookup, the existing check now retains the provider reason code and human-readable explanation together in `check.open_issue`, and records the same explanation as a missing-evidence fact. This propagates through the existing serialized checks item to the Higgins SLM evidence request, without another search or investigator. It does not establish coverage for every provider, token/context exhaustion, or final display; those still require tracing and behavioural acceptance tests. Existing `tc_flyby` persistence identifiers remain for stored-case compatibility.

@@ -39,6 +39,12 @@ class SLMRedundancyRegression(unittest.TestCase):
             next(n.lineno for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_await_case_finding"),
         )
 
+    def test_hawkeye_unavailable_lookup_preserves_reason(self):
+        hawkeye = (ROOT / "backend/services/higgins/tc_flyby/__init__.py").read_text()
+        self.assertIn('reason = str(answer.get("reason") or "unspecified")', hawkeye)
+        self.assertIn('check.open_issue = f"Web search unavailable ({reason}): {note}"', hawkeye)
+        self.assertIn('fact(check.open_issue, "missing", topic="web_search")', hawkeye)
+
     def test_finding_prompt_preserves_technical_gaps(self):
         handoff = (ROOT / "backend/routers/slm_handoff.py").read_text()
         self.assertIn("A failed or incomplete check is not negative evidence", handoff)

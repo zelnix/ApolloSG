@@ -294,8 +294,12 @@ def _apply(check: Check, answer: dict, plan_: Plan) -> None:
     if status == "UNAVAILABLE":
         # Not searched (one search per case, not set up, a failure): missing evidence, never a pass.
         check.status = "unavailable"
-        if answer.get("note"):
-            check.facts.append(fact(answer["note"], "missing", topic="web_search"))
+        # Preserve the provider's machine-readable failure reason alongside its
+        # explanation. Higgins must not mistake an unavailable lookup for a pass.
+        reason = str(answer.get("reason") or "unspecified")
+        note = str(answer.get("note") or "The lookup could not be completed.")
+        check.open_issue = f"Web search unavailable ({reason}): {note}"
+        check.facts.append(fact(check.open_issue, "missing", topic="web_search"))
         return
     check.route = "web_search"
     sources = answer.get("sources") or []
