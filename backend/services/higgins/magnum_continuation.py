@@ -7,6 +7,7 @@ from services.higgins.ai_request import Part
 MAX_MAGNUM_WINDOWS = 4
 MAX_WINDOW_WORDS = 7500
 MAX_WINDOW_CHARS = 30000
+MAX_BINARY_BYTES = 10 * 1024 * 1024
 
 @dataclass(frozen=True)
 class Batch:
@@ -42,13 +43,13 @@ def plan_batches(parts: list[Part], *, max_words: int = MAX_WINDOW_WORDS,
     for source_index, part in enumerate(parts):
         if part.data is not None:
             # Binary cannot be divided into valid images or files.
-            if len(part.data) > max_chars:
+            if len(part.data) > MAX_BINARY_BYTES:
                 raise ValueError("oversized_binary_evidence")
-            if current and chars + len(part.data) > max_chars:
+            if current:
                 flush()
             current.append(part)
             spans.append((source_index, 0, len(part.data)))
-            chars += len(part.data)
+            chars = max_chars
             continue
         text = part.text or ""
         start = 0
