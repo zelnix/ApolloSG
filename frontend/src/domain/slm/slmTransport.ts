@@ -1,7 +1,7 @@
 /**
- * Opt-in backend <-> on-device Luddish pilot using ApolloSG's existing
- * authenticated API client and egress policy. No new provider or cloud model.
- * This does not run automatically or attach SLM output to a case verdict.
+ * Authenticated handoff for mandatory on-device SLM investigation stages.
+ * The server issues the exact case request; the device returns its result.
+ * No cloud-model substitution, cross-case evidence reuse, or invented verdict.
  */
 import { apiPost } from "../../api/client.ts";
 import { reasonForCase, type CaseSLMRequest } from "./caseContract.ts";
@@ -63,7 +63,8 @@ export async function submitIssuedAdvisory(
   const role = issued.request.role;
   if (issued.request.caseId !== caseId || issued.request.caseRevision !== caseRevision ||
       !issued.request.requestId || issued.request.role !== role ||
-      new Date(issued.expiresAt).getTime() <= Date.now()) {
+      !Number.isFinite(Date.parse(issued.expiresAt)) ||
+      Date.parse(issued.expiresAt) <= Date.now()) {
     return { status: "invalid_output", reason: "invalid_server_request" };
   }
   const expiry = Date.parse(issued.expiresAt);
