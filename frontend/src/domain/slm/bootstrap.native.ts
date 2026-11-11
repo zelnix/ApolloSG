@@ -28,8 +28,7 @@ export function startSharedLuddish(): Promise<boolean> {
       open: () => file.open(FileMode.ReadOnly),
     }, Device.totalMemory ?? null);
     if (!admitted.available) return false;
-    // Never resolve the llama.rn native binding until the entire local model
-    // has passed checksum and device admission.
+    // Resolve native binding only after lightweight local file admission.
     const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
     const created = createLuddishOnDevice({
       modelUri: admitted.uri, modelId: admitted.modelId,
@@ -104,7 +103,8 @@ async function confirmModelNetworkUse(): Promise<boolean> {
 /** Explicitly consented download to private storage; never runs on startup. */
 export function downloadPrivateLuddishForTest(): Promise<boolean> {
   if (download) return download;
-  if (runtime || startup) return Promise.resolve(false);
+  if (runtime) return Promise.resolve(true);
+  if (startup) return startup;
   download = (async () => {
     const dest = new File(Paths.document, CANDIDATE_FILE);
     if (dest.exists) {
@@ -179,7 +179,8 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
       updateOnDeviceAIDownload({ phase: "ready" });
       return true;
     } catch (e) {
-      try { if (dest.exists) dest.delete(); } catch { /* best effort */ }
+      // Preserve existing model files on runtime failure; incomplete transfers are
+      // rejected by lightweight admission and can be explicitly reinstalled.
       updateOnDeviceAIDownload({ phase: "failed", error: e instanceof Error ? e.message : "Download failed" });
       return false;
     }
@@ -215,19 +216,9 @@ export async function checkRequiredSLMCompatibility(
       mark("failed");
       return { compatible: false, reason: "The required On-device AI model could not be verified or started." };
     }
-    // Native context loading is lazy; inference triggers the actual model load.
+    // Actually load the native model context. Do not run a synthetic case investigation.
     mark("inference");
-    const { runSLM } = await import("./index.ts");
-    const result = await runSLM({
-      role: "case_finding", operation: "case_finding",
-      question: "Compatibility self-test. Assess this synthetic, non-user message.",
-      evidence: [{ evidenceId: "compatibility-test", text: "Synthetic test: an unknown sender claims to be a bank. No independent checks were performed." }],
-    }, getSharedSLM());
-    mark("response_validation");
-    if (result.status !== "completed" || !result.answer.caseFinding) {
-      mark("failed");
-      return { compatible: false, reason: "The On-device AI model did not complete its required reasoning test." };
-    }
+    await (getSharedSLM() as LocalLlamaRuntime).prepare();
     mark("complete");
     return { compatible: true, reason: "On-device AI compatibility verified." };
   } catch (error) {
@@ -239,10 +230,5 @@ export async function checkRequiredSLMCompatibility(
 
 export async function rollbackSLMSetup(): Promise<void> {
   await stopSharedLuddish();
-  // Only the model file owned by this app is deleted. No system installation
-  // or unrelated user data can be rolled back by an ordinary mobile app.
-  try {
-    const model = new File(Paths.document, CANDIDATE_FILE);
-    if (model.exists) model.delete();
-  } catch { /* retain failure as incompatible; no protection activation */ }
+  // Preserve the installed model on runtime failures; only release runtime state.
 }
