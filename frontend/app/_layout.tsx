@@ -27,7 +27,6 @@ import { loadPersonalData } from "@/src/store/personalDataStore";
 import { startDeviceProtectionMonitor } from "@/src/store/deviceProtectionStore";
 import { useTheme } from "@/src/theme";
 import { installTwelveHourClock } from "@/src/utils/twelveHourClock";
-import { SharedLuddishStartup } from "@/src/domain/slm/SharedLuddishStartup";
 import { RequiredSLMGate } from "@/src/domain/slm/RequiredSLMGate";
 import { startupStage } from "@/src/startup/startupStages";
 
@@ -157,7 +156,6 @@ export default function RootLayout() {
                 <ToastHost />
                 <ConfirmDialogHost />
                 <LaunchSplash />
-                <SharedLuddishStartup />
               </ApolloProvider>
             </KeyboardProvider>
           </SafeAreaProvider>
