@@ -296,7 +296,7 @@ export default function CheckEmail() {
       const sample = findSampleEmail(params.sample);
       if (sample) {
         autoRan.current = true;
-        void run({ from: sample.from, subject: sample.subject, raw: `From: ${sample.from}\nSubject: ${sample.subject}\n\n${sample.body}`, via: "pasted", origin: "sample_check" });
+        void run({ from: sample.from, subject: sample.subject, raw: `From: ${sample.from}\nSubject: ${sample.subject}\n\n${sample.body}`, via: "pasted" });
         return;
       }
     }
