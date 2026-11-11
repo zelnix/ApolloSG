@@ -88,3 +88,25 @@ test("Qantas-style email is assessed by SLM, not a Hawkeye score", async () => {
     assert.equal(result.answer.caseFinding?.reasons[0].evidenceIds[0], evidenceId);
   }
 });
+
+test("contract diagnostics identify missing fields without exposing evidence", async () => {
+  const result = await runSLM(request, {
+    modelId: "test-local",
+    infer: async () => ({ observations: [], contradictions: [], alternativeExplanations: [], draftExplanation: null }),
+  });
+  assert.deepEqual(result, {
+    status: "invalid_output", execution: "none",
+    reason: "response_contract_failed:verificationSuggestions_missing_or_not_array",
+  });
+  assert.ok(!result.reason.includes("guaranteed 15%"));
+});
+
+test("contract diagnostics identify unsupported evidence references without exposing IDs", async () => {
+  const result = await runSLM(request, {
+    modelId: "test-local",
+    infer: async () => ({ ...valid, observations: [{ text: "secret text", evidenceIds: ["foreign-device"] }] }),
+  });
+  assert.equal(result.status, "invalid_output");
+  assert.equal(result.reason, "response_contract_failed:observations_invalid_or_reference");
+  assert.ok(!result.reason.includes("foreign-device"));
+});
