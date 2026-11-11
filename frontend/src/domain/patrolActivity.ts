@@ -163,7 +163,7 @@ function patrolEventLimitations(e: PatrolEvent): string[] {
   if (triage) {
     const incomplete = triage.rules?.filter((r) => r.result === "unavailable");
     if (incomplete?.length) {
-      for (const r of incomplete) lims.push(`Not checked: ${r.name}${r.reason ? ` (${r.reason})` : ""}`);
+      for (const r of incomplete) lims.push(`Check unavailable: ${r.id}`);
     }
   }
   return lims;
