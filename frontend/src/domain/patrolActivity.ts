@@ -146,7 +146,7 @@ function patrolEventExpandedDetail(e: PatrolEvent): string {
   if (e.evidence_completeness === "partial") lines.push("Some evidence was incomplete.");
   if (e.evidence_gaps?.length) {
     for (const gap of e.evidence_gaps) {
-      lines.push(`Check limitation: ${gap.name} — ${gap.reason}`);
+      lines.push(`Check limitation: ${gap.check} — ${gap.detail}`);
     }
   }
   return lines.join("\n") || "";
@@ -156,12 +156,12 @@ function patrolEventLimitations(e: PatrolEvent): string[] {
   const lims: string[] = [];
   if (e.evidence_completeness === "partial") lims.push("Partial evidence — some checks could not complete.");
   if (e.evidence_gaps?.length) {
-    for (const gap of e.evidence_gaps) lims.push(`${gap.name}: ${gap.reason}`);
+    for (const gap of e.evidence_gaps) lims.push(`${gap.check}: ${gap.detail}`);
   }
   const triage = e.triage_investigation;
   if (triage?.outcome === "LIMITED_UNABLE_TO_DETERMINE") lims.push("Triage outcome: limited — unable to determine.");
   if (triage) {
-    const incomplete = triage.rules?.filter((r) => r.result === "not_checked");
+    const incomplete = triage.rules?.filter((r) => r.result === "unavailable");
     if (incomplete?.length) {
       for (const r of incomplete) lims.push(`Not checked: ${r.name}${r.reason ? ` (${r.reason})` : ""}`);
     }
