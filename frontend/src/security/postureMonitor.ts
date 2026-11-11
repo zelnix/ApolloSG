@@ -12,6 +12,7 @@ import { AppState, type AppStateStatus } from "react-native";
 import { storage } from "@/src/utils/storage";
 import type { NetworkStatus, ProtectionStatus } from "./SecurityPlatformAdapter";
 import { collectPostureSnapshot, diffPosture, postureChangeAlerts, type PostureSnapshot, type PostureChange } from "./devicePosture";
+export type { PostureSnapshot, PostureChange } from "./devicePosture";
 import { scheduleLocalAlert } from "@/src/push/notifications";
 import { apiPost } from "@/src/api/client";
 
