@@ -30,7 +30,7 @@ from services import device_stats
 from services.higgins import case_evidence
 from services.higgins import slm_advisory
 from services.higgins import evidence as ev
-from services.higgins import explain, history, outcomes
+from services.higgins import explain, outcomes
 from services.higgins import ai_settings
 from services.higgins import provider
 from services.higgins.ai_request import Message, Part
@@ -403,15 +403,6 @@ async def _plain_english(owner: str, case: dict, response: HigginsResponse, answ
             explain.summary(plain, by=by, revision=response.revision, briefing=briefing))
 
 
-async def _with_history(owner: str, case: dict, response: HigginsResponse) -> tuple[HigginsResponse, dict]:
-    """Compatibility boundary: retired FlyBy ciphertext is no longer read.
-
-    Preserve the response and empty legacy record until history presentation is
-    explicitly wired to a supported, evidence-locked source.
-    """
-    return response, {}
-
-
 def _with_evidence(case: dict, response: HigginsResponse, record: dict, provider_result: ProviderResult) -> HigginsResponse:
     """Build a display-oriented evidence summary from stored findings and provenance.
 
@@ -429,10 +420,9 @@ def _with_evidence(case: dict, response: HigginsResponse, record: dict, provider
 
 async def _commit(owner: str, case: dict, job: dict, payload: dict, response: HigginsResponse, provider_result: ProviderResult,
                   evidence_ids: set[str], source_ids: set[str]) -> Outcome:
-    response, record = await _with_history(owner, case, response)
     # Luddish has already produced the Finding before commit; do not run a second advisory stage.
     response, fidelity = await _plain_english(owner, case, response, provider_result.answered_by)
-    response = _with_evidence(case, response, record, provider_result)
+    response = _with_evidence(case, response, {}, provider_result)
     commit = TurnCommit(turn_id=job["turn_id"], case_id=case["case_id"], input_revision=job["input_revision"], committed_revision=response.revision,
                         question=payload["message"], answer_to_question_id=payload.get("answerToQuestionId"), response=response, provider=provider_result,
                         evidence_ids=sorted(evidence_ids), source_ids=sorted(source_ids), committed_at=now_utc())
@@ -459,11 +449,6 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
                                              simulated=bool(provider_result.simulated or getattr(response, "simulated", False)))
         except Exception:  # noqa: BLE001 — counting never fails the investigation
             log.warning("observed_intel_record_failed case=%s", case["case_id"], exc_info=True)
-        # This device's own case history: one-way codes of the case's subjects and its result, read back only on this device.
-        try:
-            await history.record(owner, case, response.outcome, record.get("historyKeys") or [])
-        except Exception:  # noqa: BLE001
-            log.warning("case_history_record_failed case=%s", case["case_id"], exc_info=True)
     if fidelity:
         # The Fidelity Check of the latest result's plain English, for the admin portal: PASS/FAIL and why, no content.
         await db.investigation_cases.update_one({"owner_id": owner, "case_id": case["case_id"]},
