@@ -26,7 +26,11 @@ export async function runWrightSemanticSources(sources: readonly WrightSource[],
     if (run.status !== "completed" || !run.answer.wrightSemantic) {
       return { status: "limited", reason: run.status === "completed" ? "missing_semantic_result" : run.reason,
         coverage: { ...inventory.coverage, complete: false,
-          coveredCharacters: interpretations.length ? interpretations[interpretations.length - 1].end : 0 },
+          coveredCharacters: Math.min(inventory.coverage.totalCharacters, interpretations.reduce((sum, item, index) => {
+            const previous = index > 0 && interpretations[index - 1].parentEvidenceId === item.parentEvidenceId
+              ? interpretations[index - 1].end : 0;
+            return sum + Math.max(0, item.end - Math.max(item.start, previous));
+          }, 0)) },
         examinedChunks: interpretations.length };
     }
     interpretations.push({ evidenceId: chunk.evidenceId, parentEvidenceId: chunk.parentEvidenceId,
