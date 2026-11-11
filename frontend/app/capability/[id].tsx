@@ -363,14 +363,12 @@ export default function CapabilityDetailScreen() {
                           testID="capability-verdict-retry-screenshot"
                           label="Send another screenshot"
                           onPress={() => { void pickAndVerify(); }}
-                          size="small"
                         />
                         <Button
                           testID="capability-verdict-manual-concern"
                           label="Needs attention"
                           variant="ghost"
                           onPress={() => { void handleVerdict("concern"); }}
-                          size="small"
                         />
                       </View>
                     </View>
@@ -384,14 +382,12 @@ export default function CapabilityDetailScreen() {
                           testID="capability-verdict-safe"
                           label="Send screenshot to verify"
                           onPress={() => { void pickAndVerify(); }}
-                          size="small"
                         />
                         <Button
                           testID="capability-verdict-concern"
                           label="Needs attention"
                           variant="ghost"
                           onPress={() => { void handleVerdict("concern"); }}
-                          size="small"
                         />
                       </View>
                     </View>
