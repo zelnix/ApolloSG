@@ -212,7 +212,6 @@ async def _await_escalation_assessment(owner: str, case: dict, job: dict, progre
     """Bounded, evidence-cited on-device decision; no Hawkeye self-escalation."""
     if not slm_advisory.enabled():
         return None
-    import asyncio
     from routers.slm_handoff import issue_stage_request
 
     try:
@@ -238,7 +237,6 @@ async def _await_case_finding(owner: str, case: dict, job: dict, progress) -> di
     """One bounded wait for an authenticated native SLM Finding; never invent a result."""
     if not slm_advisory.enabled():
         return None
-    import asyncio
     from routers.slm_handoff import issue_stage_request
 
     try:
