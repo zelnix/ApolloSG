@@ -1,39 +1,7 @@
 name: SLM contract tests
 
+# Manual-only during SLM physical-device development; retain for deliberate verification.
 on:
-  push:
-    branches: [slm]
-    paths:
-      - 'frontend/src/domain/slm/**'
-      - 'frontend/app/_layout.tsx'
-      - 'frontend/src/higgins/slmExplanation.ts'
-      - 'frontend/src/higgins/chatClient.ts'
-      - 'backend/services/higgins/slm_contract.py'
-      - 'backend/services/higgins/slm_advisory.py'
-      - 'backend/services/higgins/coordinator.py'
-      - 'frontend/src/investigation/caseStore.ts'
-      - 'frontend/src/investigation/types.ts'
-      - 'backend/tests/test_slm_advisory_stage.py'
-      - 'backend/tests/test_slm_wait_deadline.py'
-      - 'backend/tests/test_slm_replay.py'
-      - 'backend/tests/test_slm_evidence_coverage.py'
-      - 'backend/tests/test_higgins_escalation_contract.py'
-      - 'backend/tests/test_slm_contract.py'
-      - 'backend/tests/test_slm_redundancy_regression.py'
-      - 'backend/tests/test_slm_mandatory_behaviour.py'
-      - 'backend/tests/test_no_evidence_lock_stage.py'
-      - 'backend/routers/slm_handoff.py'
-      - 'backend/routers/investigations.py'
-      - 'frontend/src/domain/privacy.ts'
-      - 'frontend/tests/slm*.test.ts'
-      - 'frontend/tests/slm*.test.cjs'
-      - 'frontend/scripts/slm-verify-gguf.cjs'
-      - '.github/workflows/slm-contract.yml'
-  pull_request:
-    paths:
-      - 'frontend/src/domain/slm/**'
-      - 'frontend/tests/slm*.test.ts'
-      - '.github/workflows/slm-contract.yml'
   workflow_dispatch:
 
 permissions:
