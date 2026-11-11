@@ -408,9 +408,8 @@ async def _with_history(owner: str, case: dict, response: HigginsResponse) -> tu
     a concern raises the confidence of the findings about the same subject; nothing else in the result changes. A failure
     leaves the result exactly as validated."""
     try:
-        stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "tc_flyby_ciphertext": 1}) or {}
-        record = repo.dec_json(stored["tc_flyby_ciphertext"]) if stored.get("tc_flyby_ciphertext") else {}
-        return history.weigh(response, record.get("history") or []), record
+        # Legacy FlyBy ciphertext is retired. History is not read from that field.
+        return response, {}
     except Exception:  # noqa: BLE001 — history is context; it never fails an investigation
         log.warning("history_weigh_failed case=%s", case["case_id"], exc_info=True)
         return response, {}
