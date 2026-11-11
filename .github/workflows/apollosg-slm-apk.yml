@@ -1,0 +1,76 @@
+name: ApolloSG SLM tests and Android APK
+on:
+  push:
+    branches: [slm]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/apollosg-slm-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wright-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile --ignore-scripts
+      - name: Wright regression tests
+        working-directory: frontend
+        run: yarn test:wright-phase8
+      - name: TypeScript validation
+        working-directory: frontend
+        run: yarn tsc --noEmit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python syntax check
+        run: |
+          python -m py_compile backend/services/higgins/coordinator.py backend/services/higgins/slm_contract.py backend/services/higgins/wright_semantic_contract.py backend/services/higgins/magnum_continuation.py
+      - name: Install backend dependencies for focused tests
+        run: |
+          grep -v '^emergentintegrations' backend/requirements.txt | grep -v '^litellm' > /tmp/apollosg-req.txt
+          python -m pip install -r /tmp/apollosg-req.txt
+      - name: Backend Phase 5–8 regression tests
+        working-directory: backend
+        run: python -m pytest -q tests/test_wright_evidence_windows.py tests/test_wright_window_synthesis.py tests/test_wright_phase6_contract.py tests/test_magnum_continuation.py tests/test_phase7_investigation_safeguards.py
+
+  android-apk:
+    needs: wright-tests
+    runs-on: ubuntu-latest
+    if: ${{ vars.APOLLO_SLM_BUILD_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Validate EAS credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN is required for authenticated EAS APK builds"
+            exit 1
+          fi
+      - name: Build internal Android APK (EAS)
+        working-directory: frontend
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: '1'
+        run: |
+          npx --yes eas-cli@latest build --platform android --profile guarddog-production --non-interactive --wait --json > /tmp/eas-result.json
+          node -e 'const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/eas-result.json","utf8"));const b=Array.isArray(r)?r[0]:r;if(b.status!=="FINISHED"||!b.artifacts?.buildUrl)process.exit(1);fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY,"APK build: "+b.artifacts.buildUrl+"\\n",{flag:"a"});'
