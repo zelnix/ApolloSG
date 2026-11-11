@@ -179,8 +179,6 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
     })
     if not pending:
         raise http(409, "conflict", "No matching Luddish request is outstanding.")
-    if pending.get("submission"):
-        raise http(409, "conflict", "This Luddish request has already been answered.")
     if repo.utc(pending["expires_at"]) <= now_utc():
         raise http(409, "conflict", "The Luddish request has expired.")
     case, _job = await _active_case_job(
@@ -193,6 +191,23 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
         accepted = accept_advisory_reasoning(original, body)
     except ValueError:
         raise http(422, "invalid_input", "Luddish reasoning failed case or evidence-reference checks.")
+    def same_submission(record: dict | None) -> bool:
+        submission = (record or {}).get("submission") or {}
+        if submission.get("state") != "advisory_received" or submission.get("model_id") != body.model_id:
+            return False
+        try:
+            return repo.dec_json(submission["result_ciphertext"]) == accepted.wire()
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    # A lost HTTP receipt can be replayed safely. Only the identical validated
+    # result is acknowledged; conflicting retries remain rejected.
+    if pending.get("submission"):
+        if same_submission(pending):
+            return JSONResponse({"accepted": True, "advisoryOnly": True,
+                                 "caseId": case_id, "requestId": body.request_id},
+                                status_code=202, headers=NO_STORE)
+        raise http(409, "conflict", "This Luddish request has already been answered.")
     # Conditional single acceptance. Never call ingest_observation, never update
     # investigation evidence, jobs, Findings or scores.
     claimed = await db.investigation_device_requests.find_one_and_update(
@@ -213,6 +228,12 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
         return_document=ReturnDocument.AFTER,
     )
     if not claimed:
-        raise http(409, "conflict", "The Luddish request was already answered or expired.")
+        latest = await db.investigation_device_requests.find_one({
+            "owner_id": owner, "case_id": case_id, "request_id": body.request_id,
+            "kind": "slm_advisory", "epoch": case.get("epoch"),
+            "expires_at": {"$gt": now_utc()},
+        })
+        if not same_submission(latest):
+            raise http(409, "conflict", "The Luddish request was already answered or expired.")
     return JSONResponse({"accepted": True, "advisoryOnly": True, "caseId": case_id,
                          "requestId": body.request_id}, status_code=202, headers=NO_STORE)
