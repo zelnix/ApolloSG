@@ -1,4 +1,5 @@
 name: SLM Android native compile
+# Standalone APK build requested for slm physical-device acceptance.
 
 on:
   push:
