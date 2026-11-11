@@ -64,7 +64,9 @@
     "test:higgins-checks": "node --test tests/higginsChecks.test.ts",
     "test:device-capabilities": "node --test tests/deviceCapabilities.test.ts",
     "verify:no-simulation": "node scripts/verify-no-simulation.mjs",
-    "test:preview-isolation": "node --test tests/previewIsolation.test.ts"
+    "test:preview-isolation": "node --test tests/previewIsolation.test.ts",
+    "test:wright-phase8": "node --test tests/wrightSemanticContract.test.ts tests/wrightEvidenceChunks.test.ts tests/wrightSemanticRunner.test.ts tests/wrightPhase6.test.ts",
+    "verify:wright-phase8": "yarn test:wright-phase8 && yarn tsc --noEmit"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
