@@ -102,7 +102,7 @@ async def capabilities():
     return JSONResponse({"schemaVersion": 1, "provider": sel["provider"], "modalities": [modality("text", model, "text"), modality("vision", model, "vision"),
                          modality("research", model, "search")], "policyVersion": policy()["version"], "bounds": bounds, "integrations": integrations,
                          "providerMode": provider.get_provider_mode(),
-            "models": {"magnum_di": model, "tc_flyby": model}, "researchCoordinator": "shared_case_engine"}, headers=NO_STORE)
+            "models": {"magnum_di": model, "tc_hawkeye": model}, "researchCoordinator": "shared_case_engine"}, headers=NO_STORE)
 
 
 # ── Source metadata builder and specialist evidence pre-gathering are defined
@@ -453,7 +453,7 @@ async def export_investigation_pdf(case_id: str, request: Request):
     subject = (case_wire.get("response") or {}).get("subject", "Investigation")
     # Tagged when any external source behind it was simulated: Magnum DI's Gemini call or TC Hawkeye's search.
     flyby = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.tc_hawkeye.simulated": 1}) or {})
-             .get("routing") or {}).get("tc_flyby") or {}
+             .get("routing") or {}).get("tc_hawkeye") or {}
     simulated = bool(flyby.get("simulated")) or any(r.get("simulated") for r in await get_di_records(owner, case_id))
     # Every time in the report is the phone's local time: the offset it sends now, else the one it registered.
     sent = request.query_params.get("tzOffset", "")

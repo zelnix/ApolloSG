@@ -185,7 +185,7 @@ async def simulate_generate(
         except Exception:  # noqa: BLE001 — the knowledge base can never break the simulator
             kb = []
     grounding = None
-    if name == "tc_flyby_search":
+    if name == "tc_hawkeye_search":
         text, grounding = await flyby_lookup(blocks)
     else:
         text = simulated_text(purpose, json_output, blocks, kb=kb, query=query)

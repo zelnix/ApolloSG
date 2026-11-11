@@ -8,7 +8,7 @@ Only checks that the direct sources and Apollo's KB could not settle reach this 
 2. One search per correlated case. Of the checks still open, the one most likely to change Apollo's finding or
    Higgins' guidance is searched (target()): a link, number or address a consequential request goes through first,
    then the kinds an official source can settle. ONE Brave Search request (services/brave_search.py), claimed
-   atomically for the case (`tc_flyby_searches`, unique per correlation id), so no retry, job or recovery can make a
+   atomically for the case (`tc_hawkeye_searches`, unique per correlation id), so no retry, job or recovery can make a
    second. Every other open check is recorded as not searched: missing evidence, never a pass.
 3. One lookup at a time. A search about the same public identifier that another case is already running is waited
    for and its saved result reused, never sent twice (reusable_intel.once). The claim holds only the lookup's
@@ -36,7 +36,7 @@ from services.higgins import brand_domains, knowledge
 from services.higgins.llm_boundary import redact_registration_numbers, strip_credentials
 from services.higgins.tc_hawkeye.triage import Check, digits
 
-SITE = "tc_flyby_search"   # this call site, in the reuse counters
+SITE = "tc_hawkeye_search"   # this call site, in the reuse counters
 # Check kinds whose lookups are about public identifiers, and how their subject is keyed. Others (an exact phrase from
 # the material, a person's name) are case evidence and never enter the shared cache.
 SUBJECT_KIND = {"link": "domain", "phone": "phone", "email": "email", "company": "entity", "abn": "abn", "acn": "acn",
@@ -254,9 +254,9 @@ def _reused(record: dict) -> dict:
 
 async def _claim_case_search(correlation_id: str) -> bool:
     """The case's one search, taken atomically. False when this case already used it."""
-    await db.tc_flyby_searches.create_index("correlation_id", unique=True)
+    await db.tc_hawkeye_searches.create_index("correlation_id", unique=True)
     try:
-        await db.tc_flyby_searches.insert_one({"correlation_id": correlation_id, "claimed_at": now_utc()})
+        await db.tc_hawkeye_searches.insert_one({"correlation_id": correlation_id, "claimed_at": now_utc()})
         return True
     except DuplicateKeyError:
         return False
