@@ -53,7 +53,7 @@ function instructionsFor(request: SLMRequest): string {
       "Cite supplied evidence IDs for scam_indicators, legitimate_context, coercion present, or confirmed exposure.",
       "UNKNOWN means the source does not establish what happened; NOT_CONFIRMED requires explicit evidence of non-exposure.",
       "Do not include any authoritative outcome, risk score, caseFinding or escalationAssessment.",
-    ].join("\\n");
+    ].join("\n");
   }
   if (request.operation === "case_finding") {
     return BASE_INSTRUCTIONS + "\n" +
