@@ -327,9 +327,18 @@ def _message_rules() -> dict[str, Callable[[dict], Verdict]]:
         moderate = [name for name in ("urgency", "threat", "payment_request", "unknown_sender", "platform_switch",
                                       "job_offer", "guaranteed_returns", "crypto", "new_number", "login_request")
                     if _sig(ev, name)]
-        if len(moderate) >= 3 and any(_sig(ev, s) for s in ("payment_request", "login_request", "crypto", "identity_request")):
-            return met("coherent scam pattern: " + ", ".join(moderate))
-        return unmet(f"{len(moderate)} moderate indicator(s) — no coherent scam pattern")
+        # Multiple ordinary features (invoice, deadline, unknown SMS sender, recruitment,
+        # platform mention) are not independent proof of deception. A pattern becomes
+        # threat-producing only when an independently supported deceptive destination,
+        # impersonation or malicious link accompanies a consequential request.
+        consequential = any(_sig(ev, s) for s in ("payment_request", "login_request", "crypto", "identity_request"))
+        corroborated = bool(ev.get("brand_mismatch") or ev.get("deceptive_destination")
+                            or ev.get("link_outcome") == Outcome.POSSIBLE_THREAT.value
+                            or _sig(ev, "lookalike_name"))
+        if len(moderate) >= 3 and consequential and corroborated:
+            return met("corroborated scam pattern: " + ", ".join(moderate),
+                       "independent deception or malicious-destination evidence")
+        return unmet(f"{len(moderate)} moderate indicator(s); no corroborated deceptive mechanism")
 
     def rebate_pressure(ev: dict) -> Verdict:
         if not _sig(ev, "government_rebate"):
@@ -407,7 +416,10 @@ def _message_rules() -> dict[str, Callable[[dict], Verdict]]:
         "MSG-15": flag("guaranteed_returns", "guaranteed-return approach", needs=("payment_request", "crypto", "money_request")),
         "MSG-16": flag("job_offer", "job offer with payment or credential harvesting", needs=("payment_request", "crypto", "gift_cards", "identity_request")),
         "MSG-17": flag("romance_escalation", "romance interaction with a financial request"),
-        "MSG-18": flag("identity_request", "sensitive identity request with impersonation", needs=("claimed_brand", "unknown_sender")),
+        "MSG-18": lambda ev: (met("sensitive identity request", "corroborated sender or destination deception")
+                    if _sig(ev, "identity_request") and
+                    (ev.get("brand_mismatch") or ev.get("deceptive_destination") or _sig(ev, "lookalike_name"))
+                    else unmet("identity request without corroborated impersonation")),
         "MSG-19": flag("platform_switch", "platform switching with another scam mechanic", needs=("payment_request", "crypto", "job_offer", "guaranteed_returns", "identity_request")),
         "MSG-20": combination("threat", "urgency or threat with a consequential action and a supporting anomaly",
                               consequential=("payment_request", "login_request", "identity_request", "code_request", "money_request"),
