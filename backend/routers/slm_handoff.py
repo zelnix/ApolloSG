@@ -110,7 +110,7 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
             # This is derived text, NOT direct inspection of the parent binary.
             # Retain the source relationship in the material sent to the SLM.
             text = (f"[Derived text from {parent['kind']} evidence "
-                    f"{parent['evidence_id']}; original binary not examined by SLM]\\n" + text)
+                    f"{parent['evidence_id']}; original binary not examined by SLM]\n" + text)
         gathered.append(SLMReference(evidence_id=row["evidence_id"], text=text))
     return gathered
 
