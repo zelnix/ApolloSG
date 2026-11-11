@@ -136,6 +136,32 @@ function validate(value: unknown, refs: Set<string>, operation: SLMOperation): S
   };
 }
 
+/** Privacy-safe contract diagnostics: field names and error classes only, never model text. */
+function contractFailure(value: unknown, refs: Set<string>, operation: SLMOperation): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "not_object";
+  const a = value as Record<string, unknown>;
+  const allowed = new Set(["observations", "contradictions", "alternativeExplanations", "verificationSuggestions", "draftExplanation", "caseFinding", "escalationAssessment"]);
+  if (Object.keys(a).some(k => !allowed.has(k))) return "unexpected_field";
+  for (const field of ["observations", "contradictions", "alternativeExplanations", "verificationSuggestions"] as const) {
+    if (!Array.isArray(a[field])) return field + "_missing_or_not_array";
+    if (!observations(a[field], refs)) return field + "_invalid_or_reference";
+  }
+  if (a.draftExplanation !== null && (typeof a.draftExplanation !== "string" || a.draftExplanation.length > MAX_TEXT))
+    return "draft_explanation_invalid";
+  if (operation === "case_finding" && !validCaseFinding(a.caseFinding, refs)) {
+    const f = a.caseFinding as Record<string, unknown> | null | undefined;
+    if (!f || typeof f !== "object" || Array.isArray(f)) return "case_finding_missing";
+    if (!["scam", "likely_scam", "unlikely_scam", "not_scam"].includes(String(f.outcome))) return "case_finding_outcome_invalid";
+    if (typeof f.explanation !== "string" || !f.explanation.length || f.explanation.length > MAX_TEXT) return "case_finding_explanation_invalid";
+    if (!observations(f.reasons, refs) || !Array.isArray(f.reasons) || f.reasons.length === 0 || f.reasons.length > 12) return "case_finding_reasons_invalid_or_reference";
+    return "case_finding_optional_fields_invalid";
+  }
+  if (operation === "escalation_assessment" && !validEscalation(a.escalationAssessment, refs)) return "escalation_assessment_invalid";
+  if (a.caseFinding != null && !validCaseFinding(a.caseFinding, refs)) return "case_finding_invalid";
+  if (a.escalationAssessment != null && !validEscalation(a.escalationAssessment, refs)) return "escalation_assessment_invalid";
+  return "unknown_contract_failure";
+}
+
 /**
  * Executes only an explicitly installed on-device adapter. No model chosen by
  * default; failures must be handled by the existing workflow, not by Gemini.
@@ -155,7 +181,7 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
   try {
     const candidate = await adapter.infer(request);
     const answer = validate(candidate, new Set(request.evidence.map((e) => e.evidenceId)), request.operation);
-    if (!answer) return { status: "invalid_output", execution: "none", reason: "response_contract_failed" };
+    if (!answer) return { status: "invalid_output", execution: "none", reason: "response_contract_failed:" + contractFailure(candidate, new Set(request.evidence.map(e => e.evidenceId)), request.operation) };
     recordSuccessfulSLMInference(adapter);
     return { status: "completed", execution: "on_device", modelId: adapter.modelId, answer };
   } catch {
