@@ -32,7 +32,7 @@ from services.higgins import ai_settings
 from services.higgins import outcomes, presenter
 from services.higgins import provider
 from services.higgins import repository as repo
-from services.higgins import tc_flyby
+from services.higgins import tc_hawkeye
 from services.higgins.capacity import EVIDENCE_RETENTION_SECONDS
 from services.higgins.capacity import ITEMS, TEMPORARY_RETENTION, TEXT, policy
 from services.higgins.contracts import (CreateCase, CreateUpload, DeviceProfile, DeviceResult, EvidenceSubmission, ExpectedObservation, ExpectedRevision,
@@ -452,7 +452,7 @@ async def export_investigation_pdf(case_id: str, request: Request):
     evidence_wire = [repo.evidence_view(r).wire() for r in evidence_rows]
     subject = (case_wire.get("response") or {}).get("subject", "Investigation")
     # Tagged when any external source behind it was simulated: Magnum DI's Gemini call or TC Hawkeye's search.
-    flyby = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.tc_flyby.simulated": 1}) or {})
+    flyby = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.tc_hawkeye.simulated": 1}) or {})
              .get("routing") or {}).get("tc_flyby") or {}
     simulated = bool(flyby.get("simulated")) or any(r.get("simulated") for r in await get_di_records(owner, case_id))
     # Every time in the report is the phone's local time: the offset it sends now, else the one it registered.
@@ -907,7 +907,7 @@ async def _follow_up(owner: str, case: dict, body: SubmitTurn) -> Optional[dict]
         answer = presenter.investigation_follow_up(response, await repo.sources(owner, case["case_id"]), question, answered_by)
     elif await repo.magnum_call_used(owner, case["case_id"]):
         # Magnum DI's one call didn't produce a result: the reason, and what TC Hawkeye established.
-        answer = presenter.stopped_follow_up(await _failure_of(owner, case), await tc_flyby.established(owner, case["case_id"]))
+        answer = presenter.stopped_follow_up(await _failure_of(owner, case), await tc_hawkeye.established(owner, case["case_id"]))
     else:
         return None
     if body.evidence_ids and answer["intent"] != "recheck":

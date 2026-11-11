@@ -133,7 +133,7 @@ async def _stop(owner: str, case: dict, job: dict, code: str, diag: Optional[Dia
     """Stop the investigation and say why, keeping TC Hawkeye's findings. Once the case's Magnum DI call was made nothing
     can be resubmitted; before it (TC Hawkeye interrupted, the spending limit) the person may resubmit."""
     used = await repo.magnum_call_used(owner, case["case_id"])
-    kept = await tc_flyby.established(owner, case["case_id"])
+    kept = await tc_hawkeye.established(owner, case["case_id"])
     if diag:
         diag.final_status = "failed"
     await _fail(owner, case, job, Failure(code=code, message=stop_message(reason or code, magnum_used=used, kept=kept), retryable=not used,
