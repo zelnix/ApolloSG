@@ -48,3 +48,27 @@ export async function assessMandatoryWright(
     return { status: "limited", reason: "missing_source_citations" };
   return { status: "complete", semantic, windows: run.interpretations.length };
 }
+
+/** Shape accepted by the existing /investigations/{caseId}/slm/results route.
+ * Caller must authenticate through the existing device transport and use the
+ * exact server-issued request identifiers; no independent submission endpoint.
+ */
+export async function respondToWrightStage(
+  request: { caseId: string; caseRevision: number; requestId: string;
+    role: string; operation: string; evidence: readonly SLMReference[] },
+  adapter: SLMAdapter | null,
+): Promise<{ status: "ready"; payload: Record<string, unknown> } | { status: "limited"; reason: string }> {
+  if (request.role !== "wright_triage" || request.operation !== "wright_semantic")
+    return { status: "limited", reason: "wrong_stage" };
+  const assessment = await assessMandatoryWright(request.evidence, adapter);
+  if (assessment.status !== "complete") return assessment;
+  return { status: "ready", payload: {
+    caseId: request.caseId, caseRevision: request.caseRevision, requestId: request.requestId,
+    execution: "on_device", modelId: adapter!.modelId,
+    answer: {
+      observations: [], contradictions: [], alternativeExplanations: [],
+      verificationSuggestions: [], draftExplanation: null,
+      wrightSemantic: assessment.semantic,
+    },
+  } };
+}
