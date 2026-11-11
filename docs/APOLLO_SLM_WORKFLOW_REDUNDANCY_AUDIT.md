@@ -66,3 +66,7 @@ Removed the synthesized `Web search unavailable (reason): note` explanation from
 ## Source fidelity correction
 
 The TC Hawkeye unavailable-web-lookup fact now retains the complete returned lookup object rather than selecting only `status`, `reason` and `note`. This avoids losing provider fields at that handoff. Higgins SLM receives the stored source fields and performs the explanation. The Higgins case-finding instruction uses the approved user-facing phrase **“Evidence could not be discovered”** when a check cannot obtain evidence, adding only a cause supported by recorded source data. No additional investigation or verification stage was introduced. This change does not yet establish full raw HTTP response preservation for all external providers; some upstream provider adapters still normalize responses. Tests were not executed.
+
+## Magnum DI provider limitation evidence
+
+Magnum DI provider failures and non-STOP completion now attempt to retain the observed code/message or finish reason/provider metadata in the existing case evidence store, for Higgins to inspect. This does **not** turn a failed call into completed investigative evidence, does not retry or call another model, and does not translate the provider's failure into an inferred cause. The existing fail-closed outcome remains in force. Retention is best-effort; errors remain logged. This is not full raw HTTP-body preservation and does not cover every parsing/transport failure. Runtime tests have not been executed.

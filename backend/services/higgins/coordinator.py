@@ -150,6 +150,21 @@ _MAGNUM_SCHEMA = {
 }
 
 
+async def _retain_magnum_limitation(owner: str, case: dict, details: dict) -> None:
+    """Keep the observed provider failure fields available to Higgins, without interpretation."""
+    try:
+        await ev.ingest_text(
+            owner, case, "magnum-di-provider-limitation",
+            json.dumps(details, ensure_ascii=False, default=str),
+            kind="observation", origin="external_source",
+            label="Magnum DI provider response limitation",
+            meta={"investigator": "magnum_di", "status": "incomplete"},
+            coverage=Coverage(status="examined", unit="items", total=1, examined=1),
+        )
+    except Exception:
+        log.warning("magnum_limitation_retention_failed case=%s", case["case_id"], exc_info=True)
+
+
 async def _magnum_external_evidence(owner: str, case: dict, job: dict,
                                     question: str, rows: list[dict], progress) -> bool:
     """One provider-independent external investigation, retained as case evidence for Luddish."""
@@ -181,10 +196,19 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
         )
     except ProviderFailure as exc:
         log.warning("magnum_external_unavailable case=%s code=%s", case["case_id"], exc.code)
+        await _retain_magnum_limitation(owner, case, {
+            "status": "provider_failure", "code": exc.code,
+            "message": str(exc), "provider": "magnum_di",
+        })
         # A provider refusal must not be mistaken for an external investigation.
         return False
     if result.finish_reason != "STOP":
         log.warning("magnum_external_incomplete case=%s finish=%s", case["case_id"], result.finish_reason)
+        await _retain_magnum_limitation(owner, case, {
+            "status": "incomplete", "finishReason": result.finish_reason,
+            "provider": result.provider, "model": result.model,
+            "grounding": result.grounding,
+        })
         return False
     try:
         findings = result.object()
