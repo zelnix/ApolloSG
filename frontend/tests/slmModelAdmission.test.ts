@@ -56,3 +56,29 @@ test("model rejects outside-private path and read failures", async () => {
     available:false, reason:"model_unreadable",
   });
 });
+
+test("valid GGUF header admits without reading the entire model", async () => {
+  let reads = 0;
+  const file = {
+    ...sample,
+    open: () => ({
+      readBytes: (length: number) => {
+        reads++;
+        assert.equal(length, 4);
+        return Uint8Array.from([0x47, 0x47, 0x55, 0x46]);
+      },
+      close: () => undefined,
+    }),
+  };
+  const result = await verifyPrivateGGUF(file, MIN_DEVICE_RAM_BYTES);
+  assert.equal(result.available, true);
+  assert.equal(reads, 1);
+});
+
+test("invalid GGUF header is rejected", async () => {
+  const result = await verifyPrivateGGUF({
+    ...sample,
+    open: () => ({ readBytes: () => Uint8Array.from([0, 0, 0, 0]), close: () => undefined }),
+  }, MIN_DEVICE_RAM_BYTES);
+  assert.deepEqual(result, { available: false, reason: "invalid_model" });
+});
