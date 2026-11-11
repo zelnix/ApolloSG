@@ -128,3 +128,17 @@ test("native escalation rejects fabricated citations", async () => {
   assert.equal(response.status, "invalid_output");
   await runtime.release();
 });
+
+test("oversized native input fails closed before model initialization, without truncation", async () => {
+  let initialized = 0;
+  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => {
+    initialized++;
+    return { completion: async () => ({ text: result }), release: async () => undefined };
+  }, 4096);
+  const response = await runSLM({
+    ...base, evidence: [{ evidenceId: "current", text: "X".repeat(10000) }],
+  }, runtime);
+  assert.equal(response.status, "unavailable");
+  assert.equal(initialized, 0);
+  await runtime.release();
+});
