@@ -299,8 +299,8 @@ def _apply(check: Check, answer: dict, plan_: Plan) -> None:
         check.status = "unavailable"
         # Retain source-provided fields; Higgins SLM interprets their meaning.
         check.open_issue = ""
-        check.facts.append(fact(json.dumps({key: answer[key] for key in ("status", "reason", "note") if key in answer},
-                                           ensure_ascii=False, default=str), "missing", topic="web_search"))
+        check.facts.append(fact(json.dumps(answer, ensure_ascii=False, default=str),
+                                "missing", topic="web_search"))
         return
     check.route = "web_search"
     sources = answer.get("sources") or []

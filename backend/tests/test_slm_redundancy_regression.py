@@ -53,9 +53,9 @@ class SLMRedundancyRegression(unittest.TestCase):
 
     def test_finding_prompt_preserves_technical_gaps(self):
         handoff = (ROOT / "backend/routers/slm_handoff.py").read_text()
-        self.assertIn("A failed or incomplete check is not negative evidence", handoff)
-        self.assertIn("token or context limit", handoff)
-        self.assertIn("Weigh corroboration and contradictions", handoff)
+        self.assertIn("Evidence could not be discovered", handoff)
+        self.assertIn("recorded status, codes and messages", handoff)
+        self.assertIn("corroboration, contradictions and gaps", handoff)
 
     def test_hawkeye_has_no_redundant_pre_investigation_slm_request(self):
         run = function(ast.parse(COORDINATOR.read_text()), "run_turn")
