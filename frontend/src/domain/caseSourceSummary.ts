@@ -14,6 +14,7 @@ import type { PatrolEvent } from "./types";
 const ORIGIN: Record<CaseOrigin, { heading: string; verb: string }> = {
   user: { heading: "What you submitted", verb: "Submitted" },
   apollo: { heading: "What Apollo detected", verb: "Detected" },
+  sample_check: { heading: "Sample check", verb: "Sampled" },
 };
 const UNRECORDED = { heading: "What started this investigation", verb: "Opened" };
 
