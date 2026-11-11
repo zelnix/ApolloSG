@@ -135,7 +135,7 @@ export default function CheckApp() {
     const prodSample = findSampleApp(id);
     if (!prodSample) return;
     setName(prodSample.appName); setDeveloper(prodSample.developer); setPickedPackage(prodSample.packageId);
-    setSource(APP_SOURCES.some(x => x.id === prodSample.source) ? prodSample.source as AppSource : "not_sure"); setPurpose(APP_PURPOSES.some(x => x.id === prodSample.purpose) ? prodSample.purpose as AppPurpose : APP_PURPOSES[0].id); setPerms(prodSample.permissions.filter((p): p is AppPermission => APP_PERMISSIONS.some(x => x.id === p)));
+    setSource(APP_SOURCES.some(x => x.id === prodSample.source) ? prodSample.source as AppSource : "not_sure"); setPurpose(APP_PURPOSES.some(x => x.id === prodSample.purpose) ? prodSample.purpose as AppPurpose : APP_PURPOSES[0].id); setPerms(prodSample.permissions.filter((p): p is AppPermission => APP_PERMISSIONS.includes(p as AppPermission)));
     setSampled(true);
     setAutoRun(prodSample.appName);
   };
