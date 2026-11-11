@@ -59,6 +59,39 @@ MAX_MAGNUM_CALLS = 1
 
 
 
+async def _wait_for_slm(owner: str, case: dict, job: dict, role: str,
+                        issued: dict, required_field: str | None = None) -> dict | None:
+    """Wait for serial native inference, bounded by request expiry and a hard cap.
+
+    Accepted results are revalidated for owner, job, epoch, revision and citations
+    by accepted_for_stage on every poll. No result means unavailable, never safe.
+    """
+    import asyncio
+    from datetime import datetime, timezone
+
+    expires_raw = issued.get("expiresAt")
+    if not isinstance(expires_raw, str):
+        return None
+    try:
+        expires = datetime.fromisoformat(expires_raw.replace("Z", "+00:00"))
+        if expires.tzinfo is None:
+            return None
+    except ValueError:
+        return None
+    loop = asyncio.get_running_loop()
+    # Serial native requests may queue; 90s permits more than the old 15s
+    # while the server request expiry remains authoritative.
+    deadline = loop.time() + min(90.0, max(0.0, (expires - datetime.now(timezone.utc)).total_seconds()))
+    while True:
+        advice = await slm_advisory.accepted_for_stage(owner, case, job, role)
+        if advice and (required_field is None or advice.get(required_field)):
+            return advice
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            return None
+        await asyncio.sleep(min(0.5, remaining))
+
+
 async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> dict | None:
     """Await bounded case-scoped SLM advice before the relevant investigation stage.
 
@@ -78,13 +111,7 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> dict | Non
         await repo.emit(owner, case["case_id"], job["job_id"],
                         "slm_advisory_request", issued,
                         case["revision"], repo.utc(case["expires_at"]))
-        import asyncio
-        advice = None
-        for _ in range(30):
-            advice = await slm_advisory.accepted_for_stage(owner, case, job, role)
-            if advice:
-                break
-            await asyncio.sleep(0.5)
+        advice = await _wait_for_slm(owner, case, job, role, issued)
         if not advice:
             return None
         counts = {key: len(advice.get(key, [])) for key in
@@ -197,12 +224,10 @@ async def _await_escalation_assessment(owner: str, case: dict, job: dict, progre
                         "slm_advisory_request", issued, case["revision"],
                         repo.utc(case["expires_at"]))
         await progress("assess", "Higgins is checking Hawkeye's evidence and escalation need.")
-        for _ in range(30):
-            advice = await slm_advisory.accepted_for_stage(
-                owner, case, job, "higgins_escalation_assessment")
-            if advice and advice.get("escalationAssessment"):
-                return advice["escalationAssessment"]
-            await asyncio.sleep(0.5)
+        advice = await _wait_for_slm(owner, case, job, "higgins_escalation_assessment",
+                                     issued, "escalationAssessment")
+        if advice:
+            return advice["escalationAssessment"]
     except Exception:
         log.warning("higgins_escalation_assessment_unavailable case=%s",
                     case["case_id"], exc_info=True)
@@ -225,11 +250,8 @@ async def _await_case_finding(owner: str, case: dict, job: dict, progress) -> di
                         "slm_advisory_request", issued, case["revision"],
                         repo.utc(case["expires_at"]))
         await progress("assess", "The on-device model is reviewing the investigation.")
-        for _ in range(30):
-            advice = await slm_advisory.accepted_for_stage(owner, case, job, "case_finding")
-            if advice and advice.get("caseFinding"):
-                return advice
-            await asyncio.sleep(0.5)
+        return await _wait_for_slm(owner, case, job, "case_finding",
+                                   issued, "caseFinding")
     except Exception:
         log.warning("slm_case_finding_unavailable case=%s", case["case_id"], exc_info=True)
     return None
