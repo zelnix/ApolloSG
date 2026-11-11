@@ -1,4 +1,4 @@
-/** Native-only Luddish startup for pre-production builds.
+/** Native On-device AI startup for ApolloSG.
  * The model header and file location are checked before native inference admission.
  * The one instance services Ask Higgins and all investigation roles.
  */
