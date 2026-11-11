@@ -683,6 +683,45 @@ async def magnum_call_used(owner: str, case_id: str) -> bool:
     return await db.magnum_di_calls.count_documents({"correlation_id": correlation_id(case_id), "owner_id": owner}, limit=1) > 0
 
 
+async def claim_magnum_window(owner: str, case_id: str, job_id: str, index: int,
+                              digest: str, *, max_windows: int = 4) -> bool:
+    """Atomic, irreversible per-case/window claim. Never retry a possibly sent call.
+
+    Uses a unique _id rather than relying on a new index migration. The legacy
+    single-call claim remains reserved for the old single-call path.
+    """
+    if not 0 <= index < max_windows or not digest:
+        return False
+    try:
+        await db.magnum_di_window_calls.insert_one({
+            "_id": f"{correlation_id(case_id)}:window:{index}",
+            "correlation_id": correlation_id(case_id), "owner_id": owner,
+            "case_id": case_id, "job_id": job_id, "window_index": index,
+            "digest": digest, "claimed_at": now_utc(), "status": "claimed",
+        })
+        return True
+    except DuplicateKeyError:
+        return False
+
+
+async def complete_magnum_window(owner: str, case_id: str, job_id: str, index: int,
+                                 digest: str, result: dict) -> bool:
+    """Checkpoint the actual provider result only for the owning claim."""
+    outcome = await db.magnum_di_window_calls.update_one(
+        {"_id": f"{correlation_id(case_id)}:window:{index}",
+         "owner_id": owner, "job_id": job_id, "digest": digest, "status": "claimed"},
+        {"$set": {"status": "completed", "result_ciphertext": enc_json(result),
+                  "completed_at": now_utc()}})
+    return outcome.modified_count == 1
+
+
+async def magnum_window_checkpoints(owner: str, case_id: str) -> list[dict]:
+    """Only the current device's checkpoints; no cross-device exposure."""
+    cursor = db.magnum_di_window_calls.find(
+        {"owner_id": owner, "case_id": case_id}, {"_id": 0})
+    return [row async for row in cursor]
+
+
 async def get_job(owner: str, case_id: str, job_id: str) -> dict:
     doc = await db.investigation_jobs.find_one({"owner_id": owner, "case_id": case_id, "job_id": job_id}, {"_id": 0})
     if not doc:
