@@ -332,7 +332,7 @@ async def ingest_file(owner: str, case: dict, meta_in: dict, data: bytes, *, evi
     await _derive(owner, case, item, data, detected, attempt_id, publication_owner)
     device_text = (meta_in.get("deviceExtractedText") or "").strip() if kind == "image" else ""
     if device_text:
-        # Higgins Triage's extraction of the screenshot/image: the text the phone read from it, as derived evidence.
+        # Wright Triage's extraction of the screenshot/image: the text the phone read from it, as derived evidence.
         await ingest_text(owner, case, f"{item.client_item_id}.device-text", device_text, parent_id=item.id,
                           label="text read from the image on the phone", meta={"deviceExtracted": True, "registerClues": True},
                           transformations=[Transformation(kind="decode", description="Text the phone's on-device text recognition read from this image (credentials removed on the device).")],
