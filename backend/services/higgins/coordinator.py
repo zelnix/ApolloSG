@@ -507,9 +507,7 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
 
 def decision_requires_independent_review(hawkeye_result) -> bool:
     """Conservative consistency gate, never a new scoring engine."""
-    return getattr(hawkeye_result, "next_step", None) == "magnum_di" or (
-        getattr(hawkeye_result, "route", None) == "magnum_di"
-    )
+    return not bool(getattr(hawkeye_result, "resolved", False))
 
 
 
