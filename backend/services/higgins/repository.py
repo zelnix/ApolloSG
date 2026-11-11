@@ -235,7 +235,7 @@ async def inventory(owner: str, case_id: str) -> Inventory:
 async def case_view(doc: dict) -> InvestigationCase:
     response = HigginsResponse.model_validate(dec_json(doc["response_ciphertext"])) if doc.get("response_ciphertext") else None
     routing = doc.get("routing") or {}
-    simulated = bool((routing.get("tc_flyby") or {}).get("simulated") or (routing.get("magnum") or {}).get("simulated"))
+    simulated = bool((routing.get("tc_hawkeye") or {}).get("simulated") or (routing.get("magnum") or {}).get("simulated"))
     return InvestigationCase(id=doc["case_id"], revision=doc["revision"], gates=doc["gates"], status=doc["status"], created_at=utc(doc["created_at"]),
                              updated_at=utc(doc["updated_at"]), expires_at=utc(doc["expires_at"]), response=response, active_job_id=doc.get("active_job_id"),
                              evidence_expires_at=utc(doc["evidence_expires_at"]) if doc.get("evidence_expires_at") else None,

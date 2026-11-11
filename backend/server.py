@@ -99,12 +99,6 @@ async def lifespan(_: FastAPI):
     await capability_registry.ensure_indexes()
     await investigation_repository.backfill_work_epochs()
     try:
-        # Records saved under TC Hawkeye's old internal name ("teddy") move to its current names; nothing to do once moved.
-        from services.higgins.tc_flyby import legacy_names
-        await legacy_names.migrate()
-    except Exception:  # noqa: BLE001 — renaming old records must never block startup
-        logger.warning("TC Hawkeye legacy name migration failed", exc_info=True)
-    try:
         # Past cases judged again under the current rules, once per rule catalogue version (services/triage/rejudge.py).
         from services.triage import rejudge
         await rejudge.migrate()

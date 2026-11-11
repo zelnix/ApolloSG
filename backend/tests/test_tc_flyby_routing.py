@@ -7,7 +7,7 @@
   search off unless a specific external fact is still missing. One Magnum call, no second model.
 - Admin portal shows "Answered by" and the cost-routing measurements.
 
-Run: cd /app/backend && python -m pytest tests/test_tc_flyby_routing.py -q
+Run: cd /app/backend && python -m pytest tests/test_tc_hawkeye_routing.py -q
 """
 import uuid
 from datetime import datetime
@@ -22,7 +22,7 @@ from services.higgins import evidence as ev
 from services.higgins import repository as repo
 from services.higgins.preview.preview_simulator import evidence_blocks, simulated_text
 from services.higgins.provider import AIResult, Purpose
-from services.higgins.tc_flyby import official, search, triage
+from services.higgins.tc_hawkeye import official, search, triage
 
 pytestmark = pytest.mark.anyio
 REAL_SEARCH = search.run   # captured before conftest's offline stub replaces it
@@ -189,7 +189,7 @@ async def test_an_official_listing_settles_the_case_without_gemini(monkeypatch):
     assert "Google Safe Browsing lists anz-verify.co" in response["overview"]
     assert response["findings"][0]["basis"] == "observation" and response["findings"][0]["evidenceIds"]
     assert any(a["label"] == "Don't open the link" for a in response["actions"])
-    assert case["routing"]["answeredBy"] == "tc_flyby_official" and case["routing"]["tc_flyby"]["resolved"] is True
+    assert case["routing"]["answeredBy"] == "tc_hawkeye_official" and case["routing"]["tc_hawkeye"]["resolved"] is True
     assert case["routing"]["assessment"] == "concern_found" and "magnum" not in case["routing"]
     commit = await db.investigation_turn_commits.find_one({"owner_id": owner, "case_id": case["case_id"]})
     assert commit, "TC Hawkeye's result is committed through the same turn commit as Magnum DI's"
@@ -204,7 +204,7 @@ async def test_an_official_government_link_is_cleared_without_gemini(monkeypatch
     assert response["outcome"] == "not_scam"
     assert "Australian Taxation Office's official domain" in response["overview"]
     assert "That settles who the address belongs to" in response["overview"] and "nothing here needs action" not in response["overview"]
-    assert case["routing"]["answeredBy"] == "tc_flyby_official"
+    assert case["routing"]["answeredBy"] == "tc_hawkeye_official"
 
 
 async def test_a_general_question_is_answered_from_apollo_kb(monkeypatch):
@@ -217,7 +217,7 @@ async def test_a_general_question_is_answered_from_apollo_kb(monkeypatch):
                            url="https://www.scamwatch.gov.au/types-of-scams/payid-scams")
     _owner, case, response, _ = await _case([("text", "How do PayID scams work?")], message="How do PayID scams work?")
     assert calls == []
-    assert case["routing"]["answeredBy"] == "tc_flyby_kb"
+    assert case["routing"]["answeredBy"] == "tc_hawkeye_kb"
     assert "PayID scams trick sellers" in response["explanationMarkdown"] and response["findings"] == []
     assert "general information, not a finding" in response["explanationMarkdown"]
     assert response["outcome"] is None, "a general question has no case outcome"
@@ -243,7 +243,7 @@ ALERT_PAGE = {"url": "https://moneysmart.gov.au/check-and-report-scams/investor-
 
 
 async def test_a_targeted_search_finding_an_official_warning_stops(monkeypatch):
-    await db.reusable_intelligence.delete_many({"source_type": "tc_flyby_lookup"})
+    await db.reusable_intelligence.delete_many({"source_type": "tc_hawkeye_lookup"})
     queries = _brave(monkeypatch, lambda q: [ALERT_PAGE] if "Zenith Quantum Markets" in q else [])
     calls = _gateway(monkeypatch)
     owner, case, response, _ = await _case([("text", "Zenith Quantum Markets offers 3% daily returns. Message us on WhatsApp to start.")])
@@ -253,14 +253,14 @@ async def test_a_targeted_search_finding_an_official_warning_stops(monkeypatch):
     assert response["assessment"] == "concern_found" and "Investor Alert List" in response["overview"]
     assert response["outcome"] == "scam", "the planned search ran before TC Hawkeye settled the outcome"
     assert response["findings"][0]["sourceIds"], "the warning keeps its source"
-    assert case["routing"]["answeredBy"] == "tc_flyby_search"
-    flyby = case["routing"]["tc_flyby"]
+    assert case["routing"]["answeredBy"] == "tc_hawkeye_search"
+    flyby = case["routing"]["tc_hawkeye"]
     assert flyby["searchCalls"] == 1 and flyby["searchQueries"] == 1 and flyby["searchProvider"] == "brave" and flyby["aiCalls"] == 0
 
     # The same lookup in another case is reused from ApolloSG's earlier search: no second paid search.
     queries.clear()
     owner2, case2, response2, _ = await _case([("text", "Zenith Quantum Markets: 3% daily returns, guaranteed.")])
-    assert queries == [] and calls == [] and case2["routing"]["tc_flyby"]["cacheHits"] == 1
+    assert queries == [] and calls == [] and case2["routing"]["tc_hawkeye"]["cacheHits"] == 1
     assert response2["assessment"] == "concern_found"
     # The reused lookup's page is shown with the time Apollo last checked it, not as a new lookup.
     first, later = await repo.sources(owner, case["case_id"]), await repo.sources(owner2, case2["case_id"])
@@ -278,8 +278,8 @@ INVOICE = ("Hi, it's Sarah from Brightline Accounts. Please pay invoice 4471 ($1
            "account 1234 5678 today. The invoice is at https://brightline-docs.net/inv/4471")
 
 
-async def test_magnum_gets_only_the_unresolved_issue_and_tc_flybys_brief_with_search_off(monkeypatch):
-    await db.reusable_intelligence.delete_many({"source_type": "tc_flyby_lookup"})
+async def test_magnum_gets_only_the_unresolved_issue_and_tc_hawkeyes_brief_with_search_off(monkeypatch):
+    await db.reusable_intelligence.delete_many({"source_type": "tc_hawkeye_lookup"})
     queries = _brave(monkeypatch, lambda q: [{"url": "https://example.com/brightline", "title": "brightline-docs.net",
                                               "description": "brightline-docs.net document sharing", "extraSnippets": []}])
     calls = _gateway(monkeypatch)
@@ -299,7 +299,7 @@ async def test_magnum_gets_only_the_unresolved_issue_and_tc_flybys_brief_with_se
     assert any("(reasoning) Message and deception analysis" in t and "payment (“" in t for t in sent), "only the unresolved issue"
     assert not any("apollo-triage-intelligence" in t or '"safe_browsing"' in t for t in sent), "raw lookups TC Hawkeye settled are not resent"
     assert any("Please pay invoice 4471" in t for t in sent), "the material the issue is about is sent in full"
-    flyby = case["routing"]["tc_flyby"]
+    flyby = case["routing"]["tc_hawkeye"]
     assert [i["capability"] for i in flyby["issues"]] == ["reasoning"]
     assert {c["kind"]: c["status"] for c in flyby["checks"]}["message_analysis"] == "needs_reasoning"
     assert case["routing"]["answeredBy"] == "magnum_di" and case["routing"]["magnum"]["search"] is False
@@ -322,10 +322,10 @@ async def test_a_newly_registered_link_is_a_weak_signal_never_concerning(monkeyp
     # Offline, the link's targeted search is unavailable, but Google Safe Browsing already cleared it —
     # a non-impacting, redundant failure, so the gap is named in the "how ApolloSG checked" trail, never
     # treated as unresolved evidence.
-    assert {c["kind"]: c["status"] for c in case["routing"]["tc_flyby"]["checks"]}["link"] == "unavailable"
+    assert {c["kind"]: c["status"] for c in case["routing"]["tc_hawkeye"]["checks"]}["link"] == "unavailable"
     assert "TC Hawkeye's lookup was unavailable, so this wasn't established either way" in response["explanationMarkdown"]
     assert response["attentionReason"] is None
-    assert case["routing"]["tc_flyby"]["issues"] == [] and case["routing"]["tc_flyby"]["basis"] == "clear"
+    assert case["routing"]["tc_hawkeye"]["issues"] == [] and case["routing"]["tc_hawkeye"]["basis"] == "clear"
 
 
 async def test_a_plain_message_asking_nothing_is_settled_without_magnum(monkeypatch):
@@ -337,12 +337,12 @@ async def test_a_plain_message_asking_nothing_is_settled_without_magnum(monkeypa
     assert response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
     assert "Apollo's checks found no scam indicators" in response["overview"]
     assert "No warning signs in anything Apollo checked." in response["explanationMarkdown"]
-    flyby = case["routing"]["tc_flyby"]
+    flyby = case["routing"]["tc_hawkeye"]
     assert flyby["resolved"] is True and flyby["issues"] == []
     assert {c["kind"]: c["status"] for c in flyby["checks"]}["message_analysis"] == "not_needed"
-    assert (await repo.case_view(case)).wire()["answeredBy"] == flyby["answeredBy"] == "tc_flyby_kb", "the app is told who settled it"
+    assert (await repo.case_view(case)).wire()["answeredBy"] == flyby["answeredBy"] == "tc_hawkeye_kb", "the app is told who settled it"
     assert (await repo.case_view(case)).wire()["simulated"] is False, "nothing outside was simulated"
-    assert (await repo.case_view({**case, "routing": {**case["routing"], "tc_flyby": {**flyby, "simulated": True}}})).wire()["simulated"] is True
+    assert (await repo.case_view({**case, "routing": {**case["routing"], "tc_hawkeye": {**flyby, "simulated": True}}})).wire()["simulated"] is True
     assert (await repo.case_view({**case, "routing": {**case["routing"], "magnum": {"simulated": True}}})).wire()["simulated"] is True
 
 
@@ -353,7 +353,7 @@ async def test_a_screenshot_is_investigated_through_the_text_triage_extracted(mo
     owner, case, response = await _files_case([(meta, PNG)])
     assert calls == [], "Triage extracted the screenshot's text; a full KB pattern match settles it"
     assert response["outcome"] == "likely_scam" and response["completion"] == "complete"
-    flyby = case["routing"]["tc_flyby"]
+    flyby = case["routing"]["tc_hawkeye"]
     assert flyby["gaps"] == [] and flyby["pattern"] == {"key": "family_new_number", "stage": "full"}
     image = next(r for r in await repo.list_evidence(owner, case["case_id"]) if r["kind"] == "image")
     assert image["coverage"]["status"] == "examined", "the image was examined through the text read from it"
@@ -370,22 +370,22 @@ async def test_a_document_is_investigated_through_its_text_layer(monkeypatch):
     meta = {"clientItemId": "letter", "filename": "letter.docx", "mediaType": DOCX, "kind": "document"}
     _owner, case, response = await _files_case([(meta, buffer.getvalue())])
     assert calls == [] and response["outcome"] == "likely_scam"
-    assert case["routing"]["tc_flyby"]["gaps"] == []
+    assert case["routing"]["tc_hawkeye"]["gaps"] == []
 
 
-async def test_an_image_tc_flyby_cannot_read_goes_to_magnum_with_search_on(monkeypatch):
+async def test_an_image_tc_hawkeye_cannot_read_goes_to_magnum_with_search_on(monkeypatch):
     calls = _gateway(monkeypatch)
     captured = _spy(monkeypatch)
     _owner, case, _response = await _files_case([({"clientItemId": "shot", "filename": "shot.png", "mediaType": "image/png", "kind": "image"}, PNG)])
     assert [c["purpose"] for c in calls] == [Purpose.INVESTIGATION]
     assert calls[0]["web_search"], "Magnum DI reads the image for the first time, so external facts may be missing: Search on"
-    flyby = case["routing"]["tc_flyby"]
+    flyby = case["routing"]["tc_hawkeye"]
     assert flyby["magnumSearch"] is True and [i["capability"] for i in flyby["issues"]] == ["reading"]
     assert any(p.data is not None for p in captured[0]), "the image itself is what Magnum DI receives"
 
 
-async def test_a_magnum_retry_reuses_tc_flybys_record(monkeypatch):
-    from services.higgins import tc_flyby
+async def test_a_magnum_retry_reuses_tc_hawkeyes_record(monkeypatch):
+    from services.higgins import tc_hawkeye
     _lookups(monkeypatch)
     owner = f"flyby-retry-{uuid.uuid4().hex[:8]}"
     case = await repo.create_case(owner, "text", None)
@@ -397,12 +397,12 @@ async def test_a_magnum_retry_reuses_tc_flybys_record(monkeypatch):
         return None
 
     rows = await repo.list_evidence(owner, case["case_id"])
-    first = await tc_flyby.investigate(owner, case, job, "Is this real?", rows, progress)
-    second = await tc_flyby.investigate(owner, case, job, "Is this real?", rows, progress)
+    first = await tc_hawkeye.investigate(owner, case, job, "Is this real?", rows, progress)
+    second = await tc_hawkeye.investigate(owner, case, job, "Is this real?", rows, progress)
     assert not first.resolved and [r["evidence_id"] for r in first.rows] == [r["evidence_id"] for r in second.rows]
     stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case["case_id"]}, {"_id": 0, "routing": 1})
-    assert stored["routing"]["tc_flyby"]["reusedOnRetry"] == 1
-    briefs = [r for r in await repo.list_evidence(owner, case["case_id"]) if r["client_item_id"] == tc_flyby.BRIEF_ITEM_ID]
+    assert stored["routing"]["tc_hawkeye"]["reusedOnRetry"] == 1
+    briefs = [r for r in await repo.list_evidence(owner, case["case_id"]) if r["client_item_id"] == tc_hawkeye.BRIEF_ITEM_ID]
     assert len(briefs) == 1
 
 
@@ -422,7 +422,7 @@ async def test_admin_report_shows_answered_by_and_routing(monkeypatch):
     monkeypatch.setattr(admin_portal, "_audit_log", no_audit)
     request = Request({"type": "http", "method": "GET", "path": "/api/admin/investigations-cost", "query_string": b"period=all", "headers": []})
     page = await admin_portal.investigations_cost_report(request)
-    assert "Answered By" in page and 'data-testid="answered-by-tc_flyby_official"' in page and ">Official check</span>" in page
+    assert "Answered By" in page and 'data-testid="answered-by-tc_hawkeye_official"' in page and ">Official check</span>" in page
     assert 'data-testid="outcome-scam"' in page and "This is a scam" in page and "<th>Outcome</th>" in page
     assert 'data-testid="cost-routing-heading"' in page and "Resolved Without Magnum DI" in page and "Repeated Searches Avoided" in page
     drill = await admin_portal.investigation_drilldown(request, case["case_id"])
@@ -445,7 +445,7 @@ async def test_impersonation_with_a_brand_new_domain_is_concerning_without_gemin
     assert any(a["label"] == "Don't use the link" for a in response["actions"])
     assert "So these weren't taken further:" in response["explanationMarkdown"] and "deception analysis" in response["explanationMarkdown"]
     assert not any("TC Hawkeye" in u or "Not taken further" in u for u in response["uncertainties"]), "how Apollo checked is on the DI tab"
-    assert case["routing"]["answeredBy"] == "tc_flyby_official" and case["routing"]["tc_flyby"]["basis"] == "impersonation"
+    assert case["routing"]["answeredBy"] == "tc_hawkeye_official" and case["routing"]["tc_hawkeye"]["basis"] == "impersonation"
     assert "magnum" not in case["routing"]
 
 
@@ -462,7 +462,7 @@ async def test_a_message_matching_a_kb_scam_pattern_is_likely_scam_without_gemin
     assert "isn't proof that this particular sender is a scammer" in response["explanationMarkdown"]
     assert response["sourceIds"], "the KB pattern keeps its official source"
     assert any(a["label"] == "Call them on their usual number" for a in response["actions"])
-    assert case["routing"]["answeredBy"] == "tc_flyby_kb" and case["routing"]["tc_flyby"]["pattern"] == {"key": "family_new_number", "stage": "full"}
+    assert case["routing"]["answeredBy"] == "tc_hawkeye_kb" and case["routing"]["tc_hawkeye"]["pattern"] == {"key": "family_new_number", "stage": "full"}
     assert await db.higgins_knowledge.count_documents({"kind": "scam_pattern", "key": "family_new_number"}) == 1, "the pattern lives in Apollo's KB"
 
 
@@ -487,7 +487,7 @@ async def test_an_unclear_pattern_match_goes_to_magnum(monkeypatch):
     assert [c["purpose"] for c in calls] == [Purpose.INVESTIGATION]
     sent = [p.text for p in captured[0][0].parts if p.text]
     assert any("partly matches the family member" in t for t in sent)
-    assert case["routing"]["tc_flyby"]["pattern"]["stage"] == "partial" and case["routing"]["answeredBy"] == "magnum_di"
+    assert case["routing"]["tc_hawkeye"]["pattern"]["stage"] == "partial" and case["routing"]["answeredBy"] == "magnum_di"
     assert response["outcome"]
 
 
@@ -497,18 +497,18 @@ async def test_a_pattern_contradicted_by_official_links_is_settled_by_the_decidi
     _owner, case, response, _ = await _case([("text", "AusPost: your parcel is held. Pay the $2.50 redelivery fee at https://auspost.com.au/redeliver")])
     assert calls == [], "the request goes to AusPost's own domain: nothing Magnum DI could add changes what to do"
     assert response["outcome"] == "not_scam"
-    pattern = case["routing"]["tc_flyby"]["pattern"]
+    pattern = case["routing"]["tc_hawkeye"]["pattern"]
     assert pattern == {"key": "delivery_toll", "stage": "partial"}, "an impersonation pattern needs a link that isn't the organisation's own"
 
     calls.clear()   # the same wording, but the money goes somewhere nobody verified: Magnum DI's analysis could change the action
     _owner, case, _response, _ = await _case([("text", "AusPost: your parcel is held. Pay the $2.50 redelivery fee by PayID to 0412 345 678. "
                                                        "Track it at https://auspost.com.au/redeliver")])
     assert [c["purpose"] for c in calls] == [Purpose.INVESTIGATION]
-    assert [i["capability"] for i in case["routing"]["tc_flyby"]["issues"]] == ["reasoning"]
+    assert [i["capability"] for i in case["routing"]["tc_hawkeye"]["issues"]] == ["reasoning"]
 
 
 async def test_isolated_keywords_never_make_a_pattern_match():
-    from services.higgins.tc_flyby import patterns
+    from services.higgins.tc_hawkeye import patterns
     assert await patterns.best("Your parcel delivery is booked for Tuesday. Toll roads may be busy, so pay attention.", has_link=False,
                                has_brand=False, offsite=None) is None
     negated = await patterns.best("CommBank will never ask you to log in via a link to verify your account details. Your account is suspended "
@@ -553,7 +553,7 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     assert calls == [] and response["outcome"] == "not_scam" and response["assessment"] == "no_concern_found_within_scope"
     assert any("registered on 2026-06-01" in f["text"] for f in response["findings"])
     calls.clear()   # now nothing can be checked: every lookup and the search are unavailable
-    from services.higgins.tc_flyby import search as tc_flyby_search
+    from services.higgins.tc_hawkeye import search as tc_hawkeye_search
 
     async def unavailable(checks, **_k):
         return {"answers": {c.id: {"status": "UNAVAILABLE", "fact": "", "sources": []} for c in checks}, "calls": 0, "queries": 0,
@@ -562,7 +562,7 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     async def none(*_a):
         return None
 
-    monkeypatch.setattr(tc_flyby_search, "run", unavailable)
+    monkeypatch.setattr(tc_hawkeye_search, "run", unavailable)
     monkeypatch.setattr(official, "lookup_url", none)
     monkeypatch.setattr(official, "lookup_domain", none)
     _owner, case, response, _ = await _case([("url", "https://quietbrook-gardens.net/")], message="Is this link safe?")
@@ -571,7 +571,7 @@ async def test_a_bare_link_ends_concerning_or_unable_to_determine_without_gemini
     # provisional floor — it is a genuine Criterion 1 investigation failure, so Magnum DI always gets a
     # chance to investigate further (e.g. with its own search), even though it can't open the page either.
     assert len(calls) == 1 and calls[0]["purpose"] == Purpose.INVESTIGATION and calls[0]["web_search"] is True
-    assert case["routing"]["tc_flyby"]["resolved"] is False
+    assert case["routing"]["tc_hawkeye"]["resolved"] is False
 
 
 def test_magnums_outcome_must_agree_with_its_assessment():
