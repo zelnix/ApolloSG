@@ -114,7 +114,7 @@ def accept_advisory_reasoning(
         if any((result.answer.observations, result.answer.contradictions,
                 result.answer.alternative_explanations, result.answer.verification_suggestions)) or result.answer.case_finding or result.answer.escalation_assessment:
             raise ValueError("wright_semantic_must_not_author_verdict")
-        validate_wright_semantic(result.answer.wright_semantic.wire(), permitted)
+        validate_wright_semantic(result.answer.wright_semantic.model_dump(by_alias=False), permitted)
     if request.operation == "escalation_assessment":
         assessment = result.answer.escalation_assessment
         if assessment is None or any(eid not in permitted for eid in assessment.evidence_ids):
