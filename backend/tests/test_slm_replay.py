@@ -47,7 +47,7 @@ class ReplayTests(unittest.TestCase):
         query = atomic_calls[0].args[0]
         self.assertIsInstance(query, ast.Dict)
         keys = [node.value for node in query.keys if isinstance(node, ast.Constant)]
-        for required in ("owner_id", "case_id", "request_id", "kind", "submission", "expires_at"):
+        for required in ("owner_id", "case_id", "request_id", "kind", "submission", "expires_at", "job_id", "epoch"):
             self.assertIn(required, keys)
         values = dict(zip(keys, query.values))
         self.assertIsInstance(values["submission"], ast.Constant)
