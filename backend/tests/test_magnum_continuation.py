@@ -30,7 +30,7 @@ def test_binary_is_not_split():
 
 def test_oversized_binary_is_rejected():
     with pytest.raises(ValueError, match="oversized_binary_evidence"):
-        plan_batches([Part.from_bytes(data=b"x" * 30001, mime_type="image/png")])
+        plan_batches([Part.from_bytes(data=b"x" * (10 * 1024 * 1024 + 1), mime_type="image/png")])
 
 def test_whitespace_and_long_tokens_preserved():
     value = "x" * 5000 + "\n\t  " + "a b c " * 100
