@@ -404,15 +404,12 @@ async def _plain_english(owner: str, case: dict, response: HigginsResponse, answ
 
 
 async def _with_history(owner: str, case: dict, response: HigginsResponse) -> tuple[HigginsResponse, dict]:
-    """The validated result with its related history beside it (services/higgins/history.py): history that agrees with
-    a concern raises the confidence of the findings about the same subject; nothing else in the result changes. A failure
-    leaves the result exactly as validated."""
-    try:
-        # Legacy FlyBy ciphertext is retired. History is not read from that field.
-        return response, {}
-    except Exception:  # noqa: BLE001 — history is context; it never fails an investigation
-        log.warning("history_weigh_failed case=%s", case["case_id"], exc_info=True)
-        return response, {}
+    """Compatibility boundary: retired FlyBy ciphertext is no longer read.
+
+    Preserve the response and empty legacy record until history presentation is
+    explicitly wired to a supported, evidence-locked source.
+    """
+    return response, {}
 
 
 def _with_evidence(case: dict, response: HigginsResponse, record: dict, provider_result: ProviderResult) -> HigginsResponse:
