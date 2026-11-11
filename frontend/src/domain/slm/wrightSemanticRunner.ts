@@ -6,7 +6,9 @@ import { runSLM, type SLMAdapter } from "./index.ts";
 import { chunkWrightSources, type WrightSource, type WrightCoverage } from "./wrightEvidenceChunks.ts";
 import type { WrightSemanticResult } from "./wrightSemanticContract.ts";
 
-export interface WrightWindowSynthesis { status: "complete" | "conflicting"; classifications: string[]; contradictory: boolean; uncertainties: string[]; evidenceIds: string[] }\n\nexport type WrightSemanticRun =
+export interface WrightWindowSynthesis { status: "complete" | "conflicting"; classifications: string[]; contradictory: boolean; uncertainties: string[]; evidenceIds: string[] }
+
+export type WrightSemanticRun =
   | { status: "complete"; coverage: WrightCoverage; interpretations: { evidenceId: string; parentEvidenceId: string; start: number; end: number; result: WrightSemanticResult }[]; synthesis: WrightWindowSynthesis }
   | { status: "limited"; reason: string; coverage: WrightCoverage; examinedChunks: number };
 
