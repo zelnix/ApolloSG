@@ -217,6 +217,7 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
         {
             "owner_id": owner, "case_id": case_id, "request_id": body.request_id,
             "kind": "slm_advisory", "submission": None,
+            "job_id": pending["job_id"], "epoch": case.get("epoch"),
             "expires_at": {"$gt": now_utc()},
         },
         {"$set": {
