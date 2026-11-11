@@ -30,7 +30,7 @@ warning, text found copied elsewhere) never make a case Concerning, alone or tog
 independent corroboration an impersonation or another warning sign needs.
 
 Mandatory Magnum DI escalation (Developer Instructions §3): whenever the Findings Rating's Benign Baseline
-actually fires (services.higgins.tc_flyby.scoring.benign_trigger — a genuine investigation failure, e.g. an
+actually fires (services.higgins.tc_hawkeye.scoring.benign_trigger — a genuine investigation failure, e.g. an
 unavailable check or unprocessable evidence, or an unresolved material contradiction, never merely an absence
 of verification), TC Hawkeye never resolves the case alone on that provisional 28-point floor: `evaluate()`
 always hands it to Magnum DI with the full case evidence, not scope-limited to the triggering issue — see
@@ -42,11 +42,11 @@ import re
 from dataclasses import dataclass, field
 
 from services.higgins.brand_domains import registrable
-from services.higgins.tc_flyby import evidence_evaluation
-from services.higgins.tc_flyby.checks import (
+from services.higgins.tc_hawkeye import evidence_evaluation
+from services.higgins.tc_hawkeye.checks import (
     CORROBORATES, _live, corroborated_impersonation, official_routes, verified, unverified_requests,
 )
-from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Check, Plan, digits
+from services.higgins.tc_hawkeye.triage import CONSEQUENTIAL, Check, Plan, digits
 
 #: Signals that constitute a warning sign (concern-or-stronger).
 WARNING = ("concern", "anomaly")
@@ -117,7 +117,7 @@ def provisional(plan_: Plan) -> Decision | None:
 
     The four-stage evidence evaluation pipeline still reviews for false-positive avoidance.
     """
-    from services.higgins.tc_flyby.finding_rules import evaluate_rules
+    from services.higgins.tc_hawkeye.finding_rules import evaluate_rules
 
     rules_result = evaluate_rules(plan_)
     finding = rules_result.finding
@@ -150,7 +150,7 @@ def provisional(plan_: Plan) -> Decision | None:
         # decisive mechanism (PRD §2.3.A's named mechanisms, severe-consequence manipulation or
         # money-mule recruitment — never the pattern match's own circular corroboration) is ALSO
         # established, report it at the confirmed tier the score reaches, not the weaker L-rule label.
-        from services.higgins.tc_flyby.scoring import _l2_escalation_signal
+        from services.higgins.tc_hawkeye.scoring import _l2_escalation_signal
         outcome = "scam" if _l2_escalation_signal(plan_, rules_result.ipdmc) else "likely_scam"
         if "L2" in deciding:
             return Decision("tc_flyby_kb", outcome, "pattern")
@@ -232,8 +232,8 @@ def _all_issues(plan_: Plan, texts: dict[str, str]) -> list[Issue]:
     # reasoning could usefully refine: TC Hawkeye already has everything it needs, and deferring the ask
     # to a later review is itself the harm the floor exists to prevent. Only genuinely ambiguous asks
     # (e.g. an upfront marketplace deposit) still go to Magnum for reasoning about the deception.
-    from services.higgins.tc_flyby.finding_rules import gather_ipdmc
-    from services.higgins.tc_flyby.scoring import _decisive_mechanism
+    from services.higgins.tc_hawkeye.finding_rules import gather_ipdmc
+    from services.higgins.tc_hawkeye.scoring import _decisive_mechanism
     decisive = _decisive_mechanism(plan_, gather_ipdmc(plan_))
     if plan_.has_message and requests and not decisive:
         asks = "; ".join(f"{r['type'].replace('_', ' ')} (“{r['quote']}”" + (f" → {', '.join(r['targets'][:3])}" if r["targets"] else "") + ")"
@@ -321,7 +321,7 @@ def evaluate(plan_: Plan, texts: dict[str, str], *, final: bool) -> tuple[Decisi
 
     # Check the rules engine FIRST for not_scam before generating magnum issues
     # If the rules engine says not_scam (all N rules pass), TC Hawkeye settles it here.
-    from services.higgins.tc_flyby.finding_rules import evaluate as rules_evaluate
+    from services.higgins.tc_hawkeye.finding_rules import evaluate as rules_evaluate
     rules_result = rules_evaluate(plan_)
     breakdown = rules_result.rating_breakdown or {}
 

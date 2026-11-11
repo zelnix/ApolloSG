@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 
 from services.higgins.brand_domains import registrable
-from services.higgins.tc_flyby.triage import Check, Plan
+from services.higgins.tc_hawkeye.triage import Check, Plan
 
 
 # ── Data structures ──────────────────────────────────────────────────────────

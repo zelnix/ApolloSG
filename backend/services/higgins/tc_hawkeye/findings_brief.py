@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 
 from services.higgins import outcomes
-from services.higgins.tc_flyby.scoring import ScoreBreakdown
+from services.higgins.tc_hawkeye.scoring import ScoreBreakdown
 
 
 def _section(markdown: str, heading: str) -> str:

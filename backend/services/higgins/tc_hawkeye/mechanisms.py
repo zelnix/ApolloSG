@@ -21,8 +21,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from services.higgins.tc_flyby.finding_rules import IPDMCChecks
-from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Plan
+from services.higgins.tc_hawkeye.finding_rules import IPDMCChecks
+from services.higgins.tc_hawkeye.triage import CONSEQUENTIAL, Plan
 
 # Message types whose own purpose is inconsistent with being asked for credentials or remote access —
 # PRD D01's own example: "a supposed delivery notification asking for login credentials".

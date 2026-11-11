@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from services import kb_sources
 from services.higgins import brand_domains
 from services.higgins.brand_domains import registrable
-from services.higgins.tc_flyby.triage import FREE_MAIL, Check, Plan, abn_valid, acn_valid
+from services.higgins.tc_hawkeye.triage import FREE_MAIL, Check, Plan, abn_valid, acn_valid
 
 LOOKUP_SECONDS = 8.0
 

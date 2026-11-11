@@ -11,7 +11,7 @@ finding_rules.py, so this module sits at the bottom of the tc_flyby import graph
 from __future__ import annotations
 
 from services.higgins.brand_domains import registrable
-from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Check, Plan, digits
+from services.higgins.tc_hawkeye.triage import CONSEQUENTIAL, Check, Plan, digits
 
 #: What may corroborate an impersonation: a warning sign or a weak signal about the same link.
 CORROBORATES = ("concern", "anomaly", "weak")

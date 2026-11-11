@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from services.higgins.brand_domains import registrable
-from services.higgins.tc_flyby.triage import CONSEQUENTIAL, Check, Plan
+from services.higgins.tc_hawkeye.triage import CONSEQUENTIAL, Check, Plan
 
 # ── Data structures ──────────────────────────────────────────────────────────
 
@@ -131,19 +131,19 @@ def _clear_signals(plan: Plan) -> list[tuple[Check, dict]]:
 
 def _corroborated_impersonation(plan: Plan) -> list[dict]:
     """Thin wrapper — imported from checks.py to avoid any circular dependency."""
-    from services.higgins.tc_flyby.checks import corroborated_impersonation
+    from services.higgins.tc_hawkeye.checks import corroborated_impersonation
     return corroborated_impersonation(plan)
 
 
 def _official_routes(plan: Plan) -> bool:
     """All links/addresses belong to the named organisation."""
-    from services.higgins.tc_flyby.checks import official_routes
+    from services.higgins.tc_hawkeye.checks import official_routes
     return official_routes(plan)
 
 
 def _unverified_requests(plan: Plan) -> list[dict]:
     """Consequential requests whose routes aren't verified."""
-    from services.higgins.tc_flyby.checks import unverified_requests
+    from services.higgins.tc_hawkeye.checks import unverified_requests
     return unverified_requests(plan)
 
 
@@ -989,7 +989,7 @@ def evaluate(plan: Plan) -> FindingRulesResult:
     critical check that never got an answer even after retrying) are handled upstream, before a Finding
     is attempted at all.
     """
-    from services.higgins.tc_flyby import scoring
+    from services.higgins.tc_hawkeye import scoring
 
     result = evaluate_rules(plan)
     breakdown = scoring.score_plan(plan, result.ipdmc)
