@@ -154,7 +154,7 @@
   },
   "evidenceProfiles": {
     "version": 1,
-    "classifiedBy": "Higgins Triage",
+    "classifiedBy": "Wright Triage",
     "statuses": {
       "verified": "Verified by ApolloSG",
       "recorded": "Recorded by the source, not verified by ApolloSG",
@@ -231,7 +231,7 @@
         "authUnconfirmed": "Recorded in the email by {server}. ApolloSG couldn't match that to the servers that delivered it, and didn't re-check it.",
         "authNotRecorded": "The receiving mail server didn't record a result for this.",
         "authNeedsOriginal": "Needs the original email with its full headers.",
-        "upgrade": "Evidence upgraded from {from} to {to}. Higgins Triage re-checked the email with the new evidence; the earlier result is kept in the case history.",
+        "upgrade": "Evidence upgraded from {from} to {to}. Wright Triage re-checked the email with the new evidence; the earlier result is kept in the case history.",
         "upgradeMismatch": "That original doesn't match the email you checked, so ApolloSG checked it as a separate email.",
         "signals": {
           "reply_to_differs": "Replies would go to {replyTo}, not the sender's domain {from}.",
@@ -307,8 +307,8 @@
           "blockConfirmed": "Blocked on this device, confirmed by the operating system.",
           "blockFlow": "The operating system reported the connection as stopped."
         },
-        "upgrade": "Evidence upgraded from {from} to {to}. Higgins Triage re-checked the link with it; the earlier result is kept in the case history.",
-        "recheck": "Higgins Triage re-checked the link with fresh lookups. The earlier result is kept in the case history.",
+        "upgrade": "Evidence upgraded from {from} to {to}. Wright Triage re-checked the link with it; the earlier result is kept in the case history.",
+        "recheck": "Wright Triage re-checked the link with fresh lookups. The earlier result is kept in the case history.",
         "recheckWeaker": "The re-check couldn't get as far as the earlier check ({level}), so this case keeps its earlier result.",
         "signals": {
           "redirects_elsewhere": "The link redirects to {final}, a different site from {host}.",
@@ -385,8 +385,8 @@
           "noNumbers": "The message has no phone numbers.",
           "attachments": "Only the text reached ApolloSG. Pictures or files sent with the message didn't."
         },
-        "upgrade": "Evidence upgraded from {from} to {to}. Higgins Triage re-checked the message with it; the earlier result is kept in the case history.",
-        "recheck": "Higgins Triage re-checked the message. The earlier result is kept in the case history.",
+        "upgrade": "Evidence upgraded from {from} to {to}. Wright Triage re-checked the message with it; the earlier result is kept in the case history.",
+        "recheck": "Wright Triage re-checked the message. The earlier result is kept in the case history.",
         "signals": {
           "platform_switch": "It asks you to move the conversation to another app or number.",
           "new_number": "The sender says they have a new number.",
@@ -454,8 +454,8 @@
           "stale": "The lookup failed this time, so this is the last answer from {date}.",
           "spoofing": "From the line type and reputation. A faked caller ID can't be ruled out."
         },
-        "upgrade": "Evidence upgraded from {from} to {to}. Higgins Triage re-checked the number with it; the earlier result is kept in the case history.",
-        "recheck": "Higgins Triage re-checked the number. The earlier result is kept in the case history.",
+        "upgrade": "Evidence upgraded from {from} to {to}. Wright Triage re-checked the number with it; the earlier result is kept in the case history.",
+        "recheck": "Wright Triage re-checked the number. The earlier result is kept in the case history.",
         "signals": {
           "voip": "It's an internet (VOIP) number. These are easy to get and often used to fake caller ID.",
           "recent_abuse": "Others have recently reported this number for abuse.",
