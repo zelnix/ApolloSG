@@ -23,46 +23,42 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
     const attempt = ++generation.current;
     startupStage("on_device_ai", "started");
     setState({ status: "checking", reason: "", stage: "hardware" });
-    // Model checksum verification and the first native inference can take longer
-    // than 45 seconds on real devices. A timer cannot cancel that native work.
-    // Keep the protection gate closed until the actual verifier resolves.
-    const slowNotice = setTimeout(() => {
-      if (attempt === generation.current) {
-        setState(current => current.status === "checking"
-          ? { ...current, reason: "The first On-device AI check is taking longer than usual. Protection has not started." }
-          : current);
-      }
-    }, 45000);
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    const timeout = new Promise<never>((_, reject) => {
+      deadline = setTimeout(() => reject(new Error("timeout")), install ? 120000 : 45000);
+    });
     try {
-      if (install) {
-        const installed = await downloadPrivateLuddishForTest();
-        if (!installed) {
-          if (attempt === generation.current) {
-            startupStage("on_device_ai", "failed", "model_install_failed");
-            setState({ status: "incompatible", reason: "The required On-device AI model could not be installed." });
-          }
-          return;
+      const work = (async () => {
+        if (install) {
+          const installed = await downloadPrivateLuddishForTest();
+          if (!installed) return { compatible: false, reason: "The required On-device AI model could not be installed." };
         }
-      }
-      const admission = await checkRequiredSLMCompatibility(stage => {
-        if (attempt === generation.current) setState(current => ({
-          status: "checking", reason: current.reason, stage,
-        }));
-      });
+        return checkRequiredSLMCompatibility(stage => {
+          if (attempt === generation.current) setState({ status: "checking", reason: "", stage });
+        });
+      })();
+      // Keep retries disabled until the native operation has actually finished.
+      void work.finally(() => { inFlight.current = false; }).catch(() => undefined);
+      const admission = await Promise.race([timeout, work]);
       if (attempt !== generation.current) return;
       startupStage("on_device_ai", admission.compatible ? "completed" : "failed", admission.compatible ? undefined : "admission_rejected");
       if (!admission.compatible) {
         setState({ status: "incompatible", reason: admission.reason });
         void rollbackSLMSetup().catch(() => undefined);
       } else setState({ status: "ready", reason: "" });
-    } catch {
+    } catch (error) {
       if (attempt !== generation.current) return;
-      startupStage("on_device_ai", "failed");
-      setState({ status: "incompatible", reason: "Required On-device AI verification failed." });
-      void rollbackSLMSetup().catch(() => undefined);
+      timedOut = error instanceof Error && error.message === "timeout";
+      startupStage("on_device_ai", timedOut ? "timed_out" : "failed");
+      setState({ status: "incompatible", reason: error instanceof Error && error.message === "timeout"
+        ? "Device compatibility could not be verified within the startup time limit. ApolloSG has not started protection."
+        : "Required On-device AI verification failed." });
+      // Timeout does not cancel native hashing/inference. Do not delete the
+      // model while the unfinished verifier may still be reading it.
+      if (!timedOut) void rollbackSLMSetup().catch(() => undefined);
     } finally {
-      clearTimeout(slowNotice);
-      inFlight.current = false;
+      if (deadline) clearTimeout(deadline);
     }
   }, []);
   useEffect(() => {
@@ -79,7 +75,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       runtime_registration: "Preparing On-device AI runtime", inference: "Loading On-device AI and testing reasoning",
       response_validation: "Validating On-device AI response",
     };
-    return <PreparingApolloSplash message={state.reason || ("Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility"))} />;
+    return <PreparingApolloSplash message={"Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility")} />;
   }
   return <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingVertical: 32 }} testID="slm-admission-error">
     <Image source={isTablet ? require("@/assets/images/splash-full-tablet.webp") : require("@/assets/images/splash-full.webp")}
