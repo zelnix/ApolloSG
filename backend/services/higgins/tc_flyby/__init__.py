@@ -461,17 +461,8 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     await progress("observe", "Higgins Triage is preparing what was sent and working out what needs checking.")
     texts, gaps, read = await _material(owner, case, rows)
     plan_ = triage_plan(question, list(texts.values()), gaps=gaps, gate=next(iter(case.get("gates") or []), None))
-    # Advisory questions can only prioritise checks already justified by source evidence.
-    # They cannot create checks, facts, evidence, or verdicts.
-    from services.higgins.slm_advisory import advisory_verification_questions
-    suggestions = advisory_verification_questions(triage_advice) + advisory_verification_questions(hawkeye_advice)
-    if suggestions:
-        def relevance(check):
-            subject = f"{check.subject} {check.question or ''}".casefold()
-            words = set(re.findall(r"[a-z0-9]{4,}", subject))
-            return any(len(words & set(re.findall(r"[a-z0-9]{4,}", suggestion.casefold()))) >= 2
-                       for suggestion in suggestions)
-        plan_.checks.sort(key=lambda check: not relevance(check))
+    from services.higgins.slm_advisory import prioritise_existing_checks
+    prioritise_existing_checks(plan_.checks, triage_advice, hawkeye_advice)
     combined = "\n".join(texts.values())
     _triage_stage(plan_, combined, case.get("triage_provider_evidence"))
 
