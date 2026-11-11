@@ -353,9 +353,9 @@ def _message_rules() -> dict[str, Callable[[dict], Verdict]]:
         def check(ev: dict) -> Verdict:
             if not _sig(ev, "instant_payment"):
                 return unmet("no instant-payment request observed")
-            if kind == "impersonation" and (_b(ev, "signals.claimed_brand") or _sig(ev, "family_claim")):
+            if kind == "impersonation" and (_b(ev, "signals.claimed_brand") or _sig(ev, "family_claim")) and (ev.get("brand_mismatch") or _sig(ev, "lookalike_name") or ev.get("deceptive_destination")):
                 return met("instant-payment request", "authority, family or business impersonation")
-            if kind == "urgency" and (_sig(ev, "urgency") or _sig(ev, "threat")) and _sig(ev, "unknown_sender"):
+            if kind == "urgency" and (_sig(ev, "urgency") or _sig(ev, "threat")) and _sig(ev, "unknown_sender") and (ev.get("brand_mismatch") or ev.get("deceptive_destination") or ev.get("link_outcome") == Outcome.POSSIBLE_THREAT.value):
                 return met("instant-payment request", "urgency or threat", "sender anomaly")
             if kind == "change" and _sig(ev, "payment_change"):
                 return met("unexpected change of payment destination", "immediate-payment request")
@@ -404,8 +404,8 @@ def _message_rules() -> dict[str, Callable[[dict], Verdict]]:
         "MSG-03": flag("identity_request", "banking or card credential request"),
         "MSG-04": flag("safe_account", "transfer to a safe/protected account"),
         "MSG-05": flag("gift_cards", "gift-card payment request"),
-        "MSG-06": flag("remote_access", "remote access or screen sharing request"),
-        "MSG-07": flag("install_request", "app or software installation request"),
+        "MSG-06": flag("remote_access", "remote access or screen sharing request", needs=("threat", "code_request", "login_request", "identity_request", "unknown_sender")),
+        "MSG-07": flag("install_request", "app or software installation request", needs=("threat", "code_request", "login_request", "identity_request", "unknown_sender")),
         "MSG-08": authority,
         "MSG-09": flag("extortion", "extortion"),
         "MSG-10": flag("advance_fee", "advance-fee mechanics"),
@@ -414,13 +414,13 @@ def _message_rules() -> dict[str, Callable[[dict], Verdict]]:
         "MSG-13": family,
         "MSG-14": brand_impersonation,
         "MSG-15": flag("guaranteed_returns", "guaranteed-return approach", needs=("payment_request", "crypto", "money_request")),
-        "MSG-16": flag("job_offer", "job offer with payment or credential harvesting", needs=("payment_request", "crypto", "gift_cards", "identity_request")),
+        "MSG-16": flag("job_offer", "job offer with payment or credential harvesting", needs=("crypto", "gift_cards", "identity_request")),
         "MSG-17": flag("romance_escalation", "romance interaction with a financial request"),
         "MSG-18": lambda ev: (met("sensitive identity request", "corroborated sender or destination deception")
                     if _sig(ev, "identity_request") and
                     (ev.get("brand_mismatch") or ev.get("deceptive_destination") or _sig(ev, "lookalike_name"))
                     else unmet("identity request without corroborated impersonation")),
-        "MSG-19": flag("platform_switch", "platform switching with another scam mechanic", needs=("payment_request", "crypto", "job_offer", "guaranteed_returns", "identity_request")),
+        "MSG-19": flag("platform_switch", "platform switching with another scam mechanic", needs=("crypto", "guaranteed_returns", "identity_request", "code_request")),
         "MSG-20": combination("threat", "urgency or threat with a consequential action and a supporting anomaly",
                               consequential=("payment_request", "login_request", "identity_request", "code_request", "money_request"),
                               anomalies=("unknown_sender", "new_number", "platform_switch", "brand_mismatch", "link_threat")),
