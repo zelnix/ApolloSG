@@ -11,6 +11,25 @@
  */
 import type { SLMAdapter, SLMRequest } from "./index.ts";
 
+/** Diagnostic codes are safe to show; never expose native exception text or evidence. */
+export class LocalInferenceError extends Error {
+  constructor(readonly stage: "model_load" | "generation" | "json_parse" | "preflight",
+              readonly code: string) {
+    super(stage + ":" + code);
+    this.name = "LocalInferenceError";
+  }
+}
+
+function nativeFailure(stage: "model_load" | "generation", cause: unknown): LocalInferenceError {
+  // Preserve only a native machine-readable error code when it is a short identifier.
+  // Native message/stack may contain paths, prompts or source content.
+  const value = cause && typeof cause === "object" && "code" in cause
+    ? (cause as { code?: unknown }).code : null;
+  const code = typeof value === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(value)
+    ? value : "native_exception";
+  return new LocalInferenceError(stage, code);
+}
+
 export interface LlamaContext {
   completion(options: {
     messages: { role: "system" | "user"; content: string }[];
@@ -127,7 +146,7 @@ export class LocalLlamaRuntime implements SLMAdapter {
         }
         this.context = context;
         return context;
-      }).finally(() => { this.loading = null; });
+      }).catch((cause: unknown) => { throw nativeFailure("model_load", cause); }).finally(() => { this.loading = null; });
     }
     return this.loading;
   }
@@ -148,7 +167,7 @@ export class LocalLlamaRuntime implements SLMAdapter {
       const fullPromptChars = instructions.length + userPrompt.length;
       const maxInputChars = Math.max(0, (this.nCtx - 768 - 1200) * 2);
       if (fullPromptChars > maxInputChars) {
-        throw new Error("SLM complete prompt exceeds conservative context budget; evidence was not truncated");
+        throw new LocalInferenceError("preflight", "context_budget_exceeded");
       }
       const context = await this.load();
       const result = await context.completion({
@@ -158,22 +177,23 @@ export class LocalLlamaRuntime implements SLMAdapter {
         ],
         n_predict: 768,
         temperature: 0.1,
-      });
+      }).catch((cause: unknown) => { throw nativeFailure("generation", cause); });
       // No response logging. Validation of references and allowed fields occurs
       // in runSLM() before any result can be returned to a caller.
       // llama.rn may wrap otherwise valid JSON in markdown fences or a brief
       // preamble. Extract exactly one JSON object; the shared contract validator
       // still rejects unknown keys, invented references and verdict fields.
       const raw = result.text.trim();
-      const unfenced = raw.replace(/^\x60\x60\x60(?:json)?\\s*/i, "").replace(/\\s*\x60\x60\x60$/, "").trim();
+      const unfenced = raw.replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\s*\x60\x60\x60$/, "").trim();
       let parsed: unknown;
       try {
         parsed = JSON.parse(unfenced);
       } catch {
         const first = unfenced.indexOf("{");
         const last = unfenced.lastIndexOf("}");
-        if (first < 0 || last <= first) throw new Error("On-device AI returned no JSON object");
-        parsed = JSON.parse(unfenced.slice(first, last + 1));
+        if (first < 0 || last <= first) throw new LocalInferenceError("json_parse", "no_json_object");
+        try { parsed = JSON.parse(unfenced.slice(first, last + 1)); }
+        catch { throw new LocalInferenceError("json_parse", "invalid_json"); }
       }
       return parsed;
     };
