@@ -1,8 +1,7 @@
 """Source-level regression guards for mandatory SLM consolidation.
 
-These complement behavioural contract tests. They intentionally do not demand
-removal of legacy functions; they protect the supported execution path while
-refactoring candidates are evaluated.
+These complement behavioural contract tests and protect the supported
+TC Hawkeye and mandatory SLM execution path.
 """
 import ast
 from pathlib import Path
@@ -26,14 +25,13 @@ def called_names(node):
 
 
 class SLMRedundancyRegression(unittest.TestCase):
-    def test_mandatory_investigation_never_commits_legacy_hawkeye_result(self):
+    def test_mandatory_investigation_commits_slm_finding(self):
         tree = ast.parse(COORDINATOR.read_text())
         run = function(tree, "run_turn")
         calls = called_names(run)
         self.assertIn("_await_escalation_assessment", calls)
         self.assertIn("_await_case_finding", calls)
         self.assertIn("_commit_slm_finding", calls)
-        self.assertNotIn("_commit_flyby", calls)
         self.assertLess(
             next(n.lineno for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_await_escalation_assessment"),
             next(n.lineno for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_await_case_finding"),
@@ -79,12 +77,6 @@ class SLMRedundancyRegression(unittest.TestCase):
         self.assertEqual(calls[0].args[3].value, "higgins_triage")
         self.assertIn("tc_hawkeye.investigate", ast.get_source_segment(COORDINATOR.read_text(), run))
 
-    def test_legacy_direct_hawkeye_commit_is_absent(self):
-        tree = ast.parse(COORDINATOR.read_text())
-        definitions = {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-        self.assertNotIn("_commit_flyby", definitions)
-        self.assertIn("_commit_slm_finding", definitions)
-
     def test_hawkeye_slm_advice_only_prioritises_existing_checks(self):
         source = (ROOT / "backend/services/higgins/slm_advisory.py").read_text()
         tree = ast.parse(source)
@@ -99,7 +91,6 @@ class SLMRedundancyRegression(unittest.TestCase):
 
     def test_no_hawkeye_or_cloud_fallback_on_missing_slm_finding(self):
         run = function(ast.parse(COORDINATOR.read_text()), "run_turn")
-        self.assertNotIn("_commit_flyby", called_names(run))
         self.assertIn("_commit_slm_finding", called_names(run))
         self.assertIn("device_unavailable", ast.get_source_segment(COORDINATOR.read_text(), run))
 
