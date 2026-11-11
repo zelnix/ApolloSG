@@ -1,6 +1,6 @@
 """TC Hawkeye — Apollo's evidence-backed investigation.
 
-    Input → Higgins Triage → only the relevant checks → for each check:
+    Input → Wright Triage → only the relevant checks → for each check:
         1. direct / authoritative source (official.py)
         2. Apollo Knowledge Base — including the established scam patterns (patterns.py)
         3. one targeted web search per case — Brave Search, read deterministically; no AI model (search.py)
@@ -38,7 +38,7 @@ from services.higgins.tc_hawkeye.triage import plan as triage_plan
 
 log = logging.getLogger("apollo.tc_hawkeye")
 
-PREGATHERED_ITEM_ID = "apollo-triage-intelligence"   # what Higgins Triage gathered before the case started
+PREGATHERED_ITEM_ID = "apollo-triage-intelligence"   # what Wright Triage gathered before the case started
 CHECKS_ITEM_ID = "tc-hawkeye-di-checks"                   # TC Hawkeye's full check record, with provenance
 BRIEF_ITEM_ID = "tc-hawkeye-di-brief"                     # the slice Magnum DI receives
 _CORPORATE = re.compile(r"\b(pty|ltd|limited|inc|llc|plc|the|group|holdings)\b\.?", re.I)
@@ -62,7 +62,7 @@ class HawkeyeOutcome:
 
 
 
-# ── Higgins Triage's extraction: every input made investigation-ready ─────────
+# ── Wright Triage's extraction: every input made investigation-ready ─────────
 def _page_number(row: dict) -> int | None:
     match = re.search(r"\.page(\d+)$", row.get("client_item_id") or "")
     return int(match.group(1)) if match else None
@@ -125,7 +125,7 @@ async def _material(owner: str, case: dict, rows: list[dict]) -> tuple[dict[str,
     return texts, gaps, read
 
 
-# ── Higgins Triage's rules: what flagged the case is a warning sign TC Hawkeye builds on ──
+# ── Wright Triage's rules: what flagged the case is a warning sign TC Hawkeye builds on ──
 def _lookalike_chars(org: str, text: str) -> list[str]:
     from services import triage_engine as te
     return list(dict.fromkeys(ch for word in te.disguised_words(text) if word in org for ch in word
@@ -150,7 +150,7 @@ def _rule_fact(rule_id: str, title: str, text: str) -> str:
 
 
 def _triage_stage(plan_: Plan, text: str, provider_evidence: dict | None) -> None:
-    """Higgins Triage's message rules — the catalogue the phone runs — over the material. Each threat-producing rule
+    """Wright Triage's message rules — the catalogue the phone runs — over the material. Each threat-producing rule
     met is a warning sign about this case: TC Hawkeye's own checks can add to it, never dismiss it."""
     if not plan_.has_message or plan_.channel == CALL_GATE:
         return
@@ -161,17 +161,17 @@ def _triage_stage(plan_: Plan, text: str, provider_evidence: dict | None) -> Non
     if not met:
         return
     facts = [{**fact(_rule_fact(r.rule_id, r.title, text), "concern", topic="triage_rule"), "ruleId": r.rule_id} for r in met]
-    plan_.checks.append(Check(id=f"c{len(plan_.checks) + 1}", kind="triage_rules", subject="Higgins Triage's message rules",
+    plan_.checks.append(Check(id=f"c{len(plan_.checks) + 1}", kind="triage_rules", subject="Wright Triage's message rules",
                               status="resolved", route="triage_rules", facts=facts))
 
 
-#: Higgins Triage's message rules that rest on who the material says it is and where it sends you — its links,
+#: Wright Triage's message rules that rest on who the material says it is and where it sends you — its links,
 #: numbers and addresses. A request for a secret, a listed link or a disguised name rests on the words themselves.
 _ROUTE_RULES = frozenset({"MSG-08", "MSG-14", "MSG-18", "MSG-20", "MSG-21", "MSG-22"})
 
 
 def _reconsider_triage(plan_: Plan) -> None:
-    """Before the Evidence Lock, an initial detection can be disproved. A route-based Higgins Triage rule stops counting
+    """Before the Evidence Lock, an initial detection can be disproved. A route-based Wright Triage rule stops counting
     as a warning sign when TC Hawkeye's official sources verified every link, number and address in the material as the
     organisation's own: what it rested on turned out to be genuine. The rule's fact is kept, marked disproved, and the
     verification is recorded as TC Hawkeye's own fact."""
@@ -186,9 +186,9 @@ def _reconsider_triage(plan_: Plan) -> None:
     for f in disproved:
         f.update(signal="neutral", disproved=True)
     names = "; ".join(f["text"].rstrip(".") for f in disproved)
-    plan_.checks.append(Check(id=f"c{len(plan_.checks) + 1}", kind="triage_review", subject="Higgins Triage's first reading",
+    plan_.checks.append(Check(id=f"c{len(plan_.checks) + 1}", kind="triage_review", subject="Wright Triage's first reading",
                               status="resolved", route="official_source",
-                              facts=[{**fact(f"Higgins Triage first flagged this ({names}), but official sources verified {shown} as the "
+                              facts=[{**fact(f"Wright Triage first flagged this ({names}), but official sources verified {shown} as the "
                                              "organisation's own, so that no longer counts as a warning sign.", "clear", topic="triage_disproved"),
                                       "ruleIds": [f["ruleId"] for f in disproved]}]))
 
@@ -442,7 +442,7 @@ def _summary(plan_: Plan, decision: deciding.Decision | None, issues: list[decid
 async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> HawkeyeOutcome:
     """Run TC Hawkeye checks and retain their evidence-backed investigation record.
 
-    Accepted Higgins Triage and Hawkeye SLM suggestions may reorder existing
+    Accepted Wright Triage and Hawkeye SLM suggestions may reorder existing
     checks, but cannot create evidence or authorise a final Finding. The
     coordinator separately requires Higgins SLM escalation assessment and a
     validated on-device SLM Finding before committing the case.
@@ -467,7 +467,7 @@ async def investigate(owner: str, case: dict, job: dict, question: str, rows: li
 
 async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> dict:
     case_id = case["case_id"]
-    await progress("observe", "Higgins Triage is preparing what was sent and working out what needs checking.")
+    await progress("observe", "Wright Triage is preparing what was sent and working out what needs checking.")
     texts, gaps, read = await _material(owner, case, rows)
     plan_ = triage_plan(question, list(texts.values()), gaps=gaps, gate=next(iter(case.get("gates") or []), None))
     from services.higgins.slm_advisory import prioritise_existing_checks
