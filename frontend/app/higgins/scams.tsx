@@ -26,8 +26,8 @@ const HOME = homeRegion();
 // "All" shows every alert regardless of region. Individual region chips narrow by source or applicability.
 const regionMatch = (a: GovernmentAlert, f: RegionFilter) =>
   f === "ALL" ? true
-  : f === "AU" ? a.region === "AU" || a.australianRelevance === "confirmed" || a.appliesIn === "global"
-  : f === "GLOBAL" ? a.appliesIn === "global" || a.appliesIn === "everywhere"
+  : f === "AU" ? a.region === "AU" || a.australianRelevance === "confirmed" || a.appliesIn === "everywhere"
+  : f === "GLOBAL" ? a.appliesIn === "everywhere" || a.appliesIn === "everywhere"
   : a.region === f;
 
 type SortMode = "latest" | "severity";
