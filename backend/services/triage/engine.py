@@ -547,8 +547,8 @@ def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
         domain = (ev.get("sender_domain") or "").lower()
         if not domain:
             return na_because("Not applicable here: ApolloSG didn't receive the sender's address.")
-        if domain in _FREEMAIL and _brand(ev) and ev.get("consequential_action"):
-            return met(f"freemail sender {domain} presenting itself as {_brand(ev)}", "sensitive request")
+        if domain in _FREEMAIL and _brand(ev) and ev.get("consequential_action") and ev.get("sender_domain_mismatch"):
+            return met(f"freemail sender {domain} presenting itself as {_brand(ev)}", "verified organisation-domain mismatch", "sensitive request")
         return unmet("sender domain is not an impersonating freemail account")
 
     def security_link(ev: dict) -> Verdict:
@@ -556,7 +556,7 @@ def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
             return unmet("no account or security alert")
         if not _brand(ev):
             return unmet("security alert without an organisation it claims to be from")
-        if ev.get("displayed_host") and ev.get("actual_host"):
+        if ev.get("displayed_host") and ev.get("actual_host") and ev.get("displayed_host") != ev.get("actual_host"):
             return met(f"{_brand(ev)} account or security alert", f"a link shows {ev['displayed_host']} but goes to {ev['actual_host']}")
         deceptive = [d["host"] for d in ev.get("action_destinations") or [] if d.get("kind") in ("lookalike", "shared_service")]
         if deceptive:
@@ -606,9 +606,15 @@ def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
             # A check that couldn't run (recorded as incomplete by the evidence), never a gap that holds the result.
             return na_because("Not applicable here: the receiving mail server's SPF, DKIM and DMARC results weren't available.")
         failed = [m for m in ("spf", "dkim", "dmarc") if auth.get(m) in ("fail", "softfail", "permerror")]
-        if failed and ev.get("consequential_action"):
+        # SPF/DKIM/DMARC failures also occur in legitimate forwarded and
+        # misconfigured mail. Do not turn them into impersonation by themselves.
+        if failed and ev.get("consequential_action") and (
+            ev.get("sender_domain_mismatch") or ev.get("deceptive_destination")
+            or ev.get("link_outcome") == Outcome.POSSIBLE_THREAT.value
+        ):
             by = ev.get("auth_recorded_by") or "the receiving mail server"
-            return met(f"authentication failure recorded by {by} ({', '.join(failed)})", "consequential request")
+            return met(f"authentication failure recorded by {by} ({', '.join(failed)})",
+                       "independent sender/destination deception", "consequential request")
         return unmet("no authentication failure combined with a consequential request")
 
     def authenticated_anomaly(ev: dict) -> Verdict:
@@ -629,8 +635,11 @@ def _email_rules() -> dict[str, Callable[[dict], Verdict]]:
                                              ("replies go elsewhere", ev.get("reply_to_mismatch")),
                                              ("authentication failed", any(auth.get(m) in ("fail", "softfail", "permerror") for m in ("spf", "dkim", "dmarc"))),
                                              ("shown link differs from its destination", ev.get("displayed_host"))) if flag]
-        if len(anomalies) >= 2 and ev.get("consequential_action"):
-            return met("coherent scam pattern: " + ", ".join(anomalies), "consequential request")
+        independently_deceptive = bool(ev.get("sender_domain_mismatch") or ev.get("deceptive_destination")
+                                      or ev.get("link_outcome") == Outcome.POSSIBLE_THREAT.value)
+        if len(anomalies) >= 2 and ev.get("consequential_action") and independently_deceptive:
+            return met("corroborated email scam pattern: " + ", ".join(anomalies),
+                       "independent deception evidence", "consequential request")
         return unmet(f"{len(anomalies)} email anomaly(ies)" + ("" if ev.get("consequential_action") else ", nothing consequential asked"))
 
     def calendar(kind: str) -> Callable[[dict], Verdict]:
