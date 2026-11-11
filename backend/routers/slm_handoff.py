@@ -35,7 +35,7 @@ QUESTIONS = {
     "magnum_di": "Analyse unresolved evidence gaps and propose independent verification. Do not decide a verdict.",
     "luddish": "Draft a plain-English explanation limited to supplied material, retaining all uncertainty.",
     "higgins_escalation_assessment": "Sanity-check Hawkeye evidence: provenance, coverage, contradictions, unsupported claims and material gaps. Decide proceed_local only when the supplied evidence is sufficient; escalate only when independent deeper investigation can materially help; otherwise additional_evidence_required. Cite evidence IDs. Do not produce a scam verdict.",
-    "case_finding": "Evaluate the supplied investigation evidence and produce Findings with cited reasons, not a legal verdict. Preserve source attribution and uncertainty; do not invent verification.",
+    "case_finding": "Process and explain TC Hawkeye findings and, when escalation occurred, Magnum DI findings using only supplied evidence. Weigh corroboration and contradictions; preserve unresolved gaps and their specific causes (service unavailable, error code, timeout, token or context limit, or other recorded reason). A failed or incomplete check is not negative evidence and is not proof of safety. Cite evidence IDs, preserve provenance and uncertainty, and never invent a check, source, or verification.",
 }
 OPERATION = {
     "higgins_triage": "investigation_readiness",

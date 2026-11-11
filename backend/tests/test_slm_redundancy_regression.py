@@ -39,6 +39,12 @@ class SLMRedundancyRegression(unittest.TestCase):
             next(n.lineno for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_await_case_finding"),
         )
 
+    def test_finding_prompt_preserves_technical_gaps(self):
+        handoff = (ROOT / "backend/routers/slm_handoff.py").read_text()
+        self.assertIn("A failed or incomplete check is not negative evidence", handoff)
+        self.assertIn("token or context limit", handoff)
+        self.assertIn("Weigh corroboration and contradictions", handoff)
+
     def test_hawkeye_has_no_redundant_pre_investigation_slm_request(self):
         run = function(ast.parse(COORDINATOR.read_text()), "run_turn")
         calls = [n for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_slm_stage"]

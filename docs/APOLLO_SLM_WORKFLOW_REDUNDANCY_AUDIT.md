@@ -38,3 +38,13 @@ This note records a source-level audit and documentation alignment, **not** succ
 - **Unresolved platform mismatch:** `routers/slm_handoff.issue_stage_request` currently admits native Android/iOS only. Windows/macOS support is an approved product requirement but cannot be claimed as implemented without native runtime and security validation.
 - Existing `tc_hawkeye` role definitions remain for compatibility and any separately authorised callers; only the redundant active coordinator invocation was removed.
 - This is source-level verification; CI and native device tests have not been executed.
+
+## Corrected findings and unresolved-gap contract (user-approved)
+
+1. Apollo detects or the user submits; Higgins Triage uses the on-device SLM to understand and organise the case.
+2. TC Hawkeye investigates and returns **evidence, findings, and unresolved gaps**, with the actual cause of each gap where known. Distinguish a genuine negative result from service unavailability, provider errors/error codes, timeout, quota, and token/context exhaustion. Never silently convert technical non-completion into a negative check.
+3. Higgins SLM processes TC Hawkeye's evidence, including corroboration, contradictions, coverage and unresolved gaps, to decide whether Magnum DI investigation would materially help. No duplicate investigator or extra independent authority is required.
+4. Without escalation, Higgins SLM Luddish explains TC Hawkeye's findings. With escalation, Magnum DI uses Gemini to investigate and returns its evidence; Higgins SLM Luddish explains the resulting findings, contradictions, and remaining gaps.
+5. The user sees one clear finding, why it matters, what is uncertain, and what to do next. Luddish must not invent checks or evidence, misrepresent failed checks, or conceal unresolved gaps.
+
+**Implementation audit:** TC Hawkeye currently records `checks`, `gaps`, `issues`, and `search.status` in its retained record. The SLM case-finding prompt has been aligned to distinguish service failures and resource exhaustion from genuine negative results. This prompt change alone does not prove that every technical failure reason is present in the SLM request or final UI. Audit the end-to-end propagation and acceptance tests before claiming full compliance. The `case_finding` stage still generates a structured outcome from evidence; no additional findings authority or verification engine is requested. CI and native tests have not been executed.
