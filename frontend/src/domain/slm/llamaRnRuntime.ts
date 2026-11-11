@@ -128,12 +128,13 @@ export class LocalLlamaRuntime implements SLMAdapter {
     if (this.closed) throw new Error("SLM runtime closed");
     const execute = async (): Promise<unknown> => {
       const userPrompt = promptFor(request);
-      // Conservative preflight, not a substitute for native tokenizer counts.
-      // Refuse oversized requests before llama.rn can truncate evidence.
-      // Reserve space for system instructions, chat-template overhead and output.
-      const maxPromptChars = Math.max(0, (this.nCtx - 768 - 1200) * 2);
-      if (userPrompt.length > maxPromptChars) {
-        throw new Error("SLM input exceeds conservative context budget; evidence was not truncated");
+      // The preflight covers the full system and user messages, not just evidence.
+      // This conservative character bound is intentionally a fail-closed
+      // approximation until native tokenizer accounting is verified on-device.
+      const fullPromptChars = INSTRUCTIONS.length + userPrompt.length;
+      const maxInputChars = Math.max(0, (this.nCtx - 768 - 1200) * 2);
+      if (fullPromptChars > maxInputChars) {
+        throw new Error("SLM complete prompt exceeds conservative context budget; evidence was not truncated");
       }
       const context = await this.load();
       const result = await context.completion({
