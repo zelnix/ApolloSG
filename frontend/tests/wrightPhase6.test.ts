@@ -93,3 +93,33 @@ test("one failed native window blocks the entire stage", async () => {
   });
   assert.equal(result.status, "unavailable");
 });
+
+test("Phase 8: more than 32 cited sources must fail rather than silently discard references", async () => {
+  const many = Array.from({ length: 33 }, (_, index) => ({
+    evidenceId: "source-" + index, text: "Payment requested from source " + index,
+  }));
+  const result = await assessMandatoryWright(many, adapter);
+  assert.equal(result.status, "limited");
+  if (result.status === "limited") assert.equal(result.reason, "synthesis_contract_failed");
+});
+
+test("Phase 8: contradictory scam and legitimate windows remain ambiguous", async () => {
+  const result = await assessMandatoryWright([
+    { evidenceId: "legit", text: "Receipt for an order already paid." },
+    { evidenceId: "scam", text: "Send your password to an unknown contact." },
+  ], {
+    modelId: "native-test",
+    async infer(request) {
+      const isScam = request.evidence[0].text.includes("password");
+      return {
+        ...(await adapter.infer(request)),
+        classification: isScam ? "scam_indicators" : "legitimate_context",
+      };
+    },
+  });
+  assert.equal(result.status, "complete");
+  if (result.status === "complete") {
+    assert.equal(result.semantic.classification, "ambiguous");
+    assert.match(result.semantic.uncertainty ?? "", /Conflicting/);
+  }
+});
