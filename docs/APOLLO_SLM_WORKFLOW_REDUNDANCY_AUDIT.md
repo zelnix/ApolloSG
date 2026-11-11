@@ -12,7 +12,7 @@ Reference: user-approved ApolloSG workflow, 11 November 2026. Scope: `slm` only.
 ## Verified in source at audit time
 
 - `backend/services/higgins/coordinator.py` already uses one shared expiry-aware `_wait_for_slm` helper. Do not duplicate it.
-- `run_turn` calls `_slm_stage` for Higgins Triage and TC Hawkeye, then passes both accepted outputs to `tc_flyby.investigate`; it requires an SLM escalation assessment and SLM Finding. Runtime effectiveness of the advice has not been established.
+- `run_turn` calls `_slm_stage` for Higgins Triage and TC Hawkeye, then passes both accepted outputs to `tc_flyby.investigate`; it requires an SLM escalation assessment and SLM Finding. `prioritise_existing_checks` uses their verification suggestions solely to reorder existing checks by keyword overlap; it does not add checks or establish evidence. The benefit of two serial SLM requests remains unmeasured.
 - `_commit_flyby` was removed from the coordinator after inspecting its active entry point and selected callers. A source-level regression guard now prohibits restoring the legacy direct Hawkeye commit. Exhaustive repository-wide reference proof and runtime validation remain outstanding.
 - `frontend/src/investigation/caseStore.ts` retries an issued SLM request at most once after a failed delivery and clears the attempted marker; full SSE reconnection behaviour is not yet proven.
 - `frontend/src/domain/slm/llamaRnRuntime.ts` selects operation-specific prompt instructions through `instructionsFor(request)`.

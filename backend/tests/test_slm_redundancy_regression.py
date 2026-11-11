@@ -45,6 +45,18 @@ class SLMRedundancyRegression(unittest.TestCase):
         self.assertNotIn("_commit_flyby", definitions)
         self.assertIn("_commit_slm_finding", definitions)
 
+    def test_hawkeye_slm_advice_only_prioritises_existing_checks(self):
+        source = (ROOT / "backend/services/higgins/slm_advisory.py").read_text()
+        tree = ast.parse(source)
+        fn = function(tree, "prioritise_existing_checks")
+        calls = {call.func.attr for call in ast.walk(fn) if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)}
+        self.assertIn("sort", calls)
+        self.assertNotIn("append", calls)
+        self.assertNotIn("extend", calls)
+        self.assertNotIn("insert", calls)
+        hawkeye = (ROOT / "backend/services/higgins/tc_flyby/__init__.py").read_text()
+        self.assertIn("prioritise_existing_checks(plan_.checks, triage_advice, hawkeye_advice)", hawkeye)
+
     def test_no_hawkeye_or_cloud_fallback_on_missing_slm_finding(self):
         run = function(ast.parse(COORDINATOR.read_text()), "run_turn")
         self.assertNotIn("_commit_flyby", called_names(run))

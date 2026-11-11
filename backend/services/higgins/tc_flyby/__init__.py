@@ -437,7 +437,13 @@ def _summary(plan_: Plan, decision: deciding.Decision | None, issues: list[decid
 
 # ── Entry point ─────────────────────────────────────────────────────────────
 async def investigate(owner: str, case: dict, job: dict, question: str, rows: list[dict], progress, *, triage_advice: dict | None = None, hawkeye_advice: dict | None = None) -> FlyByOutcome:
-    """Triage → TC Hawkeye. Runs once per case: a retry of Magnum DI reuses this record and repeats no lookup."""
+    """Run TC Hawkeye checks and retain their evidence-backed investigation record.
+
+    Accepted Higgins Triage and Hawkeye SLM suggestions may reorder existing
+    checks, but cannot create evidence or authorise a final Finding. The
+    coordinator separately requires Higgins SLM escalation assessment and a
+    validated on-device SLM Finding before committing the case.
+    """
     case_id = case["case_id"]
     stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_flyby_ciphertext": 1})
     if stored and stored.get("tc_flyby_ciphertext"):
