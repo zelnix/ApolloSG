@@ -30,6 +30,7 @@ NO_STORE = {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
 CAPABILITY = "apollo.slm.advisory.v1"
 ACTIVE_JOB = frozenset(("queued", "investigating"))
 QUESTIONS = {
+    "wright_triage": "Interpret this evidence for scam indicators and legitimate explanations, preserving uncertainty. Never issue a verdict.",
     "higgins_triage": "Identify what information is missing for investigation. Do not make a scam verdict.",
     "tc_hawkeye": "Identify contradictions, alternative explanations and specific corroboration to pursue. Do not invent facts.",
     "magnum_di": "Analyse unresolved evidence gaps and propose independent verification. Do not decide a verdict.",
@@ -38,6 +39,7 @@ QUESTIONS = {
     "case_finding": "Process TC Hawkeye evidence and, when escalated, Magnum DI evidence without altering source responses. Explain corroboration, contradictions and gaps using recorded status, codes and messages; do not invent missing technical reasons. When evidence could not be obtained, say Evidence could not be discovered and explain the recorded cause where available. Cite evidence IDs, preserve provenance and uncertainty, and never invent checks, sources or verification.",
 }
 OPERATION = {
+    "wright_triage": "wright_semantic",
     "higgins_triage": "investigation_readiness",
     "tc_hawkeye": "evidence_reasoning",
     "magnum_di": "evidence_reasoning",
