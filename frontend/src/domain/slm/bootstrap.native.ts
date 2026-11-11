@@ -71,7 +71,7 @@ export async function stopSharedLuddish(): Promise<void> {
   if (previous) await previous.release();
 }
 
-/** Presence only; admission and integrity are checked separately at startup. */
+/** Presence only; lightweight file admission happens at startup. */
 export function isPrivateLuddishModelMissing(): boolean {
   try { return !new File(Paths.document, CANDIDATE_FILE).exists; }
   catch { return false; }
