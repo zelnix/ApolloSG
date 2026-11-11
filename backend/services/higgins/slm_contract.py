@@ -12,9 +12,10 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from services.higgins.contracts import Wire
+from services.higgins.wright_semantic_contract import WrightSemanticResult, validate_wright_semantic
 
-SLMRole = Literal["higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding", "higgins_escalation_assessment"]
-SLMOperation = Literal["investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding", "escalation_assessment"]
+SLMRole = Literal["wright_triage", "higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding", "higgins_escalation_assessment"]
+SLMOperation = Literal["wright_semantic", "investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding", "escalation_assessment"]
 
 
 class SLMReference(Wire):
@@ -69,6 +70,7 @@ class SLMReasoningAnswer(Wire):
     draft_explanation: str | None = Field(default=None, max_length=3000)
     case_finding: SLMCaseFinding | None = None
     escalation_assessment: SLMEscalationAssessment | None = None
+    wright_semantic: WrightSemanticResult | None = None
 
 
 class SLMReasoningResult(Wire):
@@ -106,6 +108,13 @@ def accept_advisory_reasoning(
                 raise ValueError("duplicate_slm_citation")
             if any(evidence_id not in permitted for evidence_id in observation.evidence_ids):
                 raise ValueError("unrecognised_slm_evidence")
+    if request.operation == "wright_semantic":
+        if request.role != "wright_triage" or result.answer.wright_semantic is None:
+            raise ValueError("missing_wright_semantic")
+        if any((result.answer.observations, result.answer.contradictions,
+                result.answer.alternative_explanations, result.answer.verification_suggestions)) or result.answer.case_finding or result.answer.escalation_assessment:
+            raise ValueError("wright_semantic_must_not_author_verdict")
+        validate_wright_semantic(result.answer.wright_semantic, permitted)
     if request.operation == "escalation_assessment":
         assessment = result.answer.escalation_assessment
         if assessment is None or any(eid not in permitted for eid in assessment.evidence_ids):
