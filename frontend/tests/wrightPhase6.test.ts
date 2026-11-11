@@ -52,3 +52,44 @@ test("invalid stage is rejected before inference", async () => {
   }, adapter);
   assert.equal(result.status, "limited");
 });
+
+test("existing generic SLM event consumer dispatches mandatory multi-window assessment", async () => {
+  const { runSLM } = await import("../src/domain/slm/index.ts");
+  let invocations = 0;
+  const result = await runSLM({
+    role: "wright_triage", operation: "wright_semantic",
+    question: "Server-issued mandatory triage", evidence: [
+      { evidenceId: "source-long", text: "Routine invoice. ".repeat(250) },
+    ],
+  }, {
+    modelId: "native-test",
+    async infer(request) {
+      invocations++;
+      return adapter.infer(request);
+    },
+  });
+  assert.equal(result.status, "completed");
+  assert.ok(invocations > 1, "all evidence windows must be examined");
+  if (result.status === "completed") {
+    assert.deepEqual(result.answer.wrightSemantic?.supportingEvidenceIds, ["source-long"]);
+  }
+});
+
+test("one failed native window blocks the entire stage", async () => {
+  const { runSLM } = await import("../src/domain/slm/index.ts");
+  let invocations = 0;
+  const result = await runSLM({
+    role: "wright_triage", operation: "wright_semantic",
+    question: "Server-issued mandatory triage", evidence: [
+      { evidenceId: "source-long", text: "Invoice. ".repeat(400) },
+    ],
+  }, {
+    modelId: "native-test",
+    async infer(request) {
+      invocations++;
+      if (invocations === 2) throw new Error("native inference unavailable");
+      return adapter.infer(request);
+    },
+  });
+  assert.equal(result.status, "unavailable");
+});
