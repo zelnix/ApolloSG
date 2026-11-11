@@ -153,7 +153,14 @@ export function useInvestigation(boundOperationId?: string | null) {
             issued.request.requestId && !attemptedAdvisoryRequests.current.has(issued.request.requestId)) {
           if (attemptedAdvisoryRequests.current.size > 256) attemptedAdvisoryRequests.current.clear();
           attemptedAdvisoryRequests.current.add(issued.request.requestId);
-          void submitIssuedAdvisory(caseId, issued, adapter).catch(() => undefined);
+          void submitIssuedAdvisory(caseId, issued, adapter)
+            .then((result) => {
+              // A failed submission must remain retryable after SSE reconnect.
+              if (result.status !== "accepted") attemptedAdvisoryRequests.current.delete(issued.request.requestId);
+            })
+            .catch(() => {
+              attemptedAdvisoryRequests.current.delete(issued.request.requestId);
+            });
         }
       }
       else if (event.type === "retry_scheduled") update((previous) => ({ progress: [...previous.progress.slice(-6), event.payload.failure.message], phase: "working" }));
