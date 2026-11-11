@@ -39,6 +39,13 @@ class SLMRedundancyRegression(unittest.TestCase):
             next(n.lineno for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_await_case_finding"),
         )
 
+    def test_hawkeye_has_no_redundant_pre_investigation_slm_request(self):
+        run = function(ast.parse(COORDINATOR.read_text()), "run_turn")
+        calls = [n for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_slm_stage"]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].args[3].value, "higgins_triage")
+        self.assertIn("tc_flyby.investigate", ast.get_source_segment(COORDINATOR.read_text(), run))
+
     def test_legacy_direct_hawkeye_commit_is_absent(self):
         tree = ast.parse(COORDINATOR.read_text())
         definitions = {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}

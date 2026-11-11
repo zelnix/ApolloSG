@@ -484,9 +484,10 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         # another investigation: this turn sends nothing.
         return Outcome("call_limit_reached", errors=["a follow-up is answered from the case's findings, not by another investigation"])
     triage_advice = await _slm_stage(owner, case, job, "higgins_triage")
-    hawkeye_advice = await _slm_stage(owner, case, job, "tc_hawkeye")
+    # TC Hawkeye investigates using the prepared case and its own evidence-backed
+    # checks; it does not need a second pre-investigation SLM advisory request.
     fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress,
-                                       triage_advice=triage_advice, hawkeye_advice=hawkeye_advice)
+                                       triage_advice=triage_advice)
     assessment = await _await_escalation_assessment(owner, case, job, progress)
     if assessment is None:
         # Neither Hawkeye's resolved flag nor a cloud provider may substitute for

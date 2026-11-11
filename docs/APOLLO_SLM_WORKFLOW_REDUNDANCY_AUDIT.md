@@ -30,3 +30,11 @@ Reference: user-approved ApolloSG workflow, 11 November 2026. Scope: `slm` only.
 - Test Android, iOS, Windows and macOS runtime admission/recovery on supported native builds. Do not infer desktop runtime readiness from mobile implementation.
 
 This note records a source-level audit and documentation alignment, **not** successful runtime/device validation.
+
+## 11 November follow-up: definitive workflow reconciliation
+
+- Removed the second pre-investigation `tc_hawkeye` SLM stage call from `run_turn`. Higgins Triage still uses the on-device SLM and its accepted suggestions still pass to TC Hawkeye. TC Hawkeye continues to run its own investigative checks. A source-level regression guard enforces one pre-investigation SLM request.
+- **Unresolved P0 semantic mismatch:** `_commit_slm_finding` currently accepts an SLM-authored `caseFinding.outcome`, maps it to the case assessment, and commits it. This may allow the presentation model to establish or change the finding rather than faithfully explain TC Hawkeye's or Magnum DI's established finding. Do not remove mandatory SLM availability or bypass case validation to fix this. Define and test an authoritative finding handoff with evidence-locked explanation before modifying the verdict path.
+- **Unresolved platform mismatch:** `routers/slm_handoff.issue_stage_request` currently admits native Android/iOS only. Windows/macOS support is an approved product requirement but cannot be claimed as implemented without native runtime and security validation.
+- Existing `tc_hawkeye` role definitions remain for compatibility and any separately authorised callers; only the redundant active coordinator invocation was removed.
+- This is source-level verification; CI and native device tests have not been executed.
