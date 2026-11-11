@@ -203,7 +203,7 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
         previous = next((c for c in checkpoints if c.get("window_index") == batch.index), None)
         if previous:
             if (previous.get("digest") != batch.digest or previous.get("status") != "completed"
-                    or previous.get("job_id") != job["job_id"] or not previous.get("result_ciphertext")):
+                    or not previous.get("result_ciphertext")):
                 await _retain_magnum_limitation(owner, case, {
                     "status": "window_checkpoint_unavailable", "windowIndex": batch.index})
                 return False
