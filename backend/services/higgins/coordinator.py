@@ -1,6 +1,6 @@
-"""ApolloSG case coordinator: Apollo/user → Higgins Triage → TC Hawkeye → Higgins.
+"""ApolloSG case coordinator: Apollo/user → Wright Triage → TC Hawkeye → Higgins.
 
-Higgins Triage requests on-device SLM support before TC Hawkeye investigates.
+Wright Triage requests on-device SLM support before TC Hawkeye investigates.
 TC Hawkeye returns evidence-backed investigation material; its hypotheses do not
 become verified facts merely because they were generated or repeated by an SLM.
 Higgins then requires an on-device SLM escalation assessment. If escalation is
@@ -457,7 +457,7 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
 
 
 async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
-    """Run Higgins Triage, TC Hawkeye, mandatory SLM escalation assessment,
+    """Run Wright Triage, TC Hawkeye, mandatory SLM escalation assessment,
     optional Magnum DI external investigation, and mandatory SLM Finding commit.
 
     Magnum DI contributes independent evidence only when escalation is required;
@@ -484,7 +484,7 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         return Outcome("evidence_too_large", evidence_words=evidence_words,
                        errors=[f"written evidence is {evidence_words} words; Apollo's limit for one investigation is {ev.EVIDENCE_WORD_LIMIT}"])
 
-    # ── Step 2: Higgins Triage → TC Hawkeye (first turn only) ──
+    # ── Step 2: Wright Triage → TC Hawkeye (first turn only) ──
     if not first_turn:
         # A follow-up is answered from the case's stored Findings (routers/investigations._follow_up), never by
         # another investigation: this turn sends nothing.
