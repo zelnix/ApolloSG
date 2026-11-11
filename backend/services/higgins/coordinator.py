@@ -450,28 +450,6 @@ async def _commit(owner: str, case: dict, job: dict, payload: dict, response: Hi
     return Outcome("committed", commit=commit, case=updated)
 
 
-async def _commit_flyby(owner: str, case: dict, job: dict, payload: dict, fly_by: tc_flyby.FlyByOutcome,
-                        capability_ids: set[str]) -> Optional[Outcome]:
-    """Legacy direct TC Hawkeye commit path; not called by the active run_turn.
-
-    Retained pending complete reference inventory and mandatory-SLM regression
-    tests. Do not use this path to bypass escalation assessment or SLM Finding.
-    """
-    rows = await repo.list_evidence(owner, case["case_id"])
-    evidence_ids = {row["evidence_id"] for row in rows}
-    source_ids = {s["id"] for s in await repo.sources(owner, case["case_id"])}
-    response, errors = validate(fly_by.response, revision=(case.get("response_revision") or 0) + 1, evidence_ids=evidence_ids,
-                                source_ids=source_ids, capability_ids=capability_ids, pending_question=None, provider_complete=True,
-                                material_gaps=_material_gaps(rows))
-    if response is None:
-        log.warning("tc_flyby_result_invalid case=%s errors=%s", case["case_id"], "; ".join(errors)[:300])
-        return None
-    provider_result = ProviderResult(provider="apollo", model="tc-flyby" + (f" + {fly_by.model}" if fly_by.model else ""), api_version="",
-                                     finish_reason="STOP", provider_complete=True, usage=Usage(**fly_by.usage),
-                                     source_ids=sorted(response.source_ids), simulated=fly_by.simulated, answered_by=fly_by.answered_by)
-    return await _commit(owner, case, job, payload, response, provider_result, evidence_ids, source_ids)
-
-
 async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     """Run Higgins Triage, TC Hawkeye, mandatory SLM escalation assessment,
     optional Magnum DI external investigation, and mandatory SLM Finding commit.

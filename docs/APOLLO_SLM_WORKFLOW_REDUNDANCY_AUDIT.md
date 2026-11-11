@@ -13,14 +13,14 @@ Reference: user-approved ApolloSG workflow, 11 November 2026. Scope: `slm` only.
 
 - `backend/services/higgins/coordinator.py` already uses one shared expiry-aware `_wait_for_slm` helper. Do not duplicate it.
 - `run_turn` calls `_slm_stage` for Higgins Triage and TC Hawkeye, then passes both accepted outputs to `tc_flyby.investigate`; it requires an SLM escalation assessment and SLM Finding. Runtime effectiveness of the advice has not been established.
-- `_commit_flyby` remains defined but is not called directly from `run_turn`. Repository-wide dead-code proof and runtime tests are prerequisites for deletion.
+- `_commit_flyby` was removed from the coordinator after inspecting its active entry point and selected callers. A source-level regression guard now prohibits restoring the legacy direct Hawkeye commit. Exhaustive repository-wide reference proof and runtime validation remain outstanding.
 - `frontend/src/investigation/caseStore.ts` retries an issued SLM request at most once after a failed delivery and clears the attempted marker; full SSE reconnection behaviour is not yet proven.
 - `frontend/src/domain/slm/llamaRnRuntime.ts` selects operation-specific prompt instructions through `instructionsFor(request)`.
 
 ## Deliberately not removed
 
 - Required SLM admission, platform-specific bootstraps, evidence storage versus display summaries, distinct triage service and catalogue evaluation, and Higgins presentation/fidelity functions.
-- `_commit_flyby` until a complete branch-scoped reference scan and tests establish safe deletion.
+- The mandatory SLM escalation and Finding path; no direct Hawkeye commit fallback is permitted.
 
 ## Outstanding acceptance work
 
