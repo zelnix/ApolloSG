@@ -613,9 +613,10 @@ const EMAIL: Record<string, (ev: TriageEvidence) => Verdict> = {
     const auth = prov(ev, "auth_results");
     if (!Object.keys(auth).length) return naBecause((ev.evidence_rank ?? 0) >= 3 ? EMAIL_AUTH_NOT_RECORDED : EMAIL_AUTH_NEEDS_ORIGINAL);
     const failed = ["spf", "dkim", "dmarc"].filter((m) => FAILED_AUTH.includes(auth[m]));
-    return failed.length && (ev.consequential_action || ev.sender_domain_mismatch)
-      ? met(`authentication failure ${recordedBy(ev)} (${failed.join(", ")})`, "consequential request or anomaly")
-      : unmet(failed.length ? `authentication failure ${recordedBy(ev)} (${failed.join(", ")}) without a consequential request or anomaly` : `no authentication failure ${recordedBy(ev)}`);
+    const corroborated = !!(ev.sender_domain_mismatch || ev.deceptive_destination || ev.link_outcome === "POSSIBLE_THREAT_IDENTIFIED");
+    return failed.length && ev.consequential_action && corroborated
+      ? met(`authentication failure ${recordedBy(ev)} (${failed.join(", ")})`, "independent sender/destination deception", "consequential request")
+      : unmet(failed.length ? `authentication failure ${recordedBy(ev)} (${failed.join(", ")}) without corroborated deception and a consequential request` : `no authentication failure ${recordedBy(ev)}`);
   },
   "EMAIL-12": (ev) => {
     const auth = prov(ev, "auth_results");
