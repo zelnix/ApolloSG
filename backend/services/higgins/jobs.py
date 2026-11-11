@@ -16,7 +16,7 @@ from typing import Optional
 from core.config import logger
 from core.db import db, now_utc
 from core.redaction import redact_investigation_secrets
-from services.higgins import coordinator, provider, tc_flyby
+from services.higgins import coordinator, provider, tc_hawkeye
 from services.higgins import repository as repo
 from services.higgins.evidence import EVIDENCE_WORD_LIMIT
 from services.higgins.contracts import DiagnosticDetail, Failure, RetryAttempt

@@ -452,9 +452,9 @@ async def export_investigation_pdf(case_id: str, request: Request):
     evidence_wire = [repo.evidence_view(r).wire() for r in evidence_rows]
     subject = (case_wire.get("response") or {}).get("subject", "Investigation")
     # Tagged when any external source behind it was simulated: Magnum DI's Gemini call or TC Hawkeye's search.
-    flyby = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.tc_hawkeye.simulated": 1}) or {})
+    hawkeye = ((await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "routing.tc_hawkeye.simulated": 1}) or {})
              .get("routing") or {}).get("tc_hawkeye") or {}
-    simulated = bool(flyby.get("simulated")) or any(r.get("simulated") for r in await get_di_records(owner, case_id))
+    simulated = bool(hawkeye.get("simulated")) or any(r.get("simulated") for r in await get_di_records(owner, case_id))
     # Every time in the report is the phone's local time: the offset it sends now, else the one it registered.
     sent = request.query_params.get("tzOffset", "")
     if re.fullmatch(r"-?\d{1,3}", sent):

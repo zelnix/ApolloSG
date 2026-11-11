@@ -39,8 +39,8 @@ from services.higgins.tc_hawkeye.triage import plan as triage_plan
 log = logging.getLogger("apollo.tc_hawkeye")
 
 PREGATHERED_ITEM_ID = "apollo-triage-intelligence"   # what Higgins Triage gathered before the case started
-CHECKS_ITEM_ID = "tc-flyby-di-checks"                   # TC Hawkeye's full check record, with provenance
-BRIEF_ITEM_ID = "tc-flyby-di-brief"                     # the slice Magnum DI receives
+CHECKS_ITEM_ID = "tc-hawkeye-di-checks"                   # TC Hawkeye's full check record, with provenance
+BRIEF_ITEM_ID = "tc-hawkeye-di-brief"                     # the slice Magnum DI receives
 _CORPORATE = re.compile(r"\b(pty|ltd|limited|inc|llc|plc|the|group|holdings)\b\.?", re.I)
 # A warning only an official source naming this exact value makes decisive; any other warning is a third-party
 # warning, and text found copied elsewhere is supporting evidence only: both are weak signals.
@@ -60,8 +60,6 @@ class HawkeyeOutcome:
     simulated: bool = False
     model: str | None = None
 
-
-FlyByOutcome = HawkeyeOutcome  # Legacy import compatibility
 
 
 # ── Higgins Triage's extraction: every input made investigation-ready ─────────
@@ -434,7 +432,7 @@ def _summary(plan_: Plan, decision: deciding.Decision | None, issues: list[decid
             "checks": [{"kind": c.kind, "status": c.status, "route": c.route} for c in plan_.checks],
             "searchCalls": searched["calls"], "searchQueries": searched["queries"], "cacheHits": searched["cacheHits"],
             "searchProvider": searched.get("provider"), "searchTarget": searched.get("target"), "aiCalls": 0,
-            "flybyTokens": searched["tokens"], "simulated": searched["simulated"], "searchModel": searched["model"],
+            "hawkeyeTokens": searched["tokens"], "simulated": searched["simulated"], "searchModel": searched["model"],
             "magnumNeeded": not decision, "magnumSearch": magnum_search, "reusedOnRetry": 0,
             "gaps": [{"item": g["item"], "what": g["what"]} for g in plan_.gaps],
             "issues": [{"capability": i.capability, "text": i.text} for i in issues]}
