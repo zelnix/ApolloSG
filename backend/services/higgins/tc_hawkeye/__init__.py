@@ -394,11 +394,30 @@ async def _item(owner: str, case: dict, client_item_id: str, text: str, label: s
 
 
 async def _mark_read(owner: str, case_id: str, read: list[dict], texts: dict[str, str]) -> None:
-    """TC Hawkeye read these items in full to triage them, so they are examined."""
+    """Record source-window examination without falsely promoting unexamined spans.
+
+    TC Hawkeye's _material reads full retained text before its rule and source
+    checks. Windows are a coverage accounting boundary, not extra model calls.
+    """
+    from services.higgins.evidence_windows import build_windows, validate_window_coverage
+    sources = [(row["evidence_id"], texts[row["evidence_id"]]) for row in read
+               if row["evidence_id"] in texts]
+    inventory = build_windows(sources)
+    examined = {window.window_id for window in inventory.windows}
+    if not validate_window_coverage(sources, inventory, examined):
+        raise ValueError("tc_hawkeye_incomplete_text_coverage")
     for row in read:
+        eid = row["evidence_id"]
+        if eid not in texts:
+            continue
         coverage = row.get("coverage") or {}
-        total = coverage.get("total") or (1 if coverage.get("unit") == "items" else len(texts[row["evidence_id"]]))
-        await ev.mark_examined(owner, case_id, row["evidence_id"], 0, total, total)
+        if coverage.get("unit") == "items":
+            total = coverage.get("total") or 1
+            await ev.mark_examined(owner, case_id, eid, 0, total, total)
+            continue
+        for window in inventory.windows:
+            if window.evidence_id == eid:
+                await ev.mark_examined(owner, case_id, eid, window.start, window.end, len(texts[eid]))
 
 
 async def _magnum_rows(owner: str, case: dict, brief_id: str, needed: set[str] | None, settled: set[str]) -> list[dict]:
