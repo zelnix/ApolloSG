@@ -49,10 +49,6 @@ const pendingReceipts = new Map<string, { expiresAt: number; payload: {
   execution: string; modelId: string; answer: unknown;
 } }>();
 
-// Coalesce concurrent deliveries of the same issued request before inference starts.
-// Receipt retries still reuse pendingReceipts; no cross-request or cross-device reuse.
-const inFlightInference = new Map<string, Promise<Awaited<ReturnType<typeof reasonForCase>>>>();
-
 export async function submitIssuedAdvisory(
   caseId: string,
   issued: Issued,
@@ -63,8 +59,7 @@ export async function submitIssuedAdvisory(
   const role = issued.request.role;
   if (issued.request.caseId !== caseId || issued.request.caseRevision !== caseRevision ||
       !issued.request.requestId || issued.request.role !== role ||
-      !Number.isFinite(Date.parse(issued.expiresAt)) ||
-      Date.parse(issued.expiresAt) <= Date.now()) {
+new Date(issued.expiresAt).getTime() <= Date.now()) {
     return { status: "invalid_output", reason: "invalid_server_request" };
   }
   const expiry = Date.parse(issued.expiresAt);
@@ -74,15 +69,7 @@ export async function submitIssuedAdvisory(
   }
   let payload = pendingReceipts.get(key)?.payload;
   if (!payload) {
-    let running = inFlightInference.get(key);
-    if (!running) {
-      running = reasonForCase(issued.request, adapter);
-      inFlightInference.set(key, running);
-      void running.finally(() => {
-        if (inFlightInference.get(key) === running) inFlightInference.delete(key);
-      }).catch(() => undefined);
-    }
-    const result = await running;
+    const result = await reasonForCase(issued.request, adapter);
     if (result.status !== "completed") {
       // No fabricated success and no automatic Gemini fallback.
       return { status: result.status, reason: result.reason };
