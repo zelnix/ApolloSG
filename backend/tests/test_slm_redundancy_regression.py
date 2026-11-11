@@ -50,7 +50,7 @@ class SLMRedundancyRegression(unittest.TestCase):
         calls = [n for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_slm_stage"]
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0].args[3].value, "higgins_triage")
-        self.assertIn("tc_flyby.investigate", ast.get_source_segment(COORDINATOR.read_text(), run))
+        self.assertIn("tc_hawkeye.investigate", ast.get_source_segment(COORDINATOR.read_text(), run))
 
     def test_legacy_direct_hawkeye_commit_is_absent(self):
         tree = ast.parse(COORDINATOR.read_text())

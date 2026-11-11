@@ -35,7 +35,7 @@ from services.higgins import ai_settings
 from services.higgins import provider
 from services.higgins.ai_request import Message, Part
 from services.higgins import repository as repo
-from services.higgins import tc_flyby
+from services.higgins import tc_flyby as tc_hawkeye  # Existing module path retained for compatibility
 from services.higgins.contracts import Coverage, HigginsResponse, ProviderResult, TurnCommit, Usage
 from services.higgins.response_schema import response_schema
 from services.higgins.tools import grounding_sources
@@ -45,7 +45,7 @@ log = logging.getLogger("apollo.coordinator")
 
 # Apollo's pre-gathered specialist intelligence (RDAP, Safe Browsing, IPQualityScore, HIBP) is
 # evidence collected for this case. It is registered as evidence, verbatim, so it can be cited.
-TRIAGE_EVIDENCE_ITEM_ID = tc_flyby.PREGATHERED_ITEM_ID
+TRIAGE_EVIDENCE_ITEM_ID = tc_hawkeye.PREGATHERED_ITEM_ID
 
 # Magnum DI's one AI call for the whole correlated case. No retry.
 MAX_MAGNUM_CALLS = 1
@@ -486,7 +486,7 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
     triage_advice = await _slm_stage(owner, case, job, "higgins_triage")
     # TC Hawkeye investigates using the prepared case and its own evidence-backed
     # checks; it does not need a second pre-investigation SLM advisory request.
-    fly_by = await tc_flyby.investigate(owner, case, job, payload["message"], rows, progress,
+    hawkeye_result = await tc_hawkeye.investigate(owner, case, job, payload["message"], rows, progress,
                                        triage_advice=triage_advice)
     assessment = await _await_escalation_assessment(owner, case, job, progress)
     if assessment is None:

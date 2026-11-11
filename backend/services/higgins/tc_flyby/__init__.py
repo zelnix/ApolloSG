@@ -1,4 +1,4 @@
-"""TC Hawkeye — Apollo's fast, low-cost fly-by investigation.
+"""TC Hawkeye — Apollo's evidence-backed investigation.
 
     Input → Higgins Triage → only the relevant checks → for each check:
         1. direct / authoritative source (official.py)
@@ -526,7 +526,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
     checks_id = await _item(owner, case, CHECKS_ITEM_ID, json.dumps({
         "messageType": plan_.message_type, "entities": plan_.entities.wire(), "checks": [c.wire() for c in plan_.checks],
         "pattern": plan_.pattern, "gaps": plan_.gaps, "issues": [i.wire() for i in issues], "crossSource": cross,
-        "search": {k: v for k, v in searched.items() if k != "answers"}}, ensure_ascii=False, default=str), "TC Hawkeye fly-by checks")
+        "search": {k: v for k, v in searched.items() if k != "answers"}}, ensure_ascii=False, default=str), "TC Hawkeye investigation checks")
     await _mark_read(owner, case_id, read, texts)
 
     response = None
