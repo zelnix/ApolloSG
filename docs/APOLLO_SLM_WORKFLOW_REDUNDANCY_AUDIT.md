@@ -70,3 +70,7 @@ The TC Hawkeye unavailable-web-lookup fact now retains the complete returned loo
 ## Magnum DI provider limitation evidence
 
 Magnum DI provider failures and non-STOP completion now attempt to retain the observed code/message or finish reason/provider metadata in the existing case evidence store, for Higgins to inspect. This does **not** turn a failed call into completed investigative evidence, does not retry or call another model, and does not translate the provider's failure into an inferred cause. The existing fail-closed outcome remains in force. Retention is best-effort; errors remain logged. This is not full raw HTTP-body preservation and does not cover every parsing/transport failure. Runtime tests have not been executed.
+
+## SLM evidence handoff fidelity
+
+Removed a silent substring-based omission of derived evidence whose text was already present in its parent. Both records now remain available with their distinct evidence IDs and provenance. UTF-8 decoding now fails explicitly rather than silently replacing malformed bytes. Existing evidence-size limits remain fail-closed. Also corrected a stale source-level regression assertion left behind by the full Hawkeye lookup-payload preservation change. This does not establish that all upstream source adapters retain raw payloads or that the native SLM can consume every binary evidence type. Automated tests were not run.

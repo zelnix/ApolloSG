@@ -41,8 +41,14 @@ class SLMRedundancyRegression(unittest.TestCase):
 
     def test_hawkeye_unavailable_lookup_preserves_reason(self):
         hawkeye = (ROOT / "backend/services/higgins/tc_flyby/__init__.py").read_text()
-        self.assertIn('for key in ("status", "reason", "note") if key in answer', hawkeye)
+        self.assertIn('json.dumps(answer, ensure_ascii=False, default=str)', hawkeye)
         self.assertNotIn('Web search unavailable ({reason})', hawkeye)
+
+    def test_slm_handoff_does_not_silently_change_evidence(self):
+        handoff = (ROOT / "backend/routers/slm_handoff.py").read_text()
+        self.assertIn('.decode("utf-8", errors="strict")', handoff)
+        self.assertNotIn('if parent_text and text in parent_text:', handoff)
+        self.assertIn('raise http(413, "budget_exhausted"', handoff)
 
     def test_tc_hawkeye_service_entrypoint(self):
         coordinator = COORDINATOR.read_text()

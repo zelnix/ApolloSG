@@ -92,16 +92,15 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
             continue
         if row.get("availability") != "available":
             continue
-        text = (await repo.read_bytes(owner, case_id, row["evidence_id"])).decode("utf-8", errors="replace").strip()
+        text = (await repo.read_bytes(owner, case_id, row["evidence_id"])).decode("utf-8", errors="strict")
         if text:
             texts[row["evidence_id"]] = text
     for row in rows:
         text = texts.get(row["evidence_id"])
         if not text:
             continue
-        parent_text = texts.get(row.get("parent_id"))
-        if parent_text and text in parent_text:
-            continue  # Exact derived clue already present in the parent.
+        # Keep every evidence record intact. Even an identical derived clue has
+        # its own evidence ID and provenance; Higgins decides its relevance.
         parent = next((item for item in rows if item.get("evidence_id") == row.get("parent_id")), None)
         if parent and parent.get("kind") in ("image", "document", "audio", "attachment"):
             # This is derived text, NOT direct inspection of the parent binary.
