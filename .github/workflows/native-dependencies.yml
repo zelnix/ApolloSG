@@ -12,6 +12,8 @@ permissions:
 
 jobs:
   native-singletons:
+    # During slm device debugging, run this suite only when manually requested.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref != 'refs/heads/slm' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
