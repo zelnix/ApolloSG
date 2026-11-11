@@ -13,10 +13,13 @@ import type { SLMAdapter, SLMRequest } from "./index.ts";
 
 /** Diagnostic codes are safe to show; never expose native exception text or evidence. */
 export class LocalInferenceError extends Error {
-  constructor(readonly stage: "model_load" | "generation" | "json_parse" | "preflight",
-              readonly code: string) {
+  readonly stage: "model_load" | "generation" | "json_parse" | "preflight";
+  readonly code: string;
+  constructor(stage: "model_load" | "generation" | "json_parse" | "preflight", code: string) {
     super(stage + ":" + code);
     this.name = "LocalInferenceError";
+    this.stage = stage;
+    this.code = code;
   }
 }
 
