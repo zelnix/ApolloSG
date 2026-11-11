@@ -204,8 +204,13 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
     if (!answer) return { status: "invalid_output", execution: "none", reason: "response_contract_failed:" + contractFailure(candidate, new Set(request.evidence.map(e => e.evidenceId)), request.operation) };
     recordSuccessfulSLMInference(adapter);
     return { status: "completed", execution: "on_device", modelId: adapter.modelId, answer };
-  } catch {
-    // Do not log private evidence or model responses.
-    return { status: "unavailable", execution: "none", reason: "on_device_inference_failed" };
+  } catch (error: unknown) {
+    // Only the explicit safe stage/code is returned. Never expose native messages,
+    // stack traces, filesystem paths, prompts or evidence in diagnostics.
+    const { LocalInferenceError } = await import("./llamaRnRuntime.ts");
+    const reason = error instanceof LocalInferenceError
+      ? `on_device_inference_failed:${error.stage}:${error.code}`
+      : "on_device_inference_failed:unknown:unclassified_exception";
+    return { status: "unavailable", execution: "none", reason };
   }
 }
