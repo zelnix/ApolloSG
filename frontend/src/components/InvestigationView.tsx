@@ -40,7 +40,7 @@ import { sourceKind } from "@/src/domain/caseSourceSummary";
 import { ServerCopyNote } from "@/src/components/ServerCopyNote";
 import { PhoneIdentityCard } from "@/src/components/PhoneIdentityCard";
 import { callNumberOf } from "@/src/domain/numberDetails";
-import { buildReport, plainReport, shownPlainEnglish, stepText } from "@/src/domain/reportSections";
+import { buildReport, plainReport, shownPlainEnglish, stepText, type Report } from "@/src/domain/reportSections";
 import { luddishReport, luddishText } from "@/src/domain/luddish";
 import { investigationHistory, investigatorName, scrubMessage } from "@/src/domain/messageVoice";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
