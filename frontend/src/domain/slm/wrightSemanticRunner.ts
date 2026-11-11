@@ -6,8 +6,8 @@ import { runSLM, type SLMAdapter } from "./index.ts";
 import { chunkWrightSources, type WrightSource, type WrightCoverage } from "./wrightEvidenceChunks.ts";
 import type { WrightSemanticResult } from "./wrightSemanticContract.ts";
 
-export type WrightSemanticRun =
-  | { status: "complete"; coverage: WrightCoverage; interpretations: { evidenceId: string; parentEvidenceId: string; start: number; end: number; result: WrightSemanticResult }[] }
+export interface WrightWindowSynthesis { status: "complete" | "conflicting"; classifications: string[]; contradictory: boolean; uncertainties: string[]; evidenceIds: string[] }\n\nexport type WrightSemanticRun =
+  | { status: "complete"; coverage: WrightCoverage; interpretations: { evidenceId: string; parentEvidenceId: string; start: number; end: number; result: WrightSemanticResult }[]; synthesis: WrightWindowSynthesis }
   | { status: "limited"; reason: string; coverage: WrightCoverage; examinedChunks: number };
 
 export async function runWrightSemanticSources(sources: readonly WrightSource[], adapter: SLMAdapter | null): Promise<WrightSemanticRun> {
@@ -36,5 +36,14 @@ export async function runWrightSemanticSources(sources: readonly WrightSource[],
     interpretations.push({ evidenceId: chunk.evidenceId, parentEvidenceId: chunk.parentEvidenceId,
       start: chunk.start, end: chunk.end, result: run.answer.wrightSemantic });
   }
-  return { status: "complete", coverage: inventory.coverage, interpretations };
+  const classifications = [...new Set(interpretations.map(i => i.result.classification))].sort();
+  const contradictory = classifications.includes("scam_indicators") && classifications.includes("legitimate_context");
+  const uncertainties = [...new Set(interpretations.map(i => i.result.uncertainty).filter((s): s is string => !!s))];
+  if (contradictory) uncertainties.push("Conflicting source-window interpretations require further investigation.");
+  const evidenceIds = [...new Set(interpretations.flatMap(i => i.result.supportingEvidenceIds))];
+  const synthesis: WrightWindowSynthesis = {
+    status: contradictory ? "conflicting" : "complete", classifications,
+    contradictory, uncertainties, evidenceIds,
+  };
+  return { status: "complete", coverage: inventory.coverage, interpretations, synthesis };
 }
