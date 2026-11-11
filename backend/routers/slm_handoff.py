@@ -166,6 +166,17 @@ async def request_advisory(case_id: str, body: AdvisoryStart, request: Request):
     return JSONResponse(issued, status_code=201, headers=NO_STORE)
 
 
+def _same_slm_submission(record: dict | None, model_id: str, expected: dict) -> bool:
+    """Compare a replay to the stored accepted payload, without re-accepting it."""
+    submission = (record or {}).get("submission") or {}
+    if submission.get("state") != "advisory_received" or submission.get("model_id") != model_id:
+        return False
+    try:
+        return repo.dec_json(submission["result_ciphertext"]) == expected
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 @router.post("/investigations/{case_id}/slm/results", status_code=202)
 async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Request):
     """Validate and accept advisory output, NEVER as evidence or a case verdict."""
@@ -191,19 +202,11 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
         accepted = accept_advisory_reasoning(original, body)
     except ValueError:
         raise http(422, "invalid_input", "Luddish reasoning failed case or evidence-reference checks.")
-    def same_submission(record: dict | None) -> bool:
-        submission = (record or {}).get("submission") or {}
-        if submission.get("state") != "advisory_received" or submission.get("model_id") != body.model_id:
-            return False
-        try:
-            return repo.dec_json(submission["result_ciphertext"]) == accepted.wire()
-        except (KeyError, TypeError, ValueError):
-            return False
 
     # A lost HTTP receipt can be replayed safely. Only the identical validated
     # result is acknowledged; conflicting retries remain rejected.
     if pending.get("submission"):
-        if same_submission(pending):
+        if _same_slm_submission(pending, body.model_id, accepted.wire()):
             return JSONResponse({"accepted": True, "advisoryOnly": True,
                                  "caseId": case_id, "requestId": body.request_id},
                                 status_code=202, headers=NO_STORE)
@@ -233,7 +236,7 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
             "kind": "slm_advisory", "epoch": case.get("epoch"),
             "expires_at": {"$gt": now_utc()},
         })
-        if not same_submission(latest):
+        if not _same_slm_submission(latest, body.model_id, accepted.wire()):
             raise http(409, "conflict", "The Luddish request was already answered or expired.")
     return JSONResponse({"accepted": True, "advisoryOnly": True, "caseId": case_id,
                          "requestId": body.request_id}, status_code=202, headers=NO_STORE)
