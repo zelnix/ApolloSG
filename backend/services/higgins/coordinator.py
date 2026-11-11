@@ -594,6 +594,13 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
             ])
     slm_finding = await _await_case_finding(owner, case, job, progress)
     if slm_finding:
+        # An independent investigation does not erase earlier unresolved
+        # concerns. Preserve the uncertainty in the final on-device Finding.
+        if decision == "escalate" and not slm_finding["caseFinding"].get("uncertainty"):
+            return Outcome("device_unavailable", errors=[
+                "The escalated case Finding omitted uncertainty after independent "
+                "investigation. No unqualified final verdict was authorised."
+            ])
         committed = await _commit_slm_finding(owner, case, job, payload, slm_finding, capability_ids)
         if committed is not None:
             return committed
