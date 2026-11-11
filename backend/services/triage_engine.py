@@ -1,4 +1,4 @@
-"""Higgins Triage — Tier 1 server-side entry point. ZERO Gemini calls, always.
+"""Wright Triage — Tier 1 server-side entry point. ZERO Gemini calls, always.
 
 Tier 1 (here): deterministic catalogue rules (services/triage) over normalised
     evidence plus specialist provider results. Outcome is one of
@@ -85,7 +85,7 @@ def compact_evidence_for_magnum_di(provider_evidence: dict) -> str:
     """Standalone version of TriageResult.compact_evidence_for_magnum_di.
     Produces a compact provenance-attributed summary from a raw provider_evidence dict.
     Used by manual Check pre-gathering where there is no TriageResult."""
-    lines = ["Pre-gathered specialist intelligence (Higgins Triage):"]
+    lines = ["Pre-gathered specialist intelligence (Wright Triage):"]
     pe = provider_evidence
 
     for domain, info in pe.get("rdap", {}).get("domains", {}).items():
