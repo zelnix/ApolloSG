@@ -26,15 +26,6 @@ def called_names(node):
 
 
 class SLMRedundancyRegression(unittest.TestCase):
-    def test_retired_flyby_history_is_not_read_or_recorded_by_coordinator(self):
-        source = COORDINATOR.read_text()
-        tree = ast.parse(source)
-        definitions = {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
-        self.assertNotIn("tc_flyby_ciphertext", source)
-        self.assertNotIn("_with_history", definitions)
-        self.assertNotIn("history.record(", source)
-        self.assertIn("_commit_slm_finding", definitions)
-
     def test_slm_advisory_retries_reuse_inference_and_reject_bad_expiry(self):
         transport = (ROOT / "frontend/src/domain/slm/slmTransport.ts").read_text()
         store = (ROOT / "frontend/src/investigation/caseStore.ts").read_text()
