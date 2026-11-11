@@ -142,3 +142,17 @@ test("oversized native input fails closed before model initialization, without t
   assert.equal(initialized, 0);
   await runtime.release();
 });
+
+test("native context preflight accounts for system instructions as well as evidence", async () => {
+  let invoked = 0;
+  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => {
+    invoked++;
+    return { completion: async () => ({ text: result }), release: async () => undefined };
+  }, 4096);
+  const response = await runSLM({
+    ...base, evidence: [{ evidenceId: "current", text: "X".repeat(3500) }],
+  }, runtime);
+  assert.equal(response.status, "unavailable");
+  assert.equal(invoked, 0);
+  await runtime.release();
+});
