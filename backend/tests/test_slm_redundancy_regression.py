@@ -40,7 +40,7 @@ class SLMRedundancyRegression(unittest.TestCase):
         )
 
     def test_hawkeye_unavailable_lookup_preserves_reason(self):
-        hawkeye = (ROOT / "backend/services/higgins/tc_flyby/__init__.py").read_text()
+        hawkeye = (ROOT / "backend/services/higgins/tc_hawkeye/__init__.py").read_text()
         self.assertIn('json.dumps(answer, ensure_ascii=False, default=str)', hawkeye)
         self.assertNotIn('Web search unavailable ({reason})', hawkeye)
 
@@ -53,7 +53,7 @@ class SLMRedundancyRegression(unittest.TestCase):
     def test_tc_hawkeye_service_entrypoint(self):
         coordinator = COORDINATOR.read_text()
         self.assertIn("from services.higgins import tc_hawkeye", coordinator)
-        facade = (ROOT / "backend/services/higgins/tc_hawkeye.py").read_text()
+        facade = (ROOT / "backend/services/higgins/tc_hawkeye/__init__.py").read_text()
         self.assertIn("HawkeyeOutcome", facade)
         self.assertIn("investigate", facade)
 
@@ -94,7 +94,7 @@ class SLMRedundancyRegression(unittest.TestCase):
         self.assertNotIn("append", calls)
         self.assertNotIn("extend", calls)
         self.assertNotIn("insert", calls)
-        hawkeye = (ROOT / "backend/services/higgins/tc_flyby/__init__.py").read_text()
+        hawkeye = (ROOT / "backend/services/higgins/tc_hawkeye/__init__.py").read_text()
         self.assertIn("prioritise_existing_checks(plan_.checks, triage_advice, hawkeye_advice)", hawkeye)
 
     def test_no_hawkeye_or_cloud_fallback_on_missing_slm_finding(self):
