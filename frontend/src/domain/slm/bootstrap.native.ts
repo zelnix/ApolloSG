@@ -195,10 +195,8 @@ export type SLMCompatibilityStage = "hardware" | "model_integrity" | "runtime_re
 export async function checkRequiredSLMCompatibility(
   onStage?: (stage: SLMCompatibilityStage) => void,
 ): Promise<{ compatible: boolean; reason: string }> {
-  const startedAt = Date.now();
   let stage: SLMCompatibilityStage = "hardware";
   const mark = (next: SLMCompatibilityStage) => {
-    console.info("[ApolloSG SLM compatibility]", stage, "elapsed_ms", Date.now() - startedAt);
     stage = next;
     onStage?.(next);
   };
@@ -221,8 +219,7 @@ export async function checkRequiredSLMCompatibility(
     await (getSharedSLM() as LocalLlamaRuntime).prepare();
     mark("complete");
     return { compatible: true, reason: "On-device AI compatibility verified." };
-  } catch (error) {
-    console.warn("[ApolloSG SLM compatibility] failure", stage, "elapsed_ms", Date.now() - startedAt, error);
+  } catch {
     mark("failed");
     return { compatible: false, reason: "The On-device AI failed during " + stage + "." };
   }
