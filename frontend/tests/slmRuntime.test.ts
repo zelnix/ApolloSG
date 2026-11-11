@@ -25,8 +25,8 @@ test("native adapter passes case evidence to the model but never calls a network
     return {
       completion: async ({ messages }) => {
         calls.push(messages[1].content);
-        assert.match(messages[0].content, /An evidenceIds entry must cite ONLY IDs supplied in the input/i);
-        assert.match(messages[0].content, /For case_finding include caseFinding/i);
+        assert.match(messages[0].content, /Use only supplied evidence IDs/i);
+        assert.match(messages[0].content, /Return one JSON object only/i);
         return { text: result };
       },
       release: async () => { released++; },
@@ -86,8 +86,8 @@ for (const decision of ["proceed_local", "escalate", "additional_evidence_requir
   test(`native escalation prompt and validation accept ${decision}`, async () => {
     const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local-test", async () => ({
       completion: async ({ messages }) => {
-        assert.match(messages[0].content, /For escalation_assessment include escalationAssessment/);
-        assert.match(messages[0].content, /for all other operations omit escalationAssessment/i);
+        assert.match(messages[0].content, /Also include "escalationAssessment"/);
+        assert.match(messages[0].content, /Do not include caseFinding/i);
         return { text: JSON.stringify({
           observations: [], contradictions: [], alternativeExplanations: [],
           verificationSuggestions: [], draftExplanation: null,
