@@ -69,20 +69,30 @@ async def _wait_for_slm(owner: str, case: dict, job: dict, role: str,
     import asyncio
     from datetime import datetime, timezone
 
-    expires_raw = issued.get("expiresAt")
-    if not isinstance(expires_raw, str):
-        return None
-    try:
-        expires = datetime.fromisoformat(expires_raw.replace("Z", "+00:00"))
-        if expires.tzinfo is None:
+    def parse_expiry(value):
+        if isinstance(value, datetime):
+            return value if value.tzinfo else None
+        if not isinstance(value, str):
             return None
-    except ValueError:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else None
+        except ValueError:
+            return None
+
+    request_expiry = parse_expiry(issued.get("expiresAt"))
+    case_expiry = parse_expiry(case.get("expires_at"))
+    job_expiry = parse_expiry(job.get("expires_at")) if job.get("expires_at") else None
+    if request_expiry is None or case_expiry is None:
         return None
+    expiry = min(item for item in (request_expiry, case_expiry, job_expiry) if item is not None)
     loop = asyncio.get_running_loop()
-    # Serial native requests may queue; 90s permits more than the old 15s
-    # while the server request expiry remains authoritative.
-    deadline = loop.time() + min(90.0, max(0.0, (expires - datetime.now(timezone.utc)).total_seconds()))
+    deadline = loop.time() + min(90.0, max(0.0, (expiry - datetime.now(timezone.utc)).total_seconds()))
     while True:
+        # Never accept a response after the deadline, even if it arrived
+        # between the previous poll and this iteration.
+        if loop.time() >= deadline:
+            return None
         advice = await slm_advisory.accepted_for_stage(owner, case, job, role)
         if advice and (required_field is None or advice.get(required_field)):
             return advice
