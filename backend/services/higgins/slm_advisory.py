@@ -87,3 +87,21 @@ def advisory_verification_questions(snapshot: dict | None) -> list[str]:
         item["text"] for item in snapshot.get("verificationSuggestions", [])
         if isinstance(item, dict) and isinstance(item.get("text"), str)
     ][:8]
+
+
+def prioritise_existing_checks(checks: list, *advice_snapshots: dict | None) -> None:
+    """Stable prioritisation only; never adds checks or treats SLM text as evidence."""
+    import re
+    suggestions = [
+        question for snapshot in advice_snapshots
+        for question in advisory_verification_questions(snapshot)
+    ]
+    if not suggestions:
+        return
+    terms = [set(re.findall(r"[a-z0-9]{4,}", question.casefold())) for question in suggestions]
+
+    def relevant(check) -> bool:
+        words = set(re.findall(r"[a-z0-9]{4,}", f"{check.subject} {check.question or ''}".casefold()))
+        return any(len(words & suggestion) >= 2 for suggestion in terms)
+
+    checks.sort(key=lambda check: not relevant(check))
