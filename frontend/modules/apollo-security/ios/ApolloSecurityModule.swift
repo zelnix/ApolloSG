@@ -1,4 +1,5 @@
 import CallKit
+import Contacts
 import ExpoModulesCore
 import LocalAuthentication
 import Network
@@ -242,6 +243,50 @@ public class ApolloSecurityModule: Module {
           "voicemailTranscript": "unsupported",
           "liveTranscript": "unsupported",
         ]))
+      }
+    }
+    // Call Gate only: explicit, foreground contact access; never a background address-book scan.
+    AsyncFunction("requestCallerContactsAccess") { (promise: Promise) in
+      let store = CNContactStore()
+      let status = CNContactStore.authorizationStatus(for: .contacts)
+      if status == .authorized {
+        promise.resolve(self.json(["granted": true]))
+      } else if status == .notDetermined {
+        store.requestAccess(for: .contacts) { granted, _ in
+          promise.resolve(self.json(["granted": granted]))
+        }
+      } else {
+        promise.resolve(self.json(["granted": false]))
+      }
+    }
+    AsyncFunction("lookupCallerContact") { (number: String) -> String in
+      guard CNContactStore.authorizationStatus(for: .contacts) == .authorized else {
+        return self.json(["status": "permission_required"])
+      }
+      guard number.count >= 3 && number.count <= 32 && number.contains(where: { $0.isNumber }) else {
+        return self.json(["status": "invalid"])
+      }
+      let store = CNContactStore()
+      let keys: [CNKeyDescriptor] = [CNContactGivenNameKey as CNKeyDescriptor, CNContactFamilyNameKey as CNKeyDescriptor, CNContactPhoneNumbersKey as CNKeyDescriptor, CNContactThumbnailImageDataKey as CNKeyDescriptor]
+      do {
+        // Exact canonical digit match, with a conservative local-suffix fallback for country codes.
+        // A suffix match is a saved-address-book association, not caller authentication.
+        let target = number.filter { $0.isNumber }
+        let contacts = try store.unifiedContacts(matching: CNContact.predicateForContacts(matching: CNPhoneNumber(stringValue: number)), keysToFetch: keys)
+        guard let contact = contacts.first(where: { contact in
+          contact.phoneNumbers.contains(where: { entry in
+            let candidate = entry.value.stringValue.filter { $0.isNumber }
+            return candidate == target || (candidate.count >= 9 && target.count >= 9 && candidate.suffix(9) == target.suffix(9))
+          })
+        }) else { return self.json(["status": "not_found"]) }
+        let name = CNContactFormatter.string(from: contact, style: .fullName) ?? ""
+        var result: [String: Any] = ["status": "matched", "name": name]
+        if let photo = contact.thumbnailImageData, photo.count <= 262144 {
+          result["photoUri"] = "data:image/jpeg;base64," + photo.base64EncodedString()
+        }
+        return self.json(result)
+      } catch {
+        return self.json(["status": "error"])
       }
     }
     AsyncFunction("getCallDirectoryStatus") { (promise: Promise) in
