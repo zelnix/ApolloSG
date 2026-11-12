@@ -102,7 +102,7 @@ export function ScreenedCallsList({ onSelect, actionLabel = "Check", disabled = 
           {calls.length > COLLAPSED ? (
             <Pressable testID={`${testID}-toggle`} accessibilityRole="button" onPress={() => setExpanded((v) => !v)} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4, minHeight: 44, paddingHorizontal: spacing.sm }}>
               <Text style={s.outcome}>{expanded ? "Show fewer" : `Show all ${calls.length}`}</Text>
-              {expanded ? <ChevronUp size={16} color={colors.muted} /> : <ChevronDown size={16} color={colors.muted} />}
+              {expanded ? <ChevronUp size={16} color={s.when.color} /> : <ChevronDown size={16} color={s.when.color} />}
             </Pressable>
           ) : <View />}
           <Button testID={`${testID}-clear`} variant="ghost" label="Clear this list" onPress={() => void ScreenedCalls.clear().then(load)} />
