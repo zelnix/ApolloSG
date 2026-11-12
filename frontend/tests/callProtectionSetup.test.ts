@@ -39,3 +39,19 @@ test("setup does not create verified enforcement evidence", () => {
   assert.doesNotMatch(card + hook, /verifiedCallBlock|THREAT_BLOCKED|blockEvent\(/);
   assert.match(card, /Check status again/);
 });
+
+test("recent caller-first list only uses native observed screening history", () => {
+  const list = read("src/components/ScreenedCallsList.tsx");
+  assert.match(list, /Recent callers/);
+  assert.match(list, /ScreenedCalls\.list\(\)/);
+  assert.match(list, /this is not your phone/);
+  assert.doesNotMatch(list, /PhonePickers|listRecentCalls|READ_CALL_LOG/);
+});
+
+test("caller details reuse existing phone identity component, not an invented logo source", () => {
+  const page = read("app/call-guard.tsx");
+  const card = read("src/components/PhoneIdentityCard.tsx");
+  assert.match(page, /<PhoneIdentityCard number=\{result\.number\}/);
+  assert.match(card, /identifyNumber\(number, country\)/);
+  assert.doesNotMatch(card, /logo\.clearbit|google\.com\/s2\/favicons/);
+});
