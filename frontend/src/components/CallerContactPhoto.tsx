@@ -1,9 +1,9 @@
 // Android only. Contacts are read only after a deliberate opt-in; no contact data is sent to Apollo servers.
 // A saved contact is an address-book match, NOT proof that the incoming caller is that person.
 import React, { useCallback, useState } from "react";
-import { AppState, Image, Platform, Pressable, Text, View } from "react-native";
+import { Image, Platform, Pressable, Text, View } from "react-native";
 import { getNativeModule } from "@/src/security/nativeBridge";
-import { fonts, makeStyles, radius, spacing } from "@/src/theme";
+import { fonts, makeStyles, spacing } from "@/src/theme";
 
 const useStyles = makeStyles((c) => ({
   wrapper: { gap: spacing.xs },
