@@ -57,7 +57,7 @@ export interface PhoneIdentityResult {
     number_published_by_business: boolean;
     caller_authenticated: false;
     spoofing_possible: boolean;
-    special_service_number: boolean;
+    special_service_number: boolean;\n    identity_mismatch?: boolean;
   } | null;
 
   /** Progressive prefix intelligence: geographic → number_block → caller */
