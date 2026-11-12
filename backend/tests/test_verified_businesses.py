@@ -48,3 +48,15 @@ def test_special_service_numbers_do_not_prove_caller_identity():
     assert result.number_published_by_business
     assert not result.caller_authenticated
     assert result.spoofing_possible
+
+
+def test_logo_rejected_for_different_calling_number():
+    business = record()
+    assert approved_logo_for_number(business, "1300 987 654") is None
+
+
+def test_logo_is_display_only_even_for_matching_number():
+    presentation = business_caller_presentation(record(), "1300 123 456")
+    assert presentation.logo_url is not None
+    assert presentation.caller_authenticated is False
+    assert presentation.spoofing_possible is True
