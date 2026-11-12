@@ -79,6 +79,7 @@ class PhoneIdentityResult(BaseModel):
     evidence: list[IdentityEvidence] = Field(default_factory=list)
     scam_intel: Optional[str] = None
     known_impersonation: bool = False
+    verified_business: Optional[dict] = None  # Curated registry association; never caller authentication
 
     # Progressive prefix intelligence (3 tiers: geographic → number_block → caller)
     prefix_intelligence: list[PrefixIntelligenceTier] = Field(default_factory=list)
@@ -883,7 +884,7 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
         lookup_status=lookup_status,
     )
 
-    # Step 10: Cache the result
+    # Curated registry enrichment is presentation-only, never a new identity confidence claim.\n    try:\n        from services.verified_businesses import find_approved_business\n        approved = await find_approved_business(e164)\n        if approved and approved.business_name and (not entity or approved.business_name.casefold() == entity.casefold()):\n            result.verified_business = approved.model_dump()\n    except Exception:\n        log.warning("verified_business registry lookup unavailable", exc_info=False)\n\n    # Step 10: Cache the result
     await db.phone_identity.update_one(
         {"cache_id": cache_id},
         {"$set": {
