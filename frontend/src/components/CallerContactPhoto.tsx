@@ -1,4 +1,4 @@
-// Android only. Contacts are read only after a deliberate opt-in; no contact data is sent to Apollo servers.
+// Android and iOS. Contacts are read only after a deliberate opt-in; no contact data is sent to Apollo servers.
 // A saved contact is an address-book match, NOT proof that the incoming caller is that person.
 import React, { useCallback, useState } from "react";
 import { Image, Platform, Pressable, Text, View } from "react-native";
@@ -37,13 +37,13 @@ export function CallerContactPhoto({ number }: { number: string }) {
     setBusy(false);
   }, [number]);
   // React state is deliberately session-only. No stored consent or automatic background contact reads.
-  if (Platform.OS !== "android" || !getNativeModule()?.lookupCallerContact) return null;
+  if ((Platform.OS !== "android" && Platform.OS !== "ios") || !getNativeModule()?.lookupCallerContact) return null;
   const request = async () => {
     setConsented(true);
     const native = getNativeModule();
-    if (!native?.requestRuntimePermission) return;
+    if (!native) return;
     try {
-      const raw = await native.requestRuntimePermission("contacts");
+      const raw = Platform.OS === "ios"\n        ? await native.requestCallerContactsAccess?.()\n        : await native.requestRuntimePermission?.("contacts");\n      if (!raw) { setMatch({ status: "unavailable" }); return; }
       const result = JSON.parse(raw) as { granted?: boolean };
       if (result.granted) await lookup();
       else setMatch({ status: "permission_required" });
