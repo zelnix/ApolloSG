@@ -244,6 +244,22 @@ public class ApolloSecurityModule: Module {
         ]))
       }
     }
+    AsyncFunction("getCallDirectoryStatus") { (promise: Promise) in
+      CXCallDirectoryManager.sharedInstance().getEnabledStatusForExtension(withIdentifier: self.callDirectoryId) { status, error in
+        if let error = error {
+          promise.resolve(self.json(["status": "error", "enabled": false, "extensionAvailable": false, "detail": error.localizedDescription]))
+          return
+        }
+        switch status {
+        case .enabled:
+          promise.resolve(self.json(["status": "ok", "enabled": true, "extensionAvailable": true]))
+        case .disabled:
+          promise.resolve(self.json(["status": "ok", "enabled": false, "extensionAvailable": true]))
+        default:
+          promise.resolve(self.json(["status": "error", "enabled": false, "extensionAvailable": false, "detail": "Call Directory state is unknown."]))
+        }
+      }
+    }
     AsyncFunction("requestCallScreeningRole") { () -> String in
       // Apple has no API to deep-link directly to Phone › Call Blocking & Identification — only to
       // the app's own Settings page. The in-app copy tells the person exactly where to go from there.
