@@ -437,7 +437,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         <View style={s.compactBody}>
           <Text style={s.compactLabel}>Who Called</Text>
           <Text style={s.compactEntity} numberOfLines={1} testID={testID ? `${testID}-entity` : undefined}>
-            {associated_entity ?? "Unknown caller"}
+            {associated_entity ?? result.verified_business?.business_name ?? "Unknown caller"}
           </Text>
         </View>
         <View style={[s.chipSmall, { backgroundColor: badgeColors.tint }]}>
@@ -447,7 +447,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         <Chevron size={16} color={colors.muted} />
       </Pressable>
 
-      {result.verified_business?.identity_mismatch ? (\n        <View style={s.spoofing} testID={testID ? `${testID}-business-mismatch` : undefined}>\n          <TriangleAlert size={14} color={colors.growlingText} />\n          <Text style={s.spoofingText}>Caller identity warning: this number is listed for {result.verified_business.business_name}, but other identity information names {associated_entity}. The business logo has been withheld. Do not rely on caller ID alone.</Text>\n        </View>\n      ) : null}\n      {/* ─ Expanded detail: only when tapped ─ */}
+      {result.verified_business?.logo_url && !result.verified_business.identity_mismatch ? (\n        <Text style={s.description}>Business logo represents a published-number association only. The incoming caller is not authenticated.</Text>\n      ) : null}\n      {result.verified_business?.identity_mismatch ? (\n        <View style={s.spoofing} testID={testID ? `${testID}-business-mismatch` : undefined}>\n          <TriangleAlert size={14} color={colors.growlingText} />\n          <Text style={s.spoofingText}>Caller identity warning: this number is listed for {result.verified_business.business_name}, but other identity information names {associated_entity}. The business logo has been withheld. Do not rely on caller ID alone.</Text>\n        </View>\n      ) : null}\n      {/* ─ Expanded detail: only when tapped ─ */}
       {expanded ? (
         <View style={s.expandedBody}>
           {/* Higgins says */}
