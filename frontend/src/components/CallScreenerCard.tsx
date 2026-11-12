@@ -1,13 +1,5 @@
-// "Is Apollo this device's call screener?" — asked and answered honestly, in the
-// one place a person goes when they care about calls.
-//
-// Being the default screener is what makes automatic call protection possible at
-// all: Android hands every incoming call to the app holding the role, before it
-// rings. Until this session the role was only ever offered once, during setup, so
-// anyone who skipped it had no way back. It now lives here too.
-//
-// On iPhone there is nothing to offer. Apple provides no call-screening role to
-// any app, so this says so rather than implying Apollo could have it.
+// Existing Call Gate surface for native incoming-call protection setup.
+// Role or extension enabled does not prove an individual call was blocked.
 
 import PhoneIncoming from "lucide-react-native/icons/phone-incoming";
 import React from "react";
