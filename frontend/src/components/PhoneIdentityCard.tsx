@@ -488,6 +488,19 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
       ) : observedCall?.numberVerification === "passed" ? (
         <Text style={s.description}>Android verified the calling number for a call observed on {new Date(observedCall.at).toLocaleString()}. This does not authenticate the business or any later call.</Text>
       ) : null}
+      {result.verified_business?.official_contact_url?.startsWith("https://") ? (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Open reviewed official business contact page"
+          onPress={() => { void Linking.openURL(result.verified_business!.official_contact_url!); }}
+          style={s.whatToDo}
+        >
+          <Text style={s.whatToDoText}>Verify independently on the business website</Text>
+          <Text style={s.description}>Open the reviewed official contact page and use the number published there. Do not trust the incoming caller ID as a callback number.</Text>
+        </Pressable>
+      ) : result.verified_business?.business_name ? (
+        <Text style={s.description}>No independently reviewed callback destination is available. Find the business's official contact details yourself; do not call back using caller ID alone.</Text>
+      ) : null}
       {/* ─ Expanded detail: only when tapped ─ */}
       {expanded ? (
         <View style={s.expandedBody}>
