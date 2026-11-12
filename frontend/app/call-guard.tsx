@@ -398,13 +398,14 @@ export default function CheckNumber() {
         ) : null}
 
         {/* Every incoming number Android handed to Apollo's call screening — tap one to check it. */}
+        <CallScreenerCard testID="callguard-screener" />
         <ScreenedCallsList testID="callguard-screened" onSelect={(n) => void runInvestigation(n)} disabled={busy} />
         {canPickCallLog ? <Button testID="callguard-pick-caller" variant="secondary" label="Choose from your call log" onPress={() => setCallerPickerOpen(true)} /> : null}
         {simulation.included ? <Button testID="callguard-sample-caller" variant="ghost" label="Try a sample caller (preview)" onPress={() => setCallSourcePicker(true)} /> : null}
 
         {/* Checking a number is the deliberate act; screening every incoming call is the
             standing protection. This is where a person comes to turn that on. */}
-        <CallScreenerCard testID="callguard-screener" />
+
       </KeyboardAwareScrollView>
 
       {canPickCallLog ? <PhonePickerSheet visible={callerPickerOpen} mode="calls" onClose={() => setCallerPickerOpen(false)} onPickCall={(c) => { setNumber(c.number); setCallerPickerOpen(false); }} /> : null}
