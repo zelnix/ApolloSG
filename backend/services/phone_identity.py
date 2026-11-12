@@ -751,6 +751,17 @@ async def _refresh_business_presentation(result: PhoneIdentityResult, e164: str)
                 result.verified_business["identity_mismatch"] = True
     except Exception:
         log.warning("verified_business registry lookup unavailable", exc_info=False)
+    from services.call_spoof_signals import assess_spoof_signals
+    association = result.verified_business or {}
+    assessment = assess_spoof_signals(
+        calling_number=e164,
+        number_valid=result.valid,
+        business_number_associated=bool(association.get("number_published_by_business")),
+        business_identity_conflict=bool(association.get("identity_mismatch")),
+    )
+    result.spoof_assessment = assessment.model_dump()
+    if assessment.suppress_business_logo and result.verified_business:
+        result.verified_business["logo_url"] = None
 
 
 # ── Main resolution pipeline ──────────────────────────────────────────────────
