@@ -84,6 +84,7 @@ export function ScreenedCallsList({ onSelect, actionLabel = "Check", disabled = 
             <View style={s.info}>
               <Text style={s.number}>{call.number}</Text>
               <Text style={s.outcome}>{screenedOutcomeLabel(call)}</Text>
+              <Text style={s.when}>Caller identity not confirmed</Text>
               {call.repeat ? <Text style={s.outcome} testID={`${testID}-row-${i}-repeat`}>{repeatAlertLine(call)}</Text> : null}
               <Text style={s.when}>{day} · {time}</Text>
             </View>
