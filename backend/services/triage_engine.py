@@ -530,7 +530,7 @@ async def gather_provider_evidence(evidence: dict) -> dict:
         if rdap_results:
             pe["rdap"] = {"domains": rdap_results}
 
-    # ── 2. Redirect expansion + Safe Browsing on final destinations ──
+    # ── 2. Redirect expansion + Google Web Risk on final destinations ──
     if link_urls:
         redirect_results = {}
         sb_results = {}
@@ -551,7 +551,7 @@ async def gather_provider_evidence(evidence: dict) -> dict:
                         "queried_at": ts,
                     }
                     providers_used.append("redirect_expansion")
-                    # Check final destination against Safe Browsing
+                    # Check final destination against Google Web Risk
                     try:
                         final_result = await asyncio.wait_for(
                             run_intel_check("url", chain[-1]), timeout=6.0
