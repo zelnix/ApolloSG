@@ -7,10 +7,12 @@ export type ScreenedOutcome = "rang" | "allowed_by_you" | "rejection_requested_b
 /** A Repeat Caller Alert the screening service raised for this call, and whether Android showed it. */
 export type RepeatReason = "block_list" | "high_risk" | "worth_checking";
 export interface RepeatAlert { reason: RepeatReason; shown: boolean; title: string; body: string }
-export type NumberVerification = "passed" | "failed" | "not_verified" | "unavailable";\nexport interface ScreenedCall { number: string; at: number; outcome: ScreenedOutcome; numberVerification: NumberVerification; repeat?: RepeatAlert }
+export type NumberVerification = "passed" | "failed" | "not_verified" | "unavailable";
+export interface ScreenedCall { number: string; at: number; outcome: ScreenedOutcome; numberVerification: NumberVerification; repeat?: RepeatAlert }
 
 const OUTCOMES: ReadonlySet<string> = new Set(["rang", "allowed_by_you", "rejection_requested_block", "rejection_requested_risky"]);
-const VERIFICATIONS: ReadonlySet<string> = new Set(["passed", "failed", "not_verified", "unavailable"]);\nconst REPEAT_REASONS: ReadonlySet<string> = new Set(["block_list", "high_risk", "worth_checking"]);
+const VERIFICATIONS: ReadonlySet<string> = new Set(["passed", "failed", "not_verified", "unavailable"]);
+const REPEAT_REASONS: ReadonlySet<string> = new Set(["block_list", "high_risk", "worth_checking"]);
 
 /** What Apollo did when Android handed it the call. Rejections are requests — Android gives no receipt. */
 export const SCREENED_OUTCOME_LABEL: Record<ScreenedOutcome, string> = {
