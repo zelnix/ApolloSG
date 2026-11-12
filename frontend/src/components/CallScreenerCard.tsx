@@ -18,7 +18,9 @@ import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { Body, Button, Pill, type Tone } from "./ui";
 
 const TONE: Record<string, Tone> = {
-  held: "resting",
+  held: "neutral",
+  ios_enabled: "neutral",
+  ios_unavailable: "unknown",
   available: "growling",
   unsupported: "unknown",
   ios: "unknown",
@@ -42,16 +44,16 @@ export function CallScreenerCard({ testID = "call-screener-card" }: { testID?: s
     <View style={s.card} testID={testID}>
       <View style={s.head}>
         <View style={s.well}><PhoneIncoming size={22} color={colors.brand} /></View>
-        <Text style={s.title}>Automatic call screening</Text>
+        <Text style={s.title}>Incoming Call Protection</Text>
       </View>
       <Pill tone={TONE[screener.state]} label={screener.summary} testID={`${testID}-status`} />
       <Body testID={`${testID}-detail`}>{screener.detail}</Body>
       {screener.canRequest ? (
         <>
-          <Body>Apollo can only check a call as it arrives if your device makes ApolloSG the screener. You choose this in Android&apos;s own settings, and you can change it back at any time.</Body>
+          <Body>{screener.state === "ios" ? "Enable ApolloSG under Call Blocking & Identification in iPhone Settings." : "Choose ApolloSG as your Caller ID & spam app in Android Settings."}</Body>
           <Button
             testID={`${testID}-request`}
-            label={screener.requesting ? "Opening…" : "Make ApolloSG my call screener"}
+            label={screener.requesting ? "Opening…" : screener.state === "ios" ? "Open iPhone Settings" : "Enable protection"}
             onPress={() => void screener.request()}
             disabled={screener.requesting}
           />
