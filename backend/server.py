@@ -338,11 +338,11 @@ async def lifespan(_: FastAPI):
     learn_publish_task.cancel()
     maintenance_task.cancel()
     quiet_hold_task.cancel()
-    loop_task.cancel()
+    business_registry_task.cancel()\n    loop_task.cancel()
     mailbox_task.cancel()
     government_alert_task.cancel()
     family_assist_task.cancel()
-    await asyncio.gather(screens_task, threat_feeds_task, apollo_kb_task, learn_publish_task, maintenance_task, quiet_hold_task, loop_task, mailbox_task, government_alert_task, family_assist_task, return_exceptions=True)
+    await asyncio.gather(business_registry_task, screens_task, threat_feeds_task, apollo_kb_task, learn_publish_task, maintenance_task, quiet_hold_task, loop_task, mailbox_task, government_alert_task, family_assist_task, return_exceptions=True)
     client.close()
 
 
