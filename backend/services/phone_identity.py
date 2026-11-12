@@ -79,7 +79,7 @@ class PhoneIdentityResult(BaseModel):
     evidence: list[IdentityEvidence] = Field(default_factory=list)
     scam_intel: Optional[str] = None
     known_impersonation: bool = False
-    verified_business: Optional[dict] = None  # Curated registry association; never caller authentication
+    verified_business: Optional[dict] = None  # Curated registry association; never caller authentication\n    spoof_assessment: Optional[dict] = None
 
     # Progressive prefix intelligence (3 tiers: geographic → number_block → caller)
     prefix_intelligence: list[PrefixIntelligenceTier] = Field(default_factory=list)
