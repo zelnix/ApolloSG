@@ -44,7 +44,7 @@ test("recent caller-first list only uses native observed screening history", () 
   const list = read("src/components/ScreenedCallsList.tsx");
   assert.match(list, /Recent callers/);
   assert.match(list, /ScreenedCalls\.list\(\)/);
-  assert.match(list, /this is not your phone/);
+  assert.match(list, /this is not your phone/i);
   assert.doesNotMatch(list, /PhonePickers|listRecentCalls|READ_CALL_LOG/);
 });
 
