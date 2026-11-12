@@ -87,6 +87,7 @@ export function useCallScreener(): CallScreener {
           ? "Open iPhone Settings and enable ApolloSG under Call Blocking & Identification."
           : "Android did not open the call-screening role request. Check Default apps in Settings.");
       }
+      // The native role request can complete after the app becomes active; always re-read.
       await refresh();
     } catch {
       setDetail("The protection setup could not be opened. Check your phone's settings and try again.");
