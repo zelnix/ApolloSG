@@ -8,7 +8,7 @@ adapters; this module deliberately does not guess endpoints or fabricate provide
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
@@ -50,7 +50,7 @@ def is_au_13_1300_1800(number: str) -> bool:
 
 def approved_logo_for_number(business: VerifiedBusiness, number: str) -> Optional[str]:
     """Never expose a logo merely because a company exists or a provider returned artwork."""
-    if not (business.abn_registration_confirmed and business.logo_domain_confirmed):
+    reviewed = business.last_reviewed_at\n    if reviewed.tzinfo is None:\n        reviewed = reviewed.replace(tzinfo=timezone.utc)\n    if datetime.now(timezone.utc) - reviewed > timedelta(days=7):\n        return None  # fail closed when weekly evidence refresh has not succeeded\n    if not (business.abn_registration_confirmed and business.logo_domain_confirmed):
         return None
     source_types = {(s.provider, s.supports) for s in business.sources}
     if ("abn_lookup", "registration") not in source_types:
