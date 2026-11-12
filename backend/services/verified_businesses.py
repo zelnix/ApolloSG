@@ -72,7 +72,7 @@ class BusinessCallerPresentation(BaseModel):
     number_published_by_business: bool = False
     caller_authenticated: bool = False
     spoofing_possible: bool = True
-    special_service_number: bool = False
+    special_service_number: bool = False\n    identity_mismatch: bool = False
 
 
 def business_caller_presentation(business: VerifiedBusiness, number: str) -> BusinessCallerPresentation:
