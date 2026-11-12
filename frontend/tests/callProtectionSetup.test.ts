@@ -55,3 +55,10 @@ test("caller details reuse existing phone identity component, not an invented lo
   assert.match(card, /identifyNumber\(number, country\)/);
   assert.doesNotMatch(card, /logo\.clearbit|google\.com\/s2\/favicons/);
 });
+
+test("iOS enabled status does not claim Call Directory lists were loaded", () => {
+  const hook = read("src/hooks/useCallScreener.ts");
+  assert.match(hook, /Enabled — list status unverified/);
+  assert.match(hook, /has not verified that its latest blocking or identification list loaded/);
+  assert.doesNotMatch(hook, /Enabled — extension confirmed/);
+});
