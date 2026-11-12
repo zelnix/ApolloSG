@@ -81,7 +81,14 @@ export function ScreenedCallsList({ onSelect, actionLabel = "Check", disabled = 
             <View style={s.info}>
               <Text style={s.number}>{call.number}</Text>
               <Text style={s.outcome}>{screenedOutcomeLabel(call)}</Text>
-              <Text style={s.when}>Caller identity not confirmed</Text>\n              {call.numberVerification === "failed" ? (\n                <Text style={s.outcome} testID={`${testID}-row-${i}-attestation`}>Carrier number verification failed — possible caller ID spoofing. Verify independently.</Text>\n              ) : call.numberVerification === "passed" ? (\n                <Text style={s.when} testID={`${testID}-row-${i}-attestation`}>Carrier verified calling number — business identity not verified</Text>\n              ) : call.numberVerification === "not_verified" ? (\n                <Text style={s.when}>Carrier did not verify this calling number</Text>\n              ) : null}
+              <Text style={s.when}>Caller identity not confirmed</Text>
+              {call.numberVerification === "failed" ? (
+                <Text style={s.outcome} testID={`${testID}-row-${i}-attestation`}>Carrier number verification failed — possible caller ID spoofing. Verify independently.</Text>
+              ) : call.numberVerification === "passed" ? (
+                <Text style={s.when} testID={`${testID}-row-${i}-attestation`}>Carrier verified calling number — business identity not verified</Text>
+              ) : call.numberVerification === "not_verified" ? (
+                <Text style={s.when}>Carrier did not verify this calling number</Text>
+              ) : null}
               <CallerContactPhoto key={call.number} number={call.number} />
               {call.repeat ? <Text style={s.outcome} testID={`${testID}-row-${i}-repeat`}>{repeatAlertLine(call)}</Text> : null}
               <Text style={s.when}>{day} · {time}</Text>
