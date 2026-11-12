@@ -27,6 +27,7 @@ import {
 
 import { identifyNumber, type PhoneIdentityResult } from "@/src/api/phoneIdentity";
 import { CallerIdentityAvatar } from "@/src/components/CallerIdentityAvatar";
+import { callerAvatarForIdentity } from "@/src/domain/callerAvatar";
 import { explainIdentity, TIER_LABELS, type IdentityExplanation, type TierExplanation } from "@/src/domain/phoneIdentityExplanation";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
@@ -431,7 +432,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         accessibilityRole="button"
         accessibilityLabel={expanded ? "Collapse Who Called details" : "Expand Who Called details"}
       >
-        <CallerIdentityAvatar kind={associated_entity ? "business_association" : "unknown"} />
+        <CallerIdentityAvatar kind={callerAvatarForIdentity(result)} />
         <View style={s.compactBody}>
           <Text style={s.compactLabel}>Who Called</Text>
           <Text style={s.compactEntity} numberOfLines={1} testID={testID ? `${testID}-entity` : undefined}>
