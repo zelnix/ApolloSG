@@ -30,6 +30,7 @@ test("existing Call Gate uses one setup card and one screened-call list", () => 
   assert.equal((page.match(/<CallScreenerCard\b/g) ?? []).length, 1);
   assert.equal((page.match(/<ScreenedCallsList\b/g) ?? []).length, 1);
   assert.ok(page.indexOf("<CallScreenerCard") < page.indexOf("<ScreenedCallsList"));
+  assert.ok(page.indexOf("<ScreenedCallsList") < page.indexOf('testID="callguard-search-section"'));
 });
 
 test("setup does not create verified enforcement evidence", () => {
