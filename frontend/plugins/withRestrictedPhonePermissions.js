@@ -18,8 +18,6 @@
 // Anything else fails the config load: an unknown value, or a value without the approval reference.
 // eas.json pins the production profile to "off" so a stray shell variable cannot leak into a Play build.
 
-const { AndroidConfig } = require("@expo/config-plugins");
-
 const SWITCH = "APOLLO_ANDROID_RESTRICTED_PERMISSIONS";
 const APPROVAL = "APOLLO_ANDROID_RESTRICTED_PERMISSIONS_APPROVAL";
 const PERMISSIONS = {
@@ -44,6 +42,9 @@ function resolveRestrictedPhonePermissions(env = process.env) {
 }
 
 function withRestrictedPhonePermissions(config) {
+  // EAS runs the security pre-install hook before dependencies exist. Resolve the
+  // Expo plugin only when Expo actually applies this native configuration plugin.
+  const { AndroidConfig } = require("@expo/config-plugins");
   const flags = resolveRestrictedPhonePermissions();
   const declared = [flags.callLog && PERMISSIONS.READ_CALL_LOG, flags.sms && PERMISSIONS.READ_SMS].filter(Boolean);
   const blocked = Object.values(PERMISSIONS).filter((permission) => !declared.includes(permission));
