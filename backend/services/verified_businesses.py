@@ -45,8 +45,6 @@ def _digits(number: str) -> str:
 def is_au_13_1300_1800(number: str) -> bool:
     """AU special-service number classification only; NOT a spoofing determination."""
     digits = _digits(number)
-    if digits.startswith("61"):
-        digits = "0" + digits[2:]
     return bool(re.fullmatch(r"13\d{4}|1300\d{6}|1800\d{6}", digits))
 
 
