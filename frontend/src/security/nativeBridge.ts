@@ -83,6 +83,8 @@ export interface ApolloSecurityNativeModule {
   getCallDirectoryStatus?(): Promise<string>;
   /** Optional Android-only, permission-gated on-device contact photo lookup. */
   lookupCallerContact?(number: string): Promise<string>;
+  /** iOS: system Contacts prompt, shown only following user action. */
+  requestCallerContactsAccess?(): Promise<string>;
   /** Numbers seen ringing with no local block/allow/risk signal, queued for a background reputation
    * lookup (mailbox semantics — draining clears the queue). Always [] on iOS: CXCallDirectoryProvider
    * gets no per-call callback at all, unlike Android's CallScreeningService. */
