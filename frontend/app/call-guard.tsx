@@ -315,8 +315,8 @@ export default function CheckNumber() {
       {/* ── Header ── */}
       <View style={[s.header, { paddingTop: insets.top + spacing.md }]}>
         <CheckToolHeader
-          title="Check a number"
-          info={{ title: "About number checking", body: [
+          title="Call Gate"
+          info={{ title: "About Call Gate", body: [
             "Apollo investigates phone numbers using reputation data, fraud databases, line-type intelligence and Higgins analysis.",
             "This works without answering the call — check before you call back.",
             "Reputation data indicates risk but cannot authenticate who is actually calling. Caller ID can be spoofed.",
@@ -333,6 +333,13 @@ export default function CheckNumber() {
         contentContainerStyle={[s.scrollContent, { paddingTop: spacing.md, paddingBottom: insets.bottom + 100 }]}
         bottomOffset={24}
       >
+        <CallScreenerCard testID="callguard-screener" />
+        <ScreenedCallsList testID="callguard-screened" onSelect={(n) => void runInvestigation(n)} disabled={busy} />
+        <View testID="callguard-search-section" style={{ gap: spacing.sm }}>
+          <Text style={s.phoneCardLabel}>Search a phone number</Text>
+          <Text style={s.description}>Check a caller before returning a call. Number reputation cannot verify who is actually calling.</Text>
+        </View>
+
         {/* ── The carrier warned them about a call (Telstra Scam Protect) ── */}
         {carrierWarning ? (
           <View style={s.warnCard} testID="callguard-carrier-warning">
@@ -398,8 +405,7 @@ export default function CheckNumber() {
         ) : null}
 
         {/* Every incoming number Android handed to Apollo's call screening — tap one to check it. */}
-        <CallScreenerCard testID="callguard-screener" />
-        <ScreenedCallsList testID="callguard-screened" onSelect={(n) => void runInvestigation(n)} disabled={busy} />
+
         {canPickCallLog ? <Button testID="callguard-pick-caller" variant="secondary" label="Choose from your call log" onPress={() => setCallerPickerOpen(true)} /> : null}
         {simulation.included ? <Button testID="callguard-sample-caller" variant="ghost" label="Try a sample caller (preview)" onPress={() => setCallSourcePicker(true)} /> : null}
 
