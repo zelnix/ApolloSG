@@ -5,7 +5,6 @@ All calls fail closed and expose no credentials in errors. Paid Twilio fields ar
 """
 from __future__ import annotations
 
-import base64
 import os
 import re
 from typing import Any
@@ -82,7 +81,7 @@ async def fetch_abn_lookup(abn: str, *, client: httpx.AsyncClient | None = None)
             response = await http.get("https://abr.business.gov.au/json/AbnDetails.aspx",
                 params={"abn": abn, "guid": guid, "callback": "apolloCallback"}, timeout=8)
             response.raise_for_status()
-            body = response.text.strip()
+            body = response.text.strip().removesuffix(";").strip()
             prefix = "apolloCallback("
             if not body.startswith(prefix) or not body.endswith(")"):
                 raise ValueError("Unexpected ABR JSONP response")
