@@ -3,15 +3,14 @@
 // (Check with Apollo on Call Guard; "use this number" elsewhere). Renders nothing where unsupported.
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronUp from "lucide-react-native/icons/chevron-up";
-import CircleHelp from "lucide-react-native/icons/circle-help";
-import ShieldX from "lucide-react-native/icons/shield-x";
 import React, { useCallback, useEffect, useState } from "react";
 import { AppState, Pressable, Text, View } from "react-native";
 
 import { Body, Button } from "@/src/components/ui";
+import { CallerIdentityAvatar } from "@/src/components/CallerIdentityAvatar";
 import { isRejectionRequest, repeatAlertLine, screenedOutcomeLabel, screenedWhen, type ScreenedCall } from "@/src/domain/screenedCalls";
 import { ScreenedCalls } from "@/src/security/screenedCalls";
-import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
+import { fonts, makeStyles, radius, spacing } from "@/src/theme";
 
 const COLLAPSED = 5;
 
@@ -38,7 +37,6 @@ export function ScreenedCallsList({ onSelect, actionLabel = "Check", disabled = 
   onSelect: (number: string) => void; actionLabel?: string; disabled?: boolean; testID?: string;
 }) {
   const s = useStyles();
-  const { colors } = useTheme();
   const [calls, setCalls] = useState<ScreenedCall[] | null>(null);
   const [expanded, setExpanded] = useState(false);
   const supported = ScreenedCalls.isSupported();
@@ -78,9 +76,7 @@ export function ScreenedCallsList({ onSelect, actionLabel = "Check", disabled = 
             onPress={() => onSelect(call.number)}
             style={({ pressed }) => [s.row, { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 }]}
           >
-            <View style={[s.well, rejected && s.wellRejected]}>
-              {rejected ? <ShieldX size={20} color={colors.barkingText} /> : <CircleHelp size={20} color={colors.muted} />}
-            </View>
+            <CallerIdentityAvatar kind={rejected ? "risk_warning" : "unknown"} testID={`${testID}-row-${i}-avatar`} />
             <View style={s.info}>
               <Text style={s.number}>{call.number}</Text>
               <Text style={s.outcome}>{screenedOutcomeLabel(call)}</Text>
