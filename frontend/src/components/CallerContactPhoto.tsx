@@ -36,14 +36,24 @@ export function CallerContactPhoto({ number }: { number: string }) {
     setMatch(next);
     setBusy(false);
   }, [number]);
-  // Consent is session-only; refresh only after the person explicitly opts in.\n  useEffect(() => {\n    if (!consented) return;\n    const sub = AppState.addEventListener("change", state => {\n      if (state === "active") void lookup();\n    });\n    return () => sub.remove();\n  }, [consented, lookup]);
+  // Consent is session-only; refresh only after the person explicitly opts in.
+  useEffect(() => {
+    if (!consented) return;
+    const sub = AppState.addEventListener("change", state => {
+      if (state === "active") void lookup();
+    });
+    return () => sub.remove();
+  }, [consented, lookup]);
   if ((Platform.OS !== "android" && Platform.OS !== "ios") || !getNativeModule()?.lookupCallerContact) return null;
   const request = async () => {
     setConsented(true);
     const native = getNativeModule();
     if (!native) return;
     try {
-      const raw = Platform.OS === "ios"\n        ? await native.requestCallerContactsAccess?.()\n        : await native.requestRuntimePermission?.("contacts");\n      if (!raw) { setMatch({ status: "unavailable" }); return; }
+      const raw = Platform.OS === "ios"
+        ? await native.requestCallerContactsAccess?.()
+        : await native.requestRuntimePermission?.("contacts");
+      if (!raw) { setMatch({ status: "unavailable" }); return; }
       const result = JSON.parse(raw) as { granted?: boolean };
       if (result.granted) await lookup();
       else setMatch({ status: "permission_required" });
