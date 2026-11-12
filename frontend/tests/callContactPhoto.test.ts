@@ -28,3 +28,14 @@ test("Call Gate keeps observed screening history separate from optional contact 
   assert.match(list, /ScreenedCalls\.list\(\)/);
   assert.match(list, /<CallerContactPhoto/);
 });
+
+test("iOS contacts use a system consent prompt and local-only lookup", () => {
+  const swift = read("modules/apollo-security/ios/ApolloSecurityModule.swift");
+  const config = read("app.config.js");
+  assert.match(config, /NSContactsUsageDescription/);
+  assert.match(swift, /requestCallerContactsAccess/);
+  assert.match(swift, /CNContactStore\.authorizationStatus/);
+  assert.match(swift, /CNContact\.predicateForContacts/);
+  const ui = read("src/components/CallerContactPhoto.tsx");
+  assert.match(ui, /requestCallerContactsAccess/);
+});
