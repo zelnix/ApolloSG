@@ -102,6 +102,21 @@ export const CallSdk = {
     return call<{ opened: boolean; held?: boolean }>("requestCallScreeningRole", m ? () => m.requestCallScreeningRole() : undefined, { opened: false });
   },
 
+  /** iOS Call Directory status; not evidence that a particular call was blocked. */
+  getCallDirectoryStatus: async (): Promise<{ status: NativeCallStatus; enabled: boolean; extensionAvailable: boolean; detail?: string }> => {
+    const m = getNativeModule();
+    if (!m?.getCallDirectoryStatus) return { status: "unavailable", enabled: false, extensionAvailable: false, detail: "Call Directory native status is unavailable in this build." };
+    try {
+      const result = JSON.parse(await m.getCallDirectoryStatus()) as { status: NativeCallStatus; enabled: boolean; extensionAvailable: boolean; detail?: string };
+      if (result.status !== "ok" || typeof result.enabled !== "boolean" || typeof result.extensionAvailable !== "boolean") {
+        return { status: "error", enabled: false, extensionAvailable: false, detail: result.detail ?? "Invalid Call Directory status." };
+      }
+      return result;
+    } catch (err) {
+      return { status: "error", enabled: false, extensionAvailable: false, detail: err instanceof Error ? err.message : "Call Directory status could not be read." };
+    }
+  },
+
   // ── RELIABILITY-CRITICAL: Explicit status reporting ─────────────────────
 
   /** Reads numbers queued by ApolloCallScreeningService with no local signal.
