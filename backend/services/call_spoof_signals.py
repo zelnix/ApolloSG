@@ -30,7 +30,7 @@ def assess_spoof_signals(
     business_number_associated: bool = False,
     business_identity_conflict: bool = False,
     network_attestation: Attestation = "unavailable",
-    own_number: str | None = None,
+    own_number: str | None = None,\n    cli_presentation_restricted: bool = False,
 ) -> SpoofAssessment:
     signals: list[SpoofSignal] = []
     digits = re.sub(r"\D", "", calling_number)
@@ -39,7 +39,7 @@ def assess_spoof_signals(
             code="invalid_number", severity="high",
             explanation="The displayed number failed structural validation; its origin cannot be established."
         ))
-    if business_identity_conflict:
+    if cli_presentation_restricted:\n        signals.append(SpoofSignal(\n            code="restricted_cli_presentation", severity="caution",\n            explanation="This business number has a reviewed outgoing caller-ID presentation restriction. Caller ID alone cannot establish whether this call breached it."\n        ))\n    if business_identity_conflict:
         signals.append(SpoofSignal(
             code="business_identity_conflict", severity="high",
             explanation="The displayed number's reviewed business association conflicts with other caller identity information."
