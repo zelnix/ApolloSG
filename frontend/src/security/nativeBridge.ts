@@ -79,6 +79,8 @@ export interface ApolloSecurityNativeModule {
    * select Apollo as their call-screening app (ApolloCallScreeningService.kt). iOS opens the app's
    * own Settings page instead — Apple has no deep link to Phone > Call Blocking & Identification. */
   requestCallScreeningRole(): Promise<string>;
+  /** iOS native Call Directory extension status. */
+  getCallDirectoryStatus?(): Promise<string>;
   /** Numbers seen ringing with no local block/allow/risk signal, queued for a background reputation
    * lookup (mailbox semantics — draining clears the queue). Always [] on iOS: CXCallDirectoryProvider
    * gets no per-call callback at all, unlike Android's CallScreeningService. */
