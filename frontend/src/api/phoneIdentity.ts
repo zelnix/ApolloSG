@@ -49,7 +49,13 @@ export interface PhoneIdentityResult {
   association_confidence: "verified" | "strong" | "possible" | "unknown" | "conflicting";
   evidence: IdentityEvidence[];
   scam_intel: string | null;
-  known_impersonation: boolean;\n  spoof_assessment?: {\n    signals: Array<{ code: string; severity: "information" | "caution" | "high"; explanation: string }>;\n    caller_authenticated: false;\n    suppress_business_logo: boolean;\n    network_attestation: "passed" | "failed" | "not_verified" | "unavailable";\n  } | null;
+  known_impersonation: boolean;
+  spoof_assessment?: {
+    signals: Array<{ code: string; severity: "information" | "caution" | "high"; explanation: string }>;
+    caller_authenticated: false;
+    suppress_business_logo: boolean;
+    network_attestation: "passed" | "failed" | "not_verified" | "unavailable";
+  } | null;
   /** Curated business registry, not authentication of the incoming caller. */
   verified_business?: {
     business_name: string | null;
@@ -57,7 +63,10 @@ export interface PhoneIdentityResult {
     number_published_by_business: boolean;
     caller_authenticated: false;
     spoofing_possible: boolean;
-    special_service_number: boolean;\n    identity_mismatch?: boolean;\n    official_contact_url?: string | null;\n    independently_verified_callback_number?: string | null;
+    special_service_number: boolean;
+    identity_mismatch?: boolean;
+    official_contact_url?: string | null;
+    independently_verified_callback_number?: string | null;
   } | null;
 
   /** Progressive prefix intelligence: geographic → number_block → caller */
