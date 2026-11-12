@@ -1,7 +1,7 @@
 // Android and iOS. Contacts are read only after a deliberate opt-in; no contact data is sent to Apollo servers.
 // A saved contact is an address-book match, NOT proof that the incoming caller is that person.
-import React, { useCallback, useState } from "react";
-import { Image, Platform, Pressable, Text, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { AppState, Image, Platform, Pressable, Text, View } from "react-native";
 import { getNativeModule } from "@/src/security/nativeBridge";
 import { fonts, makeStyles, spacing } from "@/src/theme";
 
@@ -36,7 +36,7 @@ export function CallerContactPhoto({ number }: { number: string }) {
     setMatch(next);
     setBusy(false);
   }, [number]);
-  // React state is deliberately session-only. No stored consent or automatic background contact reads.
+  // Consent is session-only; refresh only after the person explicitly opts in.\n  useEffect(() => {\n    if (!consented) return;\n    const sub = AppState.addEventListener("change", state => {\n      if (state === "active") void lookup();\n    });\n    return () => sub.remove();\n  }, [consented, lookup]);
   if ((Platform.OS !== "android" && Platform.OS !== "ios") || !getNativeModule()?.lookupCallerContact) return null;
   const request = async () => {
     setConsented(true);
