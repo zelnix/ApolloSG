@@ -19,7 +19,7 @@ export const SCREENER_SUMMARY: Record<ScreenerState, string> = {
   available: "Setup required",
   unsupported: "Unavailable",
   ios: "Setup required",
-  ios_enabled: "Enabled — extension confirmed",
+  ios_enabled: "Enabled — list status unverified",
   ios_unavailable: "Unable to verify",
   unavailable: "Unable to verify",
   checking: "Checking protection…",
@@ -38,7 +38,7 @@ export function useCallScreener(): CallScreener {
         setDetail(result.detail ?? "ApolloSG could not confirm the iPhone Call Directory state.");
       } else if (result.enabled) {
         setState("ios_enabled");
-        setDetail("ApolloSG's Call Directory is enabled. Saved blocking and identification lists can be used when loaded. iOS does not confirm individual blocked calls.");
+        setDetail("iOS reports ApolloSG's Call Directory is enabled. ApolloSG has not verified that its latest blocking or identification list loaded. iOS does not confirm individual blocked calls.");
       } else if (result.extensionAvailable) {
         setState("ios");
         setDetail("Turn on ApolloSG in iPhone Settings → Apps → Phone → Call Blocking & Identification. The Settings path may vary by iOS version.");
@@ -87,7 +87,8 @@ export function useCallScreener(): CallScreener {
           ? "Open iPhone Settings and enable ApolloSG under Call Blocking & Identification."
           : "Android did not open the call-screening role request. Check Default apps in Settings.");
       }
-      // The native role request can complete after the app becomes active; always re-read.
+      // On iOS the existing native bridge opens app Settings; on Android it requests the screening role.
+      // Neither response proves the extension/list loaded or a call was rejected.
       await refresh();
     } catch {
       setDetail("The protection setup could not be opened. Check your phone's settings and try again.");
