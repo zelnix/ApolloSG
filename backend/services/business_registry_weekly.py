@@ -14,7 +14,7 @@ from core.db import db
 from services.business_provider_adapters import (
     ProviderUnavailable, fetch_abn_lookup, fetch_brandfetch, fetch_twilio_lookup,
 )
-from services.verified_businesses import VerifiedBusiness, _digits
+from services.verified_businesses import VerifiedBusiness, _digits, BusinessSource
 
 log = logging.getLogger("apollo.business_registry_weekly")
 INTERVAL = timedelta(days=7)
