@@ -1,5 +1,5 @@
 import { describe, expect, it } from "node:test";\nimport assert from "node:assert/strict";
-import { parseScreenedCalls } from "../src/domain/screenedCalls";
+import { parseScreenedCalls } from "../src/domain/screenedCalls.ts";
 
 describe("screened call carrier number verification", () => {
   const call = (numberVerification?: string) => JSON.stringify([{ number: "+61412345678", at: 1730000000000, outcome: "rang", ...(numberVerification ? { numberVerification } : {}) }]);
