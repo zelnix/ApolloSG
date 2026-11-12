@@ -50,6 +50,15 @@ export interface PhoneIdentityResult {
   evidence: IdentityEvidence[];
   scam_intel: string | null;
   known_impersonation: boolean;
+  /** Curated business registry, not authentication of the incoming caller. */
+  verified_business?: {
+    business_name: string | null;
+    logo_url: string | null;
+    number_published_by_business: boolean;
+    caller_authenticated: false;
+    spoofing_possible: boolean;
+    special_service_number: boolean;
+  } | null;
 
   /** Progressive prefix intelligence: geographic → number_block → caller */
   prefix_intelligence: PrefixIntelligenceTier[];
