@@ -8,7 +8,7 @@ from services.verified_businesses import (
     is_au_13_1300_1800,
 )
 
-NOW = datetime(2026, 11, 12, tzinfo=timezone.utc)
+NOW = datetime.now(timezone.utc)
 
 
 def record(*, official_number=True, brand=True):
