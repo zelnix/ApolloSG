@@ -8,6 +8,7 @@ import { AppState, Pressable, Text, View } from "react-native";
 
 import { Body, Button } from "@/src/components/ui";
 import { CallerIdentityAvatar } from "@/src/components/CallerIdentityAvatar";
+import { CallerContactPhoto } from "@/src/components/CallerContactPhoto";
 import { isRejectionRequest, repeatAlertLine, screenedOutcomeLabel, screenedWhen, type ScreenedCall } from "@/src/domain/screenedCalls";
 import { ScreenedCalls } from "@/src/security/screenedCalls";
 import { fonts, makeStyles, radius, spacing } from "@/src/theme";
@@ -81,6 +82,7 @@ export function ScreenedCallsList({ onSelect, actionLabel = "Check", disabled = 
               <Text style={s.number}>{call.number}</Text>
               <Text style={s.outcome}>{screenedOutcomeLabel(call)}</Text>
               <Text style={s.when}>Caller identity not confirmed</Text>
+              <CallerContactPhoto key={call.number} number={call.number} />
               {call.repeat ? <Text style={s.outcome} testID={`${testID}-row-${i}-repeat`}>{repeatAlertLine(call)}</Text> : null}
               <Text style={s.when}>{day} · {time}</Text>
             </View>
