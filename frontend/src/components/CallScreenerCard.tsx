@@ -58,7 +58,9 @@ export function CallScreenerCard({ testID = "call-screener-card" }: { testID?: s
             disabled={screener.requesting}
           />
         </>
-      ) : null}
+      ) : (
+        <Button testID={testID + "-refresh"} variant="secondary" label="Check status again" onPress={() => void screener.refresh()} />
+      )}
     </View>
   );
 }
