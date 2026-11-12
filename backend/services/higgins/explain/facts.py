@@ -13,7 +13,7 @@ from typing import Any, Optional
 
 from services.higgins import outcomes
 from services.higgins.contracts import HigginsResponse
-from services.higgins.tc_flyby.report import ROUTE_LABEL
+from services.higgins.tc_hawkeye.report import ROUTE_LABEL
 
 # ── Words and sentences ──────────────────────────────────────────────────────
 STOP = set(("a an the this that these those it its it's is are was were be been being so to of on in at or and but with for by as "
