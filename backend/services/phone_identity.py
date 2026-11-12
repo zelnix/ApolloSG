@@ -743,10 +743,11 @@ async def _refresh_business_presentation(result: PhoneIdentityResult, e164: str)
     try:
         from services.verified_businesses import find_approved_business
         approved = await find_approved_business(e164)
-        if approved and approved.business_name and (
-            not result.associated_entity or approved.business_name.casefold() == result.associated_entity.casefold()
-        ):
+        if approved and approved.business_name:
             result.verified_business = approved.model_dump()
+            if result.associated_entity and approved.business_name.casefold() != result.associated_entity.casefold():
+                result.verified_business["logo_url"] = None
+                result.verified_business["identity_mismatch"] = True
     except Exception:
         log.warning("verified_business registry lookup unavailable", exc_info=False)
 
