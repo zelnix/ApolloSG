@@ -79,7 +79,8 @@ class PhoneIdentityResult(BaseModel):
     evidence: list[IdentityEvidence] = Field(default_factory=list)
     scam_intel: Optional[str] = None
     known_impersonation: bool = False
-    verified_business: Optional[dict] = None  # Curated registry association; never caller authentication\n    spoof_assessment: Optional[dict] = None
+    verified_business: Optional[dict] = None  # Curated registry association; never caller authentication
+    spoof_assessment: Optional[dict] = None
 
     # Progressive prefix intelligence (3 tiers: geographic → number_block → caller)
     prefix_intelligence: list[PrefixIntelligenceTier] = Field(default_factory=list)
@@ -772,12 +773,16 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
             if age <= CACHE_TTL:
                 log.info("phone_identity cache_hit e164=%s…%s", e164[:4], e164[-3:])
                 cached_result = {k: v for k, v in cached["result"].items() if k != "freshness"}
-                result = PhoneIdentityResult(**cached_result, freshness="cached")\n                await _refresh_business_presentation(result, e164)\n                return result
+                result = PhoneIdentityResult(**cached_result, freshness="cached")
+                await _refresh_business_presentation(result, e164)
+                return result
             elif age <= STALE_WINDOW:
                 # Stale but usable — return it while we could refresh in background
                 log.info("phone_identity stale_hit e164=%s…%s", e164[:4], e164[-3:])
                 cached_result = {k: v for k, v in cached["result"].items() if k != "freshness"}
-                result = PhoneIdentityResult(**cached_result, freshness="stale")\n                await _refresh_business_presentation(result, e164)\n                return result
+                result = PhoneIdentityResult(**cached_result, freshness="stale")
+                await _refresh_business_presentation(result, e164)
+                return result
 
     # Step 3: Number details from numbering plan
     details = _number_details(e164, country)
@@ -899,7 +904,9 @@ async def identify(raw_number: str, country: Optional[str] = None) -> PhoneIdent
         lookup_status=lookup_status,
     )
 
-    await _refresh_business_presentation(result, e164)\n\n    # Step 10: Cache the result
+    await _refresh_business_presentation(result, e164)
+
+    # Step 10: Cache the result
     await db.phone_identity.update_one(
         {"cache_id": cache_id},
         {"$set": {
