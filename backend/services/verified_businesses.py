@@ -50,7 +50,12 @@ def is_au_13_1300_1800(number: str) -> bool:
 
 def approved_logo_for_number(business: VerifiedBusiness, number: str) -> Optional[str]:
     """Never expose a logo merely because a company exists or a provider returned artwork."""
-    reviewed = business.last_reviewed_at\n    if reviewed.tzinfo is None:\n        reviewed = reviewed.replace(tzinfo=timezone.utc)\n    if datetime.now(timezone.utc) - reviewed > timedelta(days=7):\n        return None  # fail closed when weekly evidence refresh has not succeeded\n    if not (business.abn_registration_confirmed and business.logo_domain_confirmed):
+    reviewed = business.last_reviewed_at
+    if reviewed.tzinfo is None:
+        reviewed = reviewed.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) - reviewed > timedelta(days=7):
+        return None  # fail closed when weekly evidence refresh has not succeeded
+    if not (business.abn_registration_confirmed and business.logo_domain_confirmed):
         return None
     source_types = {(s.provider, s.supports) for s in business.sources}
     if ("abn_lookup", "registration") not in source_types:
@@ -72,7 +77,8 @@ class BusinessCallerPresentation(BaseModel):
     number_published_by_business: bool = False
     caller_authenticated: bool = False
     spoofing_possible: bool = True
-    special_service_number: bool = False\n    identity_mismatch: bool = False
+    special_service_number: bool = False
+    identity_mismatch: bool = False
 
 
 def business_caller_presentation(business: VerifiedBusiness, number: str) -> BusinessCallerPresentation:
