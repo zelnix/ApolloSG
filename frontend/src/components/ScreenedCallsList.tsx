@@ -19,6 +19,7 @@ const useStyles = makeStyles((c) => ({
   card: { backgroundColor: c.surfaceSecondary, borderRadius: radius.lg, borderWidth: 0.25, borderColor: c.border, overflow: "hidden" as const },
   header: { padding: spacing.lg, gap: 4 },
   title: { fontFamily: fonts.displayBold, fontSize: 17, color: c.onSurface },
+  count: { fontFamily: fonts.textSemibold, fontSize: 12, color: c.muted },
   sub: { fontFamily: fonts.text, fontSize: 13, lineHeight: 18, color: c.onSurfaceSecondary },
   row: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderTopWidth: 1, borderTopColor: c.border, minHeight: 64 },
   well: { width: 40, height: 40, borderRadius: 20, alignItems: "center" as const, justifyContent: "center" as const, backgroundColor: c.surfaceTertiary },
@@ -55,12 +56,13 @@ export function ScreenedCallsList({ onSelect, actionLabel = "Check", disabled = 
   return (
     <View style={s.card} testID={testID}>
       <View style={s.header}>
-        <Text style={s.title}>Calls Apollo screened</Text>
+        <Text style={s.title}>Recent callers</Text>
+        <Text style={s.count}>Calls Apollo screened{calls ? ` · ${calls.length}` : ""}</Text>
         <Text style={s.sub}>Incoming numbers Android passed to Apollo&apos;s call screening, kept on this device for up to 30 days. Apollo doesn&apos;t read your call log.</Text>
       </View>
       {calls && calls.length === 0 ? (
         <View style={s.empty}>
-          <Body testID={`${testID}-empty`}>No screened calls yet. While ApolloSG is your caller ID &amp; spam app, incoming calls Android passes to it appear here — usually from numbers that aren&apos;t in your contacts.</Body>
+          <Body testID={`${testID}-empty`}>No screened calls recorded. Eligible incoming calls may appear here after Android passes them to ApolloSG. Contacts and other calls may not appear.</Body>
         </View>
       ) : null}
       {shown.map((call, i) => {
