@@ -27,7 +27,9 @@ import {
 } from "react-native";
 
 import { identifyNumber, type PhoneIdentityResult } from "@/src/api/phoneIdentity";
-import { ScreenedCalls } from "@/src/security/screenedCalls";\nimport { type ScreenedCall } from "@/src/domain/screenedCalls";\nimport { CallerIdentityAvatar } from "@/src/components/CallerIdentityAvatar";
+import { ScreenedCalls } from "@/src/security/screenedCalls";
+import { type ScreenedCall } from "@/src/domain/screenedCalls";
+import { CallerIdentityAvatar } from "@/src/components/CallerIdentityAvatar";
 import { callerAvatarForIdentity } from "@/src/domain/callerAvatar";
 import { explainIdentity, TIER_LABELS, type IdentityExplanation, type TierExplanation } from "@/src/domain/phoneIdentityExplanation";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -366,7 +368,20 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [expanded, setExpanded] = useState(false);\n  const [observedCall, setObservedCall] = useState<ScreenedCall | null>(null);\n  useEffect(() => {\n    let cancelled = false;\n    setObservedCall(null);\n    if (!ScreenedCalls.isSupported()) return;\n    ScreenedCalls.list().then((calls) => {\n      if (cancelled) return;\n      const normalized = (value: string) => value.replace(/\\D/g, "");\n      const matches = calls.filter((call) => normalized(call.number) === normalized(number));\n      setObservedCall(matches[0] ?? null);\n    }).catch(() => { if (!cancelled) setObservedCall(null); });\n    return () => { cancelled = true; };\n  }, [number]);
+  const [expanded, setExpanded] = useState(false);
+  const [observedCall, setObservedCall] = useState<ScreenedCall | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setObservedCall(null);
+    if (!ScreenedCalls.isSupported()) return;
+    ScreenedCalls.list().then((calls) => {
+      if (cancelled) return;
+      const normalized = (value: string) => value.replace(/\\D/g, "");
+      const matches = calls.filter((call) => normalized(call.number) === normalized(number));
+      setObservedCall(matches[0] ?? null);
+    }).catch(() => { if (!cancelled) setObservedCall(null); });
+    return () => { cancelled = true; };
+  }, [number]);
 
   const stripped = number?.replace(/[\s\-()]/g, "") ?? "";
   const valid = stripped.length >= 7;
@@ -419,7 +434,8 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
   }
 
   const { associated_entity, association_confidence, evidence, number_type, network, geographic, freshness } = result;
-  const observedFailure = observedCall?.numberVerification === "failed";\n  const badgeColors = confidenceBadgeColors(association_confidence, colors);
+  const observedFailure = observedCall?.numberVerification === "failed";
+  const badgeColors = confidenceBadgeColors(association_confidence, colors);
   const ConfidenceIcon = confidenceIcon(association_confidence);
   const explanation = explainIdentity(result);
   const Chevron = expanded ? ChevronUp : ChevronDown;
@@ -433,7 +449,9 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         accessibilityRole="button"
         accessibilityLabel={expanded ? "Collapse Who Called details" : "Expand Who Called details"}
       >
-        {result.verified_business?.logo_url && !observedFailure && !result.spoof_assessment?.suppress_business_logo && !result.verified_business.identity_mismatch && !result.known_impersonation && !result.scam_intel && (association_confidence === "verified" || association_confidence === "strong")\n          ? <Image source={{ uri: result.verified_business.logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} accessibilityLabel="Business logo from verified registry; caller identity not authenticated" />\n          : <CallerIdentityAvatar kind={callerAvatarForIdentity(result)} />}
+        {result.verified_business?.logo_url && !observedFailure && !result.spoof_assessment?.suppress_business_logo && !result.verified_business.identity_mismatch && !result.known_impersonation && !result.scam_intel && (association_confidence === "verified" || association_confidence === "strong")
+          ? <Image source={{ uri: result.verified_business.logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} accessibilityLabel="Business logo from verified registry; caller identity not authenticated" />
+          : <CallerIdentityAvatar kind={callerAvatarForIdentity(result)} />}
         <View style={s.compactBody}>
           <Text style={s.compactLabel}>Who Called</Text>
           <Text style={s.compactEntity} numberOfLines={1} testID={testID ? `${testID}-entity` : undefined}>
@@ -447,7 +465,30 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         <Chevron size={16} color={colors.muted} />
       </Pressable>
 
-      {result.verified_business?.logo_url && !result.verified_business.identity_mismatch ? (\n        <Text style={s.description}>Business logo represents a published-number association only. The incoming caller is not authenticated.</Text>\n      ) : null}\n      {result.verified_business?.identity_mismatch ? (\n        <View style={s.spoofing} testID={testID ? `${testID}-business-mismatch` : undefined}>\n          <TriangleAlert size={14} color={colors.growlingText} />\n          <Text style={s.spoofingText}>Caller identity warning: this number is listed for {result.verified_business.business_name}, but other identity information names {associated_entity}. The business logo has been withheld. Do not rely on caller ID alone.</Text>\n        </View>\n      ) : null}\n      {result.spoof_assessment?.signals.filter((signal) => signal.severity === "high").map((signal) => (\n        <View key={signal.code} style={s.spoofing}>\n          <TriangleAlert size={14} color={colors.growlingText} />\n          <Text style={s.spoofingText}>{signal.explanation} If the caller claims to represent a business, contact it independently through its official website.</Text>\n        </View>\n      ))}\n      {observedCall?.numberVerification === "failed" ? (\n        <View style={s.spoofing}>\n          <TriangleAlert size={14} color={colors.growlingText} />\n          <Text style={s.spoofingText}>Android carrier verification failed for a call observed on {new Date(observedCall.at).toLocaleString()}. Possible caller ID spoofing. This is historical call evidence, not a live verification of this number.</Text>\n        </View>\n      ) : observedCall?.numberVerification === "passed" ? (\n        <Text style={s.description}>Android verified the calling number for a call observed on {new Date(observedCall.at).toLocaleString()}. This does not authenticate the business or any later call.</Text>\n      ) : null}\n      {/* ─ Expanded detail: only when tapped ─ */}
+      {result.verified_business?.logo_url && !result.verified_business.identity_mismatch ? (
+        <Text style={s.description}>Business logo represents a published-number association only. The incoming caller is not authenticated.</Text>
+      ) : null}
+      {result.verified_business?.identity_mismatch ? (
+        <View style={s.spoofing} testID={testID ? `${testID}-business-mismatch` : undefined}>
+          <TriangleAlert size={14} color={colors.growlingText} />
+          <Text style={s.spoofingText}>Caller identity warning: this number is listed for {result.verified_business.business_name}, but other identity information names {associated_entity}. The business logo has been withheld. Do not rely on caller ID alone.</Text>
+        </View>
+      ) : null}
+      {result.spoof_assessment?.signals.filter((signal) => signal.severity === "high").map((signal) => (
+        <View key={signal.code} style={s.spoofing}>
+          <TriangleAlert size={14} color={colors.growlingText} />
+          <Text style={s.spoofingText}>{signal.explanation} If the caller claims to represent a business, contact it independently through its official website.</Text>
+        </View>
+      ))}
+      {observedCall?.numberVerification === "failed" ? (
+        <View style={s.spoofing}>
+          <TriangleAlert size={14} color={colors.growlingText} />
+          <Text style={s.spoofingText}>Android carrier verification failed for a call observed on {new Date(observedCall.at).toLocaleString()}. Possible caller ID spoofing. This is historical call evidence, not a live verification of this number.</Text>
+        </View>
+      ) : observedCall?.numberVerification === "passed" ? (
+        <Text style={s.description}>Android verified the calling number for a call observed on {new Date(observedCall.at).toLocaleString()}. This does not authenticate the business or any later call.</Text>
+      ) : null}
+      {/* ─ Expanded detail: only when tapped ─ */}
       {expanded ? (
         <View style={s.expandedBody}>
           {/* Higgins says */}
