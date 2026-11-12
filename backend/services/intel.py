@@ -128,7 +128,7 @@ def _names(labels: list[str]) -> str:
 
 
 def listed_by(sources: list[dict] | None, default: str = "Google Web Risk") -> str:
-    """The lists that list it ("PhishTank and Google Safe Browsing"), from a check's recorded sources."""
+    """The lists that list it ("PhishTank and Google Web Risk"), from a check's recorded sources."""
     return _names([label(s.get("name") or "") for s in sources or [] if s.get("status") == "match"]) or default
 
 
@@ -261,7 +261,7 @@ async def run_intel_check(indicator_type: str, value: str) -> IntelCheckResponse
 
 
 async def assess_indicator(indicator_type: str, value: str, expand: bool) -> IntelCheckResponse:
-    """The full check: blocklist + Safe Browsing verdict, optional redirect-chain expansion (URLs
+    """The full check: blocklist + Google Web Risk verdict, optional redirect-chain expansion (URLs
     only), and a best-effort/parallel RDAP domain-info lookup (see services/rdap.py) — never gates
     the verdict. This is THE shared assessment used by both POST /intel/check (Check a Link) and
     POST /message/analyse (Email/Text Guard's automatic per-link pre-click assessment), so every
