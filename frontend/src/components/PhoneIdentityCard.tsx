@@ -19,6 +19,7 @@ import TriangleAlert from "lucide-react-native/icons/triangle-alert";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Pressable,
   Text,
@@ -36,7 +37,7 @@ import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 type Confidence = PhoneIdentityResult["association_confidence"];
 
 const CONFIDENCE_LABEL: Record<Confidence, string> = {
-  verified: "Verified owner",
+  verified: "Published number match",
   strong: "Strong match",
   possible: "Possible match",
   unknown: "Unknown",
@@ -432,7 +433,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         accessibilityRole="button"
         accessibilityLabel={expanded ? "Collapse Who Called details" : "Expand Who Called details"}
       >
-        <CallerIdentityAvatar kind={callerAvatarForIdentity(result)} />
+        {result.verified_business?.logo_url && !result.known_impersonation && !result.scam_intel && (association_confidence === "verified" || association_confidence === "strong")\n          ? <Image source={{ uri: result.verified_business.logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} accessibilityLabel="Business logo from verified registry; caller identity not authenticated" />\n          : <CallerIdentityAvatar kind={callerAvatarForIdentity(result)} />}
         <View style={s.compactBody}>
           <Text style={s.compactLabel}>Who Called</Text>
           <Text style={s.compactEntity} numberOfLines={1} testID={testID ? `${testID}-entity` : undefined}>
