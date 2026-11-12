@@ -433,7 +433,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         accessibilityRole="button"
         accessibilityLabel={expanded ? "Collapse Who Called details" : "Expand Who Called details"}
       >
-        {result.verified_business?.logo_url && !result.known_impersonation && !result.scam_intel && (association_confidence === "verified" || association_confidence === "strong")\n          ? <Image source={{ uri: result.verified_business.logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} accessibilityLabel="Business logo from verified registry; caller identity not authenticated" />\n          : <CallerIdentityAvatar kind={callerAvatarForIdentity(result)} />}
+        {result.verified_business?.logo_url && !result.verified_business.identity_mismatch && !result.known_impersonation && !result.scam_intel && (association_confidence === "verified" || association_confidence === "strong")\n          ? <Image source={{ uri: result.verified_business.logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} accessibilityLabel="Business logo from verified registry; caller identity not authenticated" />\n          : <CallerIdentityAvatar kind={callerAvatarForIdentity(result)} />}
         <View style={s.compactBody}>
           <Text style={s.compactLabel}>Who Called</Text>
           <Text style={s.compactEntity} numberOfLines={1} testID={testID ? `${testID}-entity` : undefined}>
@@ -447,7 +447,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
         <Chevron size={16} color={colors.muted} />
       </Pressable>
 
-      {/* ─ Expanded detail: only when tapped ─ */}
+      {result.verified_business?.identity_mismatch ? (\n        <View style={s.spoofing} testID={testID ? `${testID}-business-mismatch` : undefined}>\n          <TriangleAlert size={14} color={colors.growlingText} />\n          <Text style={s.spoofingText}>Caller identity warning: this number is listed for {result.verified_business.business_name}, but other identity information names {associated_entity}. The business logo has been withheld. Do not rely on caller ID alone.</Text>\n        </View>\n      ) : null}\n      {/* ─ Expanded detail: only when tapped ─ */}
       {expanded ? (
         <View style={s.expandedBody}>
           {/* Higgins says */}
