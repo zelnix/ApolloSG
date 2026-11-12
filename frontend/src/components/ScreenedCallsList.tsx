@@ -3,7 +3,6 @@
 // (Check with Apollo on Call Guard; "use this number" elsewhere). Renders nothing where unsupported.
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronUp from "lucide-react-native/icons/chevron-up";
-import PhoneIncoming from "lucide-react-native/icons/phone-incoming";
 import CircleHelp from "lucide-react-native/icons/circle-help";
 import ShieldX from "lucide-react-native/icons/shield-x";
 import React, { useCallback, useEffect, useState } from "react";
@@ -25,7 +24,6 @@ const useStyles = makeStyles((c) => ({
   row: { flexDirection: "row" as const, alignItems: "center" as const, gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderTopWidth: 1, borderTopColor: c.border, minHeight: 64 },
   well: { width: 40, height: 40, borderRadius: 20, alignItems: "center" as const, justifyContent: "center" as const, backgroundColor: c.surfaceTertiary },
   wellRejected: { backgroundColor: c.barkingTint },
-  avatarCaption: { fontFamily: fonts.textSemibold, fontSize: 9, color: c.muted },
   info: { flex: 1, gap: 2 },
   number: { fontFamily: fonts.displayBold, fontSize: 16, color: c.onSurface },
   outcome: { fontFamily: fonts.text, fontSize: 13, color: c.onSurfaceSecondary },
