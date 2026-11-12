@@ -7,10 +7,10 @@ export type ScreenedOutcome = "rang" | "allowed_by_you" | "rejection_requested_b
 /** A Repeat Caller Alert the screening service raised for this call, and whether Android showed it. */
 export type RepeatReason = "block_list" | "high_risk" | "worth_checking";
 export interface RepeatAlert { reason: RepeatReason; shown: boolean; title: string; body: string }
-export interface ScreenedCall { number: string; at: number; outcome: ScreenedOutcome; repeat?: RepeatAlert }
+export type NumberVerification = "passed" | "failed" | "not_verified" | "unavailable";\nexport interface ScreenedCall { number: string; at: number; outcome: ScreenedOutcome; numberVerification: NumberVerification; repeat?: RepeatAlert }
 
 const OUTCOMES: ReadonlySet<string> = new Set(["rang", "allowed_by_you", "rejection_requested_block", "rejection_requested_risky"]);
-const REPEAT_REASONS: ReadonlySet<string> = new Set(["block_list", "high_risk", "worth_checking"]);
+const VERIFICATIONS: ReadonlySet<string> = new Set(["passed", "failed", "not_verified", "unavailable"]);\nconst REPEAT_REASONS: ReadonlySet<string> = new Set(["block_list", "high_risk", "worth_checking"]);
 
 /** What Apollo did when Android handed it the call. Rejections are requests — Android gives no receipt. */
 export const SCREENED_OUTCOME_LABEL: Record<ScreenedOutcome, string> = {
@@ -32,7 +32,7 @@ export function parseScreenedCalls(json: string | null | undefined): ScreenedCal
   if (!Array.isArray(raw)) return [];
   const rows: ScreenedCall[] = [];
   for (const item of raw) {
-    const row = item as { number?: unknown; at?: unknown; outcome?: unknown; repeat?: unknown; alert?: unknown; alertTitle?: unknown; alertBody?: unknown };
+    const row = item as { number?: unknown; at?: unknown; outcome?: unknown; repeat?: unknown; alert?: unknown; alertTitle?: unknown; alertBody?: unknown; numberVerification?: unknown };
     if (typeof row?.number !== "string" || !row.number.trim()) continue;
     if (typeof row.at !== "number" || !Number.isFinite(row.at)) continue;
     if (typeof row.outcome !== "string" || !OUTCOMES.has(row.outcome)) continue;
@@ -40,7 +40,7 @@ export function parseScreenedCalls(json: string | null | undefined): ScreenedCal
       && typeof row.alertTitle === "string" && typeof row.alertBody === "string"
       ? { reason: row.repeat as RepeatReason, shown: row.alert === "shown", title: row.alertTitle, body: row.alertBody }
       : undefined;
-    rows.push({ number: row.number.trim(), at: row.at, outcome: row.outcome as ScreenedOutcome, ...(repeat ? { repeat } : {}) });
+    rows.push({ number: row.number.trim(), at: row.at, outcome: row.outcome as ScreenedOutcome, numberVerification: typeof row.numberVerification === "string" && VERIFICATIONS.has(row.numberVerification) ? row.numberVerification as NumberVerification : "unavailable", ...(repeat ? { repeat } : {}) });
   }
   return rows.sort((a, b) => b.at - a.at);
 }
