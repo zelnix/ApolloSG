@@ -23,9 +23,10 @@ const RETIRED_SELECTORS = [
 ];
 const RETIRED_RUNTIME_MOCK = ["Mock", "Security", "Adapter"].join("");
 const RETIRED_SECURITY_MODE = ["EXPO", "PUBLIC", "SECURITY", "MODE"].join("_");
+// Production requires real rule authority, not controlled threat-test endpoints.
+// Controlled host/IP/URL are acceptance-test inputs and must not gate production APKs.
 const PRODUCTION_KEYS = [
-  "EXPO_PUBLIC_GUARDDOG_RULE_BUNDLE_URL", "EXPO_PUBLIC_GUARDDOG_CONTROLLED_HOST",
-  "EXPO_PUBLIC_GUARDDOG_CONTROLLED_IPV4", "EXPO_PUBLIC_GUARDDOG_CONTROLLED_URL", "EXPO_PUBLIC_GUARDDOG_RULESET_ID"];
+  "EXPO_PUBLIC_GUARDDOG_RULE_BUNDLE_URL", "EXPO_PUBLIC_GUARDDOG_RULESET_ID"];
 const KEYS = ["EXPO_PUBLIC_APP_ENV", "EXPO_PUBLIC_PREVIEW_BUILD", "EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE", ...PRODUCTION_KEYS];
 
 function walk(dir) {
