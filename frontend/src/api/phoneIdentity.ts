@@ -49,7 +49,7 @@ export interface PhoneIdentityResult {
   association_confidence: "verified" | "strong" | "possible" | "unknown" | "conflicting";
   evidence: IdentityEvidence[];
   scam_intel: string | null;
-  known_impersonation: boolean;
+  known_impersonation: boolean;\n  spoof_assessment?: {\n    signals: Array<{ code: string; severity: "information" | "caution" | "high"; explanation: string }>;\n    caller_authenticated: false;\n    suppress_business_logo: boolean;\n    network_attestation: "passed" | "failed" | "not_verified" | "unavailable";\n  } | null;
   /** Curated business registry, not authentication of the incoming caller. */
   verified_business?: {
     business_name: string | null;
