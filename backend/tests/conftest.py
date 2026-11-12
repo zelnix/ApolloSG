@@ -141,7 +141,7 @@ def _forbid_live_gemini(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _flyby_offline(monkeypatch):
-    """TC Hawkeye's direct-source lookups (Safe Browsing, RDAP, advisories) and its targeted Google Search reach the
+    """TC Hawkeye's direct-source lookups (Google Web Risk, RDAP, advisories) and its targeted Google Search reach the
     network. Bounded tests run them offline: every lookup reports unavailable, so investigations reach Magnum DI
     exactly as before. TC Hawkeye's own tests replace these with fixed results."""
     from services.higgins.tc_hawkeye import official, search
