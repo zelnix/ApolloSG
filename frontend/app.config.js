@@ -59,6 +59,7 @@ module.exports = {
         // Apple's export compliance categories.
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription: "Check whether your Wi-Fi connection is secured",
+        NSContactsUsageDescription: "Optionally show names and photos from contacts saved on this iPhone when you check a caller. Contacts remain on your device.",
       },
       entitlements: {
         "com.apple.developer.networking.wifi-info": true,
