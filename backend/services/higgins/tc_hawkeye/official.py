@@ -1,7 +1,7 @@
 """TC Hawkeye stage 1 — direct and authoritative sources.
 
 Every lookup here is a direct check against the source that holds the answer: Apollo's blocklist and
-Google Safe Browsing (cached in reputation_cache), the domain registry's RDAP record, Apollo's register of
+Google Web Risk (cached in reputation_cache), the domain registry's RDAP record, Apollo's register of
 official government and organisation domains, the official scam-advisory feeds Apollo already holds, the
 ABR/ASIC check-digit algorithms, and any specialist results Higgins Triage already gathered for the case.
 No AI is involved. A lookup that fails is recorded as unavailable — never as safe.
@@ -37,7 +37,7 @@ def source_ref(publisher: str, *, url: str | None = None, authority: str = "offi
 
 # ── Network lookups (each one replaceable in bounded tests) ─────────────────
 async def lookup_url(url: str) -> dict | None:
-    """Apollo blocklist + Google Safe Browsing verdict for one URL."""
+    """Apollo blocklist + Google Web Risk verdict for one URL."""
     from services import intel
     try:
         result = await asyncio.wait_for(intel.run_intel_check("url", url), timeout=LOOKUP_SECONDS)
@@ -407,7 +407,7 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
             elif result["verdict"] == "clean":
                 from services import intel
                 check.facts.append(fact(f"{target_host} is not listed by {intel.answered(result['sources'])}.", "clear", topic="listing",
-                                        source=source_ref("Google Safe Browsing and the free threat lists",
+                                        source=source_ref("Google Web Risk and the free threat lists",
                                                           url=f"https://transparencyreport.google.com/safe-browsing/search?url={target_host}",
                                                           authority="independent", basis="Direct threat-list lookup", checked_at=result.get("checkedAt"))))
     domain = registrable(host)
@@ -482,8 +482,8 @@ async def _link(check: Check, pg: dict, plan_: Plan) -> None:
     if any(f["decisive"] for f in check.facts):
         check.status, check.route = "resolved", "official_source"
     elif not checked_any and not owner:
-        check.facts.append(fact(f"Google Safe Browsing could not be checked for {host}.", "missing", topic="listing"))
-    # A URL shortener hides its destination: if Safe Browsing found nothing malicious, the hidden
+        check.facts.append(fact(f"Google Web Risk could not be checked for {host}.", "missing", topic="listing"))
+    # A URL shortener hides its destination: if Google Web Risk found nothing malicious, the hidden
     # destination is itself a concern — the check cannot be cleared without seeing where it leads.
     from services.urlrisk import SHORTENER_DOMAINS
     if host.lower() in SHORTENER_DOMAINS and not any(f.get("decisive") and f.get("signal") == "concern" for f in check.facts):
