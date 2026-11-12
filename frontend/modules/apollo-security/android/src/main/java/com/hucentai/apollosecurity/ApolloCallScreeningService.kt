@@ -228,7 +228,7 @@ class ApolloCallScreeningService : CallScreeningService() {
     fun clearScreenedCalls(ctx: Context) { prefs(ctx).edit().remove(KEY_SCREENED).apply() }
 
     @Synchronized
-    private fun recordScreenedCall(ctx: Context, number: String, outcome: String) {
+    private fun recordScreenedCall(ctx: Context, number: String, outcome: String, verification: String) {
       if (number.isBlank()) return
       val at = System.currentTimeMillis()
       val entry = JSONObject().put("number", number).put("at", at).put("outcome", outcome)
@@ -339,7 +339,7 @@ class ApolloCallScreeningService : CallScreeningService() {
   override fun onScreenCall(callDetails: Call.Details) {
     val ctx = applicationContext
     // What to add to "Calls Apollo screened" — decided alongside the response, written only afterwards.
-    var screened: Pair<String, String>? = null
+    var screened: Pair<String, String>? = null\n    // Carrier-provided number attestation, not proof of a business identity.\n    val numberVerification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {\n      try { when (callDetails.callerNumberVerificationStatus) {\n        android.telecom.Connection.VERIFICATION_STATUS_PASSED -> "passed"\n        android.telecom.Connection.VERIFICATION_STATUS_FAILED -> "failed"\n        else -> "not_verified"\n      } } catch (_: Exception) { "unavailable" }\n    } else "unavailable"
     try {
       val number = toE164(callDetails.handle?.schemeSpecificPart, ctx)
       if (number.isBlank()) { respond(callDetails, disallow = false, reject = false); return }
@@ -376,7 +376,7 @@ class ApolloCallScreeningService : CallScreeningService() {
       // History, and any Repeat Caller Alert, are written only after Android already has its answer, inside their own
       // guard, so they can never delay, change or fail the screening decision above.
       screened?.let { (number, outcome) ->
-        try { if (isIncoming(callDetails)) recordScreenedCall(ctx, number, outcome) } catch (_: Exception) { }
+        try { if (isIncoming(callDetails)) recordScreenedCall(ctx, number, outcome, numberVerification) } catch (_: Exception) { }
       }
     }
   }
