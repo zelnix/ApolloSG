@@ -86,3 +86,29 @@ def business_caller_presentation(business: VerifiedBusiness, number: str) -> Bus
         number_published_by_business=associated,
         special_service_number=is_au_13_1300_1800(number),
     )
+
+
+async def find_approved_business(number: str) -> Optional[BusinessCallerPresentation]:
+    """Read curated records only. Never auto-promote provider responses to verified."""
+    from core.db import db
+
+    digits = _digits(number)
+    if not digits or len(digits) < 6:
+        return None
+    # Query indexed normalised numbers; never scan or return the full registry.
+    rows = db.verified_businesses.find({"published_number_digits": digits}, {"_id": 0}).limit(5)
+    async for row in rows:
+        try:
+            business = VerifiedBusiness.model_validate(row)
+            presentation = business_caller_presentation(business, number)
+            if presentation.logo_url and presentation.number_published_by_business:
+                return presentation
+        except Exception:
+            continue
+    return None
+
+
+async def ensure_indexes() -> None:
+    from core.db import db
+    await db.verified_businesses.create_index("business_id", unique=True)
+    await db.verified_businesses.create_index("published_number_digits")
