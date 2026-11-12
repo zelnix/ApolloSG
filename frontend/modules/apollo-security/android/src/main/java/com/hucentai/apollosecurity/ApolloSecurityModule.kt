@@ -243,6 +243,31 @@ class ApolloSecurityModule : Module() {
       else if (activity == null) JSONObject().put("requested", false).put("reason", "no_activity").toString()
       else { try { activity.requestPermissions(arrayOf(perm), 0xA910) } catch (_: Exception) {}; JSONObject().put("requested", true).toString() }
     }
+    // Opt-in, local-only contact lookup. Caller ID is not authenticated by a saved contact.
+    // Return only the matched contact's display name and photo URI; never upload the address book.
+    AsyncFunction("lookupCallerContact") { number: String ->
+      val permission = android.Manifest.permission.READ_CONTACTS
+      if (!isDeclared(permission) || androidx.core.content.ContextCompat.checkSelfPermission(ctx, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        JSONObject().put("status", "permission_required").toString()
+      } else if (number.length !in 3..32 || !number.any { it.isDigit() }) {
+        JSONObject().put("status", "invalid").toString()
+      } else {
+        try {
+          val uri = android.net.Uri.withAppendedPath(android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number))
+          val fields = arrayOf(android.provider.ContactsContract.PhoneLookup.DISPLAY_NAME, android.provider.ContactsContract.PhoneLookup.PHOTO_URI)
+          ctx.contentResolver.query(uri, fields, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+              JSONObject().put("status", "matched")
+                .put("name", cursor.getString(0) ?: "")
+                .put("photoUri", cursor.getString(1) ?: JSONObject.NULL)
+                .toString()
+            } else JSONObject().put("status", "not_found").toString()
+          } ?: JSONObject().put("status", "not_found").toString()
+        } catch (_: Exception) {
+          JSONObject().put("status", "error").toString()
+        }
+      }
+    }
     AsyncFunction("listRecentCalls") { if (isDeclared(android.Manifest.permission.READ_CALL_LOG)) PhonePickers.recentCallsJson(ctx) else "[]" }
     AsyncFunction("listRecentSms") { if (isDeclared(android.Manifest.permission.READ_SMS)) PhonePickers.recentSmsJson(ctx) else "[]" }
     // "Calls Apollo screened" — only numbers Android handed to ApolloCallScreeningService. No permission needed.
@@ -419,6 +444,7 @@ class ApolloSecurityModule : Module() {
   private fun runtimePermission(name: String): String? = when (name) {
     "call_log" -> android.Manifest.permission.READ_CALL_LOG
     "sms" -> android.Manifest.permission.READ_SMS
+    "contacts" -> android.Manifest.permission.READ_CONTACTS
     else -> null
   }
 }
