@@ -270,6 +270,10 @@ GitHub internal-test pipeline and its signing identity, matching the inspected
 installed GitHub APK. Its local Android versionCode advances from 1 to 2; EAS
 production keeps its separate remote version source. A temporary caller invokes
 the existing native workflow once. Automatic build-on-source-push remains paused.
+
+The requested run started from `773b624`. Its temporary caller was then removed;
+the native workflow remains available only for explicit manual/reusable calls.
+This records a build request, not successful physical-device inference.
 Before public release, confirm ARM32/x86 devices are unavailable in Play's
 Device Catalog, and remove any retained 32-bit artifacts from active tracks.
 Expo's project setting for unauthenticated internal-build access must also be
