@@ -4,6 +4,7 @@ These complement behavioural contract tests and protect the supported
 TC Hawkeye and mandatory SLM execution path.
 """
 import ast
+import re
 from pathlib import Path
 import unittest
 
@@ -108,7 +109,9 @@ class SLMRedundancyRegression(unittest.TestCase):
         runtime = RUNTIME.read_text()
         self.assertIn("if (runtime) return Promise.resolve(true)", bootstrap)
         self.assertIn("if (startup) return startup", bootstrap)
-        self.assertIn("setSharedSLM(created)", bootstrap)
+        registrations = [argument.strip() for argument in re.findall(r"\bsetSharedSLM\(([^)]*)\)", bootstrap)
+                         if argument.strip() != "null"]
+        self.assertEqual(len(registrations), 1, "all model provisioning must use one shared registration boundary")
         self.assertIn("let shared: SLMAdapter | null = null", runtime)
         self.assertIn("export function getSharedSLM()", runtime)
 
