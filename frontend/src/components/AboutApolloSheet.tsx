@@ -7,6 +7,7 @@ import { Text, View } from "react-native";
 import { HigginsAvatar } from "@/src/components/HigginsAvatar";
 import { fonts, makeStyles, radius, spacing } from "@/src/theme";
 import { Sheet } from "./Sheet";
+import { BUILT_WITH_LLAMA } from "@/src/slm/licences";
 
 const GATES = ["Website", "Link", "Message", "Call", "Email", "File", "App", "Device", "Internet", "Account"];
 
@@ -82,6 +83,9 @@ export function AboutApolloSheet({ visible, onClose }: { visible: boolean; onClo
       <Text style={s.subHeading}>What about external services?</Text>
       <Text style={s.body}>When required, approved analysis and security services may process submitted information. Their data handling and retention periods are governed by their own applicable terms and may differ from ApolloSG&apos;s limits.</Text>
       <Text style={[s.body, { marginTop: spacing.xs }]}>For more information, see Privacy Disclosure in Settings.</Text>
+
+      <Text style={s.subHeading}>On-device AI</Text>
+      <Text style={s.body}>Optional, and off unless you turn it on. It runs on your phone only. Phones without a built-in model can download Qwen 2.5 (Apache License 2.0) or Llama 3.2 ({BUILT_WITH_LLAMA}). Licences are in Settings → On-device AI models.</Text>
 
       <View style={s.divider} />
       <Text style={s.heading}>💙 Free Forever</Text>

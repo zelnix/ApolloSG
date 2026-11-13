@@ -134,6 +134,16 @@ export const CAPABILITY_DATA_USE = [
     activation: 'Manual: when you send a question, tap read-aloud, or enable automatic read-aloud',
     withheld: 'Message bodies, screenshots, files, links you checked, personal details and secrets are never part of the state reading. Private messages or secrets you should not paste into the chat field',
   },
+  {
+    capability: 'On-device AI (optional)',
+    local: 'When you turn it on, the text of a message you check is read by an AI model that runs on your phone: the one built into the phone (Gemini Nano on supported Android phones, Apple Intelligence on supported iPhones), or a small model ApolloSG downloads if you ask it to. Passwords and codes are removed before the model sees the text. It re-words Apollo\u2019s result and points out requests in the message; it never changes Apollo\u2019s result.',
+    backend: 'Nothing. The model\u2019s input and output are not sent to ApolloSG\u2019s backend. If you download a model, ApolloSG\u2019s storage sends the model file to your phone; no message content goes with that request.',
+    thirdParty: 'None. The built-in models are part of your phone\u2019s operating system and run on the phone.',
+    shared: 'Nothing is shared',
+    necessary: 'Not required for protection. Apollo\u2019s checks work the same with it off.',
+    activation: 'Manual: off until you turn on On-device AI in Settings. A model is downloaded only when you tap Download, and only on Wi-Fi',
+    withheld: 'Everything. A local record on your phone keeps only which model ran, when, how long it took and whether its answer was shown \u2014 never the message, the question or the answer',
+  },
 ];
 
 // ─── Existing Processing Flows ─────────────────────────────────────────────────
@@ -148,6 +158,7 @@ export const PRIVACY_FLOWS = [
   { what: 'Optional family support', when: 'You pair, invite, share an incident, reply or send a text note', detail: 'Chosen names, contact details, minimal alerts, weekly counts and replies go to ApolloSG and paired guardians. Invitations use an email delivery service; confirmed guardians also receive authorised automatic security alerts via email when Apollo is barking or biting. Alerts use the push relay. Remove a pairing to stop future sharing; it does not erase prior deliveries.' },
   { what: 'App reputation checks', when: 'You manually check an app', detail: 'The supplied app/developer names, source, permission labels and website hosts go to ApolloSG and optionally Higgins for explanation, not your full app inventory. Do not enter personal content in app-name fields.' },
   { what: 'Optional Gmail investigation', when: 'Only after you connect Gmail with Google OAuth and start a scan or monitor', detail: "ApolloSG uses Gmail read-only OAuth access. ApolloSG never asks for or stores a mailbox username or password. Disconnect removes ApolloSG's stored OAuth connection; revoke provider access as an additional control. Raw message content is not copied into Patrol. Email attachment hashes are checked against VirusTotal for known malware; file content is never sent." },
+  { what: 'Optional on-device AI', when: 'Only after you turn on On-device AI in Settings', detail: "The text of a message you check is read by an AI model on your phone, after passwords and codes are removed. Nothing it reads or writes leaves the phone. A model download (only if your phone has no built-in model and you tap Download) fetches the model file from ApolloSG's storage over Wi-Fi; no message content is sent. A local record keeps which model ran and whether its answer was shown, never the content." },
 ];
 
 export const AI_PROCESSING_DISCLOSURE = {
@@ -168,6 +179,10 @@ export const AI_PROCESSING_DISCLOSURE = {
     {
       heading: 'Research queries',
       text: 'When Higgins researches a domain, phone number, or scam report, the outbound query is minimised. Personal identifiers detected in your evidence (emails, phone numbers, account numbers) are replaced with category labels within ApolloSG\u2019s backend before the query reaches any AI tool. Domain names and scam indicators are preserved because they are essential for the investigation.',
+    },
+    {
+      heading: 'On-device AI (optional)',
+      text: "If you turn on On-device AI, an AI model running on your phone also reads the message you check, after passwords and codes are removed. It can re-word Apollo's result in plainer language and point out requests in the message, quoting the message's own words. It never changes Apollo's result, and what it reads or writes is not sent anywhere. Its re-wording is checked first and isn't shown if it adds anything that wasn't in Apollo's result. Phones without a built-in model can download a small open model (Qwen or Llama) from ApolloSG over Wi-Fi; delete it at any time in Settings.",
     },
     {
       heading: 'On-device screening',

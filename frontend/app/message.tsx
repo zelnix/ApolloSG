@@ -27,7 +27,7 @@ import { Body, Button, Card } from "@/src/components/ui";
 import { STATE_NAME } from "@/src/domain/types";
 import { buildMessageCheckResult } from "@/src/domain/messageCheckResultAdapter";
 import type { MessageVia } from "@/src/domain/triage/messageEvidence";
-import { contextFromEvent, gateForCategory, messageOriginalEvidence } from "@/src/domain/higginsHandoff";
+import { contextFromEvent, gateForCategory, messageOriginalEvidence, openHigginsHandoff } from "@/src/domain/higginsHandoff";
 import { screenImage } from "@/src/domain/imagePrivacy";
 import { type MessageOutcome, useApollo } from "@/src/store/ApolloContext";
 import { CheckHistoryCard } from "@/src/components/CheckHistoryCard";
@@ -42,6 +42,7 @@ import { redactUserSecrets } from "@/src/domain/privacy";
 import { getShareIntake } from "@/src/share/shareIntake";
 import { PhonePickers, type RecentSms } from "@/src/security/phonePickers";
 import { SourceHero } from "@/src/components/SourceHero";
+import { OnDeviceAiNote } from "@/src/components/OnDeviceAiNote";
 import { SourcePickerSheet } from "@/src/components/SourcePickerSheet";
 import { findSampleText } from "@/src/sampleChecks";
 import { simulation } from "@/src/simulation";
@@ -271,6 +272,15 @@ export default function CheckMessage() {
   if (result && a) {
     const model = { ...buildMessageCheckResult({ analysis: a, event: result.event, sender, explanation: result.explanation, urlResults: result.urls, phones: result.phones, official: result.official }), evidenceProfile: result.event?.evidence_profile ?? result.profile ?? null };
     const askPrompt = `About the message I just checked (from ${model.subject}). ${model.headline} Can you walk me through what Apollo found and what I should do?`;
+    // On-device AI (advisory, off by default): re-words the settled result and points at asks the rules didn't name.
+    const aiNote = checked ? (
+      <OnDeviceAiNote
+        text={checked.text}
+        signals={a.signals}
+        settled={{ stateName: STATE_NAME[a.state], verdict: result.explanation?.summary ?? a.verdict, why: result.explanation?.why?.length ? result.explanation.why : a.why, recommendation: result.explanation?.recommendation ?? a.recommendation }}
+        onFullCheck={result.event ? () => { openHigginsHandoff(router, contextFromEvent(result.event!, gateForCategory(result.event!.category)), askPrompt); } : undefined}
+      />
+    ) : null;
     const msgActions: { label: string; onPress: () => void; testID: string; variant?: "primary" | "secondary" | "ghost" }[] = [];
     msgActions.push({ testID: "message-verify-sender", variant: "secondary", label: "Show me how to check the sender", onPress: () => setVerify(true) });
     if (a.signals.loginRequest || a.signals.codeRequest || /password|sign[- ]?in|login|account/i.test(text)) {
@@ -302,9 +312,10 @@ export default function CheckMessage() {
             eventId={result.event.event_id}
             caseId={result.event.investigation_case_id ?? null}
             actions={msgActions}
+            footer={aiNote}
           />
         ) : (
-          <CheckResultScreen result={model} actions={msgActions} />
+          <CheckResultScreen result={model} actions={msgActions} footer={aiNote} />
         )}
         {result.event ? (
           <RecoveryFlow event={result.event} kinds={["called", "clicked", "password", "code", "money", "info", "app"]} linkToCheck={a.signals.urls[0] ?? null} testID="message-recovery" />

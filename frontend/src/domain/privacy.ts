@@ -363,6 +363,7 @@ export function purposeLimitedUrl(normalizedUrl: string): string {
 
 export const PRIVACY_POLICY_SUMMARY = [
   "Links you check are analysed on your device first.",
+  "On-device AI is off unless you turn it on. When on, it runs on your phone only and never changes Apollo's result.",
   "When you tap Check, the submitted text, sender and links are processed for that assessment. Credentials, fragments and secret query values are removed before sending.",
   "Submitted screenshots are processed only for the requested assessment and ApolloSG closes request-scoped upload copies after success or failure.",
   "Background notification access, mailbox connections and ongoing monitoring require separate opt-in. Automatic notification checks remain local unless you enable a supported connection.",

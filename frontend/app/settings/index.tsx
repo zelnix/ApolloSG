@@ -35,6 +35,10 @@ import { MessagingSdk } from "@/src/security/messagingSdk";
 import type { NotificationStatus } from "@/src/push/notifications";
 import { useApollo } from "@/src/store/ApolloContext";
 import { setShowResultReasons, useShowResultReasons } from "@/src/store/resultReasonsStore";
+import { getSlmCallLog, getSlmStatus, isSlmEnabled, setSlmEnabled, slmStatusLine } from "@/src/slm/onDeviceSlm";
+import { summariseCallLog } from "@/src/slm/core";
+import { installedFallback } from "@/src/slm/fallbackModel";
+import type { SlmNativeStatus } from "@/modules/apollo-slm";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 import { minimiseApp } from "@/src/utils/minimise";
 import { goBackOrHome } from "@/src/utils/navigation";
@@ -93,6 +97,17 @@ export default function SettingsScreen() {
   const [showTrust, setShowTrust] = useState(false); const [showShare, setShowShare] = useState(false); const [showAbout, setShowAbout] = useState(false);
   const [showRetrofit, setShowRetrofit] = useState(false);
   const showReasons = useShowResultReasons();
+  // On-device AI: off until the person turns it on; the status is read from the phone each time Settings opens.
+  const [slmOn, setSlmOn] = useState(false);
+  const [slmStatus, setSlmStatus] = useState<SlmNativeStatus | null>(null);
+  const [slmCalls, setSlmCalls] = useState<string | null>(null);
+  const [slmFallback, setSlmFallback] = useState<string | null>(null);
+  useEffect(() => { void isSlmEnabled().then(setSlmOn); void getSlmStatus().then(setSlmStatus); void getSlmCallLog().then((log) => setSlmCalls(summariseCallLog(log))); void installedFallback().then((m) => setSlmFallback(m?.label ?? null)); }, []);
+  const toggleSlm = async (on: boolean) => {
+    setSlmOn(on);
+    // Turning it on never downloads anything: downloads start only from a Download button, on Wi-Fi.
+    await setSlmEnabled(on);
+  };
 
   // ── Linked email accounts ──
   interface LinkedEmail { email: string; connected_at?: string }
@@ -451,6 +466,20 @@ export default function SettingsScreen() {
       <Group icon={Smartphone} title="App" tone="app" testID="settings-preferences">
         <SwitchRow first label="Battery saver" hint="Reduces animation and checks status less often. It does not change the protection status." value={lowPower} onValueChange={(value) => void setLowPower(value)} testID="settings-lowpower-switch" />
         <SwitchRow label="Show why each result was settled" hint="One line naming what settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
+        {/* Written out rather than via SwitchRow/NavRow, which are created during render (react-hooks/static-components);
+            the hint wraps so the model status isn't cut off. */}
+        <View style={[s.rowItem, s.divider]}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowLabel}>On-device AI</Text>
+            <Text style={s.rowHint}>{`Re-words results in plain language and points out requests in a message, using AI that runs on this phone. Nothing is sent anywhere, and it never changes Apollo's result. ${slmStatus ? slmStatusLine(slmStatus, slmFallback) + "." : ""}`}</Text>
+          </View>
+          <Switch testID="settings-on-device-ai-switch" value={slmOn} onValueChange={(value) => void toggleSlm(value)} trackColor={{ true: colors.resting, false: colors.borderStrong }} thumbColor={colors.onSurface} />
+        </View>
+        {slmOn && slmCalls ? <Body testID="settings-on-device-ai-calls" style={{ paddingTop: spacing.xs }}>{slmCalls}</Body> : null}
+        <Pressable testID="settings-on-device-ai-models" accessibilityRole="button" accessibilityLabel="On-device AI models" onPress={() => router.push("/settings/on-device-ai")} style={[s.rowItem, s.divider]}>
+          <View style={{ flex: 1 }}><Text style={s.rowLabel}>On-device AI models</Text><Text style={s.rowHint}>See this phone&apos;s model, download one if it has none, and compare models</Text></View>
+          <ChevronRight size={20} color={colors.muted} />
+        </Pressable>
         <NavRow label="Minimise ApolloSG" hint="Move ApolloSG to the background" onPress={() => void minimiseApp(showToast)} testID="settings-minimise" />
         <NavRow label="Retrofit new enhancements" hint="Apply the latest reporting format to all past investigations" onPress={() => setShowRetrofit(true)} testID="settings-retrofit" />
       </Group>
