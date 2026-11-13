@@ -28,8 +28,10 @@ function nativeFailure(stage: "model_load" | "generation", cause: unknown): Loca
   // Native message/stack may contain paths, prompts or source content.
   const value = cause && typeof cause === "object" && "code" in cause
     ? (cause as { code?: unknown }).code : null;
+  const knownMessage = cause instanceof Error ? cause.message : "";
   const code = typeof value === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(value)
-    ? value : "native_exception";
+    ? value : knownMessage === "JSI bindings not installed" ? "native_bindings_not_installed"
+    : knownMessage.startsWith("[RNLlama] Missing JSI bindings:") ? "native_bindings_incomplete" : "native_exception";
   return new LocalInferenceError(stage, code);
 }
 

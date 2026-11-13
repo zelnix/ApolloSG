@@ -235,6 +235,35 @@ credentials; no new artifact build was started by that operation. The temporary
 cancellation workflow was removed after its successful run. Local core-capability
 validation passed 412 backend tests (25 skips, 12 subtests), 190 frontend tests
 and 13 artifact-admission tests. These are code checks, not a new APK qualification.
+
+## Model setup failure reported on Galaxy Z Fold6
+
+The latest existing GitHub standalone artifact was retrieved and inspected:
+`d6627ac`, application `app.apollo.hwg`, version 1.1.0 / versionCode 1,
+177,595,536 bytes, ARM64-only with the llama runtime libraries present. That
+does not establish native inference acceptance on the owner's phone.
+
+Source-level reproductions exposed setup defects: the 120-second UI deadline
+included the model download and consent prompts; a late successful download
+could leave the gate blocked; the network watcher repeatedly paused already
+approved cellular downloads and abandoned the original promise when Expo paused
+it; and startup errors lost the file/binding reason and actual failed stage.
+
+Installation now has separate progress and no boot-verification deadline.
+Native verification retains its bounded deadline and operation lock, including
+cleanup before retry. A single transfer session follows native pause/resume
+promises, requests consent on observed network changes, and stops monitoring
+when finished. Model admission remains required; specific safe diagnostics
+distinguish missing/invalid/unreadable files, binding import, registration and
+native loading failures. No source content, paths or native exception messages
+are exposed. The existing model admission policy and evidence pipeline are
+unchanged.
+
+Sixteen startup regressions cover long downloads, timeout/operation ownership,
+pause/resume/denied consent and native/file failures. These tests reproduce the
+identified defects, not the owner's physical-device failure. A subsequent
+explicitly authorised APK build and device run are still required to verify
+the corrected behavior on the Fold6. No build was started for these changes.
 Before public release, confirm ARM32/x86 devices are unavailable in Play's
 Device Catalog, and remove any retained 32-bit artifacts from active tracks.
 Expo's project setting for unauthenticated internal-build access must also be

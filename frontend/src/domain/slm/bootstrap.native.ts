@@ -11,36 +11,37 @@ import { updateOnDeviceAIDownload } from "./downloadStatus.ts";
 import { CANDIDATE_FILE, verifyPrivateGGUF } from "./modelAdmission.ts";
 
 import { getSharedSLM, setSharedSLM } from "./sharedRuntime.ts";
-import type { LocalLlamaRuntime } from "./llamaRnRuntime.ts";
+import { LocalInferenceError, type LocalLlamaRuntime } from "./llamaRnRuntime.ts";
+import { admitNativeStartup, describeStartupFailure, type NativeStartupFailure } from "./nativeStartup.ts";
+import type { SLMAdmissionResult } from "./compatibilityAttempt.ts";
+import { downloadWithNetworkConsent, ModelDownloadPaused } from "./downloadSession.ts";
 
 let runtime: LocalLlamaRuntime | null = null;
 let startup: Promise<boolean> | null = null;
 let download: Promise<boolean> | null = null;
+let startupFailure: NativeStartupFailure | null = null;
 // Immutable upstream revision, checked against public model metadata on 2026-11-13.
 // This pins provenance; lightweight admission is not a full-file checksum proof.
 const MODEL_DOWNLOAD_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf";
 
-export function startSharedLuddish(): Promise<boolean> {
+export function startSharedLuddish(onStage?: (stage: "model_integrity" | "runtime_registration") => void): Promise<boolean> {
   if (runtime) return Promise.resolve(true);
   if (startup) return startup;
   startup = (async () => {
-    const file = new File(Paths.document, CANDIDATE_FILE);
-    const admitted = await verifyPrivateGGUF({
-      uri: file.uri, exists: file.exists, size: file.size,
-      open: () => file.open(FileMode.ReadOnly),
-    }, Device.totalMemory ?? null);
-    if (!admitted.available) return false;
-    // Resolve native binding only after lightweight local file admission.
-    const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
-    const created = createLuddishOnDevice({
-      modelUri: admitted.uri, modelId: admitted.modelId,
-      deviceAdmitted: true,
-    });
-    if (!created) return false;
-    runtime = created;
-    setSharedSLM(created);
+    startupFailure = null;
+    const result = await admitNativeStartup(async () => {
+      const file = new File(Paths.document, CANDIDATE_FILE);
+      return verifyPrivateGGUF({ uri: file.uri, exists: file.exists, size: file.size,
+        open: () => file.open(FileMode.ReadOnly) }, Device.totalMemory ?? null);
+    }, async () => {
+      const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
+      return model => createLuddishOnDevice({ modelUri: model.uri, modelId: model.modelId, deviceAdmitted: true });
+    }, onStage);
+    if (!result.available) { startupFailure = result.code; return false; }
+    runtime = result.runtime;
+    setSharedSLM(result.runtime);
     return true;
-  })().catch(() => false).finally(() => { startup = null; });
+  })().catch(() => { startupFailure = "runtime_registration_failed"; return false; }).finally(() => { startup = null; });
   return startup;
 }
 
@@ -80,22 +81,22 @@ export function isPrivateLuddishModelMissing(): boolean {
 }
 
 /** Consent is per download, not a permanent cellular-data permission. */
-async function confirmModelNetworkUse(): Promise<boolean> {
+async function confirmModelNetworkUse(): Promise<Network.NetworkStateType | null> {
   let state: Network.NetworkState;
   try { state = await Network.getNetworkStateAsync(); }
   catch { state = { type: Network.NetworkStateType.UNKNOWN, isConnected: undefined, isInternetReachable: undefined }; }
   if (state.isConnected === false || state.type === Network.NetworkStateType.NONE) {
     Alert.alert("No internet connection", "Connect to Wi-Fi or mobile data to download ApolloSG's On-device AI model.");
-    return false;
+    return null;
   }
-  if (state.type === Network.NetworkStateType.WIFI) return true;
-  return new Promise<boolean>((resolve) => {
+  if (state.type === Network.NetworkStateType.WIFI) return state.type;
+  return new Promise<Network.NetworkStateType | null>((resolve) => {
     Alert.alert(
       "Download using mobile data?",
       "ApolloSG needs to download its On-device AI model. You're not connected to Wi-Fi. Mobile data may use your allowance or incur charges.",
       [
-        { text: "Wait for Wi-Fi", style: "cancel", onPress: () => resolve(false) },
-        { text: "Download using mobile data", onPress: () => resolve(true) },
+        { text: "Wait for Wi-Fi", style: "cancel", onPress: () => resolve(null) },
+        { text: "Download using mobile data", onPress: () => resolve(state.type ?? Network.NetworkStateType.UNKNOWN) },
       ],
       { cancelable: false },
     );
@@ -108,6 +109,7 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
   if (runtime) return Promise.resolve(true);
   if (startup) return startup;
   download = (async () => {
+    startupFailure = null;
     const dest = new File(Paths.document, CANDIDATE_FILE);
     if (dest.exists) {
       updateOnDeviceAIDownload({ phase: "verifying" });
@@ -115,7 +117,8 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
         open: () => dest.open(FileMode.ReadOnly) }, Device.totalMemory ?? null);
       if (admitted.available || admitted.reason === "device_not_admitted") {
         const ok = admitted.available && await startSharedLuddish();
-        updateOnDeviceAIDownload({ phase: ok ? "ready" : "failed", error: ok ? undefined : "The installed model could not run on this device." });
+        updateOnDeviceAIDownload({ phase: ok ? "ready" : "failed", error: ok ? undefined
+          : startupFailure ? describeStartupFailure(startupFailure) : "The installed model could not run on this device." });
         return ok;
       }
       // Explicit install action: preserve the invalid package for diagnosis and
@@ -123,7 +126,8 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
       new File(dest.uri).move(new File(Paths.document, CANDIDATE_FILE + ".invalid-" + Date.now()));
     }
     try {
-      if (!await confirmModelNetworkUse()) return false;
+      const approvedNetwork = await confirmModelNetworkUse();
+      if (approvedNetwork === null) return false;
       updateOnDeviceAIDownload({ phase: "downloading", receivedBytes: 0, totalBytes: 0, error: undefined });
       // A single shared download with native byte-progress callbacks.
       const task = LegacyFileSystem.createDownloadResumable(
@@ -136,61 +140,30 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
           });
         },
       );
-      // Monitor network transitions throughout transfer. A switch away from Wi-Fi
-      // pauses the transfer before requesting fresh consent. Never silently spend
-      // mobile data because the connection changed mid-download.
-      let monitoring = true;
-      let networkBusy = false;
-      let denied = false;
-      const monitor = setInterval(() => {
-        if (!monitoring || networkBusy) return;
-        networkBusy = true;
-        void (async () => {
+      const result = await downloadWithNetworkConsent(task, {
+        approvedNetwork,
+        approveNetwork: confirmModelNetworkUse,
+        readNetwork: async () => {
           try {
             const state = await Network.getNetworkStateAsync();
-            if (state.type === Network.NetworkStateType.WIFI && state.isConnected !== false) return;
-            await task.pauseAsync();
-            if (!monitoring) return;
-            const approved = await confirmModelNetworkUse();
-            if (!monitoring) return;
-            if (!approved) { denied = true; return; }
-            // Resume only after explicit consent for the current network.
-            await task.resumeAsync();
-          } catch {
-            denied = true;
-            try { await task.pauseAsync(); } catch { /* already stopped */ }
-          } finally { networkBusy = false; }
-        })();
-      }, 1000);
-      let result: LegacyFileSystem.FileSystemDownloadResult | undefined;
-      try {
-        result = await task.downloadAsync() ?? undefined;
-      } finally {
-        monitoring = false;
-        clearInterval(monitor);
-      }
-      if (denied || !result || result.status < 200 || result.status >= 300) throw new Error(
-        denied ? "Download paused. Connect to Wi-Fi and retry." : "Download failed");
-      updateOnDeviceAIDownload({ phase: "verifying" });
-      const admitted = await verifyPrivateGGUF({
-        uri: dest.uri, exists: dest.exists, size: dest.size,
-        open: () => dest.open(FileMode.ReadOnly),
-      }, Device.totalMemory ?? null);
-      if (!admitted.available) throw new Error("On-device AI package verification failed: " + admitted.reason);
-      updateOnDeviceAIDownload({ phase: "registering" });
-      const { createLuddishOnDevice } = await import("./llamaRnBinding.native.ts");
-      const created = createLuddishOnDevice({
-        modelUri: admitted.uri, modelId: admitted.modelId, deviceAdmitted: true,
+            return state.isConnected === false ? Network.NetworkStateType.NONE : state.type ?? Network.NetworkStateType.UNKNOWN;
+          } catch { return Network.NetworkStateType.UNKNOWN; }
+        },
       });
-      if (!created) throw new Error("On-device AI runtime unavailable");
-      runtime = created;
-      setSharedSLM(created);
+      if (result.status < 200 || result.status >= 300) throw new Error("Download failed");
+      updateOnDeviceAIDownload({ phase: "verifying" });
+      const registered = await startSharedLuddish(stage => {
+        updateOnDeviceAIDownload({ phase: stage === "model_integrity" ? "verifying" : "registering" });
+      });
+      if (!registered) throw new Error("Model setup failed");
       updateOnDeviceAIDownload({ phase: "ready" });
       return true;
     } catch (e) {
       // Preserve existing model files on runtime failure; incomplete transfers are
       // rejected by lightweight admission and can be explicitly reinstalled.
-      updateOnDeviceAIDownload({ phase: "failed", error: e instanceof Error ? e.message : "Download failed" });
+      updateOnDeviceAIDownload({ phase: "failed", error: startupFailure ? describeStartupFailure(startupFailure)
+        : e instanceof ModelDownloadPaused ? "Download paused. Connect to Wi-Fi and retry."
+        : "The On-device AI download did not complete. Check your connection and retry." });
       return false;
     }
   })().finally(() => { download = null; });
@@ -203,7 +176,7 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
 export type SLMCompatibilityStage = "hardware" | "model_integrity" | "runtime_registration" | "inference" | "response_validation" | "complete" | "failed";
 export async function checkRequiredSLMCompatibility(
   onStage?: (stage: SLMCompatibilityStage) => void,
-): Promise<{ compatible: boolean; reason: string }> {
+): Promise<SLMAdmissionResult> {
   let stage: SLMCompatibilityStage = "hardware";
   const mark = (next: SLMCompatibilityStage) => {
     stage = next;
@@ -217,20 +190,24 @@ export async function checkRequiredSLMCompatibility(
     }
     mark("model_integrity");
     // The shared runtime is registered after model file admission.
-    const started = await startSharedLuddish();
-    mark("runtime_registration");
+    const started = await startSharedLuddish(mark);
     if (!started || !getSharedSLM()) {
       mark("failed");
-      return { compatible: false, reason: "The required On-device AI model could not be verified or started." };
+      const code = startupFailure ?? "runtime_registration_failed";
+      return { compatible: false, reason: describeStartupFailure(code), diagnosticCode: code };
     }
     // Actually load the native model context. Do not run a synthetic case investigation.
     mark("inference");
     await (getSharedSLM() as LocalLlamaRuntime).prepare();
     mark("complete");
     return { compatible: true, reason: "On-device AI compatibility verified." };
-  } catch {
+  } catch (error) {
+    const failedStage = stage;
     mark("failed");
-    return { compatible: false, reason: "The On-device AI failed during " + stage + "." };
+    return { compatible: false, reason: error instanceof LocalInferenceError && error.stage === "model_load"
+      ? "The model file passed initial checks, but the native On-device AI runtime could not load it."
+      : "The On-device AI failed during " + failedStage + ".",
+      diagnosticCode: error instanceof LocalInferenceError ? error.stage + ":" + error.code : failedStage + "_failed" };
   }
 }
 
