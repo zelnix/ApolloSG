@@ -2,15 +2,6 @@ name: SLM Android native compile
 # Standalone APK build requested for slm physical-device acceptance.
 
 on:
-  push:
-    branches: [slm]
-    paths:
-      - 'frontend/**'
-      - '!frontend/tests/**'
-      - '!frontend/scripts/verify_android_abis.py'
-      - 'backend/services/google_web_risk.py'
-      - 'backend/services/virustotal.py'
-      - 'backend/services/virustotal_url.py'
   workflow_dispatch:
     inputs:
       build_debug:
@@ -29,7 +20,6 @@ jobs:
     timeout-minutes: 60
     env:
       CI: '1'
-      APOLLO_SLM_NATIVE: 'on'
       # Explicitly scoped to this standalone slm test APK; never a general store-release default.
       EXPO_PUBLIC_SLM_TEST_MODE: 'true'
       EXPO_PUBLIC_APP_ENV: production
