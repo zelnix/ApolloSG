@@ -202,10 +202,12 @@ prevent an incompatible browser from downloading bytes. Store availability is a
 distribution control, and is not claimed for those direct links. Previously
 published universal APKs are not changed or revoked by a new build.
 
-The owner selected Google Play for public distribution and Expo for internal
-testing. `android-play-bundle.yml` builds the existing production AAB profile
-with both 64-bit targets and verifies the downloaded bundle. It does not claim
-a Play upload or publication. The APK workflow remains internal distribution.
+The owner selected Google Play for future public distribution and Expo for
+internal testing, then requested APK delivery only for now. The optional
+`android-play-bundle.yml` workflow is manual-only; it builds the existing
+production AAB profile with both 64-bit targets and verifies the downloaded
+bundle when explicitly requested. It does not claim a Play upload or
+publication. The automatic APK workflow remains internal distribution.
 Before public release, confirm ARM32/x86 devices are unavailable in Play's
 Device Catalog, and remove any retained 32-bit artifacts from active tracks.
 Expo's project setting for unauthenticated internal-build access must also be

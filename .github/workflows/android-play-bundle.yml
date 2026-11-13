@@ -1,11 +1,7 @@
 name: ApolloSG Google Play bundle
 
 on:
-  push:
-    branches: [slm]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/android-play-bundle.yml'
+  # Public store distribution is deferred; only build a bundle when requested.
   workflow_dispatch:
 
 permissions:
