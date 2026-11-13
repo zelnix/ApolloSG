@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
+import hashlib
+import uuid
 
 from fastapi import HTTPException
 
@@ -19,6 +21,7 @@ from core.db import db, now_utc
 from services.higgins import repository as repo
 
 COLLECTION = "investigation_device_pickups"
+CHUNKS = "investigation_pickup_chunks"
 # The identifiers recorded at intake, and the label the phone saves each under.
 HEADER_LABELS = {"sender": "From", "reply_to": "Reply-to", "subject": "Subject", "received_at": "Received"}
 IDENTIFIERS = ("type", "sender", "reply_to", "subject", "received_at", "provider", "attachment_names", "url")
@@ -38,8 +41,14 @@ async def hold(owner: str, case_id: str) -> bool:
     doc = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id, "deleted": False}, {"_id": 0})
     if not doc or not finished(doc) or repo.utc(doc["expires_at"]) <= now_utc():
         return False
+    snapshot_id = None
+    published = False
     try:
+        previous = await get(owner, case_id)
+        if previous and previous.get("snapshotId") and (previous.get("case") or {}).get("revision") == doc["revision"]:
+            return True
         rows = await repo.list_evidence(owner, case_id)
+        snapshot_id = uuid.uuid4().hex
         originals = []
         evidence_content = []
         for row in rows:
@@ -54,7 +63,13 @@ async def hold(owner: str, case_id: str) -> bool:
             # The existing authenticated evidence-content endpoint transfers
             # individual bytes. Never embed up to 64 MiB of case files in a
             # single MongoDB pickup document.
-            import hashlib
+            # A pickup owns a durable encrypted copy, independent of working-copy TTLs.
+            for index, offset in enumerate(range(0, max(1, len(data)), repo.CHUNK_BYTES)):
+                await db[CHUNKS].insert_one({
+                    "owner_id": owner, "case_id": case_id, "snapshot_id": snapshot_id,
+                    "evidence_id": row["evidence_id"], "index": index,
+                    "content_ciphertext": repo.encrypt(data[offset:offset + repo.CHUNK_BYTES]),
+                })
             evidence_content.append({
                 "evidenceId": row["evidence_id"], "kind": kind,
                 "origin": row.get("origin"), "mediaType": row.get("media_type"),
@@ -64,6 +79,7 @@ async def hold(owner: str, case_id: str) -> bool:
                 originals.append({"evidenceId": row["evidence_id"], "kind": kind, "body": data.decode("utf-8")})
         source = {k: _plain(v) for k, v in (doc.get("source_metadata") or {}).items() if k in IDENTIFIERS and v not in (None, "", [])}
         snapshot = {
+            "snapshotId": snapshot_id,
             "case": (await repo.case_view(doc)).wire(),
             "turns": [t.wire() for t in await repo.accepted_turns(owner, doc)],
             "sources": await repo.sources(owner, case_id),
@@ -81,13 +97,30 @@ async def hold(owner: str, case_id: str) -> bool:
             logger.warning("device_pickup_snapshot_too_large case=%s", case_id[:8])
             return False
         now = now_utc()
+        current = await db.investigation_cases.find_one({
+            "owner_id": owner, "case_id": case_id, "deleted": False,
+            "revision": doc["revision"], "active_job_id": None,
+        }, {"_id": 1})
+        if not current:
+            await db[CHUNKS].delete_many({"owner_id": owner, "case_id": case_id, "snapshot_id": snapshot_id})
+            return False
         await db[COLLECTION].update_one({"owner_id": owner, "case_id": case_id},
                                         {"$set": {"snapshot_ciphertext": encoded_snapshot, "held_at": now},
                                          "$setOnInsert": {"owner_id": owner, "case_id": case_id, "first_held_at": now}}, upsert=True)
+        # Deletion can race the snapshot write in another collection. A late
+        # holder may remove only its own attempt, never recreate deleted data.
+        if not await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id, "deleted": False,
+                                                       "revision": doc["revision"], "active_job_id": None}, {"_id": 1}):
+            await db[COLLECTION].delete_one({"owner_id": owner, "case_id": case_id, "snapshot_ciphertext": encoded_snapshot})
+            return False
+        published = True
         return True
     except Exception as exc:  # noqa: BLE001 — never blocks an investigation finishing; never logs content
         logger.warning("device_pickup_hold_failed case=%s type=%s", case_id[:8], type(exc).__name__)
         return False
+    finally:
+        if snapshot_id and not published:
+            await db[CHUNKS].delete_many({"owner_id": owner, "case_id": case_id, "snapshot_id": snapshot_id})
 
 
 async def get(owner: str, case_id: str) -> Optional[dict]:
@@ -97,6 +130,26 @@ async def get(owner: str, case_id: str) -> Optional[dict]:
 
 async def release(owner: str, case_id: str) -> None:
     await db[COLLECTION].delete_one({"owner_id": owner, "case_id": case_id})
+    await db[CHUNKS].delete_many({"owner_id": owner, "case_id": case_id})
+
+
+async def content(owner: str, case_id: str, snapshot_id: str, evidence_id: str) -> bytes:
+    """Serve only bytes registered in this owner's currently published pickup."""
+    held = await get(owner, case_id)
+    if not held or held.get("snapshotId") != snapshot_id:
+        raise repo.http(409, "conflict", "The device pickup snapshot changed. Reload it before transferring evidence.")
+    item = next((e for e in held.get("evidenceContent", []) if e["evidenceId"] == evidence_id), None)
+    if item is None:
+        raise repo.http(404, "not_found", "No such evidence belongs to this pickup.")
+    chunks = await db[CHUNKS].find({
+        "owner_id": owner, "case_id": case_id, "snapshot_id": snapshot_id, "evidence_id": evidence_id,
+    }, {"_id": 0}).sort("index", 1).to_list(None)
+    if not chunks or [row["index"] for row in chunks] != list(range(len(chunks))):
+        raise repo.http(409, "conflict", "The pickup evidence is incomplete; the server copy has not been released.")
+    data = b"".join(repo.decrypt(row["content_ciphertext"]) for row in chunks)
+    if len(data) != item["byteLength"] or hashlib.sha256(data).hexdigest() != item["sha256"]:
+        raise repo.http(409, "conflict", "The pickup evidence failed its integrity check.")
+    return data
 
 
 def needs_result(snapshot: dict) -> bool:
@@ -109,6 +162,8 @@ def needs_result(snapshot: dict) -> bool:
 def missing(snapshot: dict, saved: dict) -> list[str]:
     """What the phone says it hasn't saved yet, of what the server holds for it. Empty: its copy is complete."""
     out: list[str] = []
+    if snapshot.get("snapshotId") and saved.get("snapshotId") != snapshot["snapshotId"]:
+        out.append("the current pickup revision")
     required = {e["evidenceId"]: e["sha256"] for e in snapshot.get("evidenceContent") or []}
     reported = saved.get("evidenceDigests") or {}
     if any(reported.get(eid) != digest for eid, digest in required.items()):
@@ -137,3 +192,4 @@ async def confirmed(owner: str, case_id: str) -> None:
 
 async def ensure_indexes() -> None:
     await db[COLLECTION].create_index([("owner_id", 1), ("case_id", 1)], unique=True)
+    await db[CHUNKS].create_index([("owner_id", 1), ("case_id", 1), ("snapshot_id", 1), ("evidence_id", 1), ("index", 1)], unique=True)

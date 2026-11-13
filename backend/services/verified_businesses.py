@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone, timedelta
-from typing import Literal, Optional\n\nimport phonenumbers
+from typing import Literal, Optional
+
+import phonenumbers
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -35,7 +37,9 @@ class VerifiedBusiness(BaseModel):
     logo_url: Optional[HttpUrl] = None
     logo_domain_confirmed: bool = False
     sources: list[BusinessSource] = Field(default_factory=list)
-    last_reviewed_at: datetime\n    official_contact_url: Optional[HttpUrl] = None\n    cli_presentation_restriction: Optional[str] = None
+    last_reviewed_at: datetime
+    official_contact_url: Optional[HttpUrl] = None
+    cli_presentation_restriction: Optional[str] = None
 
 
 def _digits(number: str) -> str:
@@ -78,7 +82,9 @@ class BusinessCallerPresentation(BaseModel):
     caller_authenticated: bool = False
     spoofing_possible: bool = True
     special_service_number: bool = False
-    identity_mismatch: bool = False\n    official_contact_url: Optional[str] = None\n    independently_verified_callback_number: Optional[str] = None
+    identity_mismatch: bool = False
+    official_contact_url: Optional[str] = None
+    independently_verified_callback_number: Optional[str] = None
 
 
 def business_caller_presentation(business: VerifiedBusiness, number: str) -> BusinessCallerPresentation:
@@ -88,7 +94,9 @@ def business_caller_presentation(business: VerifiedBusiness, number: str) -> Bus
         business_name=business.trading_name or business.legal_name if associated else None,
         logo_url=logo,
         number_published_by_business=associated,
-        special_service_number=is_au_13_1300_1800(number),\n        official_contact_url=str(business.official_contact_url) if business.official_contact_url and associated else None,\n        independently_verified_callback_number=None,  # Never infer a safe callback from the incoming CLI.
+        special_service_number=is_au_13_1300_1800(number),
+        official_contact_url=str(business.official_contact_url) if business.official_contact_url and associated else None,
+        independently_verified_callback_number=None,  # Never infer a safe callback from the incoming CLI.
     )
 
 

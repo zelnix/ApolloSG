@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from typing import Literal
 from datetime import timedelta
 
 from fastapi import APIRouter, Request
@@ -55,6 +56,37 @@ class AdvisoryStart(Wire):
     role: str
 
 
+class AdvisoryFailure(Wire):
+    case_id: str = Field(min_length=4, max_length=80)
+    request_id: str = Field(min_length=4, max_length=80)
+    case_revision: int = Field(ge=0)
+    status: Literal["unavailable", "invalid_output"]
+    reason: str = Field(min_length=1, max_length=200, pattern=r"^[A-Za-z0-9_:.-]+$")
+
+
+@router.post("/investigations/{case_id}/slm/failures", status_code=202)
+async def advisory_failure(case_id: str, body: AdvisoryFailure, request: Request):
+    """Record safe failure codes on the issued request, never as evidence."""
+    _enabled()
+    owner = request.state.device["device_id"]
+    pending = await db.investigation_device_requests.find_one({
+        "owner_id": owner, "case_id": case_id, "request_id": body.request_id,
+        "kind": "slm_advisory", "expires_at": {"$gt": now_utc()},
+    })
+    if not pending or body.case_id != case_id:
+        raise http(409, "conflict", "No current on-device request matches this failure.")
+    case, job = await _active_case_job(owner, case_id, pending["job_id"], body.case_revision)
+    if pending.get("epoch") != case.get("epoch") or pending.get("work_epoch", job.get("work_epoch")) != job.get("work_epoch"):
+        raise http(409, "conflict", "The investigation has changed.")
+    result = await db.investigation_device_requests.update_one({
+        "owner_id": owner, "case_id": case_id, "request_id": body.request_id,
+        "submission": None, "expires_at": {"$gt": now_utc()},
+    }, {"$set": {"fulfilled": True, "submission": {"state": "advisory_failed", "status": body.status, "reason": body.reason}}})
+    if result.matched_count != 1 and (pending.get("submission") or {}) != {"state": "advisory_failed", "status": body.status, "reason": body.reason}:
+        raise http(409, "conflict", "The on-device request was already answered.")
+    return JSONResponse({"accepted": True}, status_code=202, headers=NO_STORE)
+
+
 def _enabled() -> None:
     if os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() != "on":
         raise http(404, "not_found", "Luddish on-device pilot is not enabled.")
@@ -69,6 +101,8 @@ async def _active_case_job(owner: str, case_id: str, job_id: str, revision: int)
     job = await repo.get_job(owner, case_id, job_id)
     if job.get("status") not in ACTIVE_JOB or job.get("epoch") != case.get("epoch"):
         raise http(409, "conflict", "The investigation job is no longer active.")
+    if job.get("deadline_at") and repo.utc(job["deadline_at"]) <= now_utc():
+        raise http(409, "conflict", "The investigation work deadline has passed.")
     return case, job
 
 
@@ -79,17 +113,19 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
     rows = await repo.list_evidence(owner, case_id)
     # The current SLM wire format accepts text only. Never pretend that an
     # unrepresented original image/document/audio was examined by Luddish.
-    unsupported = [row for row in rows
-                   if row.get("origin") == "user_submission"
-                   and row.get("kind") in ("image", "document", "audio", "attachment")
-                   and row.get("availability") == "available"]
-    if unsupported and include_checks:
-        raise http(422, "unsupported_evidence",
-                   "This on-device Finding cannot examine original image, document or audio evidence; a text-only Finding would be incomplete.")
     texts = {}
     for row in rows:
         readable = row.get("kind") in ("text", "url", "observation", "source_snapshot")
         investigative = row.get("origin") in ("apollo_inference", "external_source")
+        if row.get("kind") in ("image", "document", "audio", "attachment") or row.get("availability") != "available":
+            import json
+            texts[row["evidence_id"]] = json.dumps({
+                "representation": "inventory_only_not_original_content",
+                "kind": row.get("kind"), "availability": row.get("availability"),
+                "coverage": row.get("coverage"), "origin": row.get("origin"),
+                "limitation": "The on-device text model has not directly examined this original. Use only separately retained derived text or cited external examination; preserve uncovered content as a gap.",
+            }, ensure_ascii=False)
+            continue
         if not readable or (investigative and not include_checks):
             continue
         if row.get("availability") != "available":
@@ -126,7 +162,7 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
     if os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() != "on" or role not in QUESTIONS:
         return None
     case, _job = await _active_case_job(owner, case_id, job_id, revision)
-    device = repo.device_profile(case) or {}
+    device = repo.device_profile(case) or await repo.registered_device_profile(owner) or {}
     if device.get("evidenceOrigin") != "native" or device.get("platform") not in ("android", "ios"):
         return None
     existing = await db.investigation_device_requests.find_one({
@@ -146,7 +182,7 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
         role=role, operation=OPERATION[role], question=QUESTIONS[role],
         evidence=evidence,
     )
-    expires = min(repo.utc(case["expires_at"]), now_utc() + timedelta(minutes=5))
+    expires = min(repo.utc(case["expires_at"]), repo.utc(_job.get("deadline_at", case["expires_at"])), now_utc() + timedelta(minutes=5))
     if expires <= now_utc():
         return None
     await db.investigation_device_requests.insert_one({
@@ -155,9 +191,30 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
         "request": {"capabilityId": CAPABILITY, "expiresAt": expires.isoformat()},
         "request_ciphertext": repo.enc_json(issued.wire()),
         "expires_at": expires, "submission": None, "fulfilled": False,
-        "created_at": now_utc(), "epoch": case.get("epoch"),
+        "created_at": now_utc(), "epoch": case.get("epoch"), "work_epoch": case.get("work_epoch"),
     })
     return {"request": issued.wire(), "expiresAt": expires.isoformat()}
+
+
+@router.get("/investigations/slm/pending")
+async def pending_advisories(request: Request):
+    """Recover issued requests after navigation/reconnect; the device cannot choose evidence."""
+    _enabled()
+    owner = request.state.device["device_id"]
+    items = []
+    cursor = db.investigation_device_requests.find({
+        "owner_id": owner, "kind": "slm_advisory", "fulfilled": False,
+        "expires_at": {"$gt": now_utc()},
+    }, {"_id": 0}).sort("created_at", 1).limit(32)
+    async for pending in cursor:
+        original = repo.dec_json(pending["request_ciphertext"])
+        try:
+            case, job = await _active_case_job(owner, pending["case_id"], pending["job_id"], original["caseRevision"])
+        except Exception:
+            continue
+        if pending.get("epoch") == case.get("epoch") and pending.get("work_epoch", job.get("work_epoch")) == job.get("work_epoch"):
+            items.append({"request": original, "expiresAt": repo.utc(pending["expires_at"]).isoformat()})
+    return JSONResponse({"items": items}, headers=NO_STORE)
 
 
 @router.post("/investigations/{case_id}/slm/requests", status_code=201)
@@ -202,7 +259,7 @@ async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Requ
     case, _job = await _active_case_job(
         owner, case_id, pending["job_id"], body.case_revision,
     )
-    if pending.get("epoch") != case.get("epoch"):
+    if pending.get("epoch") != case.get("epoch") or pending.get("work_epoch", case.get("work_epoch")) != case.get("work_epoch"):
         raise http(409, "conflict", "The investigation was restarted or replaced.")
     original = SLMReasoningRequest.model_validate(repo.dec_json(pending["request_ciphertext"]))
     try:

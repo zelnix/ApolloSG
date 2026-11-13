@@ -30,6 +30,11 @@ def enabled() -> bool:
     return os.environ.get("GOOGLE_WEB_RISK_ENABLED", "true").lower() == "true"
 
 
+def configured() -> bool:
+    """Passive configuration check; never issues a lookup or reserves quota."""
+    return enabled() and bool(os.environ.get("GOOGLE_WEB_RISK_API_KEY", "").strip())
+
+
 def period(now: datetime) -> str:
     return now.astimezone(timezone.utc).strftime("%Y-%m")
 

@@ -18,7 +18,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from core import local_time
-from core.config import HIBP_API_KEY, IPQS_API_KEY, SAFE_BROWSING_API_KEY
+from core.config import HIBP_API_KEY, IPQS_API_KEY
 from core.db import db, now_utc
 from core.redaction import redact_investigation_secrets
 from services.email import email_configured
@@ -79,6 +79,7 @@ async def _case_json(case: dict) -> dict:
 # ------------------------------------------------------------------ capabilities
 @router.get("/ai/capabilities")
 async def capabilities():
+    from services.google_web_risk import configured
     sel = await ai_settings.selection()
     config = provider.configuration(sel["provider"])
     model = sel["model"]
@@ -89,7 +90,7 @@ async def capabilities():
         status = "available" if key and supported else ("unconfigured" if not key else "unsupported")
         return {"name": name, "status": status, "model": model,
                 "reason": None if status == "available" else (f"{config['provider']} API key missing" if not key else f"model lacks {cap}")}
-    integrations = [{"name": "safe_browsing", "status": "available" if SAFE_BROWSING_API_KEY else "unconfigured", "reason": None if SAFE_BROWSING_API_KEY else "SAFE_BROWSING_API_KEY"},
+    integrations = [{"name": "google_web_risk", "status": "available" if configured() else "unconfigured", "reason": None if configured() else "GOOGLE_WEB_RISK_API_KEY / GOOGLE_WEB_RISK_ENABLED"},
                     {"name": "phone_reputation", "status": "available" if IPQS_API_KEY else "unconfigured", "reason": None if IPQS_API_KEY else "IPQS_API_KEY"},
                     {"name": "breach_lookup", "status": "available" if HIBP_API_KEY else "unconfigured", "reason": None if HIBP_API_KEY else "HIBP_API_KEY"},
                     {"name": "guardian_email", "status": "available" if email_configured() else "unconfigured", "reason": None if email_configured() else "RESEND_API_KEY / RESEND_FROM_EMAIL"},
@@ -98,7 +99,7 @@ async def capabilities():
     bounds = {**policy()["bounds"], "fileBytes": {"value": ev.MAX_FILE_BYTES, "unit": "bytes", "purpose": "per-file upload ceiling", "overflow": "413; item listed as not received"},
               "caseBytes": {"value": ev.MAX_CASE_BYTES, "unit": "bytes", "purpose": "aggregate active-case payload", "overflow": "413"},
               "documentPages": {"value": ev.MAX_PAGES, "unit": "pages", "purpose": "supported document budget", "overflow": "later pages recorded as omitted"},
-              "lifetimeSeconds": {"value": policy()["lifetimeSeconds"], "unit": "seconds", "purpose": "temporary content ceiling; never extended", "overflow": "410"}}
+              "lifetimeSeconds": {"value": policy()["caseLifetimeSeconds"], "unit": "seconds", "purpose": "temporary content ceiling; never extended", "overflow": "410"}}
     return JSONResponse({"schemaVersion": 1, "provider": sel["provider"], "modalities": [modality("text", model, "text"), modality("vision", model, "vision"),
                          modality("research", model, "search")], "policyVersion": policy()["version"], "bounds": bounds, "integrations": integrations,
                          "providerMode": provider.get_provider_mode(),
@@ -1369,7 +1370,7 @@ async def device_pickup_copy(case_id: str, request: Request):
     Served whatever the case's working window or 24-hour clock says. `held: false, working: true`: still being checked."""
     owner = owner_of(request)
     case = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id},
-                                                 {"_id": 0, "deleted": 1, "status": 1, "active_job_id": 1})
+                                                 {"_id": 0, "deleted": 1, "status": 1, "active_job_id": 1, "device_saved_at": 1})
     if not case:
         raise http(404, "not_found", "No investigation with that reference belongs to this device.")
     held = await device_pickup.get(owner, case_id)
@@ -1377,7 +1378,8 @@ async def device_pickup_copy(case_id: str, request: Request):
         held = await device_pickup.get(owner, case_id)  # it finished moments ago: keep the phone's copy now
     if held is None:
         working = not case.get("deleted") and case.get("status") not in (*device_pickup.FINISHED, "expired", "deleted")
-        return JSONResponse({"caseId": case_id, "held": False, "working": working}, headers=NO_STORE)
+        return JSONResponse({"caseId": case_id, "held": False, "working": working,
+                             "removedAt": repo.utc(case["device_saved_at"]).isoformat() if case.get("device_saved_at") else None}, headers=NO_STORE)
     return JSONResponse({"caseId": case_id, "held": True, **held}, headers=NO_STORE)
 
 
@@ -1390,7 +1392,8 @@ async def _saved_report(request: Request) -> Optional[dict]:
     saved = body.get("saved") if isinstance(body, dict) else None
     if saved is None:
         return None
-    if not isinstance(saved, dict) or set(saved) - {"text", "link", "result", "headers", "evidenceIds", "evidenceDigests"} \
+    if not isinstance(saved, dict) or set(saved) - {"text", "link", "result", "headers", "evidenceIds", "evidenceDigests", "snapshotId"} \
+            or not isinstance(saved.get("snapshotId", ""), str) or len(saved.get("snapshotId", "")) > 80 \
             or any(not isinstance(saved.get(k, False), bool) for k in ("text", "link", "result")) \
             or not isinstance(saved.get("evidenceDigests", {}), dict) or len(saved.get("evidenceDigests", {})) > 1000 \
             or any(not isinstance(k, str) or len(k) > 80 or not isinstance(v, str) or len(v) != 64 or any(ch not in "0123456789abcdef" for ch in v) for k, v in saved.get("evidenceDigests", {}).items()) \
@@ -1402,6 +1405,14 @@ async def _saved_report(request: Request) -> Optional[dict]:
     return saved
 
 
+@router.get("/investigations/{case_id}/pickup/{snapshot_id}/evidence/{evidence_id}")
+async def pickup_evidence(case_id: str, snapshot_id: str, evidence_id: str, request: Request):
+    data = await device_pickup.content(owner_of(request), case_id, snapshot_id, evidence_id)
+    return Response(data, media_type="application/octet-stream", headers={
+        **NO_STORE, "X-Content-Type-Options": "nosniff", "Content-Disposition": "attachment",
+    })
+
+
 @router.post("/investigations/{case_id}/confirm-commit", status_code=200)
 async def confirm_commit(case_id: str, request: Request):
     """Device confirms it has saved and checked its own complete copy of the investigation (`saved` says what it holds).
@@ -1409,6 +1420,11 @@ async def confirm_commit(case_id: str, request: Request):
     working data for this case and says when (`removedAt`), for the result's note."""
     owner = owner_of(request)
     saved = await _saved_report(request)
+    already = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id,
+                                                    "deleted": True, "cleanup_status": "complete",
+                                                    "device_saved_at": {"$type": "date"}}, {"_id": 0, "device_saved_at": 1})
+    if already:
+        return JSONResponse({"purged": True, "status": "already_clean", "removedAt": repo.utc(already["device_saved_at"]).isoformat()}, headers=NO_STORE)
     held = await device_pickup.get(owner, case_id)
     if held is None:
         raise http(409, "conflict",
@@ -1421,9 +1437,13 @@ async def confirm_commit(case_id: str, request: Request):
             raise http(409, "conflict", f"This phone hasn't saved {', '.join(gaps)} yet, so ApolloSG keeps its copy until it has.", missing=gaps)
     case = await db.investigation_cases.find_one(
         {"owner_id": owner, "case_id": case_id, "deleted": {"$ne": True}},
-        {"_id": 0, "owner_id": 1, "case_id": 1, "response_ciphertext": 1, "status": 1, "cleanup_status": 1, "active_job_id": 1})
+        {"_id": 0, "owner_id": 1, "case_id": 1, "revision": 1, "response_ciphertext": 1, "status": 1, "cleanup_status": 1, "active_job_id": 1})
     if not case:
-        # Already purged or never existed — idempotent success. A purged case's record says when it was removed.
+        # A previous purge may have failed after revocation. Finish cleanup
+        # before releasing the held copy or reporting successful removal.
+        cleanup_status = await repo.run_cleanup(owner, case_id)
+        if cleanup_status != "complete":
+            return JSONResponse({"purged": False, "status": cleanup_status, "removedAt": None}, headers=NO_STORE)
         await device_pickup.confirmed(owner, case_id)
         gone = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id, "deleted": True, "cleanup_status": "complete"},
                                                      {"_id": 0, "updated_at": 1})
@@ -1433,12 +1453,19 @@ async def confirm_commit(case_id: str, request: Request):
     # pickup snapshot remains from a previous completed turn.
     if case.get("active_job_id") or case.get("status") not in device_pickup.FINISHED:
         raise http(409, "conflict", "This investigation is not finished; its evidence cannot be deleted.")
+    if (held.get("case") or {}).get("revision") != case.get("revision", (held.get("case") or {}).get("revision")):
+        raise http(409, "conflict", "The investigation changed after pickup. Save the current revision first.")
     if not case.get("response_ciphertext") and not held:
         raise http(409, "conflict", "Cannot confirm commit without a completed investigation.")
     # The result reaches Threats and history first: once purged, the server can no longer project it.
     await project_case_now(owner, case_id)
     # Purge: revoke the case (marks deleted, rotates epoch) then run cleanup
-    await repo.revoke(owner, case_id, "expired")
+    revoked = await repo.revoke(owner, case_id, "expired", expected={
+        "revision": case["revision"], "active_job_id": None, "deleted": False,
+        "status": {"$in": list(device_pickup.FINISHED)},
+    })
+    if not revoked:
+        raise http(409, "conflict", "The investigation changed during confirmation. Save the current revision first.")
     cleanup_status = await repo.run_cleanup(owner, case_id)
     if cleanup_status == "complete":
         await device_pickup.confirmed(owner, case_id)

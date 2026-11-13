@@ -56,7 +56,7 @@ test("does not use a network provider or disclose errors when inference throws",
     modelId: "test-local", infer: async () => { throw new Error("sensitive message content"); },
   });
   assert.deepEqual(result, {
-    status: "unavailable", execution: "none", reason: "on_device_inference_failed",
+    status: "unavailable", execution: "none", reason: "on_device_inference_failed:unknown:unclassified_exception",
   });
 });
 

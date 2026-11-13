@@ -30,6 +30,7 @@ from core.models import (
 # Source-specific freshness intervals
 SOURCE_CHECK_INTERVALS: dict[str, timedelta] = {
     "google_safe_browsing": timedelta(hours=4),
+    "google_web_risk": timedelta(hours=4),
     "apollo_manual": timedelta(days=7),
     "apollo_blocklist": timedelta(days=7),
     "migration": timedelta(days=7),
@@ -38,6 +39,7 @@ DEFAULT_CHECK_INTERVAL = timedelta(hours=6)
 
 SOURCE_EXPIRY_DEADLINES: dict[str, timedelta] = {
     "google_safe_browsing": timedelta(hours=24),
+    "google_web_risk": timedelta(hours=24),
     "apollo_manual": timedelta(days=30),
     "apollo_blocklist": timedelta(days=30),
     "migration": timedelta(days=30),
@@ -66,46 +68,23 @@ def _retry_backoff(consecutive_failures: int) -> timedelta:
 # ── Source re-query ────────────────────────────────────────────────────────────
 
 async def _revalidate_against_safe_browsing(hostname: str) -> RevalidationOutcome:
-    """Re-check a hostname against Google Safe Browsing.
+    """Historical provider is no longer connected; let its evidence expire.
 
-    Returns the outcome without side effects — the caller handles state transitions.
+    A different provider's negative result cannot prove this source delisted it.
     """
-    from core.config import SAFE_BROWSING_API_KEY, SB_ENDPOINT, SB_THREAT_TYPES
+    return "source_unavailable"
 
-    if not SAFE_BROWSING_API_KEY:
-        return "source_unavailable"
 
-    import httpx
+async def _revalidate_against_web_risk(hostname: str) -> RevalidationOutcome:
+    """Use the canonical quota-controlled provider, never a parallel transport."""
+    from services.intel import google_url_lookup
 
-    payload = {
-        "client": {"clientId": "apollo-v1", "clientVersion": "1.0"},
-        "threatInfo": {
-            "threatTypes": SB_THREAT_TYPES,
-            "platformTypes": ["ANY_PLATFORM"],
-            "threatEntryTypes": ["URL"],
-            "threatEntries": [{"url": f"http://{hostname}/"}],
-        },
-    }
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as http:
-            resp = await http.post(SB_ENDPOINT, params={"key": SAFE_BROWSING_API_KEY}, json=payload)
-        if resp.status_code in (401, 403):
-            return "source_error"
-        resp.raise_for_status()
-        data = resp.json()
-    except httpx.TimeoutException:
-        return "source_timeout"
-    except Exception:  # noqa: BLE001
-        return "source_error"
-
-    if not isinstance(data, dict):
-        return "source_error"
-
-    matches = [m for m in data.get("matches", []) if isinstance(m, dict)]
-    if matches:
+    result, _expiry = await google_url_lookup(f"https://{hostname}/")
+    if result.status == "match":
         return "confirmed"
-    else:
+    if result.status == "clear":
         return "source_delisted"
+    return "source_unavailable"
 
 
 async def _revalidate_against_blocklist(hostname: str) -> RevalidationOutcome:
@@ -121,6 +100,8 @@ async def _revalidate_indicator(indicator: ThreatIndicator) -> RevalidationOutco
     source = indicator.source
     if source == "google_safe_browsing":
         return await _revalidate_against_safe_browsing(indicator.hostname)
+    elif source == "google_web_risk":
+        return await _revalidate_against_web_risk(indicator.hostname)
     elif source in ("apollo_manual", "apollo_blocklist", "migration"):
         return await _revalidate_against_blocklist(indicator.hostname)
     else:

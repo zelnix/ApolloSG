@@ -8,19 +8,17 @@ from typing import Annotated, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from core.config import SAFE_BROWSING_API_KEY
 from core.db import db, now_utc
 from core.models import ApolloState, IntelCheckRequest, IntelCheckResponse
-from services.intel import assess_indicator, run_intel_check, safe_browsing_lookup, _sb_probe
+from services.intel import assess_indicator, run_intel_check
 
 router = APIRouter()
 
 
 @router.get("/intel/status")
 async def intel_status():
-    provider = os.environ.get("GOOGLE_URL_PROVIDER", "safe_browsing")
-    if provider == "web_risk":
-        from services.google_web_risk import enabled, period
+    from services.google_web_risk import configured, enabled, period
+    if configured():
         # Status must not issue a billable lookup, including synthetic test URLs.
         try:
             quota = await db.web_risk_quota.find_one({"_id": period(now_utc())}, {"reserved": 1, "testing_reserved": 1, "production_reserved": 1})
@@ -36,13 +34,9 @@ async def intel_status():
         except Exception:
             sb = {"status": "unavailable", "provider": "google_web_risk",
                   "detail": "Request accounting unavailable. External lookups must not proceed."}
-    elif not SAFE_BROWSING_API_KEY:
-        sb = {"status": "not_configured", "detail": "Add SAFE_BROWSING_API_KEY to enable Google Safe Browsing."}
     else:
-        stale = _sb_probe["checked_at"] is None or now_utc() - _sb_probe["checked_at"] > timedelta(minutes=10)
-        if stale:
-            await safe_browsing_lookup("http://testsafebrowsing.appspot.com/s/phishing.html")
-        sb = {"status": _sb_probe["status"], "detail": _sb_probe["detail"]}
+        sb = {"status": "not_configured" if enabled() else "disabled", "provider": "google_web_risk",
+              "detail": "Status is passive; Google Web Risk needs an enabled integration and server API key."}
     count = await db.blocklist.count_documents({"deleted_at": None})
     return {"safe_browsing": sb, "blocklist": {"status": "ok", "entries": count}, "checked_at": now_utc()}
 

@@ -7,7 +7,10 @@ contradictory evidence withdraws logos; no untrusted source can re-approve them.
 from __future__ import annotations
 
 import asyncio
-import logging\nimport re\nfrom urllib.parse import urlsplit\nimport httpx
+import logging
+import re
+from urllib.parse import urlsplit
+import httpx
 from datetime import datetime, timedelta, timezone
 
 from core.db import db
@@ -17,7 +20,36 @@ from services.business_provider_adapters import (
 from services.verified_businesses import VerifiedBusiness, _digits, BusinessSource
 
 log = logging.getLogger("apollo.business_registry_weekly")
-INTERVAL = timedelta(days=7)\n\n\nasync def official_numbers_still_published(business: VerifiedBusiness) -> bool:\n    """Recheck the curator-approved HTTPS contact page; no arbitrary URL crawling."""\n    source_urls = [src.reference for src in business.sources\n                   if src.provider == "official_business_site" and src.supports == "number_association"]\n    if not source_urls or not business.official_domain:\n        return False\n    domain = business.official_domain.lower().strip(".")\n    async with httpx.AsyncClient(follow_redirects=False, timeout=8) as client:\n        for url in source_urls:\n            parsed = urlsplit(url)\n            if parsed.scheme != "https" or parsed.hostname not in (domain, "www." + domain) or parsed.port not in (None, 443):\n                continue\n            try:\n                response = await client.get(url, headers={"Accept": "text/html"}, follow_redirects=False)\n                response.raise_for_status()\n                if len(response.content) > 1_000_000:\n                    continue\n                page_digits = re.sub(r"\\D", "", response.text)\n                # Avoid concatenated unrelated numbers by matching each printed number separately.\n                number_tokens = re.findall(r"\\+?\\d[\\d\\s().-]{3,22}\\d", response.text)\n                published = { _digits(n) for n in number_tokens }\n                if all(_digits(n) in published for n in business.published_numbers):\n                    return True\n            except (httpx.HTTPError, UnicodeError, ValueError):\n                continue\n    return False\n
+INTERVAL = timedelta(days=7)
+
+
+async def official_numbers_still_published(business: VerifiedBusiness) -> bool:
+    """Recheck the curator-approved HTTPS contact page; no arbitrary URL crawling."""
+    source_urls = [src.reference for src in business.sources
+                   if src.provider == "official_business_site" and src.supports == "number_association"]
+    if not source_urls or not business.official_domain:
+        return False
+    domain = business.official_domain.lower().strip(".")
+    async with httpx.AsyncClient(follow_redirects=False, timeout=8) as client:
+        for url in source_urls:
+            parsed = urlsplit(url)
+            if parsed.scheme != "https" or parsed.hostname not in (domain, "www." + domain) or parsed.port not in (None, 443):
+                continue
+            try:
+                response = await client.get(url, headers={"Accept": "text/html"}, follow_redirects=False)
+                response.raise_for_status()
+                if len(response.content) > 1_000_000:
+                    continue
+                page_digits = re.sub(r"\D", "", response.text)
+                # Avoid concatenated unrelated numbers by matching each printed number separately.
+                number_tokens = re.findall(r"\+?\d[\d\s().-]{3,22}\d", response.text)
+                published = { _digits(n) for n in number_tokens }
+                if all(_digits(n) in published for n in business.published_numbers):
+                    return True
+            except (httpx.HTTPError, UnicodeError, ValueError):
+                continue
+    return False
+
 LEASE = timedelta(minutes=5)
 
 

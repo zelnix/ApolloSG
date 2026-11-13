@@ -96,6 +96,10 @@ def accept_advisory_reasoning(
     ):
         raise ValueError("slm_request_mismatch")
     permitted = {row.evidence_id for row in request.evidence}
+    if request.operation != "case_finding" and result.answer.case_finding is not None:
+        raise ValueError("unexpected_case_finding")
+    if request.operation != "escalation_assessment" and result.answer.escalation_assessment is not None:
+        raise ValueError("unexpected_escalation_assessment")
     for group in (
         result.answer.observations,
         result.answer.contradictions,

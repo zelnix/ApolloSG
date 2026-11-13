@@ -49,17 +49,27 @@ const pendingReceipts = new Map<string, { expiresAt: number; payload: {
   execution: string; modelId: string; answer: unknown;
 } }>();
 
-export async function submitIssuedAdvisory(
+const inFlight = new Map<string, Promise<HandoffResult>>();
+const pendingFailures = new Map<string, { expiresAt: number; result: Extract<HandoffResult, { status: "unavailable" | "invalid_output" }> }>();
+export function submitIssuedAdvisory(caseId: string, issued: Issued, adapter: SLMAdapter | null): Promise<HandoffResult> {
+  const key = JSON.stringify([caseId, issued.request.requestId]);
+  const active = inFlight.get(key);
+  if (active) return active;
+  const work = deliverIssuedAdvisory(caseId, issued, adapter).finally(() => inFlight.delete(key));
+  inFlight.set(key, work);
+  return work;
+}
+
+async function deliverIssuedAdvisory(
   caseId: string,
   issued: Issued,
   adapter: SLMAdapter | null,
 ): Promise<HandoffResult> {
   if (!adapter) return { status: "unavailable", reason: "on_device_model_unavailable" };
   const caseRevision = issued.request.caseRevision;
-  const role = issued.request.role;
-  if (issued.request.caseId !== caseId || issued.request.caseRevision !== caseRevision ||
-      !issued.request.requestId || issued.request.role !== role ||
-new Date(issued.expiresAt).getTime() <= Date.now()) {
+  if (issued.request.caseId !== caseId || !Number.isFinite(Date.parse(issued.expiresAt)) ||
+      !Number.isSafeInteger(caseRevision) || caseRevision < 0 || !issued.request.requestId ||
+      new Date(issued.expiresAt).getTime() <= Date.now()) {
     return { status: "invalid_output", reason: "invalid_server_request" };
   }
   const expiry = Date.parse(issued.expiresAt);
@@ -67,12 +77,24 @@ new Date(issued.expiresAt).getTime() <= Date.now()) {
   for (const [id, entry] of pendingReceipts) {
     if (entry.expiresAt <= Date.now()) pendingReceipts.delete(id);
   }
+  for (const [id, entry] of pendingFailures) if (entry.expiresAt <= Date.now()) pendingFailures.delete(id);
+  const reportFailure = async (result: Extract<HandoffResult, { status: "unavailable" | "invalid_output" }>): Promise<HandoffResult> => {
+    const reason = /^[A-Za-z0-9_:.-]{1,200}$/.test(result.reason) ? result.reason : result.status;
+    await apiPost(`/investigations/${encodeURIComponent(caseId)}/slm/failures`, "slm_advisory", {
+      caseId, caseRevision, requestId: issued.request.requestId, status: result.status, reason,
+    });
+    return result;
+  };
+  const failure = pendingFailures.get(key);
+  if (failure) return reportFailure(failure.result);
   let payload = pendingReceipts.get(key)?.payload;
   if (!payload) {
     const result = await reasonForCase(issued.request, adapter);
     if (result.status !== "completed") {
       // No fabricated success and no automatic Gemini fallback.
-      return { status: result.status, reason: result.reason };
+      const failureResult = { status: result.status, reason: result.reason };
+      pendingFailures.set(key, { expiresAt: expiry, result: failureResult });
+      return reportFailure(failureResult);
     }
     payload = {
       caseId: result.caseId, caseRevision: result.caseRevision,

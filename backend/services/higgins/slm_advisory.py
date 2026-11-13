@@ -43,7 +43,6 @@ async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> di
     cursor = db.investigation_device_requests.find({
         "owner_id": owner, "case_id": case_id, "job_id": job_id,
         "kind": "slm_advisory", "fulfilled": True,
-        "submission.state": "advisory_received",
         "expires_at": {"$gt": now_utc()},
     }, {"_id": 0}).sort("created_at", -1).limit(16)
     for candidate in await cursor.to_list(16):
@@ -52,6 +51,12 @@ async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> di
             if original.role != role or original.case_id != case_id or original.case_revision != revision:
                 continue
             if candidate.get("epoch") != case.get("epoch"):
+                continue
+            if candidate.get("work_epoch", job.get("work_epoch")) != job.get("work_epoch"):
+                continue
+            if candidate.get("submission", {}).get("state") == "advisory_failed":
+                return {"stageFailure": candidate["submission"]["reason"], "role": role}
+            if candidate.get("submission", {}).get("state") != "advisory_received":
                 continue
             response = SLMReasoningResult.model_validate({
                 "caseId": case_id, "caseRevision": revision,
@@ -84,10 +89,14 @@ def advisory_verification_questions(snapshot: dict | None) -> list[str]:
     """Unverified questions only. Cannot be scored or cited as verified facts."""
     if not snapshot:
         return []
-    return [
+    questions = [
         item["text"] for item in snapshot.get("verificationSuggestions", [])
         if isinstance(item, dict) and isinstance(item.get("text"), str)
     ][:8]
+    semantic = snapshot.get("wrightSemantic") or {}
+    # Semantic interpretation focuses verification; it never satisfies a check.
+    questions += [semantic[key] for key in ("intent", "narrative", "uncertainty") if isinstance(semantic.get(key), str)]
+    return questions
 
 
 def prioritise_existing_checks(checks: list, *advice_snapshots: dict | None) -> None:

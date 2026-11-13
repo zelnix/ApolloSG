@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { PatrolEvent } from "@/src/domain/types";
 import { clearAllImageEvidence } from "./imageEvidence";
 import { clearAllOriginalEmails } from "./originalEmail";
+import { deleteAllArchivedEvidence } from "@/src/investigation/evidenceArchive";
 
 export interface CaseWipe { wipeId: string | null; at: string | null }
 export const CASE_WIPE_APPLIED_KEY = "apollo.case_wipe.applied.v1";
@@ -13,7 +14,7 @@ export const CASE_WIPE_APPLIED_KEY = "apollo.case_wipe.applied.v1";
 /** Local stores that hold cases, checks or their originals. */
 const CASE_STORE_PREFIXES = [
   "apollo.savedchecks.", "apollo.checkhistory.", "apollo.email_checks.", "apollo.appreports.", "apollo.report_progress.",
-  "apollo.original.", "apollo.device.investigation", "apollo.investigation.",
+  "apollo.original.", "apollo.device.investigation", "apollo.investigation.", "apollo.device.evidenceManifest.",
 ];
 
 export function isCaseStoreKey(key: string): boolean {
@@ -27,6 +28,7 @@ export function eventsAfterWipe(events: PatrolEvent[], at: string): PatrolEvent[
 }
 
 export async function clearLocalCaseStores(): Promise<void> {
+  await deleteAllArchivedEvidence();
   await clearAllImageEvidence().catch(() => undefined);
   await clearAllOriginalEmails().catch(() => undefined);
   const keys = (await AsyncStorage.getAllKeys()).filter(isCaseStoreKey);

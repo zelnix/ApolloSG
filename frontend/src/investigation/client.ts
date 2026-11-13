@@ -76,8 +76,22 @@ export interface HeldCopy {
   caseId: string; held: true; heldAt: string;
   case: InvestigationCase; turns: TurnCommit[]; sources: SourceReference[]; evidence: EvidenceItem[];
   originals: PickupOriginal[]; source: PickupSource;
+  snapshotId: string; evidenceContent: import("./evidenceArchiveCore").EvidenceManifestItem[];
 }
-export function getPickup(caseId: string) { return apiGet<HeldCopy | { caseId: string; held: false; working: boolean }>(`/investigations/${caseId}/pickup`); }
+export async function downloadPickupEvidence(caseId: string, snapshotId: string, evidenceId: string): Promise<Uint8Array> {
+  const token = await getDeviceToken();
+  if (!token) throw new ApiError(401, "ApolloSG hasn't registered this device yet.");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(`${API_BASE}/investigations/${encodeURIComponent(caseId)}/pickup/${encodeURIComponent(snapshotId)}/evidence/${encodeURIComponent(evidenceId)}`, {
+      headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
+    });
+    if (!response.ok) throw new ApiError(response.status, "ApolloSG could not transfer the complete evidence copy.");
+    return new Uint8Array(await response.arrayBuffer());
+  } finally { clearTimeout(timeout); }
+}
+export function getPickup(caseId: string) { return apiGet<HeldCopy | { caseId: string; held: false; working: boolean; removedAt?: string | null }>(`/investigations/${caseId}/pickup`); }
 export function submitTurn(caseId: string, body: { expectedRevision: number; turnId: string; message: string; answerToQuestionId: string | null; evidenceIds: string[] }, key: string, signal?: AbortSignal) {
   // A follow-up on a finished investigation comes back answered from its record, with no job (no Magnum DI call).
   return postWithKey<{ job: Job | null; followUp?: FollowUpAnswer; caseRevision: number }>(`/investigations/${caseId}/turns`, body, key, signal);

@@ -4,7 +4,8 @@ No Mongo server, native model, Gemini call or global pytest fixtures required.
 """
 import asyncio
 import os
-import sys
+import ast
+from pathlib import Path
 import types
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -50,12 +51,18 @@ collection = Collection()
 fake_db = types.ModuleType("core.db")
 fake_db.db = types.SimpleNamespace(investigation_device_requests=collection)
 fake_db.now_utc = lambda: datetime.now(timezone.utc)
-sys.modules["core.db"] = fake_db
 fake_repo = types.ModuleType("services.higgins.repository")
 fake_repo.dec_json = lambda value: value
-sys.modules["services.higgins.repository"] = fake_repo
+from services.higgins.slm_contract import SLMReasoningRequest, SLMReasoningResult, accept_advisory_reasoning
 
-from services.higgins import slm_advisory  # noqa: E402
+# Isolate the pure reader without poisoning other tests' imports at collection.
+tree = ast.parse((Path(__file__).parents[1] / "services/higgins/slm_advisory.py").read_text())
+scope = {"os": os, "db": fake_db.db, "now_utc": fake_db.now_utc, "repo": fake_repo,
+         "SLMReasoningRequest": SLMReasoningRequest, "SLMReasoningResult": SLMReasoningResult,
+         "accept_advisory_reasoning": accept_advisory_reasoning}
+nodes = [node for node in tree.body if isinstance(node, (ast.Assign, ast.FunctionDef, ast.AsyncFunctionDef))]
+exec(compile(ast.Module(body=nodes, type_ignores=[]), "isolated_slm_advisory", "exec"), scope)
+slm_advisory = types.SimpleNamespace(**scope)
 
 
 CASE = {"case_id": "case-A", "revision": 7, "active_job_id": "job-A",

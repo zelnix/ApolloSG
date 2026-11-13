@@ -26,7 +26,7 @@ const nativeInit: InitLlama = async (params) => {
 
 /**
  * Call only after the app has checked the model's local file, trusted
- * SHA-256 identity, and runtime/device admission. This module never reads
+ * package identity, and runtime/device admission. This module never reads
  * remote URLs, downloads models, or switches to Gemini.
  */
 export function createLuddishOnDevice(

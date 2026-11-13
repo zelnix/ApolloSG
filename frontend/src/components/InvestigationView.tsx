@@ -1,3 +1,4 @@
+import { fetchEvidenceContent } from "@/src/investigation/evidenceContent";
 // Unified Investigation Report, the same as a Threat Case: Findings Brief | Evidence | History | DI, opening on the
 // Findings Brief. Apollo detects; Higgins Triage, TC Hawkeye and Magnum DI investigate; the Evidence Lock keeps what
 // they established; Higgins Luddish explains it. Findings Brief = the result in plain words; Evidence = the original
@@ -495,17 +496,17 @@ function EvidenceSourceCard({ ev, caseId, onViewFull, s }: {
 
   // Load content on mount for available items
   useEffect(() => {
-    if (ev.availability !== "available") return;
+    if (ev.availability !== "available" && ev.availability !== "content_expired") return;
     setLoading(true);
     getDeviceToken().then((token) => {
       if (!token) { setLoading(false); return; }
       if (ev.kind === "image") {
-        fetch(`${API_BASE}/investigations/${caseId}/evidence/${ev.id}/content`, { headers: { Authorization: `Bearer ${token}` } })
+        fetchEvidenceContent(caseId, ev.id)
           .then(async (r) => { if (!r.ok) throw new Error(""); const blob = await r.blob(); return new Promise<string>((resolve) => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result as string); reader.readAsDataURL(blob); }); })
           .then((uri) => { setImageUri(uri); setLoading(false); })
           .catch(() => setLoading(false));
       } else if (ev.kind === "text" || ev.kind === "url") {
-        fetch(`${API_BASE}/investigations/${caseId}/evidence/${ev.id}/content`, { headers: { Authorization: `Bearer ${token}` } })
+        fetchEvidenceContent(caseId, ev.id)
           .then((r) => { if (!r.ok) throw new Error(""); return r.text(); })
           .then((text) => { setTextContent(text); setLoading(false); })
           .catch(() => setLoading(false));

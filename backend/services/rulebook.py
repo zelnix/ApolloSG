@@ -242,7 +242,7 @@ _CAPABILITY_RULE = {"reading": "MAGNUM-READING", "reasoning": "MAGNUM-REASONING"
 
 
 def _pattern_name(pattern: Optional[dict]) -> str:
-    from services.higgins.tc_flyby.patterns import PATTERNS
+    from services.higgins.tc_hawkeye.patterns import PATTERNS
     key = (pattern or {}).get("key")
     return next((p["name"] for p in PATTERNS if p["key"] == key), "a known scam")
 

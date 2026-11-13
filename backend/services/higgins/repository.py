@@ -30,7 +30,8 @@ CHUNK_BYTES = 1024 * 1024
 CLOCK_INDEX = "submitted_content_24h_after_finish"
 CLOCKED = ("investigation_content_chunks", "investigation_upload_chunks", "investigation_uploads")  # where submitted bytes live
 CONTENT = ("investigation_evidence", "investigation_content_chunks", "investigation_events", "investigation_turn_commits",
-           "investigation_jobs", "investigation_device_requests", "investigation_settings_plans", "investigation_uploads", "investigation_upload_chunks")
+           "investigation_jobs", "investigation_device_requests", "investigation_settings_plans", "investigation_uploads", "investigation_upload_chunks",
+           "magnum_di_window_calls")
 
 
 def utc(value: datetime) -> datetime:
@@ -172,6 +173,7 @@ _ORIGIN_OF_INITIATOR = {"higgins_user_request": "user", "apollo_automatic": "apo
 
 async def create_case(owner: str, gate: Optional[str], device_profile: Optional[dict], client_submission_id: Optional[str] = None,
                       initiator: str = "user_check", origin: Optional[str] = None) -> dict:
+    device_profile = device_profile or await registered_device_profile(owner)
     now = now_utc()
     doc = {"owner_id": owner, "case_id": str(uuid.uuid4()), "revision": 0, "epoch": uuid.uuid4().hex, "work_epoch": uuid.uuid4().hex, "gates": [gate] if gate else [], "status": "queued",
            "created_at": now, "updated_at": now, "expires_at": now + timedelta(seconds=LIFETIME_SECONDS),
@@ -249,6 +251,23 @@ async def case_view(doc: dict) -> InvestigationCase:
 
 def device_profile(doc: dict) -> Optional[dict]:
     return dec_json(doc["device_profile_ciphertext"]) if doc.get("device_profile_ciphertext") else None
+
+
+async def registered_device_profile(owner: str) -> Optional[dict]:
+    """Resolve metadata for the authenticated device; never borrow another case's profile.
+
+    Native metadata remains a client claim, not hardware attestation. The SLM
+    runtime and result validation are still mandatory on every request.
+    """
+    device = await db.devices.find_one({"device_id": owner, "revoked_at": None}, {"_id": 0})
+    if not device:
+        return None
+    platform = device.get("platform")
+    if platform not in ("android", "ios", "windows", "macos", "web"):
+        return None
+    return {"platform": platform, "manufacturer": device.get("manufacturer"), "model": device.get("model"),
+            "locale": device.get("locale") or "en-AU", "capabilityIds": [],
+            "evidenceOrigin": "native" if device.get("adapter_mode") == platform and platform != "web" else "browser"}
 
 
 # ------------------------------------------------------------------ sources (bounded list inside the case record)
@@ -680,7 +699,27 @@ async def release_magnum_call(owner: str, case_id: str) -> None:
 
 
 async def magnum_call_used(owner: str, case_id: str) -> bool:
+    return (await legacy_magnum_call_used(owner, case_id)
+            or await db.magnum_di_window_calls.count_documents({"owner_id": owner, "case_id": case_id}, limit=1) > 0)
+
+
+async def legacy_magnum_call_used(owner: str, case_id: str) -> bool:
     return await db.magnum_di_calls.count_documents({"correlation_id": correlation_id(case_id), "owner_id": owner}, limit=1) > 0
+
+
+async def job_is_current(owner: str, case_id: str, job: dict) -> bool:
+    """Fence every external dispatch/checkpoint, including cancellation and recovery."""
+    current = await db.investigation_cases.find_one({
+        "owner_id": owner, "case_id": case_id, "deleted": False,
+        "active_job_id": job["job_id"], "epoch": job["epoch"],
+        "work_epoch": job.get("work_epoch", job["epoch"]),
+        "lease_fence": job.get("fence"), "expires_at": {"$gt": now_utc()},
+    }, {"_id": 1})
+    live_job = await db.investigation_jobs.find_one({
+        "owner_id": owner, "job_id": job["job_id"], "fence": job.get("fence"),
+        "status": "investigating", "deadline_at": {"$gt": now_utc()},
+    }, {"_id": 1})
+    return bool(current and live_job)
 
 
 async def claim_magnum_window(owner: str, case_id: str, job_id: str, index: int,
@@ -692,13 +731,20 @@ async def claim_magnum_window(owner: str, case_id: str, job_id: str, index: int,
     """
     if not 0 <= index < max_windows or not digest:
         return False
+    job = await get_job(owner, case_id, job_id)
+    if not await job_is_current(owner, case_id, job):
+        return False
     try:
         await db.magnum_di_window_calls.insert_one({
             "_id": f"{correlation_id(case_id)}:window:{index}",
             "correlation_id": correlation_id(case_id), "owner_id": owner,
             "case_id": case_id, "job_id": job_id, "window_index": index,
             "digest": digest, "claimed_at": now_utc(), "status": "claimed",
+            "epoch": job["epoch"], "work_epoch": job.get("work_epoch", job["epoch"]), "fence": job.get("fence"),
         })
+        if not await job_is_current(owner, case_id, job):
+            await db.magnum_di_window_calls.delete_one({"_id": f"{correlation_id(case_id)}:window:{index}", "fence": job.get("fence")})
+            return False
         return True
     except DuplicateKeyError:
         return False
@@ -707,11 +753,22 @@ async def claim_magnum_window(owner: str, case_id: str, job_id: str, index: int,
 async def complete_magnum_window(owner: str, case_id: str, job_id: str, index: int,
                                  digest: str, result: dict) -> bool:
     """Checkpoint the actual provider result only for the owning claim."""
+    job = await get_job(owner, case_id, job_id)
+    if not await job_is_current(owner, case_id, job):
+        return False
     outcome = await db.magnum_di_window_calls.update_one(
         {"_id": f"{correlation_id(case_id)}:window:{index}",
-         "owner_id": owner, "job_id": job_id, "digest": digest, "status": "claimed"},
+         "owner_id": owner, "job_id": job_id, "digest": digest, "status": "claimed", "fence": job.get("fence")},
         {"$set": {"status": "completed", "result_ciphertext": enc_json(result),
                   "completed_at": now_utc()}})
+    if not await job_is_current(owner, case_id, job):
+        # The external call already happened. Remove a late payload but retain
+        # its irreversible claim, so recovery cannot send this window again.
+        await db.magnum_di_window_calls.update_one(
+            {"_id": f"{correlation_id(case_id)}:window:{index}", "fence": job.get("fence")},
+            {"$set": {"status": "abandoned"}, "$unset": {"result_ciphertext": "", "completed_at": ""}},
+        )
+        return False
     return outcome.modified_count == 1
 
 
@@ -843,7 +900,7 @@ async def _queue_kb_contribution(owner: str, case_id: str, commit: TurnCommit) -
     try:
         from services.higgins import kb_queue
         resp = commit.response
-        if not resp or not resp.assessment:
+        if not resp or not resp.assessment or commit.provider.simulated or resp.completion != "complete":
             return
         # ISOLATION: Never contribute sample check evidence to real-world intelligence
         case_doc = await db.investigation_cases.find_one(
@@ -871,13 +928,14 @@ async def _queue_kb_contribution(owner: str, case_id: str, commit: TurnCommit) -
 
 
 # ------------------------------------------------------------------ lifecycle: cancel / delete / expire / cleanup
-async def revoke(owner: str, case_id: str, status: str) -> Optional[dict]:
+async def revoke(owner: str, case_id: str, status: str, *, expected: Optional[dict] = None) -> Optional[dict]:
     """Deletion/expiry ONLY: change the content lifecycle epoch (all content rows become tombstones) and schedule cleanup.
     Cancelling a turn never calls this; cancellation rotates `work_epoch` (worker fence) and leaves submitted evidence intact."""
-    doc = await db.investigation_cases.find_one_and_update({"owner_id": owner, "case_id": case_id},
+    doc = await db.investigation_cases.find_one_and_update({**(expected or {}), "owner_id": owner, "case_id": case_id},
         {"$set": {"status": status, "epoch": uuid.uuid4().hex, "active_job_id": None, "lease_fence": None, "cleanup_status": "pending",
                   "deleted": status == "expired" or status == "deleted", "updated_at": now_utc()},
-         "$unset": {"response_ciphertext": "", "sources_ciphertext": "", "device_profile_ciphertext": "", "open_question_ciphertext": ""}, "$inc": {"revision": 1}},
+         "$unset": {"response_ciphertext": "", "sources_ciphertext": "", "device_profile_ciphertext": "", "open_question_ciphertext": "",
+                    "tc_hawkeye_ciphertext": "", "tc_flyby_ciphertext": "", "triage_provider_evidence": "", "source_metadata": ""}, "$inc": {"revision": 1}},
         projection={"_id": 0}, return_document=ReturnDocument.AFTER)
     if doc:
         await db.investigation_jobs.update_many({"owner_id": owner, "case_id": case_id, "status": {"$in": ["queued", "investigating", "retry_wait", "waiting_device", "waiting_user"]}},
@@ -891,6 +949,9 @@ async def run_cleanup(owner: str, case_id: str) -> str:
     try:
         for name in CONTENT:
             await db[name].delete_many({"owner_id": owner, "case_id": case_id})
+        await db.di_transactions.delete_many({"owner": owner, "$or": [
+            {"investigation_id": case_id}, {"correlation_id": correlation_id(case_id)},
+        ]})
         await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$set": {"cleanup_status": "complete", "accepted_commits": [], "pending_device_request_ids": []}})
         await db.investigation_cleanup.update_one({"owner_id": owner, "case_id": case_id, "target_type": "case", "target_id": case_id}, {"$set": {"state": "complete"}})
         return "complete"
@@ -915,7 +976,7 @@ async def sweep() -> None:
     async for doc in db.investigation_cases.find({**retention_filter, "expires_at": {"$lte": now}, "active_job_id": None, "cleanup_status": {"$in": ["not_due"]}}, {"_id": 0, "owner_id": 1, "case_id": 1}):
         await expire_case(doc["owner_id"], doc["case_id"])
     # ── Phase 3: Retry pending cleanups ──
-    async for task in db.investigation_cleanup.find({"state": "pending", "next_attempt_at": {"$lte": now}}, {"_id": 0}):
+    async for task in db.investigation_cleanup.find({"state": {"$in": ["pending", "failed"]}, "next_attempt_at": {"$lte": now}}, {"_id": 0}):
         await run_cleanup(task["owner_id"], task["case_id"])
     # ── Phase 5: Unreferenced bundles ──
     async for stale in db.investigation_turn_commits.find({"committed_at": {"$lte": now - timedelta(seconds=WORK_SECONDS)}}, {"_id": 0, "owner_id": 1, "case_id": 1, "commit_id": 1}):

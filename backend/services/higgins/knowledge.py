@@ -327,7 +327,7 @@ async def load_official_guidance() -> int:
 
 async def refresh() -> dict:
     """Bring the KB up to date with Learn, Scam Alerts, the shipped official guidance and scam patterns. Idempotent."""
-    from services.higgins.tc_flyby import patterns
+    from services.higgins.tc_hawkeye import patterns
     result = {"learn": await sync_learn_articles(), "alerts": await sync_scam_alerts(), "guidance": await load_official_guidance(),
               "patterns": await patterns.load()}
     forget_weights()

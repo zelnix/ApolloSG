@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from core.config import GEMINI_API_KEY, HIBP_API_KEY, IPQS_API_KEY, SAFE_BROWSING_API_KEY
+from core.config import GEMINI_API_KEY, HIBP_API_KEY, IPQS_API_KEY
 from core.db import db, now_utc
 from routers.push import push_configured
 from services.email import email_configured
@@ -35,8 +35,9 @@ async def ensure_indexes() -> None:
 
 
 def server_integrations() -> list[dict[str, Any]]:
+    from services.google_web_risk import configured
     values = {
-        "gemini": bool(GEMINI_API_KEY), "safe_browsing": bool(SAFE_BROWSING_API_KEY),
+        "gemini": bool(GEMINI_API_KEY), "google_web_risk": configured(),
         "phone_reputation": bool(IPQS_API_KEY), "breach_lookup": bool(HIBP_API_KEY),
         "guardian_email": email_configured(), "push_delivery": push_configured(),
         "family_voice_storage": storage_configured(),

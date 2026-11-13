@@ -1004,11 +1004,13 @@ async def _document_continuation_replay_delivers_images():
     repaired = await repo.get_evidence(owner, case["case_id"], root_id)
     assert replay["replayed"] is True and set(replay["visualEvidenceIds"]).issubset(set(repaired["related_evidence_ids"]))
 
-    captured = {}
+    captured = {"contents": []}
     original_generate = coordinator.provider.generate
     async def capture(_system, contents, **_kwargs):
-        captured["contents"] = contents
-        raise RuntimeError("stop after payload capture")
+        captured["contents"].extend(contents)
+        from services.higgins.ai_request import AIResult
+        return AIResult(text='{"observations":[],"uncertainties":[],"investigationScope":"This evidence window"}',
+                        finish_reason="STOP", usage={}, grounding=None, model=job["provider_model"])
     coordinator.provider.generate = capture
     job = await repo.create_job(owner, case, str(uuid.uuid4()), repo.digest("visual-ledger"), repo.digest("payload"), "turn", {"message": "q"})
     checkpoint = {"contents": [], "rounds": 1, "toolLedger": {"visual-call": {"output": replay, "researchCalls": 0}},
@@ -1016,9 +1018,12 @@ async def _document_continuation_replay_delivers_images():
                   "pendingMarks": [], "deviceResults": []}
     await db.investigation_jobs.update_one({"owner_id": owner, "job_id": job["job_id"]}, {"$set": {"checkpoint_ciphertext": repo.enc_json(checkpoint)}})
     async def progress(*_args): return None
+    await repo.cas(owner, case["case_id"], {"active_job_id": None}, {"$set": {"active_job_id": job["job_id"]}})
+    job = await repo.acquire_lease(owner, job["job_id"])
+    case = await repo.cas(owner, case["case_id"], {"active_job_id": job["job_id"]},
+                          {"$set": {"lease_fence": job["fence"], "status": "investigating"}}, bump=False)
     try:
-        with pytest.raises(RuntimeError, match="payload capture"):
-            await coordinator.run_turn(owner, await repo.get_case(owner, case["case_id"]), await repo.get_job(owner, case["case_id"], job["job_id"]), progress)
+        assert await coordinator._magnum_external_evidence(owner, case, job, "q", await repo.list_evidence(owner, case["case_id"]), progress)
     finally:
         coordinator.provider.generate = original_generate
     delivered = [part for content in captured["contents"] for part in (content.parts or []) if part.data is not None]

@@ -16,8 +16,7 @@ import { canResubmit } from "./resubmit";
 import * as api from "./client";
 import { safeUUID } from "./client";
 import { observe } from "./deviceBroker";
-import { getSharedSLM } from "@/src/domain/slm/sharedRuntime";
-import { submitIssuedAdvisory } from "@/src/domain/slm/slmTransport";
+import { wakeSLMRequestPump } from "./slmRequestPump";
 import { appendManagedOperation, cancelManagedOperation, expireOperation, managedOperation, retryManagedOperation,
   settleManagedOperation, startManagedOperation, subscribeManagedOperation, type ManagedOperation } from "./transferManager";
 import type { CreateCase, DeviceResult, Failure, HigginsResponse, InvestigationCase, InvestigationEvent, Job, Question, SourceReference, TurnCommit } from "./types";
@@ -78,7 +77,6 @@ export function useInvestigation(boundOperationId?: string | null) {
   const generation = useRef(0);
   const pendingCancellation = useRef<{ caseId: string; jobId: string } | null>(null);
   const pendingDeviceResult = useRef<{ caseId: string; result: DeviceResult; job: Job; after: number } | null>(null);
-  const attemptedAdvisoryRequests = useRef(new Set<string>());
   const cancelAction = useRef<() => Promise<void>>(async () => undefined);
   // When attach() is in control, adoptManaged must not fight it by setting state or calling follow.
   const attachOwns = useRef(false);
@@ -143,36 +141,9 @@ export function useInvestigation(boundOperationId?: string | null) {
       if (event.type === "progress") update((previous) => ({ progress: [...previous.progress.slice(-6), event.payload.message] }));
       else if (event.type === "response") update({ response: event.payload.response, sources: event.payload.sources, question: event.payload.response.question });
       else if (event.type === "slm_advisory_request") {
-        // Existing authenticated stream delivers On-device AI stage requests.
-        // The case_finding response is mandatory for a completed verdict;
-        // the coordinator reports an incomplete case if it is unavailable.
-        const adapter = getSharedSLM();
-        const issued = event.payload;
-        if (adapter && issued.request.caseId === caseId &&
-            issued.request.caseRevision === event.revision &&
-            issued.request.requestId && !attemptedAdvisoryRequests.current.has(issued.request.requestId)) {
-          if (attemptedAdvisoryRequests.current.size > 256) attemptedAdvisoryRequests.current.clear();
-          attemptedAdvisoryRequests.current.add(issued.request.requestId);
-          // SSE cursors advance even if the HTTP result submission fails, so
-          // replay cannot depend on the server resending this event.
-          void (async () => {
-            try {
-              for (let attempt = 0; attempt < 2; attempt++) {
-                if (!live() || Date.parse(issued.expiresAt) <= Date.now()) break;
-                try {
-                  const result = await submitIssuedAdvisory(caseId, issued, adapter);
-                  if (result.status === "accepted") return;
-                  if (result.status === "invalid_output") break;
-                } catch {
-                  // Lost receipt or temporary network error: retry once using
-                  // the same server request ID, never a new case request.
-                }
-              }
-            } finally {
-              attemptedAdvisoryRequests.current.delete(issued.request.requestId);
-            }
-          })();
-        }
+        // App-owned inbox execution survives navigation and ignores already
+        // fulfilled requests, even when this stream replays an earlier event.
+        wakeSLMRequestPump();
       }
       else if (event.type === "retry_scheduled") update((previous) => ({ progress: [...previous.progress.slice(-6), event.payload.failure.message], phase: "working" }));
       else if (event.type === "device_request") {

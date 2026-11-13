@@ -8,7 +8,7 @@ export interface PickupOriginal { evidenceId: string; kind: "text" | "url"; body
 /** The identifiers ApolloSG recorded at intake, as the server kept them for this phone. */
 export type PickupSource = Partial<Pick<SourceMetadata, "type" | "sender" | "reply_to" | "subject" | "received_at" | "provider" | "attachment_names" | "url">>;
 /** What this phone says it saved and checked — which parts, never their content. */
-export interface SavedParts { text: boolean; link: boolean; result: boolean; headers: string[] }
+export interface SavedParts { text: boolean; link: boolean; result: boolean; headers: string[]; snapshotId?: string; evidenceDigests?: Record<string, string> }
 
 /** The label each recorded identifier is saved under (the server checks the same labels). */
 export const HEADER_LABELS: Record<"sender" | "reply_to" | "subject" | "received_at", string> = {

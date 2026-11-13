@@ -159,6 +159,11 @@ export class LocalLlamaRuntime implements SLMAdapter {
     await this.load();
   }
 
+  canFit(request: SLMRequest): boolean {
+    const maxInputChars = Math.max(0, (this.nCtx - 768 - 1200) * 2);
+    return instructionsFor(request).length + promptFor(request).length <= maxInputChars;
+  }
+
   async infer(request: SLMRequest): Promise<unknown> {
     if (this.closed) throw new Error("SLM runtime closed");
     const execute = async (): Promise<unknown> => {

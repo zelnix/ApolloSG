@@ -1,6 +1,6 @@
 /**
  * One optional shared Luddish SLM runtime across ApolloSG, including Ask Higgins.
- * The native app may install an admitted, checksum-verified local runtime once.
+ * The native app may install one admitted local runtime after package checks.
  * Nothing here loads a model, contacts a provider or silently falls back.
  */
 import type { SLMAdapter } from "./index.ts";

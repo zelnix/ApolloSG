@@ -152,6 +152,9 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
         return None, [f"schema: {e['loc']} {e['msg']}" for e in exc.errors()[:8]]
     if not provider_complete:
         errors.append("provider finish was not normal termination; the response is incomplete")
+    errors.extend(floor_errors(model, floor))
+    if model.outcome == "not_scam" and material_gaps:
+        errors.append("outcome 'not_scam' requires examination of all material evidence; coverage gaps remain")
 
     # ── INVESTIGATE: evidence and source reference integrity ──
     for idx, finding in enumerate(model.findings):

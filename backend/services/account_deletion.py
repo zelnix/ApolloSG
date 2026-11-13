@@ -42,6 +42,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
             ("investigation_evidence", ["owner_id"]),
             ("investigation_content_chunks", ["owner_id"]),
             ("investigation_device_pickups", ["owner_id"]),
+            ("investigation_pickup_chunks", ["owner_id"]),
             ("investigation_reports", ["owner_id"]),
             ("investigation_jobs", ["owner_id", "device_id"]),
             ("investigation_owners", ["owner_id"]),
@@ -54,6 +55,8 @@ CATEGORIES: dict[str, dict[str, Any]] = {
             ("investigation_device_requests", ["owner_id"]),
             ("device_case_history", ["owner_id"]),
             ("magnum_di_calls", ["owner_id"]),
+            ("magnum_di_window_calls", ["owner_id"]),
+            ("di_transactions", ["owner"]),
             ("work_claims", ["owner_id"]),
         ],
     },
@@ -144,10 +147,18 @@ async def purge_device(device_id: str) -> dict[str, Any]:
     await db.investigation_owners.update_one(
         {"owner_id": device_id}, {"$set": {"generation": uuid.uuid4().hex}}, upsert=True
     )
+    # Invalidate the controls actually used by case workers before any table is
+    # removed. The legacy owner-generation marker alone does not fence them.
+    await db.investigation_cases.update_many({"owner_id": device_id}, {"$set": {
+        "deleted": True, "epoch": uuid.uuid4().hex, "work_epoch": uuid.uuid4().hex,
+        "active_job_id": None, "lease_fence": None,
+    }})
+    await db.investigation_jobs.update_many({"owner_id": device_id}, {"$set": {"status": "cancelled", "lease_until": None}})
 
     # 2) Delete every category.
     removed: dict[str, int] = {}
     total = 0
+    failures = []
     for key, spec in CATEGORIES.items():
         count = 0
         for name, fields in spec["collections"]:
@@ -155,9 +166,13 @@ async def purge_device(device_id: str) -> dict[str, Any]:
                 result = await db[name].delete_many(_match(device_id, fields))
                 count += result.deleted_count
             except Exception:
-                continue
+                failures.append(name)
         removed[key] = count
         total += count
+
+    if failures:
+        from fastapi import HTTPException
+        raise HTTPException(503, "Some Apollo data could not be deleted. Your sign-in was kept so you can retry.")
 
     # 3) Revoke family-assist sessions, then revoke + delete the device identity itself.
     try:

@@ -43,18 +43,18 @@ class EvidenceCoverageTests(unittest.IsolatedAsyncioTestCase):
         self.add("IMG-1", "image")
         self.add("OCR-1", "text", "Invoice amount 500", parent_id="IMG-1")
         refs = await self.source("owner", "case")
-        self.assertEqual(len(refs), 1)
-        self.assertEqual(refs[0].evidence_id, "OCR-1")
-        self.assertIn("image evidence IMG-1", refs[0].text)
-        self.assertIn("original binary not examined by SLM", refs[0].text)
+        by_id = {ref.evidence_id: ref.text for ref in refs}
+        self.assertEqual(set(by_id), {"IMG-1", "OCR-1"})
+        self.assertIn("inventory_only_not_original_content", by_id["IMG-1"])
+        self.assertIn("image evidence IMG-1", by_id["OCR-1"])
+        self.assertIn("original binary not examined by SLM", by_id["OCR-1"])
 
-    async def test_unsupported_original_blocks_final_finding(self):
+    async def test_binary_original_is_an_explicit_inventory_gap_not_fabricated_content(self):
         self.add("DOC-1", "document")
         self.add("TEXT-1", "text", "Excerpt", parent_id="DOC-1")
-        with self.assertRaises(EvidenceError) as raised:
-            await self.source("owner", "case", include_checks=True)
-        self.assertEqual(raised.exception.status, 422)
-        self.assertEqual(raised.exception.code, "unsupported_evidence")
+        refs = await self.source("owner", "case", include_checks=True)
+        self.assertIn("not directly examined", refs[0].text)
+        self.assertIn("original binary not examined by SLM", refs[1].text)
 
     async def test_unrelated_text_not_mislabeled(self):
         self.add("TEXT-1", "text", "Ordinary user message")
@@ -72,7 +72,7 @@ class EvidenceCoverageTests(unittest.IsolatedAsyncioTestCase):
         self.add("AUDIO-1", "audio", availability="unavailable")
         self.add("TRANSCRIPT-1", "text", "Recorded voice", parent_id="AUDIO-1")
         refs = await self.source("owner", "case")
-        self.assertIn("audio evidence AUDIO-1", refs[0].text)
+        self.assertIn("audio evidence AUDIO-1", next(ref.text for ref in refs if ref.evidence_id == "TRANSCRIPT-1"))
 
 
 if __name__ == "__main__":

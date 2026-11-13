@@ -790,11 +790,8 @@ async def model_parts(owner: str, case: dict, rows: list[dict]) -> tuple[list[Pa
     - Evidence is sent COMPLETE. Text is never truncated, shortened or summarised.
     - Each item appears ONCE. An image is sent as its bytes with a single identifying line; it is
       never also described in a second, textual representation.
-    - Derived items that add nothing are not retransmitted. A link or phone clue extracted from a
-      message is, verbatim, already inside that message, so sending it again is the same information
-      twice. The clue records stay in Apollo for specialist lookups and evidence relationships; they
-      are only withheld from the request, and only while their parent is being sent. A clue that
-      carries its own lookup result (a snapshot, a provider finding) is NOT a duplicate and is sent.
+    - Derived items retain their own IDs and parent relationships, even if their text also appears
+      in the original. They are never silently omitted by substring matching.
     - Workflow metadata ("user-initiated check via ...") describes how the check started, not what was
       observed, so it is not sent.
     - Empty specialist-intelligence envelopes (no provider consulted, no lookups) carry nothing and
@@ -816,15 +813,7 @@ async def model_parts(owner: str, case: dict, rows: list[dict]) -> tuple[list[Pa
     texts: dict[str, str] = {}
     for row in available:
         if row["kind"] in ("text", "url", "observation", "source_snapshot"):
-            texts[row["evidence_id"]] = (await repo.read_bytes(owner, case["case_id"], row["evidence_id"])).decode("utf-8", errors="replace")
-
-    def redundant(row: dict) -> bool:
-        """A derived item whose whole content is already inside the parent item being sent."""
-        parent_id = row.get("parent_id")
-        text = texts.get(row["evidence_id"], "").strip()
-        if not parent_id or not text or parent_id not in texts:
-            return False
-        return text in texts[parent_id]
+            texts[row["evidence_id"]] = (await repo.read_bytes(owner, case["case_id"], row["evidence_id"])).decode("utf-8", errors="strict")
 
     parts: list[Part] = []
     marks: list[tuple[str, int, int, int]] = []
@@ -833,6 +822,8 @@ async def model_parts(owner: str, case: dict, rows: list[dict]) -> tuple[list[Pa
         label = f"[evidence {row['evidence_id']} · kind={row['kind']}"
         if row.get("label"):
             label += f" · {row['label']}"
+        if row.get("parent_id"):
+            label += f" · derived-from={row['parent_id']}"
         if row["availability"] != "available":
             reason = (row.get("coverage") or {}).get("reason") or row["availability"]
             parts.append(Part(text=f"{label} · unavailable: {reason}]"))
@@ -840,7 +831,7 @@ async def model_parts(owner: str, case: dict, rows: list[dict]) -> tuple[list[Pa
         label += "]"
         if row["kind"] in ("text", "url", "observation", "source_snapshot"):
             text = texts[row["evidence_id"]]
-            if redundant(row) or is_workflow_metadata(text) or not has_intelligence(_as_json(text)):
+            if is_workflow_metadata(text) or not has_intelligence(_as_json(text)):
                 continue
             parts.append(Part(text=f"{label}\n{text}"))
             words += len(text.split())

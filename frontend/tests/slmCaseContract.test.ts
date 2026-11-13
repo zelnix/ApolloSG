@@ -56,11 +56,11 @@ test("never forwards a verdict or unknown evidence citation in the advisory enve
 
 test("SLM handoff retries do not depend on SSE replay or mint a new request", async () => {
   const { readFileSync } = await import("node:fs");
-  const source = readFileSync(new URL("../src/investigation/caseStore.ts", import.meta.url), "utf8");
-  assert.match(source, /for \(let attempt = 0; attempt < 2; attempt\+\+\)/);
+  const source = readFileSync(new URL("../src/investigation/slmRequestPump.ts", import.meta.url), "utf8");
+  assert.match(source, /previous\?\.count \?\? 0\) >= 2/);
   assert.match(source, /Date\.parse\(issued\.expiresAt\) <= Date\.now\(\)/);
-  assert.match(source, /submitIssuedAdvisory\(caseId, issued, adapter\)/);
-  assert.match(source, /attemptedAdvisoryRequests\.current\.delete\(issued\.request\.requestId\)/);
+  assert.match(source, /submitIssuedAdvisory\(issued\.request\.caseId, issued, runtime\)/);
+  assert.match(source, /investigations\/slm\/pending/);
 });
 
 test("lost acknowledgement retries reuse the identical SLM result without another inference", async () => {

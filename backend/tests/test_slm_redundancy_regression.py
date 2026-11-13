@@ -74,7 +74,7 @@ class SLMRedundancyRegression(unittest.TestCase):
         run = function(ast.parse(COORDINATOR.read_text()), "run_turn")
         calls = [n for n in ast.walk(run) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_slm_stage"]
         self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0].args[3].value, "higgins_triage")
+        self.assertEqual(calls[0].args[3].value, "wright_triage")
         self.assertIn("tc_hawkeye.investigate", ast.get_source_segment(COORDINATOR.read_text(), run))
 
     def test_hawkeye_slm_advice_only_prioritises_existing_checks(self):
@@ -98,7 +98,7 @@ class SLMRedundancyRegression(unittest.TestCase):
         layout = LAYOUT.read_text()
         self.assertIn("<RequiredSLMGate>", layout)
         self.assertIn("</RequiredSLMGate>", layout)
-        self.assertLess(layout.index("<RequiredSLMGate>"), layout.index("<SharedLuddishStartup"))
+        self.assertLess(layout.index("<RequiredSLMGate>"), layout.index("<ApolloProvider>"))
         gate = GATE.read_text()
         self.assertIn("checkRequiredSLMCompatibility(", gate)
         self.assertIn('status: "incompatible"', gate)

@@ -121,7 +121,7 @@ def restricted(host: str) -> bool:
     only name one page, never the website. A user's own site on a shared service (name.weebly.com) isn't restricted."""
     from services import kb_sources
     from services.higgins import brand_domains
-    from services.higgins.tc_flyby.triage import FREE_MAIL
+    from services.higgins.tc_hawkeye.triage import FREE_MAIL
     reg = brand_domains.registrable(host)
     if host in _PLATFORMS or reg in _PLATFORMS or (host == reg and (reg in brand_domains.SHARED_SERVICES or reg in FREE_MAIL)):
         return True
@@ -132,7 +132,7 @@ def whole_site_allowed(host: str) -> bool:
     """A regulator's list may name a whole website, except a shared platform, a free mail provider or an organisation's
     own published domain: there it can only name the exact page."""
     from services.higgins import brand_domains
-    from services.higgins.tc_flyby.triage import FREE_MAIL
+    from services.higgins.tc_hawkeye.triage import FREE_MAIL
     reg = brand_domains.registrable(host)
     return not (restricted(host) or reg in brand_domains.SHARED_SERVICES or reg in FREE_MAIL)
 

@@ -45,8 +45,16 @@ def plan_batches(parts: list[Part], *, max_words: int = MAX_WINDOW_WORDS,
             # Binary cannot be divided into valid images or files.
             if len(part.data) > MAX_BINARY_BYTES:
                 raise ValueError("oversized_binary_evidence")
+            # An image's registered evidence label must travel with its bytes,
+            # even when a preceding text window filled the previous batch.
+            label = label_span = None
+            if current and current[-1].text and current[-1].text.startswith("[evidence ") and "\n" not in current[-1].text:
+                label, label_span = current.pop(), spans.pop()
             if current:
                 flush()
+            if label is not None:
+                current.append(label)
+                spans.append(label_span)
             current.append(part)
             spans.append((source_index, 0, len(part.data)))
             chars = max_chars

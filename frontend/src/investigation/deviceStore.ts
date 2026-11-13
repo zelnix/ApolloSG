@@ -15,10 +15,14 @@
 import { storage } from "@/src/utils/storage";
 import type { ServerCopy } from "@/src/domain/serverCopyNote";
 import type { EvidenceItem, HigginsResponse, SourceReference, TurnCommit } from "./types";
+import { deleteArchivedEvidence } from "./evidenceArchive";
+import { getDeviceIdentity } from "@/src/auth/deviceIdentity";
 
 // ── Public types ────────────────────────────────────────────────────────
 
 export interface DeviceInvestigation {
+  ownerId?: string;
+  evidenceSnapshotId?: string;
   /** Server case ID (still used as the canonical key) */
   caseId: string;
   gates: string[];
@@ -52,6 +56,7 @@ export interface DeviceInvestigation {
 }
 
 export interface DeviceInvestigationMeta {
+  ownerId?: string;
   caseId: string;
   gates: string[];
   status: string;
@@ -68,6 +73,33 @@ export interface DeviceInvestigationMeta {
 
 const INDEX_KEY = "apollo.device.investigations.index";
 const caseKey = (caseId: string) => `apollo.device.investigation.${caseId}`;
+const manifestKey = (caseId: string) => `apollo.device.evidenceManifest.${caseId}`;
+export interface DeviceEvidenceManifest {
+  ownerId: string; snapshotId: string;
+  items: import("./evidenceArchiveCore").EvidenceManifestItem[];
+  evidence: EvidenceItem[];
+}
+export async function saveEvidenceManifest(caseId: string, manifest: DeviceEvidenceManifest): Promise<void> {
+  await write(manifestKey(caseId), JSON.stringify(manifest));
+  if (JSON.stringify(await getEvidenceManifest(caseId)) !== JSON.stringify(manifest))
+    throw new Error("Evidence manifest readback failed.");
+}
+export async function getEvidenceManifest(caseId: string): Promise<DeviceEvidenceManifest | null> {
+  const raw = await storage.getItem<string | null>(manifestKey(caseId), null);
+  try {
+    const value = raw ? JSON.parse(raw) as DeviceEvidenceManifest : null;
+    return value?.ownerId === (await getDeviceIdentity())?.deviceId ? value : null;
+  } catch { return null; }
+}
+let mutation: Promise<unknown> = Promise.resolve();
+function serialise<T>(work: () => Promise<T>): Promise<T> {
+  const next = mutation.then(work, work);
+  mutation = next.then(() => undefined, () => undefined);
+  return next;
+}
+async function write(key: string, value: string): Promise<void> {
+  if (!await storage.setItem(key, value)) throw new Error("Investigation storage failed; the server copy must be retained.");
+}
 
 // ── Change listeners (same pattern as imageEvidence / originalSource) ───
 
@@ -86,11 +118,12 @@ async function loadIndex(): Promise<DeviceInvestigationMeta[]> {
 }
 
 async function saveIndex(index: DeviceInvestigationMeta[]): Promise<void> {
-  await storage.setItem(INDEX_KEY, JSON.stringify(index));
+  await write(INDEX_KEY, JSON.stringify(index));
 }
 
 function metaFrom(inv: DeviceInvestigation): DeviceInvestigationMeta {
   return {
+    ownerId: inv.ownerId,
     caseId: inv.caseId,
     gates: inv.gates,
     status: inv.status,
@@ -124,11 +157,14 @@ export function validateCompleteness(inv: Partial<DeviceInvestigation>): string 
  * the same caseId overwrites the previous snapshot.
  */
 export async function commitInvestigation(inv: DeviceInvestigation): Promise<void> {
+  return serialise(async () => {
   const error = validateCompleteness(inv);
   if (error) throw new Error(`Cannot commit investigation: ${error}`);
 
   // Write the full snapshot
-  await storage.setItem(caseKey(inv.caseId), JSON.stringify(inv));
+  await write(caseKey(inv.caseId), JSON.stringify(inv));
+  const saved = await getInvestigation(inv.caseId);
+  if (JSON.stringify(saved) !== JSON.stringify(inv)) throw new Error("Investigation readback failed.");
 
   // Update the index (upsert)
   const index = await loadIndex();
@@ -138,17 +174,23 @@ export async function commitInvestigation(inv: DeviceInvestigation): Promise<voi
   else index.unshift(meta); // newest first
   await saveIndex(index);
   notify();
+  });
 }
 
 /** Retrieve a single completed investigation by caseId. */
 export async function getInvestigation(caseId: string): Promise<DeviceInvestigation | null> {
   const raw = await storage.getItem<string | null>(caseKey(caseId), null).catch(() => null);
-  try { return raw ? (JSON.parse(raw) as DeviceInvestigation) : null; } catch { return null; }
+  try {
+    const saved = raw ? JSON.parse(raw) as DeviceInvestigation : null;
+    if (saved?.ownerId && saved.ownerId !== (await getDeviceIdentity())?.deviceId) return null;
+    return saved;
+  } catch { return null; }
 }
 
 /** List all completed investigation summaries, newest first. */
 export async function listInvestigations(): Promise<DeviceInvestigationMeta[]> {
-  return loadIndex();
+  const identity = await getDeviceIdentity();
+  return (await loadIndex()).filter(item => !item.ownerId || item.ownerId === identity?.deviceId);
 }
 
 /**
@@ -157,6 +199,10 @@ export async function listInvestigations(): Promise<DeviceInvestigationMeta[]> {
  * Caller should also clean up related stores (imageEvidence, originalSource, reportProgress).
  */
 export async function deleteInvestigation(caseId: string): Promise<boolean> {
+  return serialise(async () => {
+  const identity = await getDeviceIdentity();
+  if (identity) await deleteArchivedEvidence(identity.deviceId, caseId);
+  if (!await storage.removeItem(manifestKey(caseId))) throw new Error("Evidence manifest removal failed.");
   const index = await loadIndex();
   const filtered = index.filter((m) => m.caseId !== caseId);
   if (filtered.length === index.length) return false; // not found
@@ -164,6 +210,7 @@ export async function deleteInvestigation(caseId: string): Promise<boolean> {
   await storage.removeItem(caseKey(caseId)).catch(() => undefined);
   notify();
   return true;
+  });
 }
 
 /** Check whether a given caseId has a committed local investigation. */
@@ -192,20 +239,24 @@ async function loadConfirmQueue(): Promise<string[]> {
 }
 
 async function saveConfirmQueue(queue: string[]): Promise<void> {
-  await storage.setItem(CONFIRM_QUEUE_KEY, JSON.stringify(queue));
+  await write(CONFIRM_QUEUE_KEY, JSON.stringify(queue));
 }
 
 export async function enqueueConfirmCommit(caseId: string): Promise<void> {
+  return serialise(async () => {
   const queue = await loadConfirmQueue();
   if (!queue.includes(caseId)) {
     queue.push(caseId);
     await saveConfirmQueue(queue);
   }
+  });
 }
 
 export async function dequeueConfirmCommit(caseId: string): Promise<void> {
+  return serialise(async () => {
   const queue = await loadConfirmQueue();
   await saveConfirmQueue(queue.filter((id) => id !== caseId));
+  });
 }
 
 export async function pendingConfirmCommits(): Promise<string[]> {

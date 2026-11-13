@@ -5,7 +5,7 @@
 // copy, however long this phone is offline. Runs for every case this phone knows (ApolloContext) and whenever a
 // followed investigation answers (caseStore).
 import * as api from "./client";
-import { commitInvestigation, getInvestigation, recordServerCopyRemoved, type DeviceInvestigation } from "./deviceStore";
+import { commitInvestigation, getInvestigation, recordServerCopyRemoved, saveEvidenceManifest, type DeviceInvestigation } from "./deviceStore";
 import type { InvestigationCase } from "./types";
 import { isEmailCase } from "@/src/domain/emailRecord";
 import { missingParts, originalFromPickup, pickupIdentifiers, savedReport } from "@/src/domain/pickupCheck";
@@ -13,6 +13,9 @@ import { serverLeavesBy } from "@/src/domain/serverCopyNote";
 import type { PatrolEvent } from "@/src/domain/types";
 import { getOriginalSource, saveOriginalSource } from "@/src/store/originalSource";
 import { storage } from "@/src/utils/storage";
+import { getDeviceIdentity } from "@/src/auth/deviceIdentity";
+import { archiveEvidence } from "./evidenceArchiveCore";
+import { evidenceArchive } from "./evidenceArchive";
 
 const DONE_KEY = "apollo.pickup.done.v1";
 const DONE_MAX = 1000;
@@ -35,9 +38,10 @@ export function needsResult(c: Pick<InvestigationCase, "response" | "status">): 
   return !!c.response && !c.response.question && c.status !== "failed";
 }
 
-function snapshotOf(held: api.HeldCopy, question: string): DeviceInvestigation {
+function snapshotOf(held: api.HeldCopy, question: string, ownerId: string): DeviceInvestigation {
   const c = held.case;
   return {
+    ownerId, evidenceSnapshotId: held.snapshotId,
     caseId: c.id, gates: c.gates ?? [], status: c.status, createdAt: c.createdAt, completedAt: c.updatedAt,
     question: question || held.turns[0]?.question || "",
     response: c.response!, sources: held.sources, turns: held.turns, evidenceItems: held.evidence,
@@ -49,18 +53,20 @@ function snapshotOf(held: api.HeldCopy, question: string): DeviceInvestigation {
 }
 
 export async function pickUpCase(caseId: string, opts: { event?: PatrolEvent | null; question?: string } = {}): Promise<PickupOutcome> {
+  const identity = await getDeviceIdentity();
+  if (!identity) return "incomplete";
   const held = await api.getPickup(caseId);
   if (!held.held) {
     if (held.working) return "waiting";
+    if (held.removedAt) await recordServerCopyRemoved(caseId, held.removedAt);
     // Nothing kept for this phone (a check cleaned before this rule): the server still says when its copy went.
-    const { removedAt } = await api.confirmCommit(caseId);
-    if (removedAt) await recordServerCopyRemoved(caseId, removedAt);
     return "nothing_held";
   }
   // 1. The finished result.
   const wantResult = needsResult(held.case);
-  if (wantResult && (await getInvestigation(caseId))?.response?.revision !== held.case.response!.revision) {
-    await commitInvestigation(snapshotOf(held, opts.question ?? ""));
+  const existing = await getInvestigation(caseId);
+  if (wantResult && (existing?.response?.revision !== held.case.response!.revision || existing?.evidenceSnapshotId !== held.snapshotId)) {
+    await commitInvestigation(snapshotOf(held, opts.question ?? "", identity.deviceId));
   }
   // 2. The original: what the server kept, with this phone's own record of the case filling any gap.
   const event = opts.event ?? null;
@@ -71,7 +77,15 @@ export async function pickUpCase(caseId: string, opts: { event?: PatrolEvent | n
   const resultSaved = wantResult && (await getInvestigation(caseId))?.response?.revision === held.case.response!.revision;
   const report = savedReport(await getOriginalSource(caseId), held.originals, resultSaved);
   if (missingParts(report, { originals: held.originals, source: held.source ?? {} }, wantResult).length) return "incomplete";
-  const { removedAt } = await api.confirmCommit(caseId, report);
+  if (!held.snapshotId || !Array.isArray(held.evidenceContent)) return "incomplete";
+  report.evidenceDigests = await archiveEvidence(held.evidenceContent, evidenceArchive(identity.deviceId, caseId),
+    item => api.downloadPickupEvidence(caseId, held.snapshotId, item.evidenceId));
+  await saveEvidenceManifest(caseId, { ownerId: identity.deviceId, snapshotId: held.snapshotId,
+    items: held.evidenceContent, evidence: held.evidence });
+  report.snapshotId = held.snapshotId;
+  if ((await getDeviceIdentity())?.deviceId !== identity.deviceId) return "incomplete";
+  const { purged, removedAt } = await api.confirmCommit(caseId, report);
+  if (!purged) return "incomplete";
   if (removedAt) await recordServerCopyRemoved(caseId, removedAt);
   return "confirmed";
 }

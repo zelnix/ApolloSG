@@ -3,6 +3,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clearAllImageEvidence } from "@/src/store/imageEvidence";
 import { clearAllOriginalEmails } from "@/src/store/originalEmail";
+import { deleteAllArchivedEvidence } from "@/src/investigation/evidenceArchive";
 
 export type RetentionLocation = "device" | "service";
 
@@ -58,6 +59,7 @@ export interface DeleteDataResult { device_id: string; total: number; removed: R
  *  Uses getAllKeys so nothing is missed as new keys are added over time. The secure device
  *  identity is cleared separately via clearDeviceIdentity(). */
 export async function wipeLocalApolloData(): Promise<void> {
+  await deleteAllArchivedEvidence();
   await clearAllImageEvidence().catch(() => undefined);
   await clearAllOriginalEmails().catch(() => undefined);
   try {

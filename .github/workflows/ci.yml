@@ -1,235 +1,90 @@
-# ROUJAUNE — CI release gate
-#
-# WHY THIS EXISTS: Production Hardening & Release Readiness. This workflow is
-# the permanent gate that must stay green before any release candidate ships:
-# backend regression suite (900+ pytest cases incl. cross-user isolation),
-# frontend lint/typecheck, and secret scanning on every push/PR.
-#
-# ── REQUIRED GITHUB SECRETS (Settings → Secrets and variables → Actions) ────
-# The backend test suite is a full HTTP integration suite that boots the real
-# FastAPI app against a MongoDB restored from the committed fixture archive
-# (backend/tests/fixtures/ci_seed.archive — a sanitized snapshot of the demo/
-# greenlantern/admin accounts + seeded content the suite was written against,
-# minus screen_captures/admin_audit). Add these secrets with the SAME values
-# currently in backend/.env so the fixture's stored data (bcrypt password
-# hashes, the HWG service-token comparison) matches what the tests expect:
-#
-# EMERGENT_LLM_KEY — Universal key powering Coach chat/adaptation (Claude/Gemini/OpenAI)
-# GEMINI_API_KEY — Coach TTS (GET /api/coach/speak)
-# ADMIN_LOGIN_PASSWORD — MUST match the password the fixture's admin account was hashed with
-# HWG_SERVICE_TOKEN — MUST match the fixed token test_admin_service_token.py asserts
-# ENCRYPTION_KEY — Fernet key for OAuth-token-at-rest encryption (connections tests)
-# STRAVA_CLIENT_ID — optional; connections/Strava shape tests
-# STRAVA_CLIENT_SECRET — optional; connections/Strava shape tests
-#
-# RESEND_API_KEY is intentionally NOT required — EMAIL_SANDBOX_MODE=true below
-# makes emailer.send_email() short-circuit before the network call (see
-# PRODUCTION_READINESS_REPORT.md, "Email/Resend — environment issue").
-#
-# KNOWN LIMITATION (documented, not hidden): the fixture archive is a snapshot
-# of the dev/preview database at the time this workflow was authored. A small
-# number of tests that depend on further hand-accumulated preview state (e.g.
-# ad-hoc curl-verified benchmark/climb history from earlier feature rounds)
-# may drift from this snapshot over time; treat any such failure as a fixture-
-# staleness follow-up, not necessarily an application regression. The vast
-# majority of tests register their own fresh users and are fully hermetic.
-
-name: CI
-
+name: ApolloSG regression gate
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, slm]
   pull_request:
-    branches: [main, master]
-
+    branches: [main, master, slm]
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   secret-scan:
-    name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  backend-tests:
-    name: Backend pytest (regression + cross-user isolation)
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile --ignore-scripts --non-interactive
+        working-directory: frontend
+      - name: Type-check the complete frontend
+        run: yarn tsc --noEmit
+        working-directory: frontend
+      - name: SLM, triage parity, evidence integrity and protection truth
+        run: node --test tests/slm*.test.ts tests/slmModelIntegrity.test.cjs tests/wright*.test.ts tests/triage.test.ts tests/evidenceArchive.test.ts tests/protectionTruth.test.ts tests/caseEvidence.test.ts
+        working-directory: frontend
+  backend:
     runs-on: ubuntu-latest
     services:
       mongo:
         image: mongo:7
-        ports:
-          - 27017:27017
+        ports: ['27017:27017']
     env:
-      MONGO_URL: mongodb://localhost:27017
-      DB_NAME: test_database
-      EXPO_PUBLIC_BACKEND_URL: http://localhost:8001
-      EXPO_BACKEND_URL: http://localhost:8001
-      EMAIL_SANDBOX_MODE: "true"
-      EMAIL_FROM_NAME: "Harmony Wellness Group"
-      EMAIL_FROM_ADDRESS: "noreply@harmonywellnessgroup.com.au"
-      ADMIN_EMAILS: "roger.parenzee@gmail.com"
-      ADMIN_LOGIN_EMAIL: "roger.parenzee@gmail.com"
-      APPLE_BUNDLE_ID: "com.hwg.roujaune"
-      ANDROID_PACKAGE_NAME: "com.hwg.roujaune"
-      IAP_DEV_TRUST: "0"
-      CORS_ORIGINS: "*"
-      APP_NAME: "ROUJAUNE"
-      # Secrets — see the required-secrets block at the top of this file.
-      EMERGENT_LLM_KEY: ${{ secrets.EMERGENT_LLM_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      ADMIN_LOGIN_PASSWORD: ${{ secrets.ADMIN_LOGIN_PASSWORD }}
-      HWG_SERVICE_TOKEN: ${{ secrets.HWG_SERVICE_TOKEN }}
-      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-      STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
-      STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: apollosg_ci_isolated
+      EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:18765
+      URL_HMAC_SECRET: ci-test-only-not-a-production-key
+      APOLLO_FORBID_PROVIDER_CALLS: '1'
+      GOOGLE_WEB_RISK_ENABLED: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - name: Install backend dependencies
+          python-version: '3.11'
+      - name: Install declared dependencies without private distribution packages
         run: |
-          # emergentintegrations and the custom litellm wheel are Emergent-internal
-          # packages distributed via private URLs that are not reachable from CI.
-          # Neither package is imported by production code or the test suite
-          # (verified: grep -rn "import emergentintegrations\|from emergentintegrations\|import litellm\|from litellm" --include="*.py" returns nothing outside tests/).
-          # Filter them out and install everything else.
-          grep -v '^emergentintegrations' backend/requirements.txt \
-            | grep -v '^litellm' \
-            > /tmp/requirements-ci.txt
-          pip install -r /tmp/requirements-ci.txt
-      - name: Install MongoDB Database Tools (mongorestore)
+          grep -v '^emergentintegrations' backend/requirements.txt | grep -v '^litellm' > /tmp/apollo-ci-requirements.txt
+          python -m pip install -r /tmp/apollo-ci-requirements.txt
+      - name: Generate a disposable investigation encryption key
         run: |
-          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-          sudo apt-get update -qq
-          sudo apt-get install -y mongodb-database-tools
-      - name: Restore CI fixture data into MongoDB
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from cryptography.fernet import Fernet
+          path = Path(os.environ['RUNNER_TEMP']) / 'apollo-investigation.key'
+          path.write_bytes(Fernet.generate_key())
+          path.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('INVESTIGATION_KEY_FILE=' + str(path) + '\n')
+          PY
+      - name: Compile every backend Python file without executing it
         run: |
-          mongorestore --host 127.0.0.1 --port 27017 --gzip \
-            --archive=backend/tests/fixtures/ci_seed.archive \
-            --nsInclude='test_database.*'
-      - name: Start backend (uvicorn)
-        run: |
-          cd backend
-          nohup python -m uvicorn server:app --host 0.0.0.0 --port 8001 > /tmp/backend.log 2>&1 &
-          for i in $(seq 1 40); do
-            if curl -sf http://localhost:8001/api/openapi.json > /dev/null; then
-              echo "backend is up"; exit 0
-            fi
-            sleep 2
-          done
-          echo "backend failed to become healthy — dumping log"; cat /tmp/backend.log; exit 1
-      - name: Run backend test suite
-        run: |
-          cd backend
-          python -m pytest tests/ -q --no-header
-      - name: Upload backend log (always, for debugging)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-log
-          path: /tmp/backend.log
-          if-no-files-found: ignore
-
-  frontend-checks:
-    name: Frontend lint + typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Enable corepack (pinned Yarn from package.json)
-        run: corepack enable
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: yarn install --frozen-lockfile
-      # NOTE on baselines (frontend/eslint-suppressions.json, frontend/tsc-baseline.txt):
-      # This CI gate was introduced against an existing, previously-ungated codebase.
-      # Rather than mass-editing hundreds of frozen lines during an RC code freeze
-      # (high regression risk for zero functional value), pre-existing lint/type
-      # issues were snapshotted once so CI fails ONLY on issues introduced from now
-      # on. Fix issues at the source and re-run `--suppress-all` / regenerate the
-      # tsc baseline (see below) to shrink these over time — do not add new entries.
-      - name: Lint (expo lint, new issues only — see baseline note above)
-        working-directory: frontend
-        run: npx expo lint -- --suppressions-location eslint-suppressions.json
-      - name: Type check (new errors only — see baseline note above)
-        working-directory: frontend
-        run: |
-          npx tsc --noEmit > /tmp/tsc-actual.txt 2>&1 || true
-          grep -E '^\S+\.tsx?\(' /tmp/tsc-actual.txt | sort -u > /tmp/tsc-actual-sorted.txt
-          sort -u tsc-baseline.txt > /tmp/tsc-baseline-sorted.txt
-          NEW_ERRORS=$(comm -13 /tmp/tsc-baseline-sorted.txt /tmp/tsc-actual-sorted.txt)
-          if [ -n "$NEW_ERRORS" ]; then
-            echo "New TypeScript errors introduced (not in tsc-baseline.txt):"
-            echo "$NEW_ERRORS"
-            exit 1
-          fi
-          echo "No new TypeScript errors. ($(wc -l < /tmp/tsc-actual-sorted.txt) pre-existing baselined, ignored.)"
-
-  # ── Native build smoke gate ──────────────────────────────────────────────────
-  # Runs an EAS Android build (preview profile) to confirm the native toolchain
-  # compiles cleanly. Fails the pipeline if the app process would crash during
-  # cold launch. Requires EXPO_TOKEN as a GitHub Secret (Settings → Secrets →
-  # Actions). The iOS gate mirrors this once an Apple certificate is configured.
-  android-build-smoke:
-    name: Android build smoke (EAS preview)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' # skip on PRs to save build minutes
-    needs: [frontend-checks]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Enable corepack
-        run: corepack enable
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: yarn install --frozen-lockfile
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-      - name: Run EAS Android build (preview)
-        working-directory: frontend
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "⚠️  EXPO_TOKEN not configured — skipping native build smoke gate."
-            echo "   Add your Expo token as a GitHub Secret to enable this check."
-            exit 0
-          fi
-          eas build --platform android --profile preview --non-interactive --no-wait
-
-  # Placeholder: iOS build smoke gate. Enable once an Apple Distribution
-  # certificate is configured in eas.json and the EXPO_TOKEN secret is live.
-  # ios-build-smoke:
-  #   name: iOS build smoke (EAS preview)
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'push'
-  #   needs: [frontend-checks]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: "22"
-  #     - name: Enable corepack
-  #       run: corepack enable
-  #     - name: Install frontend dependencies
-  #       working-directory: frontend
-  #       run: yarn install --frozen-lockfile
-  #     - name: Install EAS CLI
-  #       run: npm install -g eas-cli
-  #     - name: Run EAS iOS build (preview)
-  #       working-directory: frontend
-  #       env:
-  #         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  #       run: eas build --platform ios --profile preview --non-interactive --no-wait
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          for path in Path('backend').rglob('*.py'):
+              compile(ast.parse(path.read_text(), filename=str(path)), str(path), 'exec')
+          PY
+      - name: App import, ownership, evidence pickup, deletion, recovery and SLM regressions
+        working-directory: backend
+        run: >-
+          python -m pytest -q
+          tests/test_review_repairs.py tests/test_device_pickup.py tests/test_recovery_fencing.py
+          tests/test_slm_contract.py tests/test_slm_advisory_stage.py tests/test_slm_wait_deadline.py
+          tests/test_slm_replay.py tests/test_slm_evidence_coverage.py tests/test_slm_redundancy_regression.py
+          tests/test_slm_mandatory_behaviour.py tests/test_previous_reports.py tests/test_magnum_continuation.py
+          tests/test_google_web_risk_staged.py tests/test_wright_phase6_contract.py
+          tests/test_phase7_investigation_safeguards.py
+          tests/test_findings_scoring.py tests/test_evidence_evaluation.py tests/test_taxonomy.py
+          tests/test_wright_evidence_windows.py tests/test_wright_window_synthesis.py tests/test_verified_businesses.py

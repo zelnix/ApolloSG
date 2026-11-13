@@ -16,7 +16,9 @@ import type { LocalLlamaRuntime } from "./llamaRnRuntime.ts";
 let runtime: LocalLlamaRuntime | null = null;
 let startup: Promise<boolean> | null = null;
 let download: Promise<boolean> | null = null;
-const MODEL_DOWNLOAD_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf";
+// Immutable upstream revision, checked against public model metadata on 2026-11-13.
+// This pins provenance; lightweight admission is not a full-file checksum proof.
+const MODEL_DOWNLOAD_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf";
 
 export function startSharedLuddish(): Promise<boolean> {
   if (runtime) return Promise.resolve(true);
@@ -109,9 +111,16 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
     const dest = new File(Paths.document, CANDIDATE_FILE);
     if (dest.exists) {
       updateOnDeviceAIDownload({ phase: "verifying" });
-      const ok = await startSharedLuddish();
-      updateOnDeviceAIDownload({ phase: ok ? "ready" : "failed", error: ok ? undefined : "Existing On-device AI package failed verification." });
-      return ok;
+      const admitted = await verifyPrivateGGUF({ uri: dest.uri, exists: true, size: dest.size,
+        open: () => dest.open(FileMode.ReadOnly) }, Device.totalMemory ?? null);
+      if (admitted.available || admitted.reason === "device_not_admitted") {
+        const ok = admitted.available && await startSharedLuddish();
+        updateOnDeviceAIDownload({ phase: ok ? "ready" : "failed", error: ok ? undefined : "The installed model could not run on this device." });
+        return ok;
+      }
+      // Explicit install action: preserve the invalid package for diagnosis and
+      // let the next transfer use a clean destination. Never replace a valid model.
+      new File(dest.uri).move(new File(Paths.document, CANDIDATE_FILE + ".invalid-" + Date.now()));
     }
     try {
       if (!await confirmModelNetworkUse()) return false;

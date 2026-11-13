@@ -21,7 +21,7 @@ from pathlib import Path
 from core.db import db
 from services import learning
 from services.higgins import knowledge
-from services.higgins.tc_flyby import patterns
+from services.higgins.tc_hawkeye import patterns
 
 CASES_FILE = Path(__file__).resolve().parents[1] / "content" / "kb_benchmark_cases.json"
 # Questions written after the main set and never used to tune the search rule: they show whether a change carries over.

@@ -27,7 +27,9 @@ async def ensure_indexes() -> None:
 
 
 def digest(owner: str, *parts: str) -> str:
-    normalised = "\x1f".join(" ".join(str(p or "").lower().split()) for p in parts)
+    # Work identity covers exact evidence. URL paths and source whitespace may
+    # be significant; provider-cache normalization is a separate contract.
+    normalised = "\x1f".join(str(p or "") for p in parts)
     return hashlib.sha256(f"{owner}\x1e{normalised}".encode("utf-8")).hexdigest()
 
 

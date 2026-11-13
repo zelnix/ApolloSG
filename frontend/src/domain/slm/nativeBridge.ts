@@ -15,7 +15,7 @@ export interface NativeSLMCapability {
 export interface NativeSLMSetup {
   /** A GGUF file on THIS device, verified and selected by the app. */
   modelUri: string | null;
-  /** Hash-qualified, trusted model identity established by model management. */
+  /** Model label established by package admission; not a checksum attestation. */
   modelId: string | null;
   /** Real llama.rn's initLlama, explicitly imported by a native-only entry point. */
   initLlama?: InitLlama | null;

@@ -11,7 +11,7 @@ export type EgressEndpoint = "intel_check" | "patrol_sync" | "trust_sync" | "ask
 
 const ALLOWED_KEYS: Record<EgressEndpoint, Set<string>> = {
   // Opt-in, advisory-only local SLM handoff: structured model output only, never raw case material.
-  slm_advisory: new Set(["jobId", "caseRevision", "role", "caseId", "requestId", "execution", "modelId", "answer"]),
+  slm_advisory: new Set(["jobId", "caseRevision", "role", "caseId", "requestId", "execution", "modelId", "answer", "status", "reason"]),
   family: new Set(["device_id", "url", "email", "name", "owner_name", "code", "reply", "phone", "protected_device_id", "scent_id", "headline", "state", "events", "steps", "done", "note", "resolved", "kind", "text", "from_name", "enabled", "preview_only", "guardian_name", "duration_s", "submission_id", "relationshipId", "sharerDeviceId", "captureScope", "microphoneRequested", "clientRequestId", "decision", "helperDeviceId", "expectedRevision", "generation", "nativeState", "failureCode",
     // "Send to family" on a threat: its short summary only — never the original message, its links or pictures.
     "event_id", "result", "what_happened", "what_to_do", "involved_label", "involved", "case_ref", "occurred_at"]),

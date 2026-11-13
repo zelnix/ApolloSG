@@ -91,6 +91,7 @@ import { startPostureMonitor, updatePostureInputs, stopPostureMonitor } from "@/
 import { startActivityRecorder, stopActivityRecorder } from "@/src/store/activityRecorder";
 import { getCaseOriginal, getOriginalSource, saveOriginalSource, type OriginalSourceInput } from "@/src/store/originalSource";
 import { pickUpCase, pickupsDone, rememberPickups } from "@/src/investigation/pickup";
+import { startSLMRequestPump } from "@/src/investigation/slmRequestPump";
 
 // ── Privacy-safe notification diagnostic logger ──────────────────────────
 // Records notification failures with enough detail to distinguish permission,
@@ -405,6 +406,7 @@ async function ensureAndroidVpnConsent(): Promise<boolean> {
 const Ctx = createContext<ApolloContextValue | null>(null);
 
 export function ApolloProvider({ children }: { children: React.ReactNode }) {
+  useEffect(() => startSLMRequestPump(), []);
   const qc = useQueryClient();
   const [ready, setReady] = useState(false);
   const [setupDone, setSetupDone] = useState(false);

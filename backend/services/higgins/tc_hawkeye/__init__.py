@@ -61,6 +61,9 @@ class HawkeyeOutcome:
     model: str | None = None
 
 
+FlyByOutcome = HawkeyeOutcome  # compatibility name, same result type
+
+
 
 # ── Wright Triage's extraction: every input made investigation-ready ─────────
 def _page_number(row: dict) -> int | None:
@@ -467,9 +470,10 @@ async def investigate(owner: str, case: dict, job: dict, question: str, rows: li
     validated on-device SLM Finding before committing the case.
     """
     case_id = case["case_id"]
-    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_hawkeye_ciphertext": 1})
-    if stored and stored.get("tc_hawkeye_ciphertext"):
-        record = repo.dec_json(stored["tc_hawkeye_ciphertext"])
+    from services.higgins import hawkeye_record
+    stored = await db.investigation_cases.find_one({"owner_id": owner, "case_id": case_id}, {"_id": 0, "tc_hawkeye_ciphertext": 1, "tc_flyby_ciphertext": 1})
+    record = hawkeye_record.read(stored or {})
+    if record:
         await db.investigation_cases.update_one({"owner_id": owner, "case_id": case_id}, {"$inc": {"routing.tc_hawkeye.reusedOnRetry": 1}})
     else:
         record = await _run(owner, case, job, question, rows, progress, triage_advice=triage_advice, hawkeye_advice=hawkeye_advice)
@@ -477,7 +481,7 @@ async def investigate(owner: str, case: dict, job: dict, question: str, rows: li
     common = {"usage": {"input_tokens": usage.get("input") or None, "output_tokens": usage.get("output") or None},
               "simulated": record["search"]["simulated"], "model": record["search"]["model"]}
     if record.get("response"):
-        return HawkeyeOutcome(True, record["decision"]["answeredBy"], response=record["response"], **common)
+        return HawkeyeOutcome(True, record["decision"]["answeredBy"], response=record["response"], floor=record.get("floor"), **common)
     issues = record.get("issues")
     needed = None if issues is None else {e for i in issues for e in i["evidenceIds"]}
     rows_ = await _magnum_rows(owner, case, record["items"]["brief"], needed, set(record.get("settled") or []))
@@ -531,7 +535,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
         decision, issues = deciding.evaluate(plan_, texts, final=True)
     _settle(plan_, issues)
     magnum_search = False if decision else deciding.magnum_needs_search(plan_, issues)
-    floor = None if decision else deciding.floor(plan_, deciding.provisional(plan_))
+    floor = deciding.floor(plan_, decision or deciding.provisional(plan_))
     # A reputation-check provider (IPQualityScore) genuinely failed or timed out after retrying, with
     # nothing else resolving what it would have covered — a Criterion 1 Investigation Failure (Developer
     # Instructions §2) that now mandatorily escalates to Magnum DI (decide.evaluate()) rather than TC

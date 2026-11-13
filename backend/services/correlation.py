@@ -17,8 +17,8 @@ from datetime import datetime, timezone
 
 from services import observed_intel, org_directory, threat_feeds
 from services.higgins.brand_domains import registrable
-from services.higgins.tc_flyby.official import official_domain, pregathered
-from services.higgins.tc_flyby.triage import Plan
+from services.higgins.tc_hawkeye.official import official_domain, pregathered
+from services.higgins.tc_hawkeye.triage import Plan
 
 log = logging.getLogger("apollo.correlation")
 

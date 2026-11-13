@@ -61,6 +61,7 @@ export interface SLMAnswer {
 }
 
 export interface SLMAdapter {
+  canFit?(request: SLMRequest): boolean;
   readonly modelId: string;
   /** A native on-device model implementation, never Gemini or a silent network fallback. */
   infer(request: SLMRequest): Promise<unknown>;
@@ -121,6 +122,8 @@ function validate(value: unknown, refs: Set<string>, operation: SLMOperation): S
   }
   const a = value as Record<string, unknown>;
   // Unexpected fields (including a model-authored verdict or score) must not leak downstream.
+  if ((operation !== "case_finding" && a.caseFinding != null) ||
+      (operation !== "escalation_assessment" && a.escalationAssessment != null)) return null;
   const permitted = new Set(["observations", "contradictions", "alternativeExplanations",
     "verificationSuggestions", "draftExplanation", "caseFinding", "escalationAssessment"]);
   if (Object.keys(a).some((k) => !permitted.has(k))) return null;
@@ -186,6 +189,11 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
     return { status: "invalid_output", execution: "none", reason: "invalid_request" };
   }
   if (!adapter) return { status: "unavailable", execution: "none", reason: "on_device_model_unavailable" };
+  if ((request.operation === "case_finding" || request.operation === "escalation_assessment") &&
+      adapter.canFit && !adapter.canFit(request)) {
+    const { reasonAcrossWindows } = await import("./reasoningWindows.ts");
+    return reasonAcrossWindows(request, adapter);
+  }
   // Server-issued Wright stage must examine every bounded source window. Internal
   // window requests use the exact marker below to avoid recursive dispatch.
   if (request.operation === "wright_semantic" &&

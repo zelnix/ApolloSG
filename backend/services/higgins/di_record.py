@@ -138,7 +138,12 @@ async def save_di_record(*, correlation_id: str | None, owner: str | None, inves
         },
     }
     try:
-        await db.di_transactions.insert_one(record)
+        case_selector = {"owner_id": owner, "case_id": investigation_id, "deleted": False}
+        if investigation_id and owner and not await db.investigation_cases.find_one(case_selector, {"_id": 1}):
+            return
+        inserted = await db.di_transactions.insert_one(record)
+        if investigation_id and owner and not await db.investigation_cases.find_one(case_selector, {"_id": 1}):
+            await db.di_transactions.delete_one({"_id": inserted.inserted_id, "owner": owner})
     except Exception:
         _log.warning("di_record: failed to persist DI transaction for %s", correlation_id, exc_info=True)
 

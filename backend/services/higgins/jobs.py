@@ -43,8 +43,8 @@ def stop_message(reason: str, *, magnum_used: bool, kept: list[str]) -> str:
     """Higgins says plainly why the investigation stopped, and keeps what TC Hawkeye established. Nothing is substituted."""
     why = _STOP_REASONS.get(reason, "something interrupted the investigation")
     if magnum_used:
-        text = (f"Magnum DI stopped because {why}. No conclusion has been made up in its place. Each case gets one Magnum DI "
-                "call, so it isn't tried again for this case.")
+        text = (f"Magnum DI stopped because {why}. No conclusion has been made up in its place. "
+                "A request that may already have reached the provider is not sent again.")
     else:
         text = (f"The investigation stopped because {why}, before Magnum DI's call was made. No conclusion has been made up "
                 "in its place. Everything you submitted is kept, so you can resubmit with one tap.")
@@ -273,6 +273,18 @@ async def run(owner: str, case_id: str, job_id: str) -> None:
             await repo.set_job(owner, job_id, job["fence"], {"$set": {"status": "cancelled", "lease_until": None}})
             pass  # unaccepted bundles of this attempt are reclaimed by the sweeper; accepted history is never touched here
             return
+        if outcome.kind == "device_unavailable":
+            stage_failure = job.get("slm_failure") or {}
+            diagnostic = DiagnosticDetail(component="on_device_ai", service="On-device AI",
+                                          operation=stage_failure.get("stage", "investigation"),
+                                          original_error_code=stage_failure.get("reason", "on_device_result_unavailable"),
+                                          timestamp=now_utc().isoformat())
+            await _fail(owner, case, job, Failure(
+                code="device_unavailable", message="; ".join(outcome.errors), retryable=True, diagnostics=diagnostic,
+            ), partial=True)
+            return
+        if outcome.kind != "committed" or outcome.commit is None or outcome.case is None:
+            raise RuntimeError("unsupported_investigation_outcome:" + outcome.kind)
         commit, updated = outcome.commit, outcome.case
         await repo.set_job(owner, job_id, job["fence"], {"$set": {"status": updated["status"], "lease_until": None, "checkpoint_ciphertext": None}})
         sources = await repo.sources(owner, case_id)

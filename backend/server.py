@@ -207,7 +207,9 @@ async def lifespan(_: FastAPI):
     await db.family_audio_cleanup.create_index("cleanup_id", unique=True)
     await db.incident_notes.create_index([("guardian_device_id", 1), ("protected_device_id", 1), ("submission_id", 1)], unique=True,
                                          partialFilterExpression={"submission_id": {"$type": "string"}})
-    from services import verified_businesses, business_registry_weekly\n    await verified_businesses.ensure_indexes()\n    # ── Background loops — Stage 12 audit ────────────────────────────────────
+    from services import verified_businesses, business_registry_weekly
+    await verified_businesses.ensure_indexes()
+    # ── Background loops — Stage 12 audit ────────────────────────────────────
     # Each loop has a single clear purpose. No two loops perform the same job.
     #
     # 1. weekly_checkin_loop       — Device-check-in reminder (weekly cadence).
@@ -219,7 +221,8 @@ async def lifespan(_: FastAPI):
     # 4. family_assist_loop        — Family Help session/media maintenance (15 s heartbeat).
     # 5. push_receipt_loop         — Expo push receipt reconciliation (5 min).
     # 6. supervise_maintenance     — Evidence/case cleanup, worker heartbeat (own schedule).
-    business_registry_task = asyncio.create_task(business_registry_weekly.supervise_weekly(), name="apollo-business-registry-weekly")\n    loop_task = asyncio.create_task(weekly_checkin_loop())
+    business_registry_task = asyncio.create_task(business_registry_weekly.supervise_weekly(), name="apollo-business-registry-weekly")
+    loop_task = asyncio.create_task(weekly_checkin_loop())
     mailbox_task = asyncio.create_task(supervise_mailbox_monitor(), name="apollo-mailbox-supervisor")
     async def government_alert_loop():
         while True:
@@ -338,7 +341,8 @@ async def lifespan(_: FastAPI):
     learn_publish_task.cancel()
     maintenance_task.cancel()
     quiet_hold_task.cancel()
-    business_registry_task.cancel()\n    loop_task.cancel()
+    business_registry_task.cancel()
+    loop_task.cancel()
     mailbox_task.cancel()
     government_alert_task.cancel()
     family_assist_task.cancel()

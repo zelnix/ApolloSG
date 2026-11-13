@@ -345,7 +345,7 @@ def ended_view(case: dict | None) -> dict:
     doesn't hold: the outcome its routing recorded and the rule that settled it; else that it finished but its
     result isn't kept; else that it ended without a result."""
     routing = (case or {}).get("routing") or {}
-    outcome = (routing.get("tc_flyby") or {}).get("outcome")
+    outcome = routing.get("outcome") or (routing.get("tc_hawkeye") or routing.get("tc_flyby") or {}).get("outcome")
     headline = outcomes.label(outcome)
     if headline:
         # Normalize legacy codes to current codes for state/attention mapping

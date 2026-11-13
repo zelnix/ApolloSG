@@ -35,12 +35,12 @@ export async function assessMandatoryWright(
   const scamTypes = [...new Set(run.interpretations.flatMap(i => i.result.scamTypes))].slice(0, 6);
   const uncertainty = (run.synthesis.contradictory
     ? "Conflicting legitimate and scam indicators across windows; further verification required."
-    : run.synthesis.uncertainties.join("; ") || "Context outside each window may be incomplete.").slice(0, 600);
+    : run.synthesis.uncertainties.join("; ") || "Context outside each window may be incomplete.");
   const semantic: WrightSemanticResult = {
     version: "wright.semantic.v1", classification, scamTypes,
-    intent: "Combined interpretation of all submitted source windows.",
+    intent: [...new Set(run.interpretations.map(item => item.result.intent))].join("; "),
     coercion, exposure,
-    narrative: `Examined ${run.interpretations.length} source windows. Classifications: ${labels.join(", ")}.`,
+    narrative: [...new Set(run.interpretations.map(item => item.result.narrative))].join("; "),
     uncertainty, supportingEvidenceIds: refs,
   };
   // Any positive assertion must have at least one source citation.

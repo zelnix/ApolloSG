@@ -68,7 +68,7 @@ async def _finished_email_case(owner: str) -> dict:
 
 async def _cleanup(owner: str) -> None:
     for name in ("investigation_cases", "investigation_evidence", "investigation_content_chunks", "investigation_jobs",
-                 "investigation_turn_commits", "investigation_events", device_pickup.COLLECTION, "investigation_cleanup"):
+                 "investigation_turn_commits", "investigation_events", device_pickup.COLLECTION, device_pickup.CHUNKS, "investigation_cleanup"):
         await db[name].delete_many({"owner_id": owner})
     await db.patrol_events.delete_many({"device_id": owner})
 
@@ -101,7 +101,7 @@ async def test_no_clock_removes_the_phones_copy_while_the_phone_is_offline():
         await held_copies.sweep(now_utc())
         gone = await db.investigation_cases.find_one({"case_id": case["case_id"]}, {"_id": 0})
         assert gone["deleted"] is True, "the server's working copy still goes on its own clock"
-        assert gone["source_metadata"].get("preview") == TEXT, "the case's copy of the text waits for the phone"
+        assert "source_metadata" not in gone, "plaintext working content is removed; the encrypted pickup retains the original"
         served = _json(await inv_router.device_pickup_copy(case["case_id"], _Request(owner)))
         assert served["held"] is True and served["originals"][0]["body"] == TEXT and served["source"]["subject"] == SUBJECT, \
             "the phone's copy is still there when it comes back online"
@@ -114,12 +114,14 @@ async def test_the_server_deletes_only_after_the_phone_confirms_a_complete_copy(
     try:
         case = await _finished_email_case(owner)
         case_id = case["case_id"]
+        held = await device_pickup.get(owner, case_id)
+        integrity = {"snapshotId": held["snapshotId"], "evidenceDigests": {e["evidenceId"]: e["sha256"] for e in held["evidenceContent"]}}
         with pytest.raises(HTTPException) as refused:
-            await inv_router.confirm_commit(case_id, _Request(owner, {"saved": {"text": True, "link": False, "result": True, "headers": ["From"]}}))
+            await inv_router.confirm_commit(case_id, _Request(owner, {"saved": {**integrity, "text": True, "link": False, "result": True, "headers": ["From"]}}))
         assert refused.value.status_code == 409
         assert refused.value.detail["error"]["missingEvidenceIds"] == ["Subject", "Received"], "a copy missing headers is not complete"
         assert await device_pickup.get(owner, case_id), "nothing was deleted"
-        saved = {"text": True, "link": False, "result": True, "headers": ["From", "Subject", "Received", "Mailbox"]}
+        saved = {**integrity, "text": True, "link": False, "result": True, "headers": ["From", "Subject", "Received", "Mailbox"]}
         done = _json(await inv_router.confirm_commit(case_id, _Request(owner, {"saved": saved})))
         assert done["purged"] is True and done["removedAt"]
         assert await device_pickup.get(owner, case_id) is None, "confirmed: the server's copy for the phone is released"

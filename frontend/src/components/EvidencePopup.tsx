@@ -1,3 +1,4 @@
+import { fetchEvidenceContent } from "@/src/investigation/evidenceContent";
 // EvidencePopup — Full-screen modal for the Evidentiary Chain.
 // Two sections: A. Evidence (display actual content) · B. Evidence Details (metadata).
 // Supports images, text, URLs, documents. Mobile-friendly, accessible, dismissable.
@@ -13,7 +14,6 @@ import { Body, Button, Pill } from "@/src/components/ui";
 import type { EvidenceItem } from "@/src/investigation/types";
 import * as investigationApi from "@/src/investigation/client";
 import { getDeviceToken } from "@/src/auth/deviceIdentity";
-import { API_BASE } from "@/src/api/client";
 
 const useStyles = makeStyles((c) => ({
   backdrop: { flex: 1, backgroundColor: c.surface },
@@ -106,22 +106,13 @@ export function EvidencePopup({ visible, onClose, caseId, focusEvidenceId, items
     setTextContent(null);
 
     if (item.availability !== "available" && item.availability !== "content_expired") return;
-    // If content has expired, don't try to load — show the expiry message immediately
-    if (item.availability === "content_expired") {
-      if (item.kind === "image") { setImageError("expired"); }
-      else { setTextContent(null); }
-      return;
-    }
-
     if (item.kind === "image") {
       // Fetch image bytes with auth token, convert to base64 data URI
       setImageLoading(true);
       getDeviceToken().then(async (token) => {
         if (!token) { setImageError("Authentication required"); setImageLoading(false); return; }
         try {
-          const res = await fetch(`${API_BASE}/investigations/${caseId}/evidence/${item.id}/content`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await fetchEvidenceContent(caseId, item.id);
           if (!res.ok) {
             if (res.status === 410) { setImageError("This evidence has expired and is no longer available."); }
             else if (res.status === 404) { setImageError("Evidence not found. It may belong to a different investigation."); }
@@ -138,7 +129,7 @@ export function EvidencePopup({ visible, onClose, caseId, focusEvidenceId, items
           };
           reader.onerror = () => { setImageError("Failed to process the evidence image."); setImageLoading(false); };
           reader.readAsDataURL(blob);
-        } catch (err) {
+        } catch {
           setImageError("Could not connect to load evidence. Check your connection.");
           setImageLoading(false);
         }
@@ -146,9 +137,7 @@ export function EvidencePopup({ visible, onClose, caseId, focusEvidenceId, items
     } else if (item.kind === "text" || item.kind === "url") {
       getDeviceToken().then((token) => {
         if (!token) return;
-        fetch(`${API_BASE}/investigations/${caseId}/evidence/${item.id}/content`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        fetchEvidenceContent(caseId, item.id)
           .then((r) => {
             if (!r.ok) throw new Error(`${r.status}`);
             return r.text();

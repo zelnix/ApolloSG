@@ -36,7 +36,7 @@ DELETED_COLLECTIONS = (
     "investigation_cleanup", "investigation_settings_plans", "di_transactions", "triage_investigations", "triage_results",
     "higgins_investigation_history", "device_case_history",
     "shared_events", "shared_incidents", "incident_notes", "threat_notes", "shared_scam_alerts",
-    "held_alerts",
+    "held_alerts", "magnum_di_window_calls", "investigation_pickup_chunks",
 )
 
 
