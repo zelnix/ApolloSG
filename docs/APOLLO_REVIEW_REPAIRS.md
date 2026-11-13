@@ -201,3 +201,13 @@ catalogue checks. Public direct APK URLs, including Expo install URLs, cannot
 prevent an incompatible browser from downloading bytes. Store availability is a
 distribution control, and is not claimed for those direct links. Previously
 published universal APKs are not changed or revoked by a new build.
+
+The owner selected Google Play for public distribution and Expo for internal
+testing. `android-play-bundle.yml` builds the existing production AAB profile
+with both 64-bit targets and verifies the downloaded bundle. It does not claim
+a Play upload or publication. The APK workflow remains internal distribution.
+Before public release, confirm ARM32/x86 devices are unavailable in Play's
+Device Catalog, and remove any retained 32-bit artifacts from active tracks.
+Expo's project setting for unauthenticated internal-build access must also be
+disabled by the project owner; marking a build internal does not make a public
+install URL enforce device compatibility or authenticated tester access.
