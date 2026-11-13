@@ -2,6 +2,7 @@ name: SLM Android native compile
 # Standalone APK build requested for slm physical-device acceptance.
 
 on:
+  workflow_call:
   workflow_dispatch:
     inputs:
       build_debug:

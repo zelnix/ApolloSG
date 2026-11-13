@@ -100,6 +100,9 @@ module.exports = {
         backgroundColor: "#F5F7FA",
       },
       package: ANDROID_PACKAGE,
+      // Internal GitHub APK updates must advance the installed versionCode.
+      // EAS production builds continue to use their configured remote version source.
+      versionCode: 2,
       googleServicesFile: "./google-services.json",
       softwareKeyboardLayoutMode: "pan",
       permissions: [

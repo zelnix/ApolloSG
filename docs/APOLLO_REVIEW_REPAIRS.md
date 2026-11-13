@@ -264,6 +264,12 @@ pause/resume/denied consent and native/file failures. These tests reproduce the
 identified defects, not the owner's physical-device failure. A subsequent
 explicitly authorised APK build and device run are still required to verify
 the corrected behavior on the Fold6. No build was started for these changes.
+
+The owner subsequently authorised one APK build. The update uses the existing
+GitHub internal-test pipeline and its signing identity, matching the inspected
+installed GitHub APK. Its local Android versionCode advances from 1 to 2; EAS
+production keeps its separate remote version source. A temporary caller invokes
+the existing native workflow once. Automatic build-on-source-push remains paused.
 Before public release, confirm ARM32/x86 devices are unavailable in Play's
 Device Catalog, and remove any retained 32-bit artifacts from active tracks.
 Expo's project setting for unauthenticated internal-build access must also be

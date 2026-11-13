@@ -1,0 +1,15 @@
+name: Requested ARM64 APK update
+
+on:
+  push:
+    branches: [slm]
+    paths: ['.github/workflows/requested-arm64-apk.yml']
+
+permissions:
+  contents: read
+
+# One explicit owner request. Remove this caller after delivery; ordinary
+# source pushes continue to run tests without starting artifact builds.
+jobs:
+  requested-apk:
+    uses: ./.github/workflows/slm-native-compile.yml
