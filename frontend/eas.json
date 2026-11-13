@@ -18,6 +18,7 @@
       },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_BACKEND_URL": "https://threat-patrol-1.emergent.host",
         "EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE": "guarddog_production",
         "EXPO_PUBLIC_PREVIEW_BUILD": "excluded",
         "APOLLO_ANDROID_RESTRICTED_PERMISSIONS": "off",

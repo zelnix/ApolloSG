@@ -158,3 +158,24 @@ The repair-only revision `01139d2` also completed the standalone Android native
 build after fixing literal escaped newlines in the call-screening declaration.
 The final combined revision requires its own APK build and deployment. Native
 CI now follows every frontend change, including classification report changes.
+
+## Signed EAS APK configuration admission
+
+The signed EAS build of `1049d39` compiled, but release-artifact inspection found
+no backend URL in its Hermes bundle. EAS reported an empty production environment,
+and the inherited production profile omitted `EXPO_PUBLIC_BACKEND_URL`.
+`api/client.ts` requires this value during module evaluation, so compilation
+success did not establish application startup.
+
+The production EAS profile now explicitly supplies the owner's production API
+base, `https://threat-patrol-1.emergent.host`. Production preflight rejects a
+missing or malformed HTTPS base before native dependency/build admission,
+including the EAS pre-install hook. Its integration tests are part of CI.
+This changes build configuration only; the client retains its required explicit
+environment value and the classification merge is unchanged. The earlier signed
+artifact is not an accepted release; its replacement must be inspected separately.
+
+The expanded frontend gate passes 188 tests. The exact production EAS profile
+passes pre-install admission, and a local Android export embeds the exact
+production API base in Hermes bytecode. Negative admission checks reject an
+unset or non-HTTPS base before EAS's dependency-check deferral.

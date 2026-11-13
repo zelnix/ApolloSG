@@ -27,7 +27,7 @@ const RETIRED_SECURITY_MODE = ["EXPO", "PUBLIC", "SECURITY", "MODE"].join("_");
 // Controlled host/IP/URL are acceptance-test inputs and must not gate production APKs.
 const PRODUCTION_KEYS = [
   "EXPO_PUBLIC_GUARDDOG_RULE_BUNDLE_URL", "EXPO_PUBLIC_GUARDDOG_RULESET_ID"];
-const KEYS = ["EXPO_PUBLIC_APP_ENV", "EXPO_PUBLIC_PREVIEW_BUILD", "EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE", ...PRODUCTION_KEYS];
+const KEYS = ["EXPO_PUBLIC_APP_ENV", "EXPO_PUBLIC_BACKEND_URL", "EXPO_PUBLIC_PREVIEW_BUILD", "EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE", ...PRODUCTION_KEYS];
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -91,6 +91,16 @@ if (fs.existsSync(gradlePath)) {
   }
 }
 if (!["development", "staging", "production"].includes(cfg.EXPO_PUBLIC_APP_ENV)) errors.push(`EXPO_PUBLIC_APP_ENV is missing or invalid (got "${cfg.EXPO_PUBLIC_APP_ENV}").`);
+// api/client.ts requires this value during module evaluation. Native compilation
+// alone cannot detect a missing Expo public variable: Metro would embed an
+// undefined value and the installed app would fail before mounting navigation.
+if (cfg.EXPO_PUBLIC_APP_ENV === "production") {
+  let backend;
+  try { backend = new URL(cfg.EXPO_PUBLIC_BACKEND_URL); } catch { /* Report below without exposing a malformed value. */ }
+  if (!backend || backend.protocol !== "https:" || backend.username || backend.password || backend.search || backend.hash) {
+    errors.push("EXPO_PUBLIC_BACKEND_URL must be an absolute HTTPS backend base URL without credentials, query or fragment.");
+  }
+}
 // ONE build decision governs preview simulation (babel.config.js). A shipped build must never carry it.
 const previewBuild = cfg.EXPO_PUBLIC_PREVIEW_BUILD;
 if (previewBuild !== undefined && previewBuild !== "" && previewBuild !== "excluded" && previewBuild !== "included") {

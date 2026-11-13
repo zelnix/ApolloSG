@@ -211,10 +211,11 @@ test('combined preflight is strict except for the actual EAS pre-install lifecyc
   // Use production env so the securityConfig check passes (guarddog_production is production-only).
   // All five PRODUCTION_KEYS must be present; without them the preflight exits with a config error
   // before reaching the native-dependency guard, making status assertions wrong.
-  const run = lifecycle => spawnSync(process.execPath, [path.join(root, 'scripts/security-preflight.mjs')], {
+  const run = (lifecycle, overrides = {}) => spawnSync(process.execPath, [path.join(root, 'scripts/security-preflight.mjs')], {
     encoding: 'utf8', env: {
       ...process.env,
       EXPO_PUBLIC_APP_ENV: 'production',
+      EXPO_PUBLIC_BACKEND_URL: 'https://backend.example',
       EXPO_PUBLIC_ANDROID_ENFORCEMENT_ENGINE: 'guarddog_production',
       EXPO_PUBLIC_GUARDDOG_RULE_BUNDLE_URL: 'https://test.example/rules',
       EXPO_PUBLIC_GUARDDOG_CONTROLLED_HOST: 'test.example',
@@ -225,11 +226,16 @@ test('combined preflight is strict except for the actual EAS pre-install lifecyc
       // The copied plugins require @expo/config-plugins; resolve it from the real install while the
       // fixture root itself keeps its deliberately minimal node_modules for the native guard.
       NODE_PATH: path.resolve(__dirname, '../node_modules'),
+      ...overrides,
     },
   });
   assert.equal(run('security:preflight').status, 2, 'no node_modules is not a pass');
   assert.match(run('eas-build-pre-install').stdout, /DEFERRED/);
   assert.equal(run('eas-build-pre-install').status, 0);
+  const missingBackend = run('eas-build-pre-install', { EXPO_PUBLIC_BACKEND_URL: '' });
+  assert.equal(missingBackend.status, 1, 'an APK with an unset API base cannot pass build admission');
+  assert.match(missingBackend.stderr, /EXPO_PUBLIC_BACKEND_URL/);
+  assert.equal(run('eas-build-pre-install', { EXPO_PUBLIC_BACKEND_URL: 'http://backend.example' }).status, 1);
   install(root, 'react-native-svg', '15.15.4');
   assert.equal(run('security:preflight').status, 0, 'clean CNG source needs no checked-in Android Gradle file');
   fs.mkdirSync(path.join(root, 'android/app'), { recursive: true });
