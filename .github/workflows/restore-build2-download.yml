@@ -17,26 +17,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: apollosg-slm-android-standalone-test
-          run-id: 43395973412
-          github-token: ${{ github.token }}
-          path: baseline
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install binary transfer decoder
-        run: python -m pip install bsdiff4==1.2.6
-      - name: Restore the exact already-built APK and verify its checksum
-        run: python .github/apk-delivery/restore_build2.py
-      - name: Retain recovered download artifact
-        uses: actions/upload-artifact@v4
-        with:
           name: ApolloSG-1.1.0-build2-arm64
-          path: |
-            delivery/ApolloSG-1.1.0-build2-arm64.apk
-            delivery/ApolloSG-1.1.0-build2-arm64.apk.sha256
-          if-no-files-found: error
-          retention-days: 30
+          run-id: 43442095523
+          github-token: ${{ github.token }}
+          path: delivery
+      - name: Verify the recovered APK
+        run: |
+          echo '52e2b809c3fdc5bb741c2dcdbdad9c31deb68a68b9fe8ff557090e6b8d18991a  delivery/ApolloSG-1.1.0-build2-arm64.apk' | sha256sum --check -
       - name: Publish durable direct download
         env:
           GH_TOKEN: ${{ github.token }}
@@ -45,7 +32,7 @@ jobs:
           cat > delivery/notes.txt <<'NOTES'
           ApolloSG 1.1.0, build 2 — ARM64 internal testing APK.
 
-          This restores the exact APK already compiled from commit 773b624acb1944e7b50f3f62161352088f660652. No new Android or Expo build was performed.
+          This restores the exact APK already compiled from commit 773b624acb1944e7b50f3f62161352088f660652. No new Android or Expo build was performed. The release tag records the delivery workflow; the APK source commit is listed above.
 
           Includes the on-device model installer/startup fixes. Uses the same GitHub test signing identity as the previous APK and can be installed as an update. Physical Galaxy Z Fold6 validation is still pending.
 
@@ -54,7 +41,7 @@ jobs:
           Automatic APK builds remain paused.
           NOTES
           gh release create apk-v1.1.0-build2 \
-            --target 773b624acb1944e7b50f3f62161352088f660652 \
+            --target "$GITHUB_SHA" \
             --prerelease \
             --title "ApolloSG 1.1.0 build 2 — ARM64 internal test" \
             --notes-file delivery/notes.txt \
