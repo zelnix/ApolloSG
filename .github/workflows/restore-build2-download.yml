@@ -1,0 +1,62 @@
+name: Restore completed APK download
+on:
+  push:
+    branches: [apk-delivery-build2]
+    paths: ['.github/workflows/restore-build2-download.yml']
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: restore-apk-build2-download
+  cancel-in-progress: false
+jobs:
+  publish-existing-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apollosg-slm-android-standalone-test
+          run-id: 43395973412
+          github-token: ${{ github.token }}
+          path: baseline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install binary transfer decoder
+        run: python -m pip install bsdiff4==1.2.6
+      - name: Restore the exact already-built APK and verify its checksum
+        run: python .github/apk-delivery/restore_build2.py
+      - name: Retain recovered download artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ApolloSG-1.1.0-build2-arm64
+          path: |
+            delivery/ApolloSG-1.1.0-build2-arm64.apk
+            delivery/ApolloSG-1.1.0-build2-arm64.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish durable direct download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > delivery/notes.txt <<'NOTES'
+          ApolloSG 1.1.0, build 2 — ARM64 internal testing APK.
+
+          This restores the exact APK already compiled from commit 773b624acb1944e7b50f3f62161352088f660652. No new Android or Expo build was performed.
+
+          Includes the on-device model installer/startup fixes. Uses the same GitHub test signing identity as the previous APK and can be installed as an update. Physical Galaxy Z Fold6 validation is still pending.
+
+          APK SHA-256: 52e2b809c3fdc5bb741c2dcdbdad9c31deb68a68b9fe8ff557090e6b8d18991a
+
+          Automatic APK builds remain paused.
+          NOTES
+          gh release create apk-v1.1.0-build2 \
+            --target 773b624acb1944e7b50f3f62161352088f660652 \
+            --prerelease \
+            --title "ApolloSG 1.1.0 build 2 — ARM64 internal test" \
+            --notes-file delivery/notes.txt \
+            delivery/ApolloSG-1.1.0-build2-arm64.apk \
+            delivery/ApolloSG-1.1.0-build2-arm64.apk.sha256
