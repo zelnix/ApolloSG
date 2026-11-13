@@ -199,6 +199,7 @@ test('Android AND iOS prebuild callbacks reject duplicates after installation', 
 test('combined preflight is strict except for the actual EAS pre-install lifecycle', t => {
   const root = fixture(t);
   fs.cpSync(path.resolve(__dirname, '../scripts'), path.join(root, 'scripts'), { recursive: true });
+  fs.cpSync(path.resolve(__dirname, '../config'), path.join(root, 'config'), { recursive: true });
   // Copy app.config.js for identity checks but do NOT overwrite the fixture's clean package.json —
   // the real one declares every production dependency, causing the guard to report dozens of
   // "declared but missing" errors in a fixture that intentionally has a minimal node_modules.
@@ -236,6 +237,13 @@ test('combined preflight is strict except for the actual EAS pre-install lifecyc
   assert.equal(missingBackend.status, 1, 'an APK with an unset API base cannot pass build admission');
   assert.match(missingBackend.stderr, /EXPO_PUBLIC_BACKEND_URL/);
   assert.equal(run('eas-build-pre-install', { EXPO_PUBLIC_BACKEND_URL: 'http://backend.example' }).status, 1);
+  const fixtureConfig = path.join(root, 'app.config.js');
+  const originalConfig = fs.readFileSync(fixtureConfig, 'utf8');
+  fs.appendFileSync(fixtureConfig, '\nmodule.exports.expo.plugins.find(p => Array.isArray(p) && p[0] === "expo-build-properties")[1].android.buildArchs.push("x86");\n');
+  const unsupportedAbi = run('eas-build-pre-install');
+  assert.equal(unsupportedAbi.status, 1, '32-bit targets cannot pass EAS pre-install admission');
+  assert.match(unsupportedAbi.stderr, /buildArchs/);
+  fs.writeFileSync(fixtureConfig, originalConfig);
   install(root, 'react-native-svg', '15.15.4');
   assert.equal(run('security:preflight').status, 0, 'clean CNG source needs no checked-in Android Gradle file');
   fs.mkdirSync(path.join(root, 'android/app'), { recursive: true });

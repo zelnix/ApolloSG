@@ -179,3 +179,25 @@ The expanded frontend gate passes 188 tests. The exact production EAS profile
 passes pre-install admission, and a local Android export embeds the exact
 production API base in Hermes bytecode. Negative admission checks reject an
 unset or non-HTTPS base before EAS's dependency-check deferral.
+
+## Required 64-bit Android distribution
+
+`frontend/config/android-abis.json` is the shared build/artifact policy. Expo's
+existing build-properties plugin writes `arm64-v8a,x86_64` to native Gradle
+configuration for APK and Play AAB builds. ARM32 (`armeabi-v7a`) and 32-bit x86
+are excluded because the required llama.rn runtime cannot load on those targets.
+Production preflight rejects a missing or changed architecture list. The existing
+ARM64-scoped physical-device test workflow remains scoped to that approved subset.
+
+Artifact admission inspects every packaged native library's directory and ELF
+header, requires the appropriate SLM libraries for every target, and rejects
+32-bit native code, unexpected targets, missing targets and duplicate libraries.
+Both the standalone upload and signed EAS release-link publication run this check.
+
+Android rejects installation when no packaged native ABI matches its supported
+process architectures. Google Play uses native ABI targeting to filter availability
+and downloads; an uploaded AAB must retain the same policy and pass Play's device
+catalogue checks. Public direct APK URLs, including Expo install URLs, cannot
+prevent an incompatible browser from downloading bytes. Store availability is a
+distribution control, and is not claimed for those direct links. Previously
+published universal APKs are not changed or revoked by a new build.

@@ -90,9 +90,11 @@ jobs:
           # A build with no embedded JS must never be labelled as a standalone test APK.
           echo "Standalone release APK has embedded JavaScript."
           echo "Model candidate remains disabled in release builds; no physical-device inference has been performed."
+      - name: Reject unsupported native code before publishing the scoped test APK
+        run: python3 scripts/verify_android_abis.py android/app/build/outputs/apk/release/app-release.apk --expected-abi arm64-v8a
       - name: Verify optional debug APK
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_debug }}
-        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
+        run: python3 scripts/verify_android_abis.py android/app/build/outputs/apk/debug/app-debug.apk --expected-abi arm64-v8a
       - name: Retain debug APK for controlled physical-device testing
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_debug }}
         uses: actions/upload-artifact@v4

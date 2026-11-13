@@ -31,7 +31,10 @@ jobs:
         run: yarn tsc --noEmit
         working-directory: frontend
       - name: SLM, triage parity, evidence integrity and protection truth
-        run: node --test tests/slm*.test.ts tests/slmModelIntegrity.test.cjs tests/wright*.test.ts tests/triage.test.ts tests/evidenceArchive.test.ts tests/protectionTruth.test.ts tests/caseEvidence.test.ts tests/screenedCalls.test.ts tests/screenedCarrierVerification.test.ts tests/diTrace.test.ts tests/reportSections.test.ts tests/appReport.test.ts tests/nativeDependencyGuard.test.cjs
+        run: node --test tests/slm*.test.ts tests/slmModelIntegrity.test.cjs tests/wright*.test.ts tests/triage.test.ts tests/evidenceArchive.test.ts tests/protectionTruth.test.ts tests/caseEvidence.test.ts tests/screenedCalls.test.ts tests/screenedCarrierVerification.test.ts tests/diTrace.test.ts tests/reportSections.test.ts tests/appReport.test.ts tests/nativeDependencyGuard.test.cjs tests/androidAbiConfig.test.cjs
+        working-directory: frontend
+      - name: Android APK and AAB architecture admission regressions
+        run: python3 -m unittest discover -s tests -p test_android_abis.py
         working-directory: frontend
   backend:
     runs-on: ubuntu-latest

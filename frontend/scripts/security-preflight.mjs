@@ -13,6 +13,7 @@ import nativeGuard from "./native-dependency-guard.cjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
+const supportedAndroidAbis = Object.freeze([...require("../config/android-abis.json").supported]);
 const ANDROID_PACKAGE = "app.apollo.hwg";
 const IOS_BUNDLE_IDENTIFIER = "app.apollo.hwg";
 const RETIRED_SECURITY_NAME = ["Secure", "Core"].join("");
@@ -81,6 +82,12 @@ if (fs.existsSync(appConfigPath)) {
 }
 if (resolvedAppConfig.android?.package !== ANDROID_PACKAGE) errors.push(`Android package must be ${ANDROID_PACKAGE}.`);
 if (resolvedAppConfig.ios?.bundleIdentifier !== IOS_BUNDLE_IDENTIFIER) errors.push(`iOS bundle identifier must be ${IOS_BUNDLE_IDENTIFIER}.`);
+const buildProperties = resolvedAppConfig.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "expo-build-properties");
+const androidAbis = buildProperties?.[1]?.android?.buildArchs;
+if (!Array.isArray(androidAbis) || androidAbis.length !== supportedAndroidAbis.length ||
+    new Set(androidAbis).size !== androidAbis.length || androidAbis.some((abi) => !supportedAndroidAbis.includes(abi))) {
+  errors.push("Android buildArchs must match config/android-abis.json; the required SLM supports only the approved 64-bit targets.");
+}
 // CNG has no android/ until prebuild. The authoritative package is app.config.js; if a
 // generated project is present, additionally reject any mismatch in its concrete Gradle output.
 const gradlePath = path.join(root, "android/app/build.gradle");

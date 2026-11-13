@@ -4,6 +4,8 @@
 
 const ANDROID_PACKAGE = "app.apollo.hwg";
 const IOS_BUNDLE_IDENTIFIER = "app.apollo.hwg";
+// The required on-device runtime supports 64-bit Android processes only.
+const androidBuildArchs = [...require("./config/android-abis.json").supported];
 
 // ── Expo project identity ──────────────────────────────────────────────────
 // Canonical values for the owner's Expo project.
@@ -166,7 +168,7 @@ module.exports = {
       ["expo-image-picker", { photosPermission: "Choose screenshots to verify settings or check for scams", cameraPermission: "Scan QR codes and photograph suspicious items for checking", microphonePermission: false }],
       // Alert sounds play only while Apollo is open: no background music-player service (a Play declaration Apollo can't justify).
       ["expo-audio", { microphonePermission: false, enableBackgroundPlayback: false }],
-      ["expo-build-properties", { android: { minSdkVersion: 26 }, ios: { deploymentTarget: "16.4" } }],
+      ["expo-build-properties", { android: { minSdkVersion: 26, buildArchs: androidBuildArchs }, ios: { deploymentTarget: "16.4" } }],
       "expo-ocr-kit",
     ],
 

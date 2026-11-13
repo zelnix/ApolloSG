@@ -82,4 +82,5 @@ jobs:
           CI: '1'
         run: |
           npx --yes eas-cli@latest build --platform android --profile guarddog-production --non-interactive --wait --json > /tmp/eas-result.json
+          python3 scripts/verify_android_abis.py --eas-result /tmp/eas-result.json
           node -e 'const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/eas-result.json","utf8"));const b=Array.isArray(r)?r[0]:r;if(b.status!=="FINISHED"||!b.artifacts?.buildUrl)process.exit(1);fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY,"APK build: "+b.artifacts.buildUrl+"\\n",{flag:"a"});'
