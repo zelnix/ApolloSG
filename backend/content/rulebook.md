@@ -618,6 +618,8 @@ If any S rule passes and no unresolved reliable information undermines it → **
 
 All applicable N rules must pass. Unknown cannot be treated as passed. Gaps (unprocessed material) prevent "This is not a scam".
 
+N2 passing on its own — a link simply not flagged as malicious — is never enough by itself: that is an absence of badness, not a positive claim verified. "This is not a scam" additionally requires either a named sender/organisation, an identified request or purpose, **or** every link present resolving to a domain ApolloSG itself recognises as a genuine organisation's own (its register of organisation domains, or the small curated list of major, unambiguous, non-impersonation-target destinations such as abc.net.au). An ordinary message with nothing established at all — no claim, no request, and a link to an otherwise-unknown domain that merely wasn't flagged as bad — reads as "This is unlikely a scam" instead (owner confirmation, 2026-11-08).
+
 **Likely-scam rules (L1–L3) — any one passing → "This is likely a scam":**
 1. **L1 — Strong signs of impersonation:** the communication claims an identity, at least one detail (including a lookalike domain) conflicts with it, and another independent finding supports the possibility that the identity is being misused. A third-party sending service alone, or an unfamiliar domain alone, does not qualify.
 2. **L2 — Strong scam-pattern match:** the material matches a recognised pattern, the central scam behaviour is present, and the request matches — but an important part of the suspected deception remains unverified. If every element and supporting evidence is established, S4 applies instead.
@@ -1015,22 +1017,28 @@ When Magnum DI was needed for more than one reason, the sentence names them toge
 
 ### Outcomes (one system for TC Hawkeye and Magnum DI) {#outcomes}
 
-Every Finding carries a 0–100 Findings Rating (Apollo PRD v2.2 §2) across six investigative dimensions
-(scam mechanism, requested action, identity & destination, manipulation & behaviour, knowledge base
-intelligence, evidence corroboration), then classified into exactly one of four tiers by its score —
-the boundaries are exact and inclusive:
+Every Finding carries a 0–100 Findings Rating across six investigative dimensions (scam mechanism,
+requested action, identity & destination, manipulation & behaviour, knowledge base intelligence,
+evidence corroboration). The rating is still calculated the same way it always was — but the Finding
+a person sees is never picked by the score alone. It comes from the same S1–S4 / N1–N4 / L1–L3
+evidence rules used everywhere else in this book (Unified Evidence Classification & Six-Dimension
+Findings Rating, 8 Nov 2026):
 
-| Outcome | Rating | Meaning |
+| Outcome | Evidence required | Rating band |
 |---|---|---|
-| **This is a scam** | 85–100 | An authoritative source names this exact link, number, address or company as a scam or threat; or the investigation has established a fake identity, a deceptive activity, or a complete corroborated scam pattern. |
-| **This is likely a scam** | 60–84 | Strong signs of impersonation, a strong scam-pattern match, or several independent scam indicators — but an important part of the evidence remains unverified. |
-| **This is unlikely a scam** | 25–59 | A benign or routine communication without meaningful scam indicators, but without enough positive verification to call it genuine — the normal finding for ordinary, unverified communications. The case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. (Replaces the earlier "Unable to determine" outcome, now fully merged into this tier.) |
-| **This is not a scam** | 0–24 | The investigation verified the identity, destinations, purpose and resolved all scam warnings. This is **not** proof it's safe, and it is never described as safe. |
+| **This is a scam** | At least one established S rule (an authoritative listing, a fake identity used for a deceptive purpose, an established deceptive activity, or a complete corroborated scam pattern), with no unresolved material contradiction undermining it. | 85–100 |
+| **This is likely a scam** | Strong signs of impersonation, a strong scam-pattern match, or several independent scam indicators (rules L1–L3) — but no S rule established, so an important part of the evidence remains unverified. | 60–84 |
+| **This is unlikely a scam** | No supported scam mechanism and no unresolved issue that needs escalating — the normal finding for an ordinary, unverified communication (including one with nothing to check at all). The case is filed as "Not fully checked" (see Threats list): no warning and no alert, and never called safe. | 25–59 |
+| **This is not a scam** | All applicable N rules pass with substantive positive verification of identity, destinations and purpose, with no material gaps. This is **not** proof it's safe, and it is never described as safe. | 0–24 |
 
-The rating and the Finding never disagree: when the investigation's rules establish a scam (an authoritative
-listing, a fake identity used for a deceptive purpose, an established deceptive activity, or a complete
-corroborated pattern — rules S1–S4), the rating is floored at 85 like any other decisive mechanism, and the
-Scoring Breakdown says which rule did it. A case shown as "This is a scam" is never rated "likely".
+The boundaries above are exact and inclusive. The evidence verdict decides the Finding; the rating is
+shown as calculated whenever it already falls in that verdict's band. When it doesn't — a high score
+with no S rule established, or a positively-verified case the dimension sum didn't bring low enough,
+for example — the rating shown is nudged to the nearest edge of the correct band, and the Scoring
+Breakdown names the rule and states plainly that the number was adjusted and why. The underlying six
+dimensions, evidence and calculation are never rewritten, only the number moved, and only that far.
+A case shown as "This is a scam" is never rated "likely", and a case shown as "This is likely a scam"
+is never rated 85+ without an established S rule, however high the six-dimension sum alone reaches.
 
 A reputation-check provider (IPQualityScore, for a link or phone number) that fails or times out, even
 after retrying, never produces a Findings Rating or any of the four outcomes above on its own: when

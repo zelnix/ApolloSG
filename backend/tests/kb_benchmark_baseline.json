@@ -24,18 +24,18 @@
     "cases": 60,
     "mustFind": 56,
     "top1": 0.821,
-    "top3": 0.893,
-    "miss": 0.107,
-    "irrelevant": 0.038,
+    "top3": 0.875,
+    "miss": 0.125,
+    "irrelevant": 0.039,
     "offTopicReturned": 1
   },
   "holdout": {
     "cases": 47,
     "mustFind": 42,
     "top1": 0.643,
-    "top3": 0.667,
-    "miss": 0.333,
-    "irrelevant": 0.034,
+    "top3": 0.69,
+    "miss": 0.31,
+    "irrelevant": 0.033,
     "offTopicReturned": 0
   }
 }

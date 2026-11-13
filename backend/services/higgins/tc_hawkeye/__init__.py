@@ -564,6 +564,15 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
         response = report.knowledge_answer(check, decision.answered_by, presented, sorted({s for f in check.facts for s in f.get("sourceIds", [])}))
     elif decision:
         response = report.compose(decision, plan_, texts, checks_id)
+    classification_id = None
+    if response and response.get("findingsRatingBreakdown") is not None:
+        # A source-linked projection of the one resolved classification, so the
+        # local stages can explain it without inventing another verdict/score.
+        classification_id = await _item(owner, case, "tc-hawkeye-classification", json.dumps({
+            "representation": "deterministic_evidence_classification_not_new_source_facts",
+            "outcome": response["outcome"], "findingsRating": response.get("findingsRating"),
+            "findingsRatingBreakdown": response["findingsRatingBreakdown"],
+        }, ensure_ascii=False), "TC Hawkeye evidence classification and score reconciliation")
     brief_id = None
     if not decision:
         brief_id = await _item(owner, case, BRIEF_ITEM_ID, report.magnum_brief(plan_.checks, [i.wire() for i in issues], unread_sections, plan_.pattern, floor, cross, notes),
@@ -577,7 +586,7 @@ async def _run(owner: str, case: dict, job: dict, question: str, rows: list[dict
               "decision": {"answeredBy": decision.answered_by, "outcome": decision.outcome, "basis": decision.basis} if decision else None,
               "issues": [i.wire() for i in issues], "settled": sorted(settled),
               "response": response, "magnumSearch": magnum_search, "floor": floor, "search": {k: v for k, v in searched.items() if k != "answers"},
-              "crossSource": cross, "items": {"checks": checks_id, "brief": brief_id},
+              "crossSource": cross, "items": {"checks": checks_id, "brief": brief_id, "classification": classification_id},
               # One-way codes and history notes only — never content. kbAsserted: what ApolloSG's previous reports asserted
               # to this case, so its own finding never counts as independent confirmation of them (observed_intel).
               "history": notes, "historyKeys": [history.device_key(owner, s) for s in subjects],

@@ -49,8 +49,8 @@ test("a Triage-only Limited case: stops at Triage, Magnum DI not engaged, never 
   assert.equal(steps[0].status, "ran");
   assert.match(steps[0].summary, /It stopped here, so Magnum DI was not engaged\.$/);
   assert.equal(steps[1].status, "not_engaged");
-  assert.equal(steps[2].summary, "Magnum DI was not engaged.");
-  assert.match(steps[3].summary, /^Higgins Triage's result was locked/);
+  assert.equal(steps[2].summary, "Magnum DI was not engaged because Higgins Triage did not open an investigation.");
+  assert.match(steps[3].summary, /^The Evidence Lock preserves Higgins Triage's original decision/);
   assert.ok(steps[3].details.some((d) => /never shown as safe/.test(d)));
   for (const line of everyLine(steps)) assert.doesNotMatch(line, CODES, line);
 });
@@ -60,11 +60,11 @@ test("TC Hawkeye settled: Triage read from TC Hawkeye's record, its checks in pl
   assert.equal(steps[0].label, "Ran with TC Hawkeye");
   assert.equal(steps[0].summary, "Higgins Triage prepared what was sent and planned 1 check for TC Hawkeye.");
   assert.deepEqual(steps[0].details, ["Planned to check: the website."]);
-  assert.equal(steps[1].label, "Settled · Concerning");
+  assert.equal(steps[1].label, "Settled · This is likely a scam");
   assert.match(steps[1].summary, /^Settled by TC Hawkeye/);
-  assert.deepEqual(steps[1].details, ["The website: checked with official sources"]);
-  assert.equal(steps[2].summary, "Magnum DI was not engaged — TC Hawkeye settled the case.");
-  assert.match(steps[3].summary, /^TC Hawkeye's result was locked before Higgins explained it/);
+  assert.deepEqual(steps[1].details, ["This is an administrative determination from rule-based checks, not a deep investigation by Magnum DI.", "The website: checked with official sources"]);
+  assert.equal(steps[2].summary, "Magnum DI was not engaged because TC Hawkeye's automated checks resolved all identified questions.");
+  assert.match(steps[3].summary, /^The Evidence Lock preserves TC Hawkeye's original decision/);
   for (const line of everyLine(steps)) assert.doesNotMatch(line, CODES, line);
 });
 
@@ -77,9 +77,9 @@ test("escalated to Magnum DI: what was left for it, what it was given, and the l
   assert.equal(steps[2].summary, "Magnum DI investigated 3 evidence items without web search.");
   assert.ok(steps[2].details.includes("Given 3 evidence items."));
   assert.ok(steps[2].details.some((d) => /1 picture or file sent, each screened/.test(d)));
-  assert.equal(steps[3].label, "Locked");
-  assert.deepEqual(steps[3].details.slice(0, 2), ["Locked verdict: Likely scam · High risk", "Locked 3 facts, 1 pointing the other way."]);
-  assert.match(steps[3].details[2], /checked against the locked result and matched it/);
+  assert.equal(steps[3].label, "Preserved");
+  assert.deepEqual(steps[3].details.slice(0, 2), ["Recorded verdict: Likely scam · High risk", "Captured 3 facts, 1 pointing the other way."]);
+  assert.match(steps[3].details[2], /checked against the recorded result and matched it/);
   for (const line of everyLine(steps)) assert.doesNotMatch(line, CODES, line);
 });
 

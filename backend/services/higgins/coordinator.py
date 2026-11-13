@@ -372,6 +372,15 @@ async def _commit_slm_finding(owner: str, case: dict, job: dict, payload: dict,
     from services.higgins import hawkeye_record
     current = await repo.get_case(owner, case["case_id"])
     record = hawkeye_record.read(current)
+    retained_response = record.get("response") or {}
+    magnum_completed = (current.get("routing", {}).get("magnum") or {}).get("status") == "completed"
+    # The mandatory local Finding explains retained evidence. When Hawkeye has
+    # resolved a classified case and no independent investigation added material,
+    # the local model cannot replace that evidence verdict with its own label.
+    classified_locally = retained_response.get("findingsRatingBreakdown") is not None and not magnum_completed
+    if classified_locally and finding["outcome"] != retained_response.get("outcome"):
+        log.warning("slm_case_finding_contradicts_classification case=%s", case["case_id"])
+        return None
     sources = await repo.sources(owner, case["case_id"])
     source_ids = {source["id"] for source in sources}
     material_gaps = _material_gaps(rows)
@@ -404,6 +413,9 @@ async def _commit_slm_finding(owner: str, case: dict, job: dict, payload: dict,
         "recommendedActionIndex": 0 if advice_text else None,
         "question": None, "completion": "partial" if material_gaps else "complete",
     }
+    if classified_locally:
+        for key in ("findingsRating", "findingsRatingBreakdown", "taxonomy", "findingsBrief", "mechanisms", "playbooks"):
+            response_data[key] = retained_response.get(key)
     response, errors = validate(response_data, revision=(case.get("response_revision") or 0) + 1,
                                 evidence_ids=evidence_ids,
                                 source_ids=source_ids,

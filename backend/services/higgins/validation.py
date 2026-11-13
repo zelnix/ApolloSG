@@ -183,10 +183,13 @@ def validate(data: dict, *, revision: int, evidence_ids: set[str], source_ids: s
                  model.outcome, model.assessment)
         model.assessment = outcomes.ASSESSMENT[model.outcome]
 
-    # Findings are assessed against the actual evidence, not rejected because a
-    # confidence label is "low" or because an unrelated check was incomplete.
-    # Preserve the declared confidence and completion for transparent display.
-    # Reference integrity and verified-check requirements remain enforced below.
+    # Preserve the PRD's substantive-finding requirement across cloud and local
+    # stages. A collection of explicitly uncertain observations cannot establish
+    # a concern verdict merely by asserting that outcome in the model response.
+    if model.outcome in ("likely_scam", "scam") and model.findings and all(
+        finding.confidence == "low" for finding in model.findings
+    ):
+        errors.append(f"outcome '{model.outcome}' is supported only by 'low' confidence findings; additional verified evidence is required")
 
     # ── DIRECT: actionable concerns must have specific instructions ──
     for idx, action in enumerate(model.actions):

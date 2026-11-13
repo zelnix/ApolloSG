@@ -114,3 +114,47 @@ they do not establish current device or provider acceptance.
   than silently reversing the prior product decision about full-file hashing.
 - No release build, remote CI run or production deployment is claimed by these
   local checks. The existing EAS build requires its build-owner configuration.
+
+## Integration with the saved evidence-classification PRD
+
+The combined revision merges `main` at
+`4c311ac9c71df051e952ed946863373b204a684f` with the repaired `slm` revision
+`01139d2df5ac55d772df6448413539d638f8a5fc`. Main's evidence-authoritative S/N/L
+waterfall, six-dimension raw score, minimal score-band reconciliation, recognised
+domain exception, regression fixtures and report transparency are retained in
+the canonical Hawkeye modules. Historical FlyBy imports remain aliases to those
+same modules. No second classifier or rating engine is introduced.
+
+The existing on-device Finding acceptance now preserves this contract too:
+
+- A resolved local classification is supplied to the model as a labelled,
+  source-linked deterministic projection, distinct from original source facts.
+- Without a completed independent investigation, a local model cannot replace
+  that resolved verdict. The required local stage still runs; an inconsistent
+  answer stops instead of silently substituting a result.
+- The accepted local response retains the server's raw/aligned rating, adjustment
+  reason, deciding rule IDs and related report fields. None are authored by the
+  model. An independently investigated response does not mislabel Hawkeye's old
+  numeric rating as its own.
+- Main's safeguard against concern verdicts supported only by low-confidence
+  findings is restored. Mixed-confidence findings are evaluated correctly.
+
+The four merge conflicts were resolved around the renamed Hawkeye modules and
+routing expectations. Executable definitions in finding_rules, scoring, decide
+and report were compared against main and match after normalising the module
+rename and documentation. The PRD regression files are preserved.
+
+Combined local validation: **356 backend tests passed, 2 existing skips,
+9 subtests passed; 31 HTTP tests passed; 21 selected frontend test files passed**.
+Complete frontend TypeScript checking, web export and backend startup passed.
+These bounded checks do not reproduce or claim the earlier full 2,024-test run.
+
+The additional synthetic calibration run passed 49 tests. All 32 locally
+resolved reference cases matched their target finding tiers; 23 cases requiring
+Magnum DI were skipped for verdict verification and remain unverified beyond
+routing. These calibration checks are also included in the expanded CI gate.
+
+The repair-only revision `01139d2` also completed the standalone Android native
+build after fixing literal escaped newlines in the call-screening declaration.
+The final combined revision requires its own APK build and deployment. Native
+CI now follows every frontend change, including classification report changes.

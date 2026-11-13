@@ -31,7 +31,7 @@ jobs:
         run: yarn tsc --noEmit
         working-directory: frontend
       - name: SLM, triage parity, evidence integrity and protection truth
-        run: node --test tests/slm*.test.ts tests/slmModelIntegrity.test.cjs tests/wright*.test.ts tests/triage.test.ts tests/evidenceArchive.test.ts tests/protectionTruth.test.ts tests/caseEvidence.test.ts tests/screenedCalls.test.ts tests/screenedCarrierVerification.test.ts
+        run: node --test tests/slm*.test.ts tests/slmModelIntegrity.test.cjs tests/wright*.test.ts tests/triage.test.ts tests/evidenceArchive.test.ts tests/protectionTruth.test.ts tests/caseEvidence.test.ts tests/screenedCalls.test.ts tests/screenedCarrierVerification.test.ts tests/diTrace.test.ts tests/reportSections.test.ts tests/appReport.test.ts
         working-directory: frontend
   backend:
     runs-on: ubuntu-latest
@@ -88,3 +88,7 @@ jobs:
           tests/test_phase7_investigation_safeguards.py
           tests/test_findings_scoring.py tests/test_evidence_evaluation.py tests/test_taxonomy.py
           tests/test_wright_evidence_windows.py tests/test_wright_window_synthesis.py tests/test_verified_businesses.py
+          tests/test_evidence_verdict_reconciliation.py tests/test_magnum_floor_resolver.py
+          tests/test_sg_definite_scam.py tests/test_brand_domains.py tests/test_higgins_wording.py
+          tests/test_prd_slm_integration.py
+          tests/test_calibration_reference_library.py tests/test_wright_message_calibration.py

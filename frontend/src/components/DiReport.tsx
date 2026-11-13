@@ -122,6 +122,14 @@ function ScoreBreakdown({ breakdown }: { breakdown: FindingsRatingBreakdown }) {
 
       {dimensions.map((d) => <ScoreDimensionRow key={d.key} dim={d} />)}
 
+      {breakdown.adjustmentReason ? (
+        <View style={s.traceBlock} testID="tc-di-score-adjustment">
+          <Text style={s.scoreSubLabel}>Rating adjusted to match the evidence{breakdown.verdictRuleIds?.length ? ` (rule ${breakdown.verdictRuleIds.join(", ")})` : ""}</Text>
+          <Text style={s.stepDetail} selectable>{`Calculated: ${breakdown.rawRating} / 100  \u2192  Shown: ${breakdown.rating} / 100`}</Text>
+          <Text style={s.stepDetail} selectable>{breakdown.adjustmentReason}</Text>
+        </View>
+      ) : null}
+
       {gaps.length ? (
         <View style={s.traceBlock} testID="tc-di-score-gaps">
           <Text style={s.scoreSubLabel}>Content ApolloSG could not read</Text>

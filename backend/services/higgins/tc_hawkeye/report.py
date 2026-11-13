@@ -1010,10 +1010,16 @@ def compose(decision: Decision, plan_: Plan, material: dict[str, str], flyby_ite
     else:
         result = undetermined(plan_, checks, material, flyby_item, outcome=decision.outcome or "unlikely_scam")
     final = _with_gaps(result, plan_)
-    # Attach the Findings Rating (0-100, Apollo PRD v2.2 §2) and its explainable breakdown.
+    # Attach the Findings Rating (0-100) and its explainable breakdown — the same evidence-
+    # authoritative resolver finding_rules.evaluate() uses (Unified Evidence Classification PRD
+    # §3/§4/FR-01: one shared resolver, not a second route to a verdict). `rules_result` is reused
+    # for taxonomy/mechanisms/playbooks below too, so every part of this report reads the one set of
+    # S/N/L/U evidence this case actually established.
     from services.higgins.tc_hawkeye import finding_rules, findings_brief, scoring, taxonomy
-    ipdmc = finding_rules.gather_ipdmc(plan_)
+    rules_result = finding_rules.evaluate_rules(plan_)
+    ipdmc = rules_result.ipdmc
     breakdown = scoring.score_plan(plan_, ipdmc)
+    breakdown = scoring.reconcile(rules_result, breakdown)
     final["findingsRating"] = breakdown.rating
     final["findingsRatingBreakdown"] = breakdown.wire()
     # Master Scam Taxonomy classification (Apollo PRD v2.2 Phase 2) — None when nothing concerning

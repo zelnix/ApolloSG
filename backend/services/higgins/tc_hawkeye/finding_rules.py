@@ -3,16 +3,21 @@
 Each rule is an explicit, testable condition evaluated against TC Hawkeye's investigation Plan. No
 keyword counting, no new AI calls — the rules below gather and explain evidence exactly as before.
 
-What changed (Apollo PRD v2.2): the Finding itself (scam / likely_scam / unlikely_scam / not_scam) is
-no longer picked by "did any rule pass" — evaluate() now gets it from the 0-100 Findings Rating
-(scoring.py), a weighted score across six investigative dimensions. evaluate_rules() below still runs
-the S1-S4/N1-N4/L1-L3 waterfall in full; its deciding_rules/rules_passed/rules_failed keep feeding
-Higgins' explanations and decide.py's routing (which rule explains "why"). "unable_to_determine" is no
-longer a Finding people see — it's merged into "unlikely_scam" (outcomes.py); a genuinely incomplete
-investigation (a critical check that never got an answer, even after retrying) is caught upstream,
-before any Finding is attempted.
+Unified Evidence Classification & Six-Dimension Findings Rating PRD (v1.0, 8 Nov 2026): the Finding
+itself (scam / likely_scam / unlikely_scam / not_scam) is the evidence verdict this S1-S4/N1-N4/L1-L3
+waterfall establishes — never silently replaced by the 0-100 Findings Rating (scoring.py) alone. The
+Rating is still a weighted score across six investigative dimensions, computed in full every time
+(same floors, credits and calculation trace as before); evaluate() below calls scoring.reconcile() to
+align that rating to this waterfall's verdict only when the two land in different bands, and records
+why (PRD §5.1/§7.2 — "a documented minimal boundary adjustment", never a second route to a verdict).
+evaluate_rules() runs the S1-S4/N1-N4/L1-L3 waterfall in full; its deciding_rules/rules_passed/
+rules_failed keep feeding Higgins' explanations and decide.py's routing (which rule explains "why").
+"unable_to_determine" is no longer a Finding people see — it reads as "unlikely_scam" (scoring.
+evidence_verdict; PRD §4: "U is an internal evidence state, not a fifth verdict"); a genuinely
+incomplete investigation (a critical check that never got an answer, even after retrying) is caught
+upstream, before any Finding is attempted.
 
-Historical decision order (evaluate_rules — still computed, no longer decisive on its own):
+Evidence decision order (evaluate_rules — authoritative, with the rating aligned afterward):
   1. Evaluate S1–S4. If any passes and no unresolved reliable info undermines it → scam.
   2. Evaluate N1–N4. If all applicable pass → not_scam.
   3. Evaluate L1–L3. If any passes and no genuine explanation resolves it → likely_scam.
@@ -27,6 +32,7 @@ Investigation Checks (IPDMC):
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -145,6 +151,87 @@ def _unverified_requests(plan: Plan) -> list[dict]:
     """Consequential requests whose routes aren't verified."""
     from services.higgins.tc_hawkeye.checks import unverified_requests
     return unverified_requests(plan)
+
+
+def _is_recognised_safe_link(host: str) -> bool:
+    """Thin wrapper over brand_domains.is_recognised_safe_domain() — a link check's own host is an
+    organisation's published domain or the narrow curated list of major, non-impersonation-target
+    destinations, never merely "nothing flagged it as bad" (N2's own, weaker pass)."""
+    from services.higgins.brand_domains import is_recognised_safe_domain
+    return is_recognised_safe_domain(host)
+
+
+# ── Named decisive mechanisms (PRD §2.3.A / §8) ─────────────────────────────
+# A handful of critical exploit mechanisms are, on the request's own quoted wording, already both
+# the specific deceptive action S3 requires AND the evidence of what's false — waiting for a
+# separate external check to corroborate these specific, narrowly-scoped asks causes real harm, so
+# they establish S3 on their own (Unified Evidence Classification PRD §2 Goals: "A single
+# established scam mechanism can establish 'This is a Scam' even where other attributes look
+# legitimate"). Matched against the request's own quoted text, never the whole message, so an
+# unrelated mention elsewhere never triggers this. scoring.py imports these (never redefines them)
+# so the Findings Rating's decisive floor and S3's own evidence always agree on exactly the same
+# mechanisms.
+_OTP_ASK = re.compile(
+    r"password|passcode|\bpin\b|one[- ]time|otp|verification\s+code|security\s+code"
+    r"|code\s+(?:we|you)|card\s+(?:number|details)|cvv", re.I,
+)
+_WALLET_ASK = re.compile(
+    r"seed\s+phrase|recovery\s+phrase|wallet\s+(?:phrase|key)|private\s+key"
+    r"|sign\s+(?:this|the)\s+(?:transaction|approval)|approve\s+(?:this|the)\s+(?:wallet|transaction)", re.I,
+)
+_EXTORTION_ASK = re.compile(
+    r"\bransom\b|\bencrypted\s+your\s+files\b|\brelease\s+the\s+video\b|\bexpose\s+you\b|\bblackmail\b"
+    r"|\bpay\s+(?:up|us)\s+or\b|\b(?:bitcoin|crypto|usdt)\b[^.?!\n]{0,60}\b(?:pay|send)\b", re.I,
+)
+
+
+def _severe_or_mule_signal(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
+    """Severe-consequence manipulation (an explicit secrecy/isolation instruction, an acute
+    personal-danger appeal, or a threat of arrest, prosecution or an irreversible consequence) or
+    money-mule recruitment used to extract a consequential request — narrow, specific entity flags
+    set from the message's own wording, never from a separate check."""
+    if not ipdmc.consequential_requests:
+        return None
+    if getattr(plan.entities, "severe_manipulation", False):
+        return ("Severe-consequence manipulation (a secrecy/isolation instruction, an acute-distress "
+                "appeal, or a threat of arrest or prosecution) used to extract a consequential request")
+    if getattr(plan.entities, "mule_signal", False):
+        return "Money-mule recruitment: asked to receive money and forward it on for a commission"
+    return None
+
+
+def _named_decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
+    """PRD §2.3.A's named critical mechanisms, established directly from the request's own quoted
+    text (never the whole message) — OTP/credential harvesting, wallet exploitation, extortion,
+    credential phishing through a verified deceptive destination, severe-consequence manipulation
+    and money-mule recruitment. Each one, once established, already is a specific deceptive action
+    with evidence of its own falsity (S3) — a separate corroborating check is not required for these
+    narrowly-scoped asks specifically, because waiting for one causes real harm. Deliberately
+    excludes the "fully-corroborated pattern" reason scoring.py's own decisive-mechanism check also
+    allows: that one is satisfied by the pattern match itself, so it can't independently establish
+    more than S4/L2 already do (PRD acceptance test: "L2 full pattern without independent S
+    corroboration -> Likely; no automatic S promotion"). Also retains the old `_l2_escalation_signal`'s
+    call-channel restriction: over a phone call nothing can verify a spoken "code" or "account
+    details" ask the way a lookalike domain or a text's exact wording can, so a bare credential/
+    wallet/extortion ask establishes this only off a call — on a call, only severe-consequence
+    manipulation or money-mule recruitment do (the four call-only KB patterns stay "likely" on a
+    full match alone, by design, even when they also contain a credential ask)."""
+    if plan.channel == "call":
+        return _severe_or_mule_signal(plan, ipdmc)
+    quotes = " ".join(r.get("quote", "") for r in ipdmc.consequential_requests)
+    if any(r["type"] == "credentials" for r in ipdmc.consequential_requests) and (
+        _OTP_ASK.search(quotes) or ipdmc.identity_is_false
+    ):
+        return "OTP, password or account-credential harvesting through a falsified identity or domain"
+    if _WALLET_ASK.search(quotes):
+        return "Wallet or recovery-phrase exploitation"
+    if _EXTORTION_ASK.search(quotes):
+        return "Extortion or ransomware demand"
+    if _corroborated_impersonation(plan) and any(
+        f["signal"] == "concern" and f.get("decisive") for c in plan.checks if c.kind == "link" for f in c.facts
+    ):
+        return "Credential phishing through a verified deceptive destination"
+    return _severe_or_mule_signal(plan, ipdmc)
 
 
 # ── IPDMC Checks gathering ──────────────────────────────────────────────────
@@ -368,8 +455,14 @@ def s2_fake_identity(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
 def s3_scam_activity(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
     """S3 — Scam activity identified: A specific deceptive action is identified, evidence
     establishes what is false/misleading, and the deception obtains money/info/access."""
+    # A named decisive mechanism (PRD §2.3.A — OTP/wallet/extortion/credential-phishing asks,
+    # severe-consequence manipulation, money-mule recruitment) is, on the request's own quoted
+    # wording, already both the specific deceptive action and the evidence of its falsity — checked
+    # first so it can satisfy conditions 1 and 2 even with no separate external check corroboration.
+    named_mechanism = _named_decisive_mechanism(plan, ipdmc)
+
     # Condition 1: Specific deceptive action identified
-    if not ipdmc.has_deception and not ipdmc.mechanism_evidence:
+    if not ipdmc.has_deception and not ipdmc.mechanism_evidence and not named_mechanism:
         return RuleResult("S3", False, "failed",
                           reason="No specific deceptive action identified.")
 
@@ -399,6 +492,9 @@ def s3_scam_activity(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
                         and f.get("topic") in ("lookalike", "shared_service")
                         and f.get("text") and f["text"] not in established_deception):
                     established_deception.append(f["text"])
+
+    if named_mechanism and named_mechanism not in established_deception:
+        established_deception.append(named_mechanism)
 
     if not established_deception:
         return RuleResult("S3", False, "failed",
@@ -885,13 +981,11 @@ def established_scam_rules(plan: Plan, ipdmc: IPDMCChecks, s_rules: list[RuleRes
 def evaluate_rules(plan: Plan) -> FindingRulesResult:
     """Evaluate the S1-S4 / N1-N4 / L1-L3 rules against the investigation plan.
 
-    This still runs in full on every case — its evidence, deciding_rules and ipdmc feed Higgins'
-    narrative and decide.py's routing (which rule explains "why", not just "what"). It no longer picks
-    the Finding on its own, though: evaluate() below does that from the Findings Rating instead. The
-    docstring below is historical (kept because deciding_rules / rules_passed / rules_failed still mean
-    exactly what it says), but see evaluate() for what actually becomes `result.finding`.
+    Its evidence verdict, deciding_rules and ipdmc feed Higgins' narrative and
+    routing. evaluate() maps the internal unresolved state to the four public
+    outcomes and aligns the numeric rating without replacing this verdict.
 
-    Decision order (informational only — superseded by the Findings Rating in evaluate()):
+    Evidence decision order:
     1. S1-S4: If any passes → scam
     2. N1-N4: If all applicable pass → not_scam
     3. L1-L3: If any passes → likely_scam
@@ -942,11 +1036,44 @@ def evaluate_rules(plan: Plan) -> FindingRulesResult:
     n_passed = [r for r in n_applicable if r.passed]
     n_failed = [r for r in n_applicable if not r.passed]
 
-    # All applicable N rules must pass; unknown cannot be treated as passed.
-    # Also: at least one N rule must have substantively passed (not all "not_applicable").
+    # All applicable N rules must pass; unknown cannot be treated as passed. Also: at least one of
+    # N1-N3 (genuine identity / destinations / purpose) must have substantively passed — N4 alone
+    # ("no scam indicators to resolve") is an absence of concern, not positive verification, and
+    # must never by itself establish "Not a Scam" (Unified Evidence Classification PRD §4:
+    # "substantive positive verification", never a vacuous pass). Without this, an ordinary message
+    # with nothing to check at all — nothing identified, nothing to verify — would read as a false
+    # "Not a Scam" purely because there was nothing to object to either; it must read "Unlikely a
+    # Scam" instead (PRD §5.1's own example).
     # Gaps (unprocessed material) prevent not_scam — an unavailable check is not a successful check.
     has_gaps = bool(plan.gaps) or any(c.status == "unavailable" for c in plan.checks)
-    if n_applicable and all(r.passed for r in n_applicable) and not has_gaps:
+    substantive_verification = any(r.rule_id in ("N1", "N2", "N3") and r.passed for r in n_applicable)
+    # Bug fix (owner report, 2026-11-08 — "this should be Unlikely a Scam"): N2 alone can pass on an
+    # ordinary, unrelated link merely because nobody has flagged it as malicious ("clean listing,
+    # established registration") — that is an absence of badness, never N2's own "verified as
+    # genuinely used by the CLAIMED sender". When nothing in the material actually claims a sender or
+    # a purpose (no named organisation, no request of any kind — e.g. someone forwards a plain,
+    # unrelated news link with no message of their own), N2 passing by itself must never promote the
+    # case to "Not a Scam": there is nothing here to have verified. `has_claimed_context` requires an
+    # actual claim to anchor that verification to — a named identity (claimed_identity, set as soon as
+    # an impersonation check or a recognised brand exists) or an identified purpose/request
+    # (purpose_identified, set as soon as any request exists, which N3's own pass already implies).
+    # N1 passing on its own already guarantees claimed_identity is set, so this never narrows a case
+    # that genuinely verified identity.
+    #
+    # Narrow carve-out (owner confirmation, 2026-11-08): when the material contains nothing but a
+    # link to a domain ApolloSG itself recognises as a genuine, well-established organisation's own
+    # (brand_domains.is_recognised_safe_domain() — an organisation's published domain, or the small
+    # curated list of major, unambiguous, non-impersonation-target destinations), that recognition
+    # IS the established context, even with no explicit sender claim in the material naming that
+    # organisation. This is deliberately narrower than N2's ordinary "clean listing" pass (which
+    # only means nobody has flagged it as bad, never that ApolloSG actually knows who it belongs to):
+    # it requires every link check present to resolve to a specifically recognised domain.
+    _link_checks = [c for c in plan.checks if c.kind == "link"]
+    recognised_links_only = bool(_link_checks) and all(
+        _is_recognised_safe_link(c.subject) for c in _link_checks
+    )
+    has_claimed_context = bool(ipdmc.claimed_identity) or ipdmc.purpose_identified or recognised_links_only
+    if n_applicable and all(r.passed for r in n_applicable) and substantive_verification and not has_gaps and has_claimed_context:
         result.finding = "not_scam"
         result.deciding_rules = [r.rule_id for r in n_passed]
         result.rules_passed = s_passed + n_passed
@@ -980,42 +1107,46 @@ def evaluate_rules(plan: Plan) -> FindingRulesResult:
 
 
 def evaluate(plan: Plan) -> FindingRulesResult:
-    """The Finding TC Hawkeye actually reports: the rule evaluation above still gathers and explains the
-    evidence (deciding_rules, rules_passed/failed, ipdmc — decide.py's routing and Higgins' narrative
-    both depend on these), but which of the four Findings applies is now decided by the Findings Rating
-    (scoring.py), per Apollo PRD v2.2 §2 — a 0-100 score across six weighted dimensions, replacing the
-    old all-or-nothing "did any rule pass" waterfall. "unable_to_determine" is no longer one of the four
-    Findings (it's merged into "unlikely_scam" — see outcomes.py); genuine investigation failures (a
-    critical check that never got an answer even after retrying) are handled upstream, before a Finding
-    is attempted at all.
+    """The Finding TC Hawkeye actually reports — the one shared evidence-authoritative resolver
+    (Unified Evidence Classification PRD §3/§4/FR-01): evaluate_rules() above runs the S1-S4/N1-N4/
+    L1-L3/U waterfall and that evidence verdict is final, never silently replaced by the score.
+    scoring.score_plan() still computes the full six-dimension rating (unchanged — same floors,
+    credits and calculation trace as always); scoring.reconcile() then aligns that rating to the
+    evidence verdict's band with the smallest possible move when, and only when, they land in
+    different bands (§5.1). "unable_to_determine" is never a Finding a person sees — it reads as
+    "This is Unlikely a Scam" (scoring.evidence_verdict); genuine investigation failures (a critical
+    check that never got an answer even after retrying) are handled upstream, before a Finding is
+    attempted at all.
     """
     from services.higgins.tc_hawkeye import scoring
 
     result = evaluate_rules(plan)
     breakdown = scoring.score_plan(plan, result.ipdmc)
+    breakdown = scoring.reconcile(result, breakdown)
     result.finding = breakdown.finding
     result.rating = breakdown.rating
     result.rating_breakdown = breakdown.wire()
-    # Keep deciding_rules consistent with the rating's Finding when they already agree (the common
-    # case); when the score disagrees with the old waterfall's pick, leave deciding_rules as whatever
-    # rules DID pass (if any) so decide.py's routing still has something to work with, rather than
-    # clearing it to nothing.
+    # Keep deciding_rules consistent with the resolved Finding when they already agree (the common
+    # case); when evaluate_rules() itself reached "unable_to_determine" (no rule passed), leave
+    # deciding_rules as whatever rules DID pass (if any — there usually are none) so decide.py's
+    # routing still has something to work with, rather than clearing it to nothing.
     if not result.deciding_rules and (result.rules_passed):
         result.deciding_rules = [r.rule_id for r in result.rules_passed]
     return result
 
 
-def evaluate_for_magnum(plan: Plan, magnum_outcome: str | None) -> FindingRulesResult:
-    """Map a Magnum DI outcome to the new finding codes using the same rules.
-    Magnum DI selects its own outcome via the AI model, but this function ensures
-    the same finding criteria are applied."""
-    # First evaluate the TC Hawkeye evidence with the rules
-    rules_result = evaluate(plan)
-
-    # If Magnum DI provided an outcome, validate it against the rules
-    if magnum_outcome:
-        # Magnum DI's outcome is trusted if it's consistent with the rules
-        # or if it has additional evidence TC Hawkeye didn't have
-        pass
-
-    return rules_result
+# Unified Evidence Classification PRD §7.4 — Phase 2 investigation note (8 Nov 2026): a prior
+# `evaluate_for_magnum(plan, magnum_outcome)` placeholder lived here, claiming to "map a Magnum DI
+# outcome to the new finding codes using the same rules" but its reconciliation branch was an empty
+# `pass` and it was never called anywhere in the pipeline (confirmed by a full-repo search before
+# removal). The real, working mechanism for "Magnum DI's result re-enters the same evidence
+# resolver, no model-confidence-only overrides" already exists and is exercised on every Magnum DI
+# turn: decide.floor() turns TC Hawkeye's own provisional/established Decision into a
+# {outcome, established, minimum, findings} contract, carried in report.magnum_brief() (so the model
+# is told the floor) and enforced by validation.floor_errors() (so an answer that tries to go below
+# it — or claims "scam"/"likely_scam" on only low-confidence findings — is rejected outright, never
+# silently accepted). That mechanism is intentionally different in shape from this module's S/N/L
+# waterfall + scoring.reconcile() (Magnum's output is a qualitative AI judgement with no
+# six-dimension rating attached — response_schema.py's findingsRating/findingsRatingBreakdown/
+# taxonomy/mechanisms/playbooks are explicitly TC-Hawkeye-only and null on every Magnum-answered
+# response), so it is deliberately left in validation.py/decide.py rather than rebuilt here.

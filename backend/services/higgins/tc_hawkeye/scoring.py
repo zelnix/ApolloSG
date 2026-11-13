@@ -1,9 +1,10 @@
 """TC Hawkeye — Findings Rating: the 0-100 weighted scoring engine behind the four Findings.
 
-finding_rules.py's S1-S4 / N1-N4 / L1-L3 rules still gather and explain the evidence — their
-``deciding_rules`` / ``rules_passed`` keep feeding Higgins' narrative and decide.py's routing — but
-which of the four Findings applies is now decided here, from a 0-100 score across six investigative
-dimensions (Apollo PRD v2.2 §2):
+finding_rules.py's S1-S4 / N1-N4 / L1-L3 rules gather and explain the evidence — their
+``deciding_rules`` / ``rules_passed`` keep feeding Higgins' narrative and decide.py's routing — and,
+per the Unified Evidence Classification PRD (v1.0, 8 Nov 2026), now also decide which of the four
+Findings a person sees (``reconcile()`` near the end of this module). This module still computes the
+full 0-100 score across six investigative dimensions exactly as before (Apollo PRD v2.2 §2):
 
     dimension                  max
     scam_mechanism              25
@@ -59,11 +60,12 @@ benign_baseline_applied`.
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 
-from services.higgins.tc_hawkeye.checks import corroborated_impersonation
-from services.higgins.tc_hawkeye.finding_rules import IPDMCChecks, established_scam_rules
+from services.higgins.tc_hawkeye.finding_rules import (
+    FindingRulesResult, IPDMCChecks, established_scam_rules, evaluate_rules,
+    _named_decisive_mechanism as _independent_decisive_mechanism, _severe_or_mule_signal,
+)
 from services.higgins.tc_hawkeye.triage import Plan
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -81,20 +83,18 @@ DIMENSION_MAXIMA = {
     "manipulation_behaviour": 15, "knowledge_base": 10, "evidence_corroboration": 10,
 }
 
-# Decisive scam-mechanism overrides (PRD §2.3.A) — matched against the request's own quoted text,
-# never against the whole message, so an unrelated mention elsewhere never triggers the floor.
-_OTP_ASK = re.compile(
-    r"password|passcode|\bpin\b|one[- ]time|otp|verification\s+code|security\s+code"
-    r"|code\s+(?:we|you)|card\s+(?:number|details)|cvv", re.I,
-)
-_WALLET_ASK = re.compile(
-    r"seed\s+phrase|recovery\s+phrase|wallet\s+(?:phrase|key)|private\s+key"
-    r"|sign\s+(?:this|the)\s+(?:transaction|approval)|approve\s+(?:this|the)\s+(?:wallet|transaction)", re.I,
-)
-_EXTORTION_ASK = re.compile(
-    r"\bransom\b|\bencrypted\s+your\s+files\b|\brelease\s+the\s+video\b|\bexpose\s+you\b|\bblackmail\b"
-    r"|\bpay\s+(?:up|us)\s+or\b|\b(?:bitcoin|crypto|usdt)\b[^.?!\n]{0,60}\b(?:pay|send)\b", re.I,
-)
+# Unified Evidence Classification PRD §4/§5 — the exact inclusive score band each of the four
+# approved verdicts occupies. Single source of truth for classify_finding() above and reconcile()
+# below, so the number shown and the verdict shown can never disagree once reconciled.
+BANDS: dict[str, tuple[int, int]] = {
+    "scam": (DECISIVE_FLOOR, 100), "likely_scam": (60, 84), "unlikely_scam": (25, 59), "not_scam": (0, 24),
+}
+
+# `_independent_decisive_mechanism`/`_severe_or_mule_signal` (the named, narrowly-scoped mechanisms —
+# OTP/wallet/extortion/credential-phishing asks, severe-consequence manipulation, money-mule
+# recruitment) now live in finding_rules.py, imported above under their original names here, so
+# finding_rules.s3_scam_activity() and this module's own decisive floor always agree on exactly the
+# same mechanisms — never two independently-maintained copies that could drift apart.
 
 
 @dataclass
@@ -135,6 +135,15 @@ class ScoreBreakdown:
     calculation_trace: list[dict] = field(default_factory=list)
     narrative: str = ""
     content_gaps: list[str] = field(default_factory=list)   # material TC Hawkeye couldn't read at all (PRD §8.4/§5 completeness)
+    # Unified Evidence Classification PRD §5.1/§7.2 — "Separate raw calculated rating from final
+    # aligned rating". `raw_rating` is the six-dimension score as calculated above (identical to
+    # `rating` until reconcile() below runs); `rating`/`finding` become the evidence-aligned values
+    # once reconcile() has run. `adjustment_reason` is empty whenever the two already agreed.
+    raw_rating: int = 0
+    adjustment_reason: str = ""
+    # The S/N/L rule id(s) that established the evidence verdict (finding_rules.evaluate_rules()'s
+    # own deciding_rules) — PRD §7.2: "an explicit adjustment reason and deciding rule reference".
+    verdict_rule_ids: list[str] = field(default_factory=list)
 
     def wire(self) -> dict:
         return {
@@ -147,6 +156,8 @@ class ScoreBreakdown:
             "legitimacyCredit": self.legitimacy_credit, "legitimacyReason": self.legitimacy_reason,
             "decisiveFloorApplied": self.decisive_floor_applied, "decisiveMechanism": self.decisive_mechanism,
             "calculationTrace": self.calculation_trace, "narrative": self.narrative, "contentGaps": self.content_gaps,
+            "rawRating": self.raw_rating, "adjustmentReason": self.adjustment_reason,
+            "verdictRuleIds": self.verdict_rule_ids,
         }
 
 
@@ -158,14 +169,10 @@ def classify_finding(score: int) -> str:
     """
     if not 0 <= score <= 100:
         raise ValueError("Findings rating must be between 0 and 100")
-    if score >= 85:
-        return "scam"
-    elif score >= 60:
-        return "likely_scam"
-    elif score >= 25:
-        return "unlikely_scam"
-    else:
-        return "not_scam"
+    for finding, (lo, hi) in BANDS.items():
+        if lo <= score <= hi:
+            return finding
+    raise AssertionError("unreachable — BANDS partitions 0-100 exactly")  # pragma: no cover
 
 
 # ── The six dimensions ───────────────────────────────────────────────────────
@@ -408,57 +415,19 @@ def _positively_verified(plan: Plan, ipdmc: IPDMCChecks) -> bool:
     return False
 
 
-def _severe_or_mule_signal(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
-    """The two newest, narrowest-scoped independent signals — severe-consequence manipulation and
-    money-mule recruitment — used specifically to decide whether an L-rule's pattern-only
-    "likely_scam" (no separate S4 corroboration) should be reported as a confirmed scam instead.
-    Deliberately excludes the OTP/wallet/extortion/impersonation branches above: those already have
-    their own established roles (feeding S-rules via identity_is_false, or the score fallback when no
-    L-rule passes at all) and must not retroactively escalate every pattern match that happens to also
-    contain a credential ask — e.g. the four call-only KB patterns are correctly capped at likely_scam
-    even on a full match, by PRD design, and must stay there."""
-    if not ipdmc.consequential_requests:
-        return None
-    if getattr(plan.entities, "severe_manipulation", False):
-        return "Severe-consequence manipulation (a secrecy/isolation instruction, an acute-distress appeal, or a threat of arrest or prosecution) used to extract a consequential request"
-    if getattr(plan.entities, "mule_signal", False):
-        return "Money-mule recruitment: asked to receive money and forward it on for a commission"
-    return None
-
-
-def _independent_decisive_mechanism(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
-    """The subset of _decisive_mechanism's reasons that don't depend on the KB pattern match being its
-    own corroboration — PRD §2.3.A's named critical mechanisms (OTP/credential harvesting, wallet
-    exploitation, extortion, verified deceptive destinations), plus severe-consequence manipulation
-    (an explicit secrecy/isolation instruction, an acute personal-danger appeal, or a threat of arrest,
-    prosecution or an irreversible consequence) and money-mule recruitment. Used by decide.py to decide
-    whether a pattern that only reaches L2 (a full KB pattern match with no separate S4 corroboration)
-    should still be reported as a confirmed scam rather than merely likely — deliberately excludes the
-    "fully-corroborated pattern" reason below, which is satisfied by the pattern match itself and so
-    can't independently confirm anything beyond what L2 already establishes."""
-    quotes = " ".join(r.get("quote", "") for r in ipdmc.consequential_requests)
-    if any(r["type"] == "credentials" for r in ipdmc.consequential_requests) and (
-        _OTP_ASK.search(quotes) or ipdmc.identity_is_false
-    ):
-        return "OTP, password or account-credential harvesting through a falsified identity or domain"
-    if _WALLET_ASK.search(quotes):
-        return "Wallet or recovery-phrase exploitation"
-    if _EXTORTION_ASK.search(quotes):
-        return "Extortion or ransomware demand"
-    if corroborated_impersonation(plan) and any(
-        f["signal"] == "concern" and f.get("decisive") for c in plan.checks if c.kind == "link" for f in c.facts
-    ):
-        return "Credential phishing through a verified deceptive destination"
-    return _severe_or_mule_signal(plan, ipdmc)
+## `_severe_or_mule_signal` / `_independent_decisive_mechanism` are imported from finding_rules.py
+## at the top of this module (as `_named_decisive_mechanism`) — not redefined here, so S3's own
+## evidence and this module's decisive floor can never drift apart.
 
 
 def _l2_escalation_signal(plan: Plan, ipdmc: IPDMCChecks) -> str | None:
-    """Used by decide.py to decide whether an L-rule's pattern-only "likely_scam" (no separate S4
-    corroboration) should be reported as a confirmed scam instead. Call-channel patterns (bank/
-    government/tech-support/delivery call) are deliberately restricted to the narrower severity/mule
-    signals even here: by PRD design, a phone scam that only fully matches one of those four patterns
-    stays "likely" without separate corroboration, even when it also contains a credential ask — that
-    ask alone must not retroactively make every such call a confirmed scam."""
+    """Retained for reference only — no longer used to promote decide.py's outcome label (Unified
+    Evidence Classification PRD §7.3 retired that promotion: an L finding becomes "This is a Scam"
+    only where verified evidence actually meets an S rule, never from this heuristic alone). Call-
+    channel patterns (bank/government/tech-support/delivery call) were deliberately restricted to the
+    narrower severity/mule signals even here: a phone scam that only fully matches one of those four
+    patterns stays "likely" without separate corroboration, even when it also contains a credential
+    ask — that ask alone must not retroactively make every such call a confirmed scam."""
     if plan.channel == "call":
         return _severe_or_mule_signal(plan, ipdmc)
     return _independent_decisive_mechanism(plan, ipdmc)
@@ -628,6 +597,7 @@ def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
         breakdown.decisive_mechanism = mechanism
 
     breakdown.rating = max(0, min(100, score))
+    breakdown.raw_rating = breakdown.rating   # the calculated rating, before any evidence-verdict alignment (reconcile())
     breakdown.finding = classify_finding(breakdown.rating)
 
     # DI Scoring Transparency — attach the real trace behind the number above; changes nothing already decided.
@@ -635,4 +605,85 @@ def score_plan(plan: Plan, ipdmc: IPDMCChecks) -> ScoreBreakdown:
     breakdown.content_gaps = [f"{g.get('item', '')}: {g.get('what', '')}" for g in (plan.gaps or [])]
     breakdown.calculation_trace = _build_calculation_trace(breakdown)
     breakdown.narrative = _build_narrative(breakdown)
+    return breakdown
+
+
+# ── Unified Evidence Classification: verdict reconciliation (PRD §3-§7.2) ───────────────────────
+# The core correction this PRD requires: previously, finding_rules.evaluate() silently replaced its
+# own S1-S4/N1-N4/L1-L3/U evidence finding with whatever band the six-dimension score alone landed
+# in ("result.finding = breakdown.finding"), and report.compose() computed the Findings Rating via
+# an entirely separate score_plan() call that never consulted the evidence rules at all. Two
+# disconnected routes to a verdict, neither one evidence-authoritative. reconcile() below is the one
+# shared step every caller (finding_rules.evaluate(), report.compose()) now runs: the evidence
+# verdict (not the score) is final; the six-dimension score — already fully calculated above, floors
+# and credits included — is shown unless it falls outside that verdict's band, in which case it is
+# nudged to the nearest edge of that band and nothing else (PRD §5.1: "a documented minimal boundary
+# adjustment"). The dimension points, evidence text and calculation already performed are never
+# rewritten — only `rating`/`finding` move, and `raw_rating`/`adjustment_reason` keep both numbers
+# and the reason visible in the existing DI tab (FR-07).
+
+_VERDICT_LABEL = {
+    "scam": "This is a Scam", "likely_scam": "This is Likely a Scam",
+    "unlikely_scam": "This is Unlikely a Scam", "not_scam": "This is Not a Scam",
+}
+
+
+def evidence_verdict(finding: str) -> str:
+    """PRD §4 — "U is an internal evidence state, not a fifth verdict": finding_rules.evaluate_rules()'s
+    internal "unable_to_determine" (no S established, not all applicable N rules substantively
+    verified, no L rule passed) reads as "This is Unlikely a Scam" to the person — every other
+    waterfall result already names one of the four approved verdicts directly."""
+    return "unlikely_scam" if finding == "unable_to_determine" else finding
+
+
+def _adjustment_reason(rules_result: FindingRulesResult, verdict: str, raw: int, aligned: int, direction: str) -> str:
+    rule_note = f" (rule {', '.join(rules_result.deciding_rules)})" if rules_result.deciding_rules else ""
+    return (f"The evidence establishes \u201c{_VERDICT_LABEL[verdict]}\u201d{rule_note}. The calculated "
+            f"six-dimension score of {raw}/100 fell outside that verdict's band, so the rating shown is "
+            f"{direction} to {aligned}/100 \u2014 the nearest edge of the band \u2014 without changing the "
+            f"underlying evidence, dimension points or calculation above.")
+
+
+def reconcile(rules_result: FindingRulesResult, breakdown: ScoreBreakdown) -> ScoreBreakdown:
+    """PRD §5.1 — resolve the verdict from evidence (never re-evaluated here — §7.2: "Avoid
+    re-evaluating S rules independently in scoring.py"; `rules_result` is finding_rules.
+    evaluate_rules()'s already-computed S/N/L/U waterfall), then align the already-calculated rating
+    to that verdict's band with the smallest possible move. Mutates and returns `breakdown`.
+
+    Examples straight from the PRD (§5.1): S2 with raw 72 → Scam, aligned ≥85; L2 with raw 91 and no
+    established S → Likely, aligned ≤84; a positively verified N with raw 30 → Not a Scam, aligned
+    ≤24; an ordinary neutral message with nothing established → Unlikely a Scam, raised to 25 rather
+    than left reading as a false "not a scam" at 0.
+    """
+    verdict = evidence_verdict(rules_result.finding)
+    raw = breakdown.raw_rating
+    lo, hi = BANDS[verdict]
+
+    if raw < lo:
+        aligned, direction = lo, "raised"
+    elif raw > hi:
+        aligned, direction = hi, "capped"
+    else:
+        aligned, direction = raw, None
+
+    breakdown.rating = aligned
+    breakdown.finding = verdict
+    breakdown.verdict_rule_ids = list(rules_result.deciding_rules)
+
+    if direction:
+        breakdown.adjustment_reason = _adjustment_reason(rules_result, verdict, raw, aligned, direction)
+        breakdown.calculation_trace.append({
+            "step": "Evidence-verdict alignment",
+            "detail": breakdown.adjustment_reason,
+            "value": aligned,
+        })
+    else:
+        breakdown.adjustment_reason = ""
+
+    # Rebuild the narrative's opening line against the now-aligned rating/finding; every other
+    # sentence it adds (dimensions, benign baseline, legitimacy credit, decisive floor, missing
+    # checks) reads unchanged fields, so re-running it is exactly equivalent except for that line.
+    breakdown.narrative = _build_narrative(breakdown)
+    if breakdown.adjustment_reason:
+        breakdown.narrative += " " + breakdown.adjustment_reason
     return breakdown
