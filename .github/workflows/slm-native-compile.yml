@@ -6,7 +6,8 @@ on:
     branches: [slm]
     paths:
       - 'frontend/**'
-      - '.github/workflows/slm-native-compile.yml'
+      - '!frontend/tests/**'
+      - '!frontend/scripts/verify_android_abis.py'
       - 'backend/services/google_web_risk.py'
       - 'backend/services/virustotal.py'
       - 'backend/services/virustotal_url.py'

@@ -13,6 +13,9 @@ jobs:
     if: ${{ vars.APOLLO_SLM_BUILD_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -41,6 +44,8 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: '1'
         run: |
+          python3 -m pip install playwright==1.62.0
+          python3 -m playwright install --with-deps chromium
           npx --yes eas-cli@latest build --platform android --profile production --non-interactive --wait --json > /tmp/eas-play-result.json
           python3 scripts/verify_android_abis.py --eas-result /tmp/eas-play-result.json
           node -e 'const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/eas-play-result.json","utf8"));const b=Array.isArray(r)?r[0]:r;fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"Verified Google Play AAB: "+b.artifacts.buildUrl+"\nAwaiting Play Console upload, device targeting and release verification.\n");'

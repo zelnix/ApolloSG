@@ -1,8 +1,11 @@
 """Artifact-level release admission, independent of an Android SDK or live build."""
 import importlib.util
+import json
+import shutil
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 import warnings
 import zipfile
 from pathlib import Path
@@ -21,7 +24,7 @@ def elf(abi, elf_class=2):
 
 
 class AndroidAbiAdmissionTests(unittest.TestCase):
-    def archive(self, abis=("arm64-v8a", "x86_64"), prefix="", override=None):
+    def archive(self, abis=("arm64-v8a",), prefix="", override=None):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         path = Path(directory.name) / "release.zip"
@@ -33,14 +36,14 @@ class AndroidAbiAdmissionTests(unittest.TestCase):
                 override(archive)
         return path
 
-    def test_accepts_apk_with_both_64_bit_runtimes(self):
-        self.assertEqual(guard.verify_archive(self.archive())["architectures"], ["arm64-v8a", "x86_64"])
+    def test_accepts_arm64_only_apk(self):
+        self.assertEqual(guard.verify_archive(self.archive())["architectures"], ["arm64-v8a"])
 
     def test_accepts_play_bundle_native_layout(self):
-        self.assertEqual(guard.verify_archive(self.archive(prefix="base/"))["nativeLibraries"], 4)
+        self.assertEqual(guard.verify_archive(self.archive(prefix="base/"))["nativeLibraries"], 2)
 
-    def test_rejects_each_32_bit_architecture_even_when_64_bit_is_present(self):
-        for abi in ("armeabi-v7a", "x86"):
+    def test_rejects_every_removed_architecture_even_when_arm64_is_present(self):
+        for abi in ("armeabi-v7a", "x86", "x86_64"):
             with self.subTest(abi=abi), self.assertRaisesRegex(ValueError, abi):
                 guard.verify_archive(self.archive(override=lambda z: z.writestr(f"lib/{abi}/libextra.so", elf(abi, 1))))
 
@@ -54,7 +57,7 @@ class AndroidAbiAdmissionTests(unittest.TestCase):
 
     def test_rejects_missing_architecture(self):
         with self.assertRaisesRegex(ValueError, "missing required native architectures"):
-            guard.verify_archive(self.archive(abis=("arm64-v8a",)))
+            guard.verify_archive(self.archive(abis=()))
 
     def test_explicit_arm64_test_build_is_an_allowed_subset(self):
         self.assertEqual(guard.verify_archive(self.archive(abis=("arm64-v8a",)), ["arm64-v8a"])["nativeLibraries"], 2)
@@ -64,8 +67,8 @@ class AndroidAbiAdmissionTests(unittest.TestCase):
             guard.verify_archive(self.archive(), ["x86"])
 
     def test_rejects_an_architecture_without_the_slm_runtime(self):
-        path = self.archive(abis=("arm64-v8a",), override=lambda z: z.writestr("lib/x86_64/libother.so", elf("x86_64")))
-        with self.assertRaisesRegex(ValueError, "SLM libraries.*x86_64"):
+        path = self.archive(abis=(), override=lambda z: z.writestr("lib/arm64-v8a/libother.so", elf("arm64-v8a")))
+        with self.assertRaisesRegex(ValueError, "SLM libraries.*arm64-v8a"):
             guard.verify_archive(path)
 
     def test_rejects_ambiguous_duplicate_native_library(self):
@@ -74,6 +77,34 @@ class AndroidAbiAdmissionTests(unittest.TestCase):
             path = self.archive(override=lambda z: z.writestr("lib/arm64-v8a/librnllama.so", elf("arm64-v8a")))
         with self.assertRaisesRegex(ValueError, "Duplicate"):
             guard.verify_archive(path)
+
+    def result_file(self, value):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / "eas.json"
+        path.write_text(json.dumps(value))
+        return path
+
+    def test_eas_download_still_runs_full_binary_admission(self):
+        source = self.archive()
+        result = self.result_file([{"status": "FINISHED", "artifacts": {"buildUrl": "https://expo.dev/artifacts/eas/test.apk"}}])
+        with patch.object(guard, "download_artifact", side_effect=lambda url, path: shutil.copyfile(source, path)) as download:
+            self.assertEqual(guard.verify_eas_result(result)["nativeLibraries"], 2)
+            download.assert_called_once()
+
+    def test_eas_transfer_cannot_certify_an_incompatible_archive(self):
+        source = self.archive(override=lambda z: z.writestr("lib/x86/libextra.so", elf("x86", 1)))
+        result = self.result_file({"status": "FINISHED", "artifacts": {"buildUrl": "https://expo.dev/artifacts/eas/test.apk"}})
+        with patch.object(guard, "download_artifact", side_effect=lambda url, path: shutil.copyfile(source, path)):
+            with self.assertRaisesRegex(ValueError, "x86"):
+                guard.verify_eas_result(result)
+
+    def test_eas_metadata_must_be_finished_and_https(self):
+        for value in [[], [{"status": "IN_PROGRESS"}], {"status": "FINISHED", "artifacts": {"buildUrl": "http://example.test/test.apk"}}]:
+            with self.subTest(value=value), patch.object(guard, "download_artifact") as download:
+                with self.assertRaises(ValueError):
+                    guard.verify_eas_result(self.result_file(value))
+                download.assert_not_called()
 
 
 if __name__ == "__main__":

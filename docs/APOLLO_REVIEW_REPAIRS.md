@@ -183,9 +183,10 @@ unset or non-HTTPS base before EAS's dependency-check deferral.
 ## Required 64-bit Android distribution
 
 `frontend/config/android-abis.json` is the shared build/artifact policy. Expo's
-existing build-properties plugin writes `arm64-v8a,x86_64` to native Gradle
-configuration for APK and Play AAB builds. ARM32 (`armeabi-v7a`) and 32-bit x86
-are excluded because the required llama.rn runtime cannot load on those targets.
+existing build-properties plugin writes `arm64-v8a` to native Gradle
+configuration for APK and optional Play AAB builds. ARM32 (`armeabi-v7a`) and
+32-bit x86 are excluded because the required llama.rn runtime cannot load on
+those targets. The owner also excluded x86-64, selecting ARM64-only distribution.
 Production preflight rejects a missing or changed architecture list. The existing
 ARM64-scoped physical-device test workflow remains scoped to that approved subset.
 
@@ -205,9 +206,17 @@ published universal APKs are not changed or revoked by a new build.
 The owner selected Google Play for future public distribution and Expo for
 internal testing, then requested APK delivery only for now. The optional
 `android-play-bundle.yml` workflow is manual-only; it builds the existing
-production AAB profile with both 64-bit targets and verifies the downloaded
+production AAB profile with the same ARM64-only target and verifies the downloaded
 bundle when explicitly requested. It does not claim a Play upload or
 publication. The automatic APK workflow remains internal distribution.
+
+The first two-target APK (`0a0786a`) built successfully, but its CI verifier's
+plain HTTP request was rejected by Expo's artifact edge with HTTP 403. The
+downloaded APK was independently verified through Expo's browser flow (257.3 MB,
+82 native libraries across ARM64/x86-64, unchanged EAS signing certificate).
+The verifier now uses Playwright's browser download transport; archive validation
+remains fail-closed. Verification-only changes and tests do not trigger native
+recompilation. The final ARM64-only APK requires its own build and inspection.
 Before public release, confirm ARM32/x86 devices are unavailable in Play's
 Device Catalog, and remove any retained 32-bit artifacts from active tracks.
 Expo's project setting for unauthenticated internal-build access must also be

@@ -1,35 +1,49 @@
-# ApolloSG SLM — guarded backend/device pilot
+# ApolloSG on-device handoff — current status
 
-Status: coded only on the `slm` branch, disabled by default. The native device must have a verified local model and an explicitly supplied runtime. No automatic case execution or verdict use is enabled.
+Updated 13 November 2026. The original optional pilot design is superseded by
+the mandatory native investigation pipeline. It must not be used to configure
+a web-preview bypass. The historical pilot text is retained in Git history.
 
-## Reused infrastructure
+## Current investigation contract
 
-- Routes are mounted on the existing authenticated investigations router under `/api/investigations/{case_id}/slm/`.
-- The existing bearer device identity, `repo.get_case`, `repo.get_job`, case revision and epoch remain authoritative.
-- Requests and results are stored encrypted in the existing `investigation_device_requests` collection, not in a new datastore.
-- `POST .../requests` takes `jobId`, `caseRevision` and `role`; the server supplies the question and scoped user-submitted text/URL evidence, with strict size limits. The response has `request` and `expiresAt`.
-- `POST .../results` takes the matching `SLMReasoningResult`. It verifies case/job/revision/expiry, whitelisted evidence references, and atomically accepts the first response.
-- Ordinary `/device-results` explicitly rejects SLM requests. This is crucial: Luddish output is not an observed fact and must never be ingested into the case evidence table.
-- The coordinator now issues optional stage requests through the existing case-event stream. `caseStore` handles the non-terminal `slm_advisory_request` event with `submitIssuedAdvisory`, using the existing authenticated `apiPost` and purpose-limited egress policy. Without an admitted native model, it makes no SLM call. `submitAdvisoryForActiveCase` remains a manual pilot path.
+Every first-turn investigation requires on-device Wright semantic triage,
+TC Hawkeye investigation, on-device Higgins escalation assessment, optional
+Magnum DI when warranted, and a validated on-device Finding/presentation.
+There is one shared admitted native runtime. Model hypotheses do not become
+source facts, numeric ratings or independently verified evidence. Hawkeye's
+deterministic evidence classification, reconciliation and retained floors remain
+authoritative at the existing acceptance boundary.
 
-## Activation
+The authenticated device identity, case/job ownership, revision, epoch, work
+epoch, cancellation and lease fences continue to govern every request/result.
+Requests/results use the existing encrypted investigation-device request store;
+they are not observations accepted through the ordinary device-results endpoint.
 
-The server gate is `APOLLO_SLM_HANDOFF=on`. It is **off** by default; do not enable in production. This is a development pilot only. Client code requires a real admitted `SLMAdapter` and will not automatically call Gemini.
+## Configuration and preview behavior
 
-## Current coordinator checkpoint integration
+`APOLLO_SLM_HANDOFF` defaults to `on` in both the advisory service and handoff
+router. An explicit `off` disables dispatch/intake; it does **not** bypass the
+coordinator's unconditional requirement for valid native stage results. Such
+investigations still stop with `device_unavailable`, without a completed verdict.
 
-The existing `services/higgins/coordinator.py` now dispatches optional stage requests and reads pre-accepted, revalidated, case/job/revision-bound advisory results at four checkpoints: Higgins Triage, TC Hawkeye, Magnum DI and Luddish. The code in `services/higgins/slm_advisory.py` rejects cancelled/stale/expired cases, other devices, unrecognised evidence citations and wrong roles. Only per-role counts and an explicitly `advisoryOnly` status are recorded in the existing case routing metadata. **No model text is treated as authoritative facts, score inputs, evidence or Luddish-approved wording.** The stage checks are non-blocking: they issue a task and inspect any already-accepted advice, but do not wait for the phone, invoke Gemini or change a verdict. Consequently the newly issued request generally will not influence that same checkpoint. The emitted case event is persisted in the existing encrypted event stream for reconnection; the app handles it only when its one shared local model is admitted. There is no guarantee a phone supplied an answer before a checkpoint.
+Web previews and Expo Go cannot provide the required native model. They may be
+used for UI and backend/API checks, but successful live investigations require
+a supported native build with an admitted model. Do not change this flag to
+make preview investigations appear successful, and do not introduce a
+deterministic-only, simulated or external-model fallback.
 
-## Still necessary before live integration
+The selected Android release target is ARM64-only. Compatibility admission also
+requires at least 3 GiB reported memory, admitted model files, runtime startup
+and valid inference output. Artifact compilation is not physical-device model,
+lifecycle, thermal or evidence-storage acceptance.
 
-1. Select and validate the actual model on physical Android/iOS devices, including memory, prompt-output integrity and latency.
-2. Backend-initiated requests and device-event pickup are now coded, but real model execution, timing, explicit availability reporting, and end-to-end cancellation/recovery testing remain outstanding. The first implementation is non-blocking and advisory-only; it is not yet useful as an input to the current stage's decision.
-3. Add definitive case/job fencing and cleanup tests under concurrency, cancellation, expiry, device disconnect and app restart.
-4. Consume **only validated advisory suggestions**, with independent verification by TC Hawkeye / Magnum DI and no verdict/score or Evidence Lock changes.
-5. Preserve verified provenance, exact source identifiers and Luddish explanation fidelity; Gemini stays a warranted Magnum DI extension, not a failed-SLM fallback.
+## Current verification and remaining qualification
 
-The pilot endpoints, coordinator-issued requests, and existing case-stream event handler implement an opt-in HTTP handoff and stage-aware read-only intake. They do **not** yet put Luddish's output into substantive investigative planning, prove genuine model execution, or constitute an end-to-end device acceptance test.
+The bounded regression gate exercises request correlation, device isolation,
+evidence coverage, failures, deadlines, cancellation/recovery, retained verdicts
+and score transparency. See `APOLLO_REVIEW_REPAIRS.md` and
+`.github/workflows/ci.yml` for the current checks and their limits.
 
-## Ask Higgins shares the model
-
-The same `getSharedSLM()` adapter is used by the existing Ask Higgins chat client. The chat client keeps authoritative results, quotations, navigational actions and device state intact, and rejects any unsafe SLM rewrite. A native model is not yet installed/registered at app startup, so neither Ask Higgins nor case-stage reasoning can execute a real model in the current builds.
+Native investigation timing, real model quality and end-to-end acceptance on
+supported physical devices remain separate qualification work. Disabling the
+handoff cannot substitute for those checks.

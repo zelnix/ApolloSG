@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Reject APK/AAB artifacts that cannot satisfy the required 64-bit SLM runtime."""
 import argparse
+import asyncio
 import json
 import re
+import shutil
 import struct
 import sys
 import tempfile
 import urllib.parse
-import urllib.request
 import zipfile
 from collections import Counter
 from pathlib import Path
@@ -61,10 +62,40 @@ def verify_eas_result(filename):
     # Do not log signed CDN URLs. Inspect the exact artifact before publishing its link.
     with tempfile.TemporaryDirectory(prefix="apollo-abi-") as directory:
         artifact = Path(directory) / "release.apk"
-        with urllib.request.urlopen(url, timeout=60) as source, artifact.open("wb") as target:
-            import shutil
-            shutil.copyfileobj(source, target)
+        download_artifact(url, artifact)
         return verify_archive(artifact)
+
+
+def download_artifact(url, target):
+    """Use a browser transport: Expo's artifact edge rejects plain HTTP clients."""
+    async def download():
+        from playwright.async_api import Error, async_playwright
+
+        async with async_playwright() as playwright:
+            bundled = playwright.chromium.executable_path
+            executable = bundled if Path(bundled).is_file() else (
+                shutil.which("chromium") or shutil.which("google-chrome"))
+            browser = await playwright.chromium.launch(
+                executable_path=executable, headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"])
+            try:
+                context = await browser.new_context(accept_downloads=True)
+                page = await context.new_page()
+                async with page.expect_download(timeout=120000) as pending:
+                    try:
+                        await page.goto(url, timeout=60000)
+                    except Error as error:
+                        # A successful file navigation intentionally aborts document loading.
+                        if "Download is starting" not in str(error) and "net::ERR_ABORTED" not in str(error):
+                            raise
+                artifact = await pending.value
+                await artifact.save_as(target)
+                if await artifact.failure():
+                    raise ValueError("Expo artifact download did not complete")
+            finally:
+                await browser.close()
+
+    asyncio.run(download())
 
 
 def main():
