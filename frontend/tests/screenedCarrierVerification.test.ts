@@ -1,4 +1,5 @@
-import { describe, expect, it } from "node:test";\nimport assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { parseScreenedCalls } from "../src/domain/screenedCalls.ts";
 
 describe("screened call carrier number verification", () => {

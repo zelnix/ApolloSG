@@ -339,7 +339,15 @@ class ApolloCallScreeningService : CallScreeningService() {
   override fun onScreenCall(callDetails: Call.Details) {
     val ctx = applicationContext
     // What to add to "Calls Apollo screened" — decided alongside the response, written only afterwards.
-    var screened: Pair<String, String>? = null\n    // Carrier-provided number attestation, not proof of a business identity.\n    val numberVerification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {\n      try { when (callDetails.callerNumberVerificationStatus) {\n        android.telecom.Connection.VERIFICATION_STATUS_PASSED -> "passed"\n        android.telecom.Connection.VERIFICATION_STATUS_FAILED -> "failed"\n        else -> "not_verified"\n      } } catch (_: Exception) { "unavailable" }\n    } else "unavailable"
+    var screened: Pair<String, String>? = null
+    // Carrier-provided number attestation, not proof of a business identity.
+    val numberVerification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      try { when (callDetails.callerNumberVerificationStatus) {
+        android.telecom.Connection.VERIFICATION_STATUS_PASSED -> "passed"
+        android.telecom.Connection.VERIFICATION_STATUS_FAILED -> "failed"
+        else -> "not_verified"
+      } } catch (_: Exception) { "unavailable" }
+    } else "unavailable"
     try {
       val number = toE164(callDetails.handle?.schemeSpecificPart, ctx)
       if (number.isBlank()) { respond(callDetails, disallow = false, reject = false); return }

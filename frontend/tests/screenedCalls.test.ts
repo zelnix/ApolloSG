@@ -40,7 +40,7 @@ test("day labels", () => {
 test("screening service records history only after responding, in its own guard, and never from the call log", () => {
   const kt = read("modules/apollo-security/android/src/main/java/com/hucentai/apollosecurity/ApolloCallScreeningService.kt");
   const body = kt.slice(kt.indexOf("override fun onScreenCall"));
-  assert.match(body, /\} finally \{[\s\S]*try \{ if \(isIncoming\(callDetails\)\) recordScreenedCall\(ctx, number, outcome\) \} catch/);
+  assert.match(body, /\} finally \{[\s\S]*try \{ if \(isIncoming\(callDetails\)\) recordScreenedCall\(ctx, number, outcome, numberVerification\) \} catch/);
   // Every record decision follows the respond() call that answers Android.
   for (const outcome of ["allowed_by_you", "rang"]) {
     const at = body.indexOf(`"${outcome}"`);
