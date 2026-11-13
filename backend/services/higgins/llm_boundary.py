@@ -121,7 +121,7 @@ class Purpose(str, Enum):
     TOKEN_COUNT = "token_count"               # Same as the associated purpose
     PUBLIC_ADVISORY_ANALYSIS = "public_advisory_analysis"  # Government scam advisory classification
     VISION_INVESTIGATION = "vision_investigation"  # Vision Gate: photograph/upload → indicator extraction + routing
-    TRIAGE = "triage"                         # Minimal structured triage: SAFE/SUSPICIOUS/UNCERTAIN only
+    TRIAGE = "triage"                         # Evidence-readiness assessment only; never a scam verdict
     TC_FLYBY_SEARCH = "tc_flyby_search"             # TC Hawkeye: narrow factual web search lookups about public identifiers
     DEVICE_SETTING_VERIFICATION = "device_setting_verification"  # Screenshot verification of manual device settings
 

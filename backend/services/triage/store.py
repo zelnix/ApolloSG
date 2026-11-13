@@ -28,6 +28,20 @@ def incomplete_only(wire: dict) -> bool:
             and not any(g.get("code") == "INSUFFICIENT_EVIDENCE" for g in wire.get("coverageGaps") or []))
 
 
+def readiness_patrol_text(readiness: dict) -> dict:
+    """Higgins readiness is not a threat finding; preserve a clear next step."""
+    if readiness["ready"]:
+        return {"state": "resting", "status": "resolved",
+                "headline": "Evidence passed to TC Hawkeye",
+                "what_happened": "There was enough evidence to begin an investigation.",
+                "why": [], "what_to_do": "Review the investigation for findings."}
+    return {"state": "resting", "status": "resolved",
+            "headline": "Investigation could not begin",
+            "what_happened": readiness["higginsExplanation"],
+            "why": [readiness["reason"]],
+            "what_to_do": readiness["higginsExplanation"]}
+
+
 def patrol_text(wire: dict, category: str) -> dict:
     """What the Patrol record says and how it is filed, from the Triage record alone (mirror for display:
     frontend src/domain/luddish/present.ts). Plain words: no rule counts, no internal names, nothing cut short."""
@@ -66,7 +80,8 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
                                 category: str, evidence_source: str, subject: str = "",
                                 client_submission_id: str | None = None,
                                 investigation_case_id: str | None = None,
-                                indicator_host: str | None = None, source: dict | None = None) -> str:
+                                indicator_host: str | None = None, source: dict | None = None,
+                                investigation_readiness: dict | None = None) -> str:
     """Save the Triage Investigation and project it into Patrol History (idempotent).
 
     `evidence_source` is what supplied the evidence (core/evidence_model.py): "connected_mailbox" for an email the
@@ -92,6 +107,8 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
 
     event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"apollo-triage:{device_id}:{investigation.investigation_id}"))
     text = patrol_text(wire, category)
+    if investigation_readiness is not None:
+        text = readiness_patrol_text(investigation_readiness)
     gaps = investigation.coverage_gaps
     at = investigation.evaluated_at or now_utc()
     document = {
@@ -108,6 +125,7 @@ async def record_triage_history(device_id: str, investigation: TriageInvestigati
         "evidence_representation": "privacy_protected_copy",
         "evidence_completeness": "partial" if incomplete or gaps else "complete",
         "triage_investigation": wire,
+        "investigation_readiness": investigation_readiness,
         "initiator": "apollo_triage",
         "deleted_at": None, "updated_at": now_utc(),
     }
