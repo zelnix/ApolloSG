@@ -25,11 +25,11 @@ class TestOnDeviceVerdictAuthority(unittest.TestCase):
         self.assertNotIn("ai_settings.investigation_model(", body)
         self.assertNotIn('"provider_model": job_model', body)
 
-    def test_handoff_enabled_by_default_but_can_be_disabled(self):
-        source = (ROOT / "services/higgins/slm_advisory.py").read_text(encoding="utf-8")
-        self.assertIn('os.getenv("APOLLO_SLM_HANDOFF", "on")', source)
-        router = (ROOT / "routers/slm_handoff.py").read_text(encoding="utf-8")
-        self.assertGreaterEqual(router.count('os.getenv("APOLLO_SLM_HANDOFF", "on")'), 2)
+    def test_handoff_is_a_core_capability_without_an_environment_switch(self):
+        for name in ("services/higgins/slm_advisory.py", "services/higgins/coordinator.py", "routers/slm_handoff.py"):
+            with self.subTest(name=name):
+                source = (ROOT / name).read_text(encoding="utf-8")
+                self.assertNotIn("APOLLO_SLM_HANDOFF", source)
 
 
 if __name__ == "__main__":

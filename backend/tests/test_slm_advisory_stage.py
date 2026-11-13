@@ -98,11 +98,6 @@ class TestAdvisoryRead(unittest.TestCase):
     def setUp(self):
         collection.documents = []
         collection.queries = []
-        self.environ = patch.dict(os.environ, {"APOLLO_SLM_HANDOFF": "on"})
-        self.environ.start()
-
-    def tearDown(self):
-        self.environ.stop()
 
     def read(self, case=None, job=None, role="tc_hawkeye", owner="owner-A"):
         return asyncio.run(slm_advisory.accepted_for_stage(owner, case or CASE, job or JOB, role))
@@ -134,14 +129,17 @@ class TestAdvisoryRead(unittest.TestCase):
         self.assertIsNone(self.read(case={**CASE, "status": "cancelled"}))
         self.assertIsNone(self.read(job={**JOB, "epoch": "epoch-B"}))
 
-    def test_expired_or_disabled_advice_is_unavailable(self):
+    def test_expired_advice_is_unavailable(self):
         doc = candidate()
         doc["expires_at"] = datetime.now(timezone.utc) - timedelta(minutes=1)
         collection.documents = [doc]
         self.assertIsNone(self.read())
+        self.assertEqual(len(collection.queries), 1)
+
+    def test_legacy_environment_switch_cannot_disable_core_reasoning(self):
         collection.documents = [candidate()]
         with patch.dict(os.environ, {"APOLLO_SLM_HANDOFF": "off"}):
-            self.assertIsNone(self.read())
+            self.assertIsNotNone(self.read())
         self.assertEqual(len(collection.queries), 1)
 
     def test_slm_questions_prioritise_only_existing_checks(self):

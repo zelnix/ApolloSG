@@ -9,11 +9,10 @@ permissions:
 
 jobs:
   native-prebuild:
-    name: Expo Android CNG (SLM opt-in)
+    name: Expo Android CNG (required SLM runtime)
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      APOLLO_SLM_NATIVE: "on"
       EXPO_PUBLIC_APP_ENV: development
       EXPO_PUBLIC_PREVIEW_BUILD: excluded
       APOLLO_ANDROID_RESTRICTED_PERMISSIONS: "off"

@@ -1,13 +1,11 @@
 """Read previously accepted on-device Luddish advice for a live investigation.
 
-This is a read-only, optional checkpoint inside the existing coordinator.
+This is the read-only result reader for the coordinator's required native stages.
 No network/model call, job wait, new collection or evidence ingestion.
 The existing case controls remain authoritative. SLM hypotheses are never
 trusted as facts, scores, findings or final-case verdicts.
 """
 from __future__ import annotations
-
-import os
 
 from core.db import db, now_utc
 from services.higgins import repository as repo
@@ -18,10 +16,6 @@ from services.higgins.slm_contract import (
 ROLES = frozenset(("wright_triage", "higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "case_finding", "higgins_escalation_assessment"))
 
 
-def enabled() -> bool:
-    return os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() == "on"
-
-
 async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> dict | None:
     """Return only revalidated advisory suggestions for this active job.
 
@@ -29,7 +23,7 @@ async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> di
     planning, NOT a new evidence source. Expiry, cancellation or errors produce
     no advice rather than silently restoring stale cross-case data.
     """
-    if not enabled() or role not in ROLES:
+    if role not in ROLES:
         return None
     case_id = case.get("case_id")
     job_id = job.get("job_id")

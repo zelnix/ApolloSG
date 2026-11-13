@@ -21,15 +21,16 @@ they are not observations accepted through the ordinary device-results endpoint.
 
 ## Configuration and preview behavior
 
-`APOLLO_SLM_HANDOFF` defaults to `on` in both the advisory service and handoff
-router. An explicit `off` disables dispatch/intake; it does **not** bypass the
-coordinator's unconditional requirement for valid native stage results. Such
-investigations still stop with `device_unavailable`, without a completed verdict.
+SLM is a core capability, with no handoff or native-build on/off switch. The
+retired `APOLLO_SLM_HANDOFF` and `APOLLO_SLM_NATIVE` environment settings are not
+read. The native plugin is always part of native builds, and valid native stage
+results are always required by the coordinator. Old environment entries cannot
+disable it or enable a fallback.
 
 Web previews and Expo Go cannot provide the required native model. They may be
 used for UI and backend/API checks, but successful live investigations require
-a supported native build with an admitted model. Do not change this flag to
-make preview investigations appear successful, and do not introduce a
+a supported native build with an admitted model. Do not introduce a switch to
+make preview investigations appear successful, or a
 deterministic-only, simulated or external-model fallback.
 
 The selected Android release target is ARM64-only. Compatibility admission also
@@ -45,5 +46,5 @@ and score transparency. See `APOLLO_REVIEW_REPAIRS.md` and
 `.github/workflows/ci.yml` for the current checks and their limits.
 
 Native investigation timing, real model quality and end-to-end acceptance on
-supported physical devices remain separate qualification work. Disabling the
-handoff cannot substitute for those checks.
+supported physical devices remain separate qualification work. A preview
+without that native capability must continue to report `device_unavailable`.

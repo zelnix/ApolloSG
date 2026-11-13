@@ -120,6 +120,35 @@ async def test_pending_slm_inbox_is_recoverable_and_owner_scoped(owner):
     assert json.loads((await slm_handoff.pending_advisories(own)).body)["items"] == []
 
 
+@pytest.mark.parametrize("role", ["wright_triage", "higgins_escalation_assessment", "case_finding"])
+async def test_required_native_stages_ignore_obsolete_off_setting(owner, monkeypatch, role):
+    from routers import slm_handoff
+    monkeypatch.setenv("APOLLO_SLM_HANDOFF", "off")
+    case, job, _item = await leased_job(owner)
+    advice = {"wrightSemantic": {"intent": "Verify the submitted source"},
+              "escalationAssessment": {"decision": "proceed_local"},
+              "caseFinding": {"outcome": "unlikely_scam"}}
+    waiter = AsyncMock(return_value=advice)
+    monkeypatch.setattr(coordinator, "_wait_for_slm", waiter)
+    if role == "wright_triage":
+        assert await coordinator._slm_stage(owner, case, job, role) == advice
+    elif role == "higgins_escalation_assessment":
+        assert await coordinator._await_escalation_assessment(owner, case, job, AsyncMock()) == advice["escalationAssessment"]
+    else:
+        assert await coordinator._await_case_finding(owner, case, job, AsyncMock()) == advice
+    waiter.assert_awaited_once()
+    request = SimpleNamespace(state=SimpleNamespace(device={"device_id": owner}))
+    items = json.loads((await slm_handoff.pending_advisories(request)).body)["items"]
+    assert len(items) == 1 and items[0]["request"]["role"] == role
+
+
+async def test_core_handoff_does_not_claim_native_availability_in_web_preview(owner):
+    from routers import slm_handoff
+    await db.devices.update_one({"device_id": owner}, {"$set": {"platform": "web", "adapter_mode": "mock"}})
+    case, job, _item = await leased_job(owner)
+    assert await slm_handoff.issue_stage_request(owner, case["case_id"], job["job_id"], case["revision"], "wright_triage") is None
+
+
 async def test_native_failure_code_is_retained_as_diagnostics_not_evidence(owner):
     from routers import slm_handoff
     case, job, item = await leased_job(owner)

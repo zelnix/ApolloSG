@@ -87,6 +87,7 @@ jobs:
           tests/test_slm_contract.py tests/test_slm_advisory_stage.py tests/test_slm_wait_deadline.py
           tests/test_slm_replay.py tests/test_slm_evidence_coverage.py tests/test_slm_redundancy_regression.py
           tests/test_slm_mandatory_behaviour.py tests/test_previous_reports.py tests/test_magnum_continuation.py
+          tests/test_on_device_verdict_authority.py
           tests/test_google_web_risk_staged.py tests/test_wright_phase6_contract.py
           tests/test_phase7_investigation_safeguards.py
           tests/test_findings_scoring.py tests/test_evidence_evaluation.py tests/test_taxonomy.py

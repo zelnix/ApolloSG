@@ -128,11 +128,8 @@ module.exports = {
       "./plugins/withEasAppExtensionsDedupe",
       "./plugins/withNativeDependencyGuard",
       "./modules/apollo-family-assist/plugin/withApolloFamilyAssist",
-      // Explicitly opted-in SLM native test builds only; requires pinned llama.rn and device QA.
-      // Disabled by default, including production/store builds unless APOLLO_SLM_NATIVE is explicitly on.
-      ...(process.env.APOLLO_SLM_NATIVE === "on"
-        ? [["llama.rn", { enableEntitlements: false, forceCxx20: true, enableOpenCL: false }]]
-        : []),
+      // Core native capability. Runtime/model admission still requires a real device.
+      ["llama.rn", { enableEntitlements: false, forceCxx20: true, enableOpenCL: false }],
       "expo-router",
       ["expo-notifications", { sounds: ["./assets/sounds/apollo_bark.wav", "./assets/sounds/apollo_chime.wav"] }],
       // Native splash on white, the same white as the full-screen launch artwork (src/components/LaunchSplash.tsx) that follows it on phones and tablets.

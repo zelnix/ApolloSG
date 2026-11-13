@@ -99,13 +99,12 @@ async def _wait_for_slm(owner: str, case: dict, job: dict, role: str,
 
 
 async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> dict | None:
-    """Await bounded case-scoped SLM advice before the relevant investigation stage.
+    """Await required bounded case-scoped SLM advice for an investigation stage.
 
     Model hypotheses never become facts, findings, evidence, scores, source
-    records or inputs to Magnum DI. Native SLM failure never interrupts work; missing advice remains explicit.
+    records or inputs to Magnum DI. Missing native output remains explicit and
+    cannot authorise completion of the investigation.
     """
-    if not slm_advisory.enabled():
-        return None
     try:
         # Issue a stage-specific request on the already-authenticated case's
         # existing event stream. Wait only when a valid request was issued.
@@ -318,8 +317,6 @@ async def _magnum_external_evidence(owner: str, case: dict, job: dict,
 
 async def _await_escalation_assessment(owner: str, case: dict, job: dict, progress) -> dict | None:
     """Bounded, evidence-cited on-device decision; no Hawkeye self-escalation."""
-    if not slm_advisory.enabled():
-        return None
     from routers.slm_handoff import issue_stage_request
 
     try:
@@ -343,8 +340,6 @@ async def _await_escalation_assessment(owner: str, case: dict, job: dict, progre
 
 async def _await_case_finding(owner: str, case: dict, job: dict, progress) -> dict | None:
     """One bounded wait for an authenticated native SLM Finding; never invent a result."""
-    if not slm_advisory.enabled():
-        return None
     from routers.slm_handoff import issue_stage_request
 
     try:

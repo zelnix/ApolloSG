@@ -217,6 +217,24 @@ downloaded APK was independently verified through Expo's browser flow (257.3 MB,
 The verifier now uses Playwright's browser download transport; archive validation
 remains fail-closed. Verification-only changes and tests do not trigger native
 recompilation. The final ARM64-only APK requires its own build and inspection.
+
+SLM is now a fixed core capability. Backend request dispatch, result intake and
+coordinator stages no longer read a handoff environment switch. The llama.rn
+native plugin is unconditional, and its old native-build selector is removed
+from EAS and workflows. Behavioral regressions cover all three required stages
+with an obsolete off setting, while a web profile remains unavailable. The
+historical pilot/native integration documents are updated to prevent a preview
+from being configured with a misleading optional-mode workaround.
+
+The owner paused builds. EAS APK generation and standalone native APK compilation
+are manual-only; repository pushes run regression checks without producing APKs.
+No further artifact build is authorised until the owner requests it.
+
+The pause canceled one matching active Expo build through the existing project
+credentials; no new artifact build was started by that operation. The temporary
+cancellation workflow was removed after its successful run. Local core-capability
+validation passed 412 backend tests (25 skips, 12 subtests), 190 frontend tests
+and 13 artifact-admission tests. These are code checks, not a new APK qualification.
 Before public release, confirm ARM32/x86 devices are unavailable in Play's
 Device Catalog, and remove any retained 32-bit artifacts from active tracks.
 Expo's project setting for unauthenticated internal-build access must also be

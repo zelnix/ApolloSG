@@ -1,13 +1,12 @@
-"""Opt-in Luddish advisory handoff inside the existing authenticated investigation API.
+"""Required native handoff inside the existing authenticated investigation API.
 
 A request is created from server-owned, owner-scoped case evidence. A device
 may return advisory reasoning once for that request. This path NEVER writes
 investigation evidence, mutates scores or verdicts, or resumes a job.
-It is deliberately disabled unless APOLLO_SLM_HANDOFF=on is set.
+Native reasoning is a core capability, subject to device and case admission.
 """
 from __future__ import annotations
 
-import os
 import uuid
 from typing import Literal
 from datetime import timedelta
@@ -67,7 +66,6 @@ class AdvisoryFailure(Wire):
 @router.post("/investigations/{case_id}/slm/failures", status_code=202)
 async def advisory_failure(case_id: str, body: AdvisoryFailure, request: Request):
     """Record safe failure codes on the issued request, never as evidence."""
-    _enabled()
     owner = request.state.device["device_id"]
     pending = await db.investigation_device_requests.find_one({
         "owner_id": owner, "case_id": case_id, "request_id": body.request_id,
@@ -85,11 +83,6 @@ async def advisory_failure(case_id: str, body: AdvisoryFailure, request: Request
     if result.matched_count != 1 and (pending.get("submission") or {}) != {"state": "advisory_failed", "status": body.status, "reason": body.reason}:
         raise http(409, "conflict", "The on-device request was already answered.")
     return JSONResponse({"accepted": True}, status_code=202, headers=NO_STORE)
-
-
-def _enabled() -> None:
-    if os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() != "on":
-        raise http(404, "not_found", "Luddish on-device pilot is not enabled.")
 
 
 async def _active_case_job(owner: str, case_id: str, job_id: str, revision: int):
@@ -153,13 +146,13 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
 
 
 async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: int, role: str) -> dict | None:
-    """Issue one optional server-authored, case-scoped advisory per job/role.
+    """Issue one server-authored, case-scoped native request per job/role.
 
     The coordinator calls this only with the existing authenticated case owner
-    and active job. No device event is published if the pilot is disabled, the
-    device is not native or there is no admissible submitted evidence.
+    and active job. No device event is published if the device is not native
+    or there is no admissible submitted evidence.
     """
-    if os.getenv("APOLLO_SLM_HANDOFF", "on").strip().lower() != "on" or role not in QUESTIONS:
+    if role not in QUESTIONS:
         return None
     case, _job = await _active_case_job(owner, case_id, job_id, revision)
     device = repo.device_profile(case) or await repo.registered_device_profile(owner) or {}
@@ -199,7 +192,6 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
 @router.get("/investigations/slm/pending")
 async def pending_advisories(request: Request):
     """Recover issued requests after navigation/reconnect; the device cannot choose evidence."""
-    _enabled()
     owner = request.state.device["device_id"]
     items = []
     cursor = db.investigation_device_requests.find({
@@ -220,7 +212,6 @@ async def pending_advisories(request: Request):
 @router.post("/investigations/{case_id}/slm/requests", status_code=201)
 async def request_advisory(case_id: str, body: AdvisoryStart, request: Request):
     """Manual pilot request, using the same server-owned stage issuer."""
-    _enabled()
     owner = request.state.device["device_id"]
     if body.role not in QUESTIONS:
         raise http(422, "invalid_input", "Unsupported Luddish reasoning role.")
@@ -244,7 +235,6 @@ def _same_slm_submission(record: dict | None, model_id: str, expected: dict) -> 
 @router.post("/investigations/{case_id}/slm/results", status_code=202)
 async def receive_advisory(case_id: str, body: SLMReasoningResult, request: Request):
     """Validate and accept advisory output, NEVER as evidence or a case verdict."""
-    _enabled()
     owner = request.state.device["device_id"]
     if body.case_id != case_id:
         raise http(409, "conflict", "Luddish reply belongs to a different investigation.")
