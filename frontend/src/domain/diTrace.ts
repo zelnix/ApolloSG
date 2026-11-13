@@ -179,7 +179,10 @@ function lockStep(trace: DiTrace | null, triage: TriageInvestigationRecord | nul
   response: HigginsResponse | null): TraceStep {
   const name = "Evidence Lock";
   const who = hasCase ? investigatorName(trace?.answeredBy) : triage ? "Higgins Triage" : "Apollo";
-  if (!presented?.verdict && !response && !(trace?.answeredBy || trace?.outcome)) {
+  // A failure outcome or a routing engine name is not a committed Finding.
+  const recordedResult = trace?.completion === "complete" &&
+    (!!outcomeLabel(trace?.outcome) || trace?.outcome === "unlikely_scam");
+  if (!presented?.verdict && !response && !recordedResult) {
     return { id: "lock", name, status: "pending", label: "Not yet", summary: "There's no result to lock yet.", details: [] };
   }
   const facts = factCount(response);

@@ -100,6 +100,22 @@ test("a case with no Triage or TC Hawkeye record says so for each; no result yet
   assert.equal(steps[3].summary, "There's no result to lock yet.");
 });
 
+test("a stopped on-device assessment preserves evidence without claiming a final decision was locked", () => {
+  for (const outcome of ["device_unavailable", "invalid_output", "failed", null]) {
+    const trace = { ...flybyTrace(false), answeredBy: "tc_hawkeye", outcome, completion: null, flyby: null, magnum: null, higgins: null };
+    const lock = buildDecisionTrace({ trace, records: [], triage: null, hasCase: true })[3];
+    assert.equal(lock.status, "pending");
+    assert.equal(lock.label, "Not yet");
+    assert.doesNotMatch(lock.summary, /preserves .*decision/i);
+  }
+});
+
+test("a completed Unlikely a Scam result still has its decision preserved", () => {
+  const trace = { ...flybyTrace(true), outcome: "unlikely_scam" };
+  const lock = buildDecisionTrace({ trace, records: [], triage: null, hasCase: true })[3];
+  assert.equal(lock.label, "Preserved");
+});
+
 test("check lines are plain words for every recorded status", () => {
   assert.equal(checkLine({ kind: "phone", status: "not_found", route: "web_search" }), "The phone number: no record found");
   assert.equal(checkLine({ kind: "claim", status: "resolved", route: "web_search" }), "A claim it makes: checked with a web search");

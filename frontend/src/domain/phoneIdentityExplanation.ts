@@ -74,13 +74,12 @@ export function explainIdentity(result: PhoneIdentityResult): IdentityExplanatio
     number_type,
     geographic,
     country,
-    canonical,
     network,
     prefix_intelligence,
   } = result;
 
   return {
-    headline: buildHeadline(entity, confidence, canonical),
+    headline: buildHeadline(entity, confidence),
     body: buildBody(entity, confidence, evidence, number_type, geographic, country, network, prefix_intelligence),
     whatToDo: buildWhatToDo(entity, confidence, known_impersonation, scam_intel),
     spoofing: buildSpoofing(entity, confidence),
@@ -95,10 +94,9 @@ export function explainIdentity(result: PhoneIdentityResult): IdentityExplanatio
 function buildHeadline(
   entity: string | null,
   confidence: PhoneIdentityResult["association_confidence"],
-  canonical: string,
 ): string {
   if (!entity) {
-    return "No verified organisation claims this number — treat this call as likely a scam.";
+    return "Apollo couldn't identify who owns this number.";
   }
 
   switch (confidence) {
@@ -111,7 +109,7 @@ function buildHeadline(
     case "conflicting":
       return "Different sources name different organisations for this number.";
     case "unknown":
-      return "No verified organisation claims this number — treat this call as likely a scam.";
+      return "Apollo couldn't identify who owns this number.";
   }
 }
 
@@ -192,9 +190,9 @@ function buildBody(
     }
     case "unknown": {
       parts.push(
-        "ApolloSG checked its Official Organisation Directory, knowledge base, and public web sources but found no verified organisation claiming this number.",
+        "The available lookup results did not establish a verified owner for this number.",
       );
-      parts.push("An unregistered number is a common feature of scam and fraud calls — that alone is enough to treat this as concerning.");
+      parts.push("That doesn't mean the call is genuine or a scam. A number lookup does not authenticate the caller.");
       break;
     }
   }
@@ -230,7 +228,7 @@ function buildWhatToDo(
     case "conflicting":
       return "Treat this caller's identity as unverified. If they claim to be from an organisation, hang up and call the organisation directly on a number from their official website.";
     case "unknown":
-      return "Treat this call as likely a scam. Do not share personal information or act on any instructions. If the caller claims to represent an organisation, hang up and contact that organisation directly using a number from their official website.";
+      return "Treat the caller's identity as unverified. Do not share personal information or act on unexpected instructions. If they claim to represent an organisation, hang up and verify independently using a number from that organisation's official website.";
   }
 }
 

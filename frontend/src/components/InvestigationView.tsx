@@ -35,7 +35,6 @@ import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsB
 import { DetailedFindingsBrief } from "@/src/components/report/DetailedFindingsBrief";
 import { RelatedCases } from "@/src/components/report/RelatedCases";
 import { investigationVerdict, type BriefVerdict } from "@/src/domain/briefVerdict";
-import { SourceList } from "@/src/components/report/SourceList";
 import { SourceSummaryCard } from "@/src/components/report/SourceSummaryCard";
 import { sourceKind } from "@/src/domain/caseSourceSummary";
 import { ServerCopyNote } from "@/src/components/ServerCopyNote";
@@ -799,6 +798,17 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
 
       {/* ── Tab Navigation — shared component, identical to Threat Case ── */}
       <InvestigationTabBar active={activeTab} onChange={setActiveTab} testID="inv-tab-bar" />
+    </> : null}
+
+    {/* One lookup stays mounted during the investigation and across tab changes.
+        Its number facts are useful even when no final case Finding was authorised. */}
+    {phoneNumber ? (
+      <View style={activeTab === "overview" && showTabs ? undefined : { display: "none" }} testID="inv-findings-phone-lookup">
+        <PhoneIdentityCard key={phoneNumber} number={phoneNumber} defaultExpanded testID="inv-findings-phone-identity" />
+      </View>
+    ) : null}
+
+    {showTabs ? <>
 
       {/* ━━━━ TAB 1: FINDINGS BRIEF — what the investigation concluded, from the Evidence Lock ━━━━ */}
       {activeTab === "overview" ? (
@@ -999,14 +1009,6 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     {!tabsOnly && question && phase === "waiting_user" ? <View style={s.question} testID="inv-question"><Text style={s.text}>{scrubMessage(question.text)}</Text><Text style={s.muted}>Why Magnum DI asks: {scrubMessage(question.reasonNeeded)}</Text>
       {question.answerType === "yes_no" ? <View style={s.row}><Button testID="inv-answer-yes" label="Yes" onPress={() => onAnswer?.("Yes")} /><Button testID="inv-answer-no" variant="ghost" label="No" onPress={() => onAnswer?.("No")} /></View> : null}
       {question.answerType === "choice" ? <View style={s.row}>{question.choices.map((c) => <Button key={c} testID={`inv-answer-${c}`} variant="ghost" label={c} onPress={() => onAnswer?.(c)} />)}</View> : null}</View> : null}
-
-    {/* ── Who Called: mounted as soon as a phone number is known so the lookup runs during
-        the investigation, not after findings are displayed. Hidden until the DI tab opens. ── */}
-    {phoneNumber ? (
-      <View style={activeTab === "di" && showTabs ? undefined : { display: "none" }}>
-        <PhoneIdentityCard number={phoneNumber} testID="inv-di-phone-identity" />
-      </View>
-    ) : null}
 
     {/* ── DI tab: the Magnum DI processing record (evidence is untouched by this view) ── */}
     {activeTab === "di" && showTabs ? (

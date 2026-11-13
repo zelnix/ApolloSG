@@ -40,7 +40,16 @@ export interface LlamaContext {
     messages: { role: "system" | "user"; content: string }[];
     n_predict: number;
     temperature: number;
-  }): Promise<{ text: string }>;
+    response_format: { type: "json_object"; schema: { type: "object" } };
+    enable_thinking: false;
+  }): Promise<{
+    text: string;
+    content?: string;
+    stopped_limit?: number;
+    truncated?: boolean;
+    context_full?: boolean;
+    interrupted?: boolean;
+  }>;
   release(): Promise<void>;
 }
 export type InitLlama = (options: {
@@ -187,13 +196,22 @@ export class LocalLlamaRuntime implements SLMAdapter {
         ],
         n_predict: 768,
         temperature: 0.1,
+        // A prompt alone does not enforce JSON. llama.rn translates this into
+        // a native decoding grammar; shared semantic/citation validation remains
+        // authoritative after generation. Never recover by inventing an answer.
+        response_format: { type: "json_object", schema: { type: "object" } },
+        enable_thinking: false,
       }).catch((cause: unknown) => { throw nativeFailure("generation", cause); });
+      if (result.interrupted) throw new LocalInferenceError("generation", "interrupted");
+      if (result.truncated || result.context_full) throw new LocalInferenceError("generation", "context_limit_reached");
+      if (result.stopped_limit) throw new LocalInferenceError("generation", "output_limit_reached");
       // No response logging. Validation of references and allowed fields occurs
       // in runSLM() before any result can be returned to a caller.
       // llama.rn may wrap otherwise valid JSON in markdown fences or a brief
       // preamble. Extract exactly one JSON object; the shared contract validator
       // still rejects unknown keys, invented references and verdict fields.
-      const raw = result.text.trim();
+      // Prefer the SDK's answer content, which excludes any reasoning channel.
+      const raw = (result.content?.trim() || result.text.trim());
       const unfenced = raw.replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\s*\x60\x60\x60$/, "").trim();
       let parsed: unknown;
       try {

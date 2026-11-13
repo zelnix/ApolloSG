@@ -6,7 +6,6 @@
  * Designed to sit contextually alongside Higgins' explanation, never dominating it.
  */
 
-import Building from "lucide-react-native/icons/building";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import ChevronUp from "lucide-react-native/icons/chevron-up";
 import CircleCheck from "lucide-react-native/icons/circle-check";
@@ -31,7 +30,7 @@ import { ScreenedCalls } from "@/src/security/screenedCalls";
 import { type ScreenedCall } from "@/src/domain/screenedCalls";
 import { CallerIdentityAvatar } from "@/src/components/CallerIdentityAvatar";
 import { callerAvatarForIdentity } from "@/src/domain/callerAvatar";
-import { explainIdentity, TIER_LABELS, type IdentityExplanation, type TierExplanation } from "@/src/domain/phoneIdentityExplanation";
+import { explainIdentity, TIER_LABELS, type TierExplanation } from "@/src/domain/phoneIdentityExplanation";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
 /* ── Confidence display mapping ───────────────────────────────────────────── */
@@ -44,6 +43,14 @@ const CONFIDENCE_LABEL: Record<Confidence, string> = {
   possible: "Possible match",
   unknown: "Unknown",
   conflicting: "Conflicting info",
+};
+
+const CONFIDENCE_ICON = {
+  verified: CircleCheck,
+  strong: CircleCheck,
+  possible: CircleQuestionMark,
+  unknown: CircleQuestionMark,
+  conflicting: TriangleAlert,
 };
 
 /* ── Styles ────────────────────────────────────────────────────────────────── */
@@ -359,16 +366,18 @@ interface Props {
   /** 2-letter country code hint for local numbers. */
   country?: string;
   testID?: string;
+  /** Findings presents the explanation and investigation tiers immediately. */
+  defaultExpanded?: boolean;
 }
 
-export function PhoneIdentityCard({ number, country, testID }: Props) {
+export function PhoneIdentityCard({ number, country, testID, defaultExpanded = false }: Props) {
   const s = useStyles();
   const { colors } = useTheme();
   const [result, setResult] = useState<PhoneIdentityResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [observedCall, setObservedCall] = useState<ScreenedCall | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -436,7 +445,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
   const { associated_entity, association_confidence, evidence, number_type, network, geographic, freshness } = result;
   const observedFailure = observedCall?.numberVerification === "failed";
   const badgeColors = confidenceBadgeColors(association_confidence, colors);
-  const ConfidenceIcon = confidenceIcon(association_confidence);
+  const ConfidenceIcon = CONFIDENCE_ICON[association_confidence];
   const explanation = explainIdentity(result);
   const Chevron = expanded ? ChevronUp : ChevronDown;
 
@@ -499,7 +508,7 @@ export function PhoneIdentityCard({ number, country, testID }: Props) {
           <Text style={s.description}>Open the reviewed official contact page and use the number published there. Do not trust the incoming caller ID as a callback number.</Text>
         </Pressable>
       ) : result.verified_business?.business_name ? (
-        <Text style={s.description}>No independently reviewed callback destination is available. Find the business's official contact details yourself; do not call back using caller ID alone.</Text>
+        <Text style={s.description}>No independently reviewed callback destination is available. Find the business&apos;s official contact details yourself; do not call back using caller ID alone.</Text>
       ) : null}
       {/* ─ Expanded detail: only when tapped ─ */}
       {expanded ? (
@@ -601,16 +610,6 @@ function confidenceBadgeColors(confidence: Confidence, colors: ReturnType<typeof
       return { tint: colors.unknownTint, fg: colors.unknownText };
     case "conflicting":
       return { tint: colors.barkingTint, fg: colors.barkingText };
-  }
-}
-
-function confidenceIcon(confidence: Confidence) {
-  switch (confidence) {
-    case "verified": return CircleCheck;
-    case "strong": return CircleCheck;
-    case "possible": return CircleQuestionMark;
-    case "unknown": return CircleQuestionMark;
-    case "conflicting": return TriangleAlert;
   }
 }
 

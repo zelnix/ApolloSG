@@ -279,3 +279,38 @@ Device Catalog, and remove any retained 32-bit artifacts from active tracks.
 Expo's project setting for unauthenticated internal-build access must also be
 disabled by the project owner; marking a build internal does not make a public
 install URL enforce device compatibility or authenticated tester access.
+
+## Number investigation Findings and structured native answers
+
+The owner's number-investigation screenshots showed a failed on-device Higgins
+Escalation Assessment (`json_parse:no_json_object`) while a separate successful
+phone lookup was hidden in DI. The shared investigation view now presents that
+same lookup once in Findings, initially expanded, with its caller summary,
+advice, sources and geographic/range/exact-number detail. It stays mounted
+during investigation and tab changes. An unfinished case keeps its failure and
+resubmit controls; a lookup never creates or replaces an authorised case Finding.
+
+Unknown ownership alone no longer produces a "likely scam" claim or claims of
+completed web checks. Unknown-caller advice uses independent official contacts,
+does not recommend trusting callback caller ID, and does not imply landlines
+are harder to spoof. Cached responses refresh advice without changing recorded
+facts, source dates or freshness. Evidence Lock no longer treats a failed routing
+outcome or engine name as proof that a final decision was preserved.
+
+The native runtime now supplies llama.rn's JSON-object response format for
+grammar-constrained decoding and disables the optional thinking channel. It
+reads the SDK's answer content when provided and rejects interrupted, truncated,
+context-full or output-limited generations. Existing semantic/citation checks,
+case isolation and all mandatory SLM stages remain in place. The screenshots
+establish the parsing failure, not the exact generated text; constrained decoding
+and output-status handling still require a subsequent physical-device check.
+No APK or Expo build is authorised or started by this change.
+
+Validation: the updated frontend regression gate passes all 264 tests, and the
+phone guidance plus evidence-verdict/Magnum floor suites pass all 30 backend
+tests. The five existing explanation acceptance cases also pass. Full TypeScript
+checking and lint on the touched frontend files pass. An additional, unchanged
+caller-list source-wording test in `callProtectionSetup.test.ts` still fails its
+pre-existing expectation that `ScreenedCallsList.tsx` contains "this is not your
+phone"; neither that test nor that component was changed here. The installed
+build 2 APK is unchanged, and the Fold6 has not run these source changes yet.

@@ -718,16 +718,16 @@ def _unknown_caller_guidance(
 
     # If a block tier found a possible association, reference it
     if block_tier and block_tier.entity:
-        guidance.append(f"The number range is associated with {block_tier.entity}, so this may be a legitimate call from their organisation.")
+        guidance.append(f"The number range is associated with {block_tier.entity}, but that does not verify the owner of this exact number or authenticate the caller.")
 
     # General guidance
     if not block_tier or not block_tier.entity:
         guidance.append("If you answered and were asked for personal or financial details, do not provide them over the phone.")
-        guidance.append("You can try calling the number back — if it's a legitimate business, they'll typically have a reception or voicemail.")
+        guidance.append("If the caller claims to represent an organisation, verify independently using contact details from its official website. Do not use the incoming caller ID as a trusted callback number.")
 
     # Number-type-specific advice
     if "landline" in number_type or "geographic" in number_type:
-        guidance.append("Landline numbers are harder to spoof than mobiles, but still exercise normal caution.")
+        guidance.append("Caller ID can be spoofed for landlines and mobiles. The area code does not establish the caller's identity or current location.")
     elif "mobile" in number_type:
         guidance.append("Mobile numbers are frequently used in phone scams. Be especially cautious if the caller created urgency or asked for money.")
 
@@ -738,8 +738,21 @@ def _unknown_caller_guidance(
     return guidance
 
 
+def _refresh_unknown_guidance(result: PhoneIdentityResult) -> None:
+    """Refresh advice on cached responses without changing checked facts or dates."""
+    if result.association_confidence != "unknown" or result.associated_entity:
+        return
+    caller = next((tier for tier in result.prefix_intelligence if tier.tier == "caller"), None)
+    if caller:
+        geo = next((tier for tier in result.prefix_intelligence if tier.tier == "geographic"), None)
+        block = next((tier for tier in result.prefix_intelligence if tier.tier == "number_block"), None)
+        caller.business_units = _unknown_caller_guidance(
+            result.canonical, _number_details(result.canonical, None), geo, block)
+
+
 async def _refresh_business_presentation(result: PhoneIdentityResult, e164: str) -> None:
     """Never trust a cached logo: recheck live registry status on every response."""
+    _refresh_unknown_guidance(result)
     result.verified_business = None
     try:
         from services.verified_businesses import find_approved_business

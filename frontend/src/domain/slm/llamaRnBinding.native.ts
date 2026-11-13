@@ -16,7 +16,11 @@ const nativeInit: InitLlama = async (params) => {
   return {
     completion: async (options) => {
       const result = await context.completion(options);
-      return { text: result.text };
+      return {
+        text: result.text, content: result.content,
+        stopped_limit: result.stopped_limit, truncated: result.truncated,
+        context_full: result.context_full, interrupted: result.interrupted,
+      };
     },
     release: async () => {
       await context.release();
