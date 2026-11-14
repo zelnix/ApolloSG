@@ -1,5 +1,5 @@
 import { ACTIVE_MODEL, modelDownloadSizeLabel } from "@/src/domain/slm/modelProfiles";
-import { HIGGINS_DESCRIPTION } from "@/src/domain/higginsIdentity";
+import { HIGGINS_DESCRIPTION, ON_DEVICE_AI_INSTALL_LABEL, ON_DEVICE_AI_DOWNLOADING_LABEL } from "@/src/domain/higginsIdentity";
 import * as Linking from "expo-linking";
 import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
@@ -139,7 +139,7 @@ export default function SettingsScreen() {
       if (selection.canceled || !selection.assets?.length) return;
       const selected = selection.assets[0];
       if (selected.name !== CANDIDATE_FILE) {
-        showToast("Select the approved Higgins package.", "growling");
+        showToast("Select the approved On-device AI package.", "growling");
         return;
       }
       const { installPrivateLuddishForTest } = await import("@/src/domain/slm/bootstrap");
@@ -541,27 +541,27 @@ export default function SettingsScreen() {
         ) : null}
         {slmTestAvailable && !slmActivity.registered ? (
           <Pressable testID="settings-download-slm" accessibilityRole="button"
-            accessibilityLabel="Download and install Higgins model"
+            accessibilityLabel={ON_DEVICE_AI_INSTALL_LABEL}
             disabled={slmInstalling || aiDownloadActive}
             onPress={() => {
               if (aiDownloadActive) return;
-              confirmDialog("Download Higgins model?",
-                `Download approximately ${modelDownloadSizeLabel()} from the official Higgins package source and verify it on this device? Mobile data charges may apply.`,
+              confirmDialog(ON_DEVICE_AI_INSTALL_LABEL,
+                `Download approximately ${modelDownloadSizeLabel()} from the official On-device AI package source and verify it on this device? Mobile data charges may apply.`,
                 [{ text: "Cancel", style: "cancel" }, { text: "Download & Install", onPress: () => {
                   setSlmInstalling(true);
                   void import("@/src/domain/slm/bootstrap").then(m => m.downloadPrivateLuddishForTest())
-                    .then(ok => showToast(ok ? "Higgins model verified and registered." :
+                    .then(ok => showToast(ok ? "On-device AI model verified and registered." :
                       "Download or verification failed. Check storage, network and device compatibility.",
                       ok ? "neutral" : "growling"))
-                    .catch(() => showToast("Higgins model download failed.", "growling"))
+                    .catch(() => showToast("On-device AI model download failed.", "growling"))
                     .finally(() => setSlmInstalling(false));
                 } }]);
             }}
             style={[s.rowItem, s.divider]}>
             <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>{aiDownloadActive ? "Higgins setup in progress" : "Download Higgins"}</Text>
+              <Text style={s.rowLabel}>{aiDownloadActive ? (aiDownload.phase === "downloading" ? ON_DEVICE_AI_DOWNLOADING_LABEL : "On-device AI setup in progress") : ON_DEVICE_AI_INSTALL_LABEL}</Text>
               <Text style={s.rowHint}>Approximately {modelDownloadSizeLabel()}. Downloads only with your permission.</Text>
-              {aiDownloadActive ? <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm }}><ActivityIndicator size="small" /><Text style={s.rowHint}>{aiDownload.phase === "downloading" ? (aiDownload.totalBytes > 0 ? `Downloading ${Math.min(100, Math.round(100 * aiDownload.receivedBytes / aiDownload.totalBytes))}% · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} of ${(aiDownload.totalBytes / 1048576).toFixed(0)} MB` : `Downloading · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} MB received`) : aiDownload.phase === "verifying" ? "Verifying download…" : "Setting up Higgins…"}</Text></View> : null}
+              {aiDownloadActive ? <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm }}><ActivityIndicator size="small" /><Text style={s.rowHint}>{aiDownload.phase === "downloading" ? (aiDownload.totalBytes > 0 ? `${ON_DEVICE_AI_DOWNLOADING_LABEL} ${Math.min(100, Math.round(100 * aiDownload.receivedBytes / aiDownload.totalBytes))}% · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} of ${(aiDownload.totalBytes / 1048576).toFixed(0)} MB` : `${ON_DEVICE_AI_DOWNLOADING_LABEL} · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} MB received`) : aiDownload.phase === "verifying" ? "Verifying download…" : "Setting up On-device AI…"}</Text></View> : null}
               {aiDownload.phase === "failed" ? <Text style={s.rowHint}>Previous setup failed: {aiDownload.error ?? "Unknown error"}</Text> : null}
             </View>
             <ChevronRight size={20} color={colors.muted} />
@@ -569,13 +569,13 @@ export default function SettingsScreen() {
         ) : null}
         {slmTestAvailable ? (
           <Pressable testID="settings-install-slm" accessibilityRole="button"
-            accessibilityLabel="Install Higgins from device"
+            accessibilityLabel="Install On-device AI from device"
             disabled={slmInstalling || aiDownloadActive || slmActivity.registered}
             onPress={() => void installSlmModel()}
             style={[s.rowItem, s.divider, { opacity: slmInstalling || aiDownloadActive || slmActivity.registered ? 0.5 : 1 }]}>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{slmInstalling ? "Verifying model…" :
-                slmActivity.registered ? "Model runtime registered" : "Install Higgins Model"}</Text>
+                slmActivity.registered ? "Model runtime registered" : "Install On-device AI from device"}</Text>
               <Text style={s.rowHint}>Select the approved GGUF file on your phone. It is copied into private storage and verified.</Text>
             </View>
           </Pressable>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Re
 import { Text, View, Pressable, ScrollView, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { PreparingApolloSplash } from "@/src/components/LaunchSplash";
+import { ON_DEVICE_AI_INSTALL_LABEL, ON_DEVICE_AI_DOWNLOADING_LABEL } from "../higginsIdentity";
 import { startupStage } from "@/src/startup/startupStages";
 import { checkRequiredSLMCompatibility, downloadPrivateLuddishForTest, rollbackSLMSetup } from "./bootstrap";
 import { createCompatibilityAttempt, SLMCompatibilityTimeout } from "./compatibilityAttempt.ts";
@@ -32,7 +33,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
     try {
       const { work, result } = createCompatibilityAttempt({
         install: install ? downloadPrivateLuddishForTest : undefined,
-        installFailure: () => ({ compatible: false, reason: getOnDeviceAIDownloadState().error ?? "Higgins installation was not completed." }),
+        installFailure: () => ({ compatible: false, reason: getOnDeviceAIDownloadState().error ?? "On-device AI installation was not completed." }),
         check: () => checkRequiredSLMCompatibility(stage => {
           if (!settled && attempt === generation.current) setState({ status: "checking", reason: "", stage });
         }),
@@ -74,14 +75,14 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       const progress = downloadState.totalBytes > 0
         ? `${mb(downloadState.receivedBytes)} / ${mb(downloadState.totalBytes)} MB`
         : `${mb(downloadState.receivedBytes)} MB`;
-      const message = downloadState.phase === "downloading" ? `Downloading Higgins… ${progress}`
-        : downloadState.phase === "verifying" ? "Verifying downloaded Higgins model…"
-        : downloadState.phase === "registering" ? "Preparing Higgins runtime…" : "Preparing Higgins installation…";
+      const message = downloadState.phase === "downloading" ? `${ON_DEVICE_AI_DOWNLOADING_LABEL}… ${progress}`
+        : downloadState.phase === "verifying" ? "Verifying downloaded On-device AI model…"
+        : downloadState.phase === "registering" ? "Preparing On-device AI runtime…" : "Preparing On-device AI installation…";
       return <PreparingApolloSplash message={message} />;
     }
     const descriptions: Record<string, string> = {
       hardware: "Checking device hardware", model_integrity: "Verifying Higgins model",
-      runtime_registration: "Preparing Higgins runtime", inference: "Loading Higgins model",
+      runtime_registration: "Preparing On-device AI runtime", inference: "Loading Higgins model",
     };
     return <PreparingApolloSplash message={"Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility")} />;
   }
@@ -93,14 +94,14 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
       <Text style={{ fontSize: 21, fontWeight: "700", color: "#183153", textAlign: "center" }}>ApolloSG needs your attention</Text>
       <Text style={{ fontSize: 15, color: "#183153", textAlign: "center" }}>{state.reason}</Text>
       {state.diagnosticCode ? <Text selectable style={{ fontSize: 12, color: "#42546A", textAlign: "center" }}>Diagnostic: {state.diagnosticCode}</Text> : null}
-      <Text style={{ fontSize: 14, color: "#42546A", textAlign: "center" }}>Protection has not started. You can retry the check or install the required Higgins model.</Text>
+      <Text style={{ fontSize: 14, color: "#42546A", textAlign: "center" }}>Protection has not started. You can retry the check or download and install the required On-device AI model.</Text>
       <Pressable accessibilityRole="button" style={{ backgroundColor: "#183153", borderRadius: 10, paddingVertical: 14, paddingHorizontal: 22, width: "100%", alignItems: "center" }}
         onPress={() => { void verify(); }}>
         <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>Retry compatibility check</Text>
       </Pressable>
       <Pressable accessibilityRole="button" style={{ borderWidth: 1, borderColor: "#183153", borderRadius: 10, paddingVertical: 14, paddingHorizontal: 18, width: "100%", alignItems: "center" }}
         onPress={() => { void verify(true); }}>
-        <Text style={{ color: "#183153", fontWeight: "700", textAlign: "center" }}>Install Higgins and retry</Text>
+        <Text style={{ color: "#183153", fontWeight: "700", textAlign: "center" }}>{ON_DEVICE_AI_INSTALL_LABEL}</Text>
       </Pressable>
     </View>
   </ScrollView>;
