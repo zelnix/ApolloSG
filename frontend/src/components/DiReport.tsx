@@ -16,7 +16,7 @@ import { Card } from "@/src/components/ui";
 import type { PatrolEvent } from "@/src/domain/types";
 import type { FindingsRatingBreakdown, FindingsRatingDimension, HigginsResponse, HistoryNote, SettledReason, SourceReference } from "@/src/investigation/types";
 import type { DiTrace, DiTransaction } from "@/src/domain/diTransaction";
-import { buildDecisionTrace, outsideResearch, TRACE_ORDER, type PresentedResult, type ResearchRow, type TraceStatus, type TraceStep } from "@/src/domain/diTrace";
+import { buildDecisionTrace, type PresentedResult, type ResearchRow, type TraceStatus, type TraceStep } from "@/src/domain/diTrace";
 import type { TriageInvestigationRecord } from "@/src/domain/triage/contract";
 import { formatDateTime } from "@/src/domain/threatCase";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
@@ -182,14 +182,14 @@ function DecisionTrace({ steps, settled }: { steps: TraceStep[]; settled: React.
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const toggleStep = (id: string) => setExpandedSteps((prev) => {
     const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
   return (
     <Card testID="tc-di-trace">
       <Text style={s.sectionTitle}>Decision path</Text>
       {settled}
-      <Text style={[s.note, { marginBottom: spacing.md }]}>{TRACE_ORDER}</Text>
+      <Text style={[s.note, { marginBottom: spacing.md }]}>{steps.map(step => step.name).join(" → ")}</Text>
       {steps.map((step, i) => {
         const tone = tones[step.status];
         const hasDetails = step.details.length > 0;

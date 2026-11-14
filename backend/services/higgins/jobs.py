@@ -273,6 +273,11 @@ async def run(owner: str, case_id: str, job_id: str) -> None:
             await repo.set_job(owner, job_id, job["fence"], {"$set": {"status": "cancelled", "lease_until": None}})
             pass  # unaccepted bundles of this attempt are reclaimed by the sweeper; accepted history is never touched here
             return
+        if outcome.kind == "evidence_unavailable":
+            await _fail(owner, case, job, Failure(
+                code="evidence_unavailable", message="; ".join(outcome.errors), retryable=False,
+            ), partial=True)
+            return
         if outcome.kind == "device_unavailable":
             stage_failure = job.get("slm_failure") or {}
             diagnostic = DiagnosticDetail(component="on_device_ai", service="On-device AI",

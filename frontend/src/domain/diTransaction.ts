@@ -50,6 +50,8 @@ export interface FlybyTrace {
 /** The recorded decision path: Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock. A stage with no
  *  record is null — never inferred. */
 export interface DiTrace {
+  /** Recorded evidence-readability counts only; absent for historical cases. */
+  wrightReadiness?: { readable: number; unreadable: number; inventoryOnly: number } | null;
   triage: TriageInvestigationRecord | null;
   flyby: FlybyTrace | null;
   magnum: { webSearch: boolean; searchQueries: number; itemsSent: number; simulated: boolean; at: string | null } | null;

@@ -88,7 +88,10 @@ class SLMRedundancyRegression(unittest.TestCase):
         self.assertNotIn("extend", calls)
         self.assertNotIn("insert", calls)
         hawkeye = (ROOT / "backend/services/higgins/tc_hawkeye/__init__.py").read_text()
-        self.assertIn("prioritise_existing_checks(plan_.checks, triage_advice, hawkeye_advice)", hawkeye)
+        # Only the investigator's own advisory questions may prioritise checks.
+        # Wright readiness and its obsolete semantic interpretation cannot do so.
+        self.assertIn("prioritise_existing_checks(plan_.checks, hawkeye_advice)", hawkeye)
+        self.assertNotIn("prioritise_existing_checks(plan_.checks, triage_advice", hawkeye)
 
     def test_no_hawkeye_or_cloud_fallback_on_missing_slm_finding(self):
         run = function(ast.parse(COORDINATOR.read_text()), "run_turn")

@@ -204,6 +204,7 @@ async def decision_trace(owner: str, case_id: str) -> dict:
     return {
         "triage": (triage or {}).get("record"),
         "flyby": flyby,
+        "wrightReadiness": ((routing.get("slmAdvisory") or {}).get("wright_triage") or {}).get("readiness"),
         "magnum": {"webSearch": bool(magnum.get("search")), "searchQueries": magnum.get("searchQueries") or 0,
                    "itemsSent": magnum.get("itemsSent") or 0, "simulated": bool(magnum.get("simulated")),
                    "at": _iso(magnum.get("at"))} if magnum else None,

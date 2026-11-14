@@ -70,6 +70,7 @@ async def accepted_for_stage(owner: str, case: dict, job: dict, role: str) -> di
                 "verificationSuggestions": [item.wire() for item in answer.verification_suggestions],
                 "draftExplanation": answer.draft_explanation,
                 "wrightSemantic": answer.wright_semantic.wire() if answer.wright_semantic else None,
+                "wrightReadiness": answer.wright_readiness.wire() if answer.wright_readiness else None,
                 "caseFinding": answer.case_finding.wire() if answer.case_finding else None,
                 "escalationAssessment": answer.escalation_assessment.wire() if answer.escalation_assessment else None,
                 "classification": "unverified_slm_advisory",
@@ -83,13 +84,12 @@ def advisory_verification_questions(snapshot: dict | None) -> list[str]:
     """Unverified questions only. Cannot be scored or cited as verified facts."""
     if not snapshot:
         return []
+    if snapshot.get("role") == "wright_triage" or snapshot.get("wrightReadiness") or snapshot.get("wrightSemantic"):
+        return []
     questions = [
         item["text"] for item in snapshot.get("verificationSuggestions", [])
         if isinstance(item, dict) and isinstance(item.get("text"), str)
     ][:8]
-    semantic = snapshot.get("wrightSemantic") or {}
-    # Semantic interpretation focuses verification; it never satisfies a check.
-    questions += [semantic[key] for key in ("intent", "narrative", "uncertainty") if isinstance(semantic.get(key), str)]
     return questions
 
 

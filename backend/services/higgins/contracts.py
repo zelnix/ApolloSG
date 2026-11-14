@@ -28,7 +28,7 @@ Completion = Literal["complete", "partial", "waiting_user"]
 FailureCode = Literal["invalid_input", "unauthenticated", "not_found", "conflict", "provider_configuration", "rate_limited",
                       "provider_unavailable", "transport_interrupted", "incomplete_output", "unsupported_format", "evidence_expired",
                       "budget_exhausted", "device_unavailable", "permission_denied", "response_invalid", "cleanup_failed",
-                      "evidence_too_large", "budget_limit"]
+                      "evidence_too_large", "budget_limit", "evidence_unavailable"]
 EvidenceKind = Literal["text", "url", "image", "document", "audio", "attachment", "observation", "source_snapshot"]
 Platform = Literal["android", "ios", "windows", "macos", "web"]
 UUID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._:-]{3,79}$"

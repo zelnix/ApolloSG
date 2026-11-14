@@ -4,6 +4,7 @@ import asyncio
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from services.higgins.slm_contract import SLMReference
 
 
 class EvidenceError(Exception):
@@ -23,7 +24,7 @@ def load_source():
     async def read_bytes(_owner, _case, evidence_id):
         return store.data[evidence_id].encode()
     scope = {"repo": SimpleNamespace(list_evidence=list_evidence, read_bytes=read_bytes),
-             "SLMReference": lambda evidence_id, text: SimpleNamespace(evidence_id=evidence_id, text=text),
+             "SLMReference": SLMReference,
              "http": lambda status, code, message: EvidenceError(status, code, message)}
     exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec"), scope)
     return scope["_source_evidence"], store
@@ -48,6 +49,8 @@ class EvidenceCoverageTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("inventory_only_not_original_content", by_id["IMG-1"])
         self.assertIn("image evidence IMG-1", by_id["OCR-1"])
         self.assertIn("original binary not examined by SLM", by_id["OCR-1"])
+        self.assertEqual({ref.evidence_id: ref.representation for ref in refs},
+                         {"IMG-1": "inventory_only", "OCR-1": "derived_text"})
 
     async def test_binary_original_is_an_explicit_inventory_gap_not_fabricated_content(self):
         self.add("DOC-1", "document")
@@ -60,6 +63,7 @@ class EvidenceCoverageTests(unittest.IsolatedAsyncioTestCase):
         self.add("TEXT-1", "text", "Ordinary user message")
         refs = await self.source("owner", "case")
         self.assertEqual(refs[0].text, "Ordinary user message")
+        self.assertEqual(refs[0].representation, "source_text")
 
     async def test_derived_text_budget_not_silently_truncated(self):
         self.add("IMG-1", "image")

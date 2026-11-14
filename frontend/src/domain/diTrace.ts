@@ -23,7 +23,7 @@ export interface TraceStep {
   details: string[];
 }
 
-export const TRACE_ORDER = "Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock";
+export const TRACE_ORDER = "Wright Triage → TC Hawkeye → Magnum DI → Evidence Lock";
 
 const plural = (n: number, word: string, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 
@@ -42,7 +42,7 @@ const CHECK_LABEL: Record<string, string> = {
 };
 const ROUTE_LABEL: Record<string, string> = {
   official_source: "official sources", apollo_kb: "ApolloSG's library", web_search: "a web search", google_search: "a web search",
-  triage_rules: "Higgins Triage's rules",
+  triage_rules: "the protection Gate rules",
 };
 const STATUS_LABEL: Record<string, string> = {
   resolved: "checked", checked: "checked", not_found: "no record found", unavailable: "couldn't be checked",
@@ -79,7 +79,16 @@ function triageInFlyby(flyby: NonNullable<DiTrace["flyby"]>): TraceStep {
   };
 }
 
-function triageStep(triage: TriageInvestigationRecord | null, hasCase: boolean, flyby: DiTrace["flyby"] | null): TraceStep {
+function triageStep(triage: TriageInvestigationRecord | null, hasCase: boolean, flyby: DiTrace["flyby"] | null,
+  readiness?: DiTrace["wrightReadiness"]): TraceStep {
+  if (readiness) {
+    const ready = readiness.readable > 0;
+    return { id: "triage", name: "Wright Triage", status: ready ? "ran" : "failed", label: ready ? "Evidence available" : "Readable evidence needed",
+      summary: ready ? "Readable source evidence was available for investigation. Wright did not assess whether it was a scam."
+        : "No readable source evidence was available to begin an investigation. No Finding was made.",
+      details: [plural(readiness.readable, "readable item"), plural(readiness.unreadable, "unreadable item"),
+        plural(readiness.inventoryOnly, "inventory-only original") + " — original content not examined."] };
+  }
   const name = "Higgins Triage";
   if (!triage && flyby) return triageInFlyby(flyby);
   if (!triage) return { id: "triage", name, status: "not_recorded", label: "No record", summary: "No Higgins Triage record is stored for this case.", details: [] };
@@ -214,7 +223,7 @@ export function buildDecisionTrace(input: {
   presented?: PresentedResult | null; response?: HigginsResponse | null;
 }): TraceStep[] {
   const { trace, records, triage, hasCase, presented = null, response = null } = input;
-  return [triageStep(triage, hasCase, trace?.flyby ?? null), flybyStep(trace, hasCase), magnumStep(trace, records, hasCase),
+  return [triageStep(triage, hasCase, trace?.flyby ?? null, trace?.wrightReadiness), flybyStep(trace, hasCase), magnumStep(trace, records, hasCase),
     lockStep(trace, triage, hasCase, presented, response)];
 }
 
