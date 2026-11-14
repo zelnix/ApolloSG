@@ -82,7 +82,7 @@ export function RequiredSLMGate({ children }: { children: ReactNode }) {
     }
     const descriptions: Record<string, string> = {
       hardware: "Checking device hardware", model_integrity: "Verifying Higgins model",
-      runtime_registration: "Preparing On-device AI runtime", inference: "Loading Higgins model",
+      runtime_registration: "Preparing On-device AI runtime", inference: "Loading On-device AI",
     };
     return <PreparingApolloSplash message={"Preparing ApolloSG… " + (descriptions[state.stage ?? ""] ?? "Checking device compatibility")} />;
   }
