@@ -157,3 +157,24 @@ def test_read_indicators_never_matches_a_brand_inside_an_unrelated_word():
     assert read_indicators("I had a kebab for dinner.").brands == []
     assert read_indicators("I grew potatoes and tomatoes in the garden.").brands == []
     assert read_indicators("NAB: your account statement is ready.").brands == [("NAB", "nab.com.au")], "a real whole-word mention must still match"
+
+
+def test_shared_link_service_alone_does_not_establish_false_identity():
+    from services.higgins.tc_hawkeye.finding_rules import gather_ipdmc
+    from services.higgins.tc_hawkeye.checks import corroborated_impersonation
+    p = triage.plan("Check this message", ["This is eBay. Open our app at https://ebay.onelink.me/catalogue"])
+    p.entities.hosts = ["ebay.onelink.me"]
+    check = triage.Check(id="imp1", kind="impersonation", subject="eBay", urls=["ebay.com"])
+    official._impersonation(check, p)
+    p.checks = [check]
+    assert any(f.get("topic") == "shared_service" for f in check.facts)
+    assert not corroborated_impersonation(p)
+    assert not gather_ipdmc(p).identity_is_false
+
+    # Independent malicious-link evidence still establishes a concern on that same destination.
+    p.checks.append(triage.Check(id="link1", kind="link", subject="ebay.onelink.me", facts=[{
+        "class": "live_evidence", "topic": "reputation", "signal": "concern", "decisive": True,
+        "text": "The exact destination is confirmed malicious.", "place": "ebay.onelink.me",
+    }]))
+    assert corroborated_impersonation(p)
+    assert gather_ipdmc(p).identity_is_false

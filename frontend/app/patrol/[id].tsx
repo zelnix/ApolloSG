@@ -7,6 +7,7 @@
  * Data: PatrolEvent is the primary source. CaseState (Magnum DI) is optional.
  * Only shows states/actions supported by real data.
  */
+import { gateCheckResult } from "@/src/domain/gateCheckResult";
 import { incompleteOnly, presentEvent } from "@/src/domain/luddish/present";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import ChevronLeft from "lucide-react-native/icons/chevron-left";
@@ -128,6 +129,8 @@ function threatReport(event: PatrolEvent, investigation: DeviceInvestigation | n
       evidence: investigation?.evidenceItems,
     });
   }
+  const gate = gateCheckResult(event);
+  if (gate) return gate.report;
   const briefing = event.patrol_record?.higginsBriefing;
   // Checks that couldn't run aren't a caution: only a Limited result with a concerning sign is.
   const limited = event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE" && !incompleteOnly(event);
@@ -155,6 +158,8 @@ function threatVerdict(event: PatrolEvent, response: HigginsResponse | null, sta
   const statusPill = { label: STATUS_LABELS[status], bg: STATUS_COLORS[status].bg, fg: STATUS_COLORS[status].text };
   const result = threatResult(event, response);
   if (result) return { ...(response ? investigationVerdict(response) : resultVerdict(result)), status: statusPill };
+  const gate = gateCheckResult(event);
+  if (gate) return { label: gate.label, tone: "sniffing", risk: null, status: statusPill };
   const limited = event.triage_investigation?.outcome === "LIMITED_UNABLE_TO_DETERMINE" && !incompleteOnly(event);
   return { label: STATUS_LABELS[status], tone: limited ? "sniffing" : recordedTone(event.state), risk: limited ? null : riskPill(event.state), caution: limited ? LIMITED_CAUTION : null };
 }

@@ -34,8 +34,8 @@ def corroborated_impersonation(plan_: Plan) -> list[dict]:
 
     2. **Corroboration strength**: a domain that doesn't carry the brand's name at all (topic
        'impersonation', i.e. the classify() result was 'unrelated') needs concern-level
-       corroboration.  Lookalike and shared-service domains, which actively mimic the brand, are
-       corroborated by any signal.
+       corroboration.  Shared-service URLs also need concern-level corroboration: legitimate organisations use them.
+       A lookalike registrable domain retains its existing protection.
     """
     verified_sender = {
         c.subject for c in plan_.checks
@@ -61,7 +61,7 @@ def corroborated_impersonation(plan_: Plan) -> list[dict]:
 
     strong_places = {
         registrable(f["place"]) for f in mismatched
-        if f.get("place") and f.get("topic") in ("lookalike", "shared_service")
+        if f.get("place") and f.get("topic") == "lookalike"
     }
     unrelated_places = places - strong_places
 
@@ -78,7 +78,7 @@ def corroborated_impersonation(plan_: Plan) -> list[dict]:
             elif reg in unrelated_places and f["signal"] == "concern":
                 support.append(f)
 
-    lookalike_mismatched = [f for f in mismatched if f.get("topic") in ("lookalike", "shared_service")]
+    lookalike_mismatched = [f for f in mismatched if f.get("topic") == "lookalike"]
     if lookalike_mismatched:
         return lookalike_mismatched + support
 

@@ -174,7 +174,13 @@ function askedIn(text: string, pattern: RegExp): boolean {
 
 export function extractSignals(sender: string, text: string): MessageSignals {
   const t = text.toLowerCase();
-  const urls = Array.from(new Set((text.match(URL_RE) ?? []).map((u) => u.replace(/[.,;:!?]+$/, "")).filter((u) => /\.[a-z]{2,}(\/|$)/i.test(u) && !/^\d+(\.\d+)+$/.test(u))));
+  const addressRanges = Array.from(text.matchAll(/[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[a-z0-9-]+\.)+[a-z]{2,}/gi), (m) => ({ start: m.index, end: m.index + m[0].length }));
+  const urls = Array.from(new Set(Array.from(text.matchAll(URL_RE)).filter((m) => {
+    // An address is not a destination. Keep explicit URLs, including deceptive URL user-info.
+    const at = m.index ?? 0;
+    const inExplicitUrl = /\bhttps?:\/\/\S*$/i.test(text.slice(0, at));
+    return inExplicitUrl || /^https?:\/\//i.test(m[0]) || (!addressRanges.some((address) => at >= address.start && at < address.end) && text[at - 1] !== "@" && text[at + m[0].length] !== "@");
+  }).map((m) => m[0].replace(/[.,;:!?]+$/, "")).filter((u) => /\.[a-z]{2,}(\/|$)/i.test(u) && !/^\d+(\.\d+)+$/.test(u))));
   // Brand names are matched with look-alike characters read as the letters they imitate ("CommBaｎk" is CommBank);
   // the name itself is kept exactly as the message wrote it.
   const plain = text.normalize("NFKC");

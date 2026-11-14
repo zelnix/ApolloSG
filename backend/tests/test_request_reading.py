@@ -49,3 +49,15 @@ def test_kinds_are_told_apart():
     assert rq.read("Log in within 24 hours or your account will be suspended.")["sign_in_request"]
     assert not rq.disclosure(rq.read("Log in to view your statement."))
     assert rq.read("Your payment was declined. Update your payment method to keep watching.")["payment_detail_update"]
+
+
+def test_account_access_notice_is_not_a_sign_in_request():
+    text = ("You allowed account-tools.example access to your Google Account data person@gmail.com. "
+            "If you didn't allow access, check your account activity and secure your account.")
+    result = rq.read(text)
+    assert result["security_notice"]
+    assert not result["sign_in_request"]
+    assert not rq.disclosure(result)
+    assert rq.read(text + " Reply with your password now.")["secret_request"]
+    assert rq.read(text + " Send me the verification code we texted you.")["code_request"]
+    assert rq.read("Please sign in to verify your account at https://evil.example/login")["sign_in_request"]

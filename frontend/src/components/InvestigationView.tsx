@@ -30,6 +30,7 @@ import { getDeviceToken } from "@/src/auth/deviceIdentity";
 import { EvidencePopup } from "@/src/components/EvidencePopup";
 import { EvidenceArtefactCard } from "@/src/components/evidence/EvidenceArtefactCard";
 import { DiReport, Research, CollapsibleSection } from "@/src/components/DiReport";
+import { caseAuditTrail } from "@/src/domain/caseAuditTrail";
 import { outsideResearch } from "@/src/domain/diTrace";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
 import { DetailedFindingsBrief } from "@/src/components/report/DetailedFindingsBrief";
@@ -692,7 +693,15 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   const originalEvidence = useMemo(() => evidenceItems.filter((e) => e.origin === "user_submission" || e.origin === "device_observation"), [evidenceItems]);
   const derivedEvidence = useMemo(() => evidenceItems.filter((e) => e.origin !== "user_submission" && e.origin !== "device_observation"), [evidenceItems]);
 
-  const timeline = useMemo(() => buildTimeline(state), [state]);
+  const timeline = useMemo<TimelineEntry[]>(() => {
+    if (caseData || !event) return buildTimeline(state);
+    // Gate-only checks have an event record even though no investigation was opened.
+    return caseAuditTrail({ event, investigation: null, trace: null, records: [], verdict: null }).map((entry) => ({
+      title: entry.title, body: entry.description, at: entry.at ?? "",
+      iconType: entry.tone === "start" ? "create" : entry.tone === "warning" ? "failed" : "complete",
+      entryKind: entry.tone === "closed" ? "administrative_closure" : "process",
+    }));
+  }, [state, caseData, event]);
 
   // The Findings Brief's verdict and how serious it is, from the Case Briefing — read the same way on a threat.
   const computedVerdict = useMemo(() => (response ? investigationVerdict(response) : null), [response]);
@@ -888,7 +897,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       {/* ━━━━ TAB 2: EVIDENCE — Original Source Material ━━━━ */}
       {activeTab === "evidence" ? (
         <View style={{ gap: spacing.md }} testID="inv-tab-evidence-content">
-          {caseData ? <EvidenceArtefactCard caseKeys={[eventId, caseData.id]} onAvailable={setHasLocalOriginal} packTitle={`Apollo investigation ${caseData.id.slice(0, 8)}`} packDate={caseData.createdAt} packSummary={caseData.response ? {
+          {caseData || eventId ? <EvidenceArtefactCard key={eventId ?? caseData?.id} caseKeys={[eventId, caseData?.id]} onAvailable={setHasLocalOriginal} showMissing={!originalEvidence.length && !derivedEvidence.length} packTitle={caseData ? `Apollo investigation ${caseData.id.slice(0, 8)}` : "Apollo message check"} packDate={caseData?.createdAt ?? event?.occurred_at ?? ""} packSummary={caseData?.response ? {
             overview: caseData.response.overview || null,
             findings: (caseData.response.findings ?? []).map((f) => f.text),
             steps: (caseData.response.actions ?? []).map((a) => a.instruction ? `${a.label}: ${a.instruction}` : a.label),
@@ -907,7 +916,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
             ))}
           </> : null}
 
-          {!originalEvidence.length && !derivedEvidence.length && !hasLocalOriginal && !failure ? <Card style={s.card}><Text style={s.muted}>No evidence items are available for this investigation.</Text></Card> : null}
+          {!caseData && !eventId && !originalEvidence.length && !derivedEvidence.length && !hasLocalOriginal && !failure ? <Card style={s.card}><Text style={s.muted}>No evidence items are available for this investigation.</Text></Card> : null}
 
           {/* Investigation incomplete alert */}
           {failure ? (
@@ -947,6 +956,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
 
           {/* Timeline */}
           <Card style={[s.card, { gap: spacing.md }]} testID="inv-history-timeline">
+            {!timeline.length ? <Text style={s.muted}>No history is recorded for this case.</Text> : null}
             {timeline.map((entry, i) => {
               const isLast = i === timeline.length - 1;
               const dotBg = entry.entryKind === "administrative_closure" ? "#6B7280"

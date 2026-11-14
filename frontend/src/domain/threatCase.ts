@@ -9,6 +9,7 @@
  * - No fabricated investigation stages, block claims, evidence, or timeline events.
  */
 
+import { gateCheckResult } from "./gateCheckResult.ts";
 import { needsYou } from "./caseBriefing.ts";
 import { notFullyChecked } from "./luddish/present.ts";
 import { investigatorName } from "./messageVoice.ts";
@@ -106,6 +107,7 @@ export function threatCaseStatus(event: PatrolEvent): ThreatCaseStatus {
   if (hasInvestigation && !event.investigation_completed_at) return "investigating";
   // "Needs you" only when the case owes the person a decision with a concrete reason (caseBriefing.needsYou) —
   // never from a Barking, review or keeping-watch state on its own.
+  if (gateCheckResult(event)) return "no_threat";
   if (needsYou(event)) return "attention";
   return "monitoring";
 }

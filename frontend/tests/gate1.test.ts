@@ -22,19 +22,19 @@ test("parseEmail reads headers, body and attachments", () => {
 test("E01 acceptance: CommBank impersonation from off-domain sender with login link → barking", () => {
   const r = analyseEmail(FWD);
   assert.equal(r.state, "barking"); assert.equal(r.scenario, "E01"); assert.equal(r.claimedBrand, "CommBank");
-  assert.match(r.verdict, /wasn't sent from CommBank/); assert.deepEqual(r.lookalikeUrls, ["https://netbank-commbank-verify.top/login"]); assert.equal(r.handoff.account, true); assert.equal(r.handoff.web, true);
+  assert.match(r.verdict, /relationship to CommBank is unverified/); assert.deepEqual(r.lookalikeUrls, ["https://netbank-commbank-verify.top/login"]); assert.equal(r.handoff.account, true); assert.equal(r.handoff.web, true);
 });
 test("E11 genuine email from the brand's own domain, links on-domain → ears_up (not resting: has links), resting with no links", () => {
   const r = analyseEmail("From: CommBank <noreply@commbank.com.au>\nSubject: Your statement is ready\n\nYour statement is available in NetBank: https://www.commbank.com.au/netbank");
   assert.equal(r.scenario, "E11"); assert.equal(r.state, "ears_up"); assert.equal(r.lookalikeUrls.length, 0);
   assert.equal(analyseEmail("From: CommBank <noreply@commbank.com.au>\nSubject: Branch hours\n\nOur branch hours change next week.").state, "resting");
 });
-test("E02 unknown-service account alert with link and supporting context → growling; plain sign-in request alone isn't one; known brand off-domain → barking", () => {
+test("E02 unknown-service account alert with link and supporting context → growling; plain sign-in request alone isn't one; known brand off-domain notice → verification concern", () => {
   const r = analyseEmail("From: Support <alerts@service-mail.top>\nSubject: Verify your account\n\nPlease sign in to verify your account within 24 hours or it will be suspended: https://service-mail.top/verify");
   assert.equal(r.scenario, "E02"); assert.equal(r.state, "growling"); assert.equal(r.handoff.account, true);
   const plain = analyseEmail("From: Support <alerts@service-mail.top>\nSubject: Verify your account\n\nPlease sign in to verify your account: https://service-mail.top/verify");
   assert.notEqual(plain.scenario, "E02", "an ordinary sign-in request needs supporting context"); assert.equal(plain.handoff.account, false);
-  assert.equal(analyseEmail("From: Microsoft account team <no-reply@ms-security-alerts.com>\nSubject: Unusual sign-in activity\n\nReview the sign-in and secure your account: https://ms-security-alerts.com/review").state, "barking");
+  assert.equal(analyseEmail("From: Microsoft account team <no-reply@ms-security-alerts.com>\nSubject: Unusual sign-in activity\n\nReview the sign-in and secure your account: https://ms-security-alerts.com/review").state, "growling");
 });
 test("E03 risky attachment from unknown sender → barking; document attachment alone is fine", () => {
   const r = analyseEmail("From: accounts@random-supplier.biz\nSubject: Invoice\nAttachments: Invoice_4471.pdf.exe\n\nPlease find attached.");

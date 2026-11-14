@@ -385,3 +385,19 @@ cross-device rejection, exact source inventory, binary/derived provenance, all
 source windows, no Wright check-priority influence, evidence-only admission to
 Hawkeye, explicit evidence-unavailable jobs, Gate parity and retained verdict
 floors. Physical-device acceptance awaits an explicitly requested new APK.
+
+## Account-notification false positives and report consistency (14 November 2026)
+
+A synthetic Google account-access notification reproduced a contradiction: automatic Gate checks recorded no matching rules while Findings repeated an older scam warning; Evidence and History were empty because no investigation case existed.
+
+- Read generic “secure your account” advice separately from explicit sign-in or secret-disclosure requests. Recognise account-access notifications without trusting their sender or cancelling later harmful requests. Mirror the request reader change in the backend.
+- Exclude standalone email addresses from message URL candidates while retaining explicit URLs, including deceptive URL user-info.
+- Treat a different sender/link domain as an unverified relationship rather than an automatic impersonation assertion. Keep warnings for sensitive requests with supporting context.
+- Require independent concern-level corroboration before a branded shared-service link establishes false identity or deception. Preserve the existing treatment of lookalike registrable domains and independently malicious destinations; no provider or application hostname is whitelisted.
+- Project a Gate-only record with no matching rules into Findings and attention status consistently. Explain that no threat was identified by available checks, without calling the message genuine. Preserve precedence for committed investigations, enforcement and recorded malicious-link evidence.
+- Load the device's existing original into Evidence using the event ID as well as an optional investigation ID. Use the existing case audit trail for Gate-only History; do not invent investigation stages or timestamps.
+- Re-read eligible local email cases under the updated reader version from their retained originals. Keep prior check records, user closures, source bytes and investigated cases intact.
+
+These changes do not add the separate SLM comprehension stage discussed after Wright readiness. That stage should identify the claimed sender, actual requested action and each URL's role using evidence references; its hypotheses require verification before they can change a finding. Established evidence floors remain in force.
+
+Regression coverage includes a synthetic account-access notice, third-party links, recipient addresses, appended password/code theft, preserved historical records, lookalike-domain scam cases and malicious shared-service destinations. Source changes require a later APK and backend deployment; automatic APK builds remain paused.

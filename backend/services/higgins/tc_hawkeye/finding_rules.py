@@ -284,7 +284,7 @@ def gather_ipdmc(plan: Plan) -> IPDMCChecks:
         lookalike_facts = [
             f for c in impersonation_checks for f in c.facts
             if f.get("class") == "live_evidence" and f["signal"] == "anomaly"
-            and f.get("topic") in ("lookalike", "shared_service")
+            and f.get("topic") == "lookalike"
         ]
         if lookalike_facts:
             checks.identity_is_false = True
@@ -481,7 +481,7 @@ def s3_scam_activity(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
     if corroborated:
         established_deception.extend(f["text"] for f in corroborated if f.get("text"))
 
-    # A lookalike/shared-service domain (anomaly from the impersonation check) is itself
+    # A lookalike registrable domain (anomaly from the impersonation check) is itself
     # established deception: the domain name was chosen to carry the brand's name.
     # This catches the case where corroborated_impersonation() returns evidence items
     # that may have already been counted, as well as direct lookalike evidence.
@@ -489,7 +489,7 @@ def s3_scam_activity(plan: Plan, ipdmc: IPDMCChecks) -> RuleResult:
         if c.kind == "impersonation":
             for f in c.facts:
                 if (f.get("class") == "live_evidence" and f["signal"] == "anomaly"
-                        and f.get("topic") in ("lookalike", "shared_service")
+                        and f.get("topic") == "lookalike"
                         and f.get("text") and f["text"] not in established_deception):
                     established_deception.append(f["text"])
 

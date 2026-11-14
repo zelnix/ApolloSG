@@ -141,10 +141,10 @@ test("an ordinary sign-in request counts only with supporting context", () => {
   assert.equal(phish.state, "barking");
 });
 
-test("a caution with no warning sign behind it is filed as checked; a warning or a guard finding never is", () => {
+test("a recorded clean Gate result governs email filing; incomplete checks and Link Guard findings remain", () => {
   assert.equal(emailPatrolState("ears_up", "resting", "NO_THREAT_IDENTIFIED"), "resting");
   assert.equal(emailPatrolState("ears_up", "resting", "LIMITED_UNABLE_TO_DETERMINE"), "ears_up");
   assert.equal(emailPatrolState("ears_up", "growling", "NO_THREAT_IDENTIFIED"), "ears_up");
-  assert.equal(emailPatrolState("growling", "resting", "NO_THREAT_IDENTIFIED"), "growling");
+  assert.equal(emailPatrolState("growling", "resting", "NO_THREAT_IDENTIFIED"), "resting");
   assert.equal(emailPatrolState("barking", "resting", "POSSIBLE_THREAT_IDENTIFIED"), "barking");
 });

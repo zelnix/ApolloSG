@@ -39,11 +39,11 @@ _DELIVERY = re.compile(r"\b(?:code|otp|passcode|pin)\b[^.!?]{0,25}?(?:\bis\b|:)\
                        r"|\buse (?:the )?(?:code |this code |otp )?\d{4,8}\b|\bhere(?:'s| is) your\b[^.!?]{0,30}\bcode\b|\benter (?:this|the) code\b", re.I)
 _NOTICE = re.compile(r"\bpassword (?:was|has been|is) (?:changed|reset|updated)\b|\bnew sign-?in\b|\bnew (?:device|login|log-?in)\b"
                      r"|\b(?:signed|logged) in (?:on|from|to|with) a new\b|\bif (?:this|it) was you\b|\bif you (?:did ?n[o']?t|did not) (?:make|request|do|recogni[sz]e|sign)\b"
-                     r"|\bsecurity alert\b|\bunusual (?:sign-?in|activity)\b|\bwe noticed\b|\bwas used to sign in\b", re.I)
+                     r"|\bsecurity alert\b|\bunusual (?:sign-?in|activity)\b|\bwe noticed\b|\bwas used to sign in\b|\byou (?:allowed|granted|authori[sz]ed)\b[^\n!?]{0,180}\baccess\b", re.I)
 _SIGN_IN = re.compile(r"\b(?:log ?in|sign ?in|login)\b\s+(?:to|now|here|below|at|and|with|again|using|within|before|today|immediately)\b|^(?:please\s+)?(?:log ?in|sign ?in)\b|\b(?:log ?in|sign ?in)\s*(?:now|here)?\s*[:>]"
                       r"|\bverify (?:your )?(?:account|identity|email|details|information)\b|\bconfirm (?:your )?(?:account|identity|details|information)\b"
                       r"|\bupdate (?:your )?(?:account|details|information|billing)\b|\breactivate\b|\bunlock your account\b"
-                      r"|\brestore (?:your )?(?:account|access)\b|\bsecure your account\b|\b(?:reset|change) your password\b", re.I)
+                      r"|\brestore (?:your )?(?:account|access)\b|\b(?:reset|change) your password\b", re.I)
 
 
 def _clauses(text: str) -> list[str]:

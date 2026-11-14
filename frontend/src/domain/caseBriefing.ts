@@ -2,6 +2,7 @@
 // SAME briefing (backend services/higgins/explain/briefing.py), so they can't say different things about one case.
 // DI stays the technical trace and Evidence the original material. Pure: no React Native, unit-tested in node.
 import type { CaseBriefing, HigginsResponse } from "../investigation/types";
+import { gateCheckResult } from "./gateCheckResult.ts";
 import { evidenceModel } from "./evidenceModel.ts";
 import { sentences } from "./luddish/patterns.ts";
 import { outcomeLabel, outcomeTone } from "./messageVoice.ts";
@@ -160,6 +161,7 @@ export function needsYou(event: PatrolEvent): boolean {
   if (b) return b.userActionRequired && !!clean(b.actionReason);
   const investigation = event.investigation_case_id ?? event.patrol_record?.investigationCaseId;
   if (investigation) return false; // still investigating, or answered without a recorded decision
+  if (gateCheckResult(event)) return false;
   const model = evidenceModel(event);
   const serverHeld = model.representation === "privacy_summary" || model.representation === "privacy_protected_copy";
   return BARKING(event) && !serverHeld && model.completeness !== "partial"
@@ -181,5 +183,7 @@ export function firstFinding(b: EventBriefing): string {
 /** Title and summary for a case card (Home and Threats): the briefing's when there is one, else what Apollo recorded. */
 export function caseCardText(event: PatrolEvent, fallbackTitle: string): { title: string; summary: string | null } {
   const b = briefed(event);
-  return b ? { title: b.headline, summary: b.summary } : { title: fallbackTitle, summary: null };
+  if (b) return { title: b.headline, summary: b.summary };
+  const gate = gateCheckResult(event);
+  return gate ? { title: gate.label, summary: gate.report.answer[0] } : { title: fallbackTitle, summary: null };
 }

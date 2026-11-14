@@ -20,7 +20,7 @@ import { emailTriageEvidence, messageTriageEvidence } from "./evidence.ts";
 import { REJUDGED_LINE } from "../luddish/present.ts";
 
 /** Runs once per rule catalogue version (and per change to this re-judge). */
-export const REJUDGE_VERSION = `${CATALOGUE_VERSION}:2`;
+export const REJUDGE_VERSION = `${CATALOGUE_VERSION}:3`;
 
 /** The routed link result the record holds ("… handed to the Link Gate, which found: POSSIBLE_THREAT_IDENTIFIED"). */
 function recordedLinkOutcome(t: TriageInvestigationRecord): TriageOutcome | null {
@@ -56,12 +56,13 @@ const field = (src: OriginalSource, label: string) => src.fields?.find((f) => f.
  *  before you tap", "a good sign, not a guarantee" — is not a detection: when Higgins Triage found no threat and the
  *  Link Guard raised nothing, the email is filed as checked, never as something Apollo is reacting to. */
 export function emailPatrolState(state: ApolloState, guardState: ApolloState, outcome: TriageOutcome): ApolloState {
-  return state === "ears_up" && guardState === "resting" && outcome === "NO_THREAT_IDENTIFIED" ? "resting" : state;
+  return guardState === "resting" && outcome === "NO_THREAT_IDENTIFIED" ? "resting" : state;
 }
 
 /** A case this re-judge applies to: an on-device Triage of a text or email, with no investigation and not trusted. */
 export function rejudgeCandidate(e: PatrolEvent): boolean {
   return (e.category === "message" || e.category === "email") && !!e.triage_investigation && !e.investigation_case_id
+    && !e.patrol_record?.investigationCaseId && !e.investigation_completed_at && !e.case_briefing
     && e.status !== "trusted" && e.evidence_provenance !== NATIVE_PROTECTION_PROVENANCE;
 }
 
