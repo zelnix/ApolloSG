@@ -53,7 +53,7 @@ export interface LlamaContext {
     interrupted?: boolean;
   }>;
   countFormattedTokens?(messages: { role: "system" | "user"; content: string }[], schema: object): Promise<number>;
-  stopCompletion?(): Promise<void>;
+  stopCompletion?(): void | Promise<void>;
   release(): Promise<void>;
 }
 export type InitLlama = (options: {
@@ -134,9 +134,20 @@ export class LocalLlamaRuntime implements SLMAdapter {
   private queued = 0;
   private generation = 0;
   private suspended = false;
+  private generating = false;
+
+  /** Pinned llama.rn's JSI stop returns void despite its Promise declaration.
+   * Native lifecycle errors must never escape an AppState callback.
+   * The serial slot is still held until the original completion settles.
+   */
+  private stopNativeGeneration(): void {
+    if (!this.generating || !this.context?.stopCompletion) return;
+    try { void Promise.resolve(this.context.stopCompletion()).catch(() => undefined); }
+    catch { /* Native context may already have stopped; retain the execution slot. */ }
+  }
   suspend(value: boolean): void {
     this.suspended = value;
-    if (value) { this.generation++; void this.context?.stopCompletion?.().catch(() => undefined); }
+    if (value) { this.generation++; this.stopNativeGeneration(); }
   }
   private readonly initLlama: InitLlama;
   private readonly nCtx: number;
@@ -192,9 +203,13 @@ export class LocalLlamaRuntime implements SLMAdapter {
   }
 
   async canFitAsync(request: SLMRequest): Promise<boolean> {
+    const generation = this.generation;
+    if (this.closed || this.suspended || request.signal?.aborted) throw new LocalInferenceError("preflight", "expired_or_cancelled");
     const context = await this.load();
+    if (generation !== this.generation || this.closed || this.suspended || request.signal?.aborted) throw new LocalInferenceError("preflight", "expired_or_cancelled");
     if (!context.countFormattedTokens) return this.canFit(request);
     const tokens = await context.countFormattedTokens([{ role: "system", content: instructionsFor(request) }, { role: "user", content: promptFor(request) }], outputSchema(request));
+    if (generation !== this.generation || this.closed || this.suspended || request.signal?.aborted) throw new LocalInferenceError("preflight", "expired_or_cancelled");
     return tokens + outputTokens(request.operation) + 256 <= this.nCtx;
   }
 
@@ -221,12 +236,13 @@ export class LocalLlamaRuntime implements SLMAdapter {
         if (tokens + outputTokens(request.operation) + 256 > this.nCtx) throw new LocalInferenceError("preflight", "context_budget_exceeded");
       }
       let interrupted = false;
-      const stop = () => { interrupted = true; void context.stopCompletion?.().catch(() => undefined); };
+      const stop = () => { interrupted = true; this.stopNativeGeneration(); };
       const remaining = Math.min(90000, deadline - Date.now());
-      if (remaining <= 0 || request.signal?.aborted) throw new LocalInferenceError("preflight", "expired_or_cancelled");
+      if (remaining <= 0 || request.signal?.aborted || this.suspended || this.closed || generation !== this.generation) throw new LocalInferenceError("preflight", "expired_or_cancelled");
       const timer = setTimeout(stop, remaining);
       request.signal?.addEventListener("abort", stop, { once: true });
       let result;
+      this.generating = true;
       try { result = await context.completion({
         messages: [
           { role: "system", content: instructions },
@@ -240,7 +256,7 @@ export class LocalLlamaRuntime implements SLMAdapter {
         response_format: { type: "json_object", schema: outputSchema(request) },
         enable_thinking: false,
       }).catch((cause: unknown) => { throw nativeFailure("generation", cause); });
-      } finally { clearTimeout(timer); request.signal?.removeEventListener("abort", stop); }
+      } finally { this.generating = false; clearTimeout(timer); request.signal?.removeEventListener("abort", stop); }
       // Keep this serial slot until native completion settles, even after stop was requested.
       if (interrupted || generation !== this.generation || Date.now() >= deadline) throw new LocalInferenceError("generation", "expired_or_cancelled");
       if (result.interrupted) throw new LocalInferenceError("generation", "interrupted");
@@ -275,7 +291,7 @@ export class LocalLlamaRuntime implements SLMAdapter {
   async release(): Promise<void> {
     this.closed = true;
     this.generation++;
-    void this.context?.stopCompletion?.().catch(() => undefined);
+    this.stopNativeGeneration();
     await this.queue;
     if (this.loading) {
       try { await this.loading; } catch { /* closed during load */ }

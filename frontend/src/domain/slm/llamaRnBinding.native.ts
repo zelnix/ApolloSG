@@ -18,7 +18,7 @@ const nativeInit: InitLlama = async (params) => {
       const formatted = await context.getFormattedChat(messages, null, { jinja: true, enable_thinking: false, response_format: { type: "json_object", schema } });
       return (await context.tokenize(formatted.prompt)).tokens.length;
     },
-    stopCompletion: () => context.stopCompletion(),
+    stopCompletion: async () => { await context.stopCompletion(); },
     completion: async (options) => {
       const result = await context.completion(options);
       return {
