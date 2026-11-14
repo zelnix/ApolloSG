@@ -1,3 +1,4 @@
+import { ACTIVE_MODEL } from "../src/domain/slm/modelProfiles.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { verifyPrivateGGUF, CANDIDATE_FILE, MIN_DEVICE_RAM_BYTES } from "../src/domain/slm/modelAdmission.ts";
@@ -5,7 +6,7 @@ import { verifyPrivateGGUF, CANDIDATE_FILE, MIN_DEVICE_RAM_BYTES } from "../src/
 const sample = {
   uri: "file:///private/Documents/"+CANDIDATE_FILE,
   exists: true,
-  size: 490_000_000,
+  size: ACTIVE_MODEL.expectedBytes!,
   open: () => { throw new Error("should not be reached"); },
 };
 

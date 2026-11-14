@@ -2,6 +2,11 @@ name: SLM Android native compile
 # Standalone APK build requested for slm physical-device acceptance.
 
 on:
+  push:
+    branches: [slm]
+    paths:
+      - 'frontend/src/domain/slm/modelProfiles.ts'
+      - 'frontend/app.config.js'
   workflow_call:
   workflow_dispatch:
     inputs:
@@ -16,6 +21,10 @@ permissions:
 
 jobs:
   compile:
+    # Ordinary pushes remain build-free. This marker is reserved for an explicit owner build request.
+    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[requested-apk]') }}
+    permissions:
+      contents: write
     name: Assemble standalone Android SLM test APK (optional debug)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -64,6 +73,17 @@ jobs:
           esac
       - name: Prebuild Android project without checking generated native code into Git
         run: npx expo prebuild --platform android --clean --no-install --non-interactive
+      - name: Record active model profile in the requested APK
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const { ACTIVE_MODEL, REFERENCE_MODEL } = require('./src/domain/slm/modelProfiles.ts');
+          fs.mkdirSync('android/app/src/main/assets', { recursive: true });
+          fs.writeFileSync('android/app/src/main/assets/higgins-model-profile.json', JSON.stringify({
+            ...ACTIVE_MODEL, sourceCommit: process.env.GITHUB_SHA,
+            retireAfterSuccessfulLoad: REFERENCE_MODEL.filename,
+          }, null, 2));
+          NODE
       - name: Compile native Android debug APK (manual opt-in)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_debug }}
         run: |
@@ -102,3 +122,37 @@ jobs:
           path: frontend/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 3
           if-no-files-found: error
+
+      - name: Verify update signing and publish the requested APK download
+        if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[requested-apk]')) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK_FILE=android/app/build/outputs/apk/release/app-release.apk
+          APK_SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$APK_SIGNER" verify --print-certs "$APK_FILE" > /tmp/apollo-apk-signature.txt
+          python3 - <<'PYVERIFY'
+          import json, zipfile
+          from pathlib import Path
+          signature = Path('/tmp/apollo-apk-signature.txt').read_text()
+          expected = 'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c'
+          if 'Signer #1 certificate SHA-256 digest: ' + expected not in signature:
+              raise SystemExit('APK signer differs from the existing GitHub APK; refusing update publication')
+          with zipfile.ZipFile('android/app/build/outputs/apk/release/app-release.apk') as archive:
+              profile = json.loads(archive.read('assets/higgins-model-profile.json'))
+              if profile['modelId'] != 'Qwen3-1.7B-Q4_K_M' or profile['contextTokens'] != 8192:
+                  raise SystemExit('Unexpected active model profile; refusing publication')
+          PYVERIFY
+          APK_NAME="ApolloSG-1.1.0-build3-qwen3-arm64.apk"
+          cp "$APK_FILE" "$APK_NAME"
+          sha256sum "$APK_NAME" > "$APK_NAME.sha256"
+          TAG="slm-qwen3-build3-${GITHUB_SHA:0:7}"
+          cat > /tmp/apollo-apk-release.md <<'NOTES'
+          Owner-requested ARM64-only standalone APK, version 1.1.0 build 3.
+          Higgins uses Qwen3-1.7B Q4_K_M with an 8192-token context, non-thinking and CPU execution.
+          The model downloads separately (approximately 1.11 GB); it is not embedded in the APK.
+          The previous app-private Qwen2.5 model is removed only after Qwen3 loads successfully.
+          Physical-device model quality, memory and thermal qualification remain pending.
+          NOTES
+          gh release create "$TAG" "$APK_NAME" "$APK_NAME.sha256" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "ApolloSG 1.1.0 build 3 — Higgins Qwen3 (ARM64)" --notes-file /tmp/apollo-apk-release.md
+          echo "APK: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME" >> "$GITHUB_STEP_SUMMARY"

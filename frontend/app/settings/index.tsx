@@ -1,4 +1,4 @@
-import { ACTIVE_MODEL } from "@/src/domain/slm/modelProfiles";
+import { ACTIVE_MODEL, modelDownloadSizeLabel } from "@/src/domain/slm/modelProfiles";
 import { HIGGINS_DESCRIPTION } from "@/src/domain/higginsIdentity";
 import * as Linking from "expo-linking";
 import * as DocumentPicker from "expo-document-picker";
@@ -546,7 +546,7 @@ export default function SettingsScreen() {
             onPress={() => {
               if (aiDownloadActive) return;
               confirmDialog("Download Higgins model?",
-                "Download approximately 491 MB from the official Higgins package source and verify it on this device? Mobile data charges may apply.",
+                `Download approximately ${modelDownloadSizeLabel()} from the official Higgins package source and verify it on this device? Mobile data charges may apply.`,
                 [{ text: "Cancel", style: "cancel" }, { text: "Download & Install", onPress: () => {
                   setSlmInstalling(true);
                   void import("@/src/domain/slm/bootstrap").then(m => m.downloadPrivateLuddishForTest())
@@ -560,7 +560,7 @@ export default function SettingsScreen() {
             style={[s.rowItem, s.divider]}>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{aiDownloadActive ? "Higgins setup in progress" : "Download Higgins"}</Text>
-              <Text style={s.rowHint}>Approximately 491 MB. Downloads only with your permission.</Text>
+              <Text style={s.rowHint}>Approximately {modelDownloadSizeLabel()}. Downloads only with your permission.</Text>
               {aiDownloadActive ? <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm }}><ActivityIndicator size="small" /><Text style={s.rowHint}>{aiDownload.phase === "downloading" ? (aiDownload.totalBytes > 0 ? `Downloading ${Math.min(100, Math.round(100 * aiDownload.receivedBytes / aiDownload.totalBytes))}% · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} of ${(aiDownload.totalBytes / 1048576).toFixed(0)} MB` : `Downloading · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} MB received`) : aiDownload.phase === "verifying" ? "Verifying download…" : "Setting up Higgins…"}</Text></View> : null}
               {aiDownload.phase === "failed" ? <Text style={s.rowHint}>Previous setup failed: {aiDownload.error ?? "Unknown error"}</Text> : null}
             </View>

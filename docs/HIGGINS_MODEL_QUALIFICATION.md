@@ -14,7 +14,7 @@ of this work. No fine-tuning was initiated.
 | Bytes | 491400032 | 1107409472 |
 | SHA-256 | 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db | b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897 |
 | Context | existing 4096-token reference | qualify 8192 tokens; 4096 needs separate evaluation |
-| Adoption | retained reference | NOT adopted; qualification pending |
+| Selection | available reference | Active by explicit owner request; qualification pending |
 
 Metadata was read from Hugging Face model APIs with `blobs=true`. Candidate base
 model is Qwen/Qwen3-1.7B, revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e.
@@ -99,4 +99,13 @@ than displayed with altered meaning. No fallback is presented as successful AI.
 
 The current comparison is package/source compatibility and software-regression
 validation only. No real-model quality ranking or supported-device performance
-claim has been made. The replacement remains inactive until those results exist.
+claim has been made. The owner subsequently requested activation for an APK. Qwen3 is now active; those physical measurements remain outstanding.
+
+## Owner-requested Qwen3 APK activation
+
+Qwen3 is active by explicit owner request, using the pinned package and 8192-token
+CPU profile. Physical qualification remains pending. Android versionCode advances
+to 3. Startup removes only the superseded app-private Qwen2.5 package after the
+active Qwen3 context successfully loads. Failed preparation preserves the old file;
+cleanup failures are retried on a later startup. Imported originals, investigations,
+evidence and settings are untouched. The APK does not embed the 1.11-GB model.

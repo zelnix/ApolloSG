@@ -2,6 +2,7 @@
  * The model header and file location are checked before native inference admission.
  * The one instance services Ask Higgins and all investigation roles.
  */
+import { prepareAndRetireReferenceModel } from "./modelMigration.ts";
 import { ACTIVE_MODEL, packageUrl } from "./modelProfiles.ts";
 import * as Device from "expo-device";
 import * as Network from "expo-network";
@@ -202,7 +203,12 @@ export async function checkRequiredSLMCompatibility(
     }
     // Actually load the native model context. Do not run a synthetic case investigation.
     mark("inference");
-    await (getSharedSLM() as LocalLlamaRuntime).prepare();
+    const activeRuntime = getSharedSLM() as LocalLlamaRuntime;
+    const migration = await prepareAndRetireReferenceModel(activeRuntime.modelId, () => activeRuntime.prepare(), filename => {
+      const previous = new File(Paths.document, filename);
+      if (previous.exists) previous.delete();
+    });
+    if (migration.cleanupFailed) console.warn("[Higgins] Previous model cleanup could not finish; startup will retry it next time.");
     mark("complete");
     return { compatible: true, reason: "Higgins compatibility verified." };
   } catch (error) {

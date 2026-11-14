@@ -197,7 +197,7 @@ test("native context preflight accounts for system instructions as well as evide
 
 test("native token accounting reserves output and rejects before generation", async () => {
   let calls = 0;
-  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => ({ countFormattedTokens: async () => 4000, completion: async () => { calls++; return { text: result }; }, release: async () => undefined }));
+  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => ({ countFormattedTokens: async () => 8000, completion: async () => { calls++; return { text: result }; }, release: async () => undefined }));
   await assert.rejects(runtime.infer({ ...base, evidence: [{ evidenceId: "current", text: "Claim" }] }), /context_budget_exceeded/); assert.equal(calls, 0); await runtime.release();
 });
 test("cancelled native work retains its serial slot until it settles", async () => {

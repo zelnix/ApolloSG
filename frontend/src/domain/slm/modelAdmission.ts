@@ -4,7 +4,7 @@
  */
 import { ACTIVE_MODEL, type ModelProfile } from "./modelProfiles.ts";
 export const CANDIDATE_FILE = ACTIVE_MODEL.filename;
-export const MIN_DEVICE_RAM_BYTES = 3 * 1024 * 1024 * 1024;
+export const MIN_DEVICE_RAM_BYTES = ACTIVE_MODEL.minimumTotalRamBytes;
 const MIN_MODEL_BYTES = 100 * 1024 * 1024;
 const MAX_MODEL_BYTES = 1024 * 1024 * 1024;
 

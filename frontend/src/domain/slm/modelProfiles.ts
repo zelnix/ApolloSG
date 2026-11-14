@@ -19,10 +19,12 @@ export const PROPOSED_MODEL: ModelProfile = {
   minimumTotalRamBytes: 6 * 1024 ** 3, qualification: "pending_physical_qualification",
 };
 export const profileForModel = (modelId: string): ModelProfile | undefined => [REFERENCE_MODEL, PROPOSED_MODEL].find(p => p.modelId === modelId);
-export const ACTIVE_MODEL = REFERENCE_MODEL; // Migration awaits measured quality and device qualification.
+export const ACTIVE_MODEL = PROPOSED_MODEL; // Activated by owner request; physical qualification remains pending.
 export const packageUrl = (profile: ModelProfile) => `https://huggingface.co/${profile.publisher}/resolve/${profile.revision}/${profile.filename}`;
 export const outputTokens = (operation: string) => operation === "case_finding" ? 1024 : ["escalation_assessment", "evidence_reasoning"].includes(operation) ? 512 : 384;
 export const SAMPLING_PROFILES = {
   nonThinking: { temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0 },
   structuredEvaluation: { temperature: 0.2, top_p: 0.8, top_k: 20, min_p: 0 },
 } as const;
+
+export const modelDownloadSizeLabel = (profile: ModelProfile = ACTIVE_MODEL) => profile.expectedBytes === null ? "Size not confirmed" : `${(profile.expectedBytes / 1_000_000_000).toFixed(2)} GB`;
