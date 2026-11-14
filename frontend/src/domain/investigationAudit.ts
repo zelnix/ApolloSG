@@ -7,9 +7,10 @@ export interface SlmStage {
   caseId: string; caseRevision?: number; requestId: string; role: string; operation?: string;
   observedAt?: string; requestedAt?: string | null; startedAt?: string; returnedAt?: string; acceptedAt?: string; failedAt?: string;
   status: "requested" | "running" | "returned" | "accepted" | "failed";
+  completedWindows?: number; totalWindows?: number;
   output?: unknown; failure?: string; modelId?: string;
 }
-export interface InvestigationAudit { ownerId: string; caseId: string; deleted?: boolean; stages: SlmStage[]; trace?: DiTrace | null; records?: DiTransaction[] }
+export interface InvestigationAudit { ownerId: string; caseId: string; deleted?: boolean; stages: SlmStage[]; trace?: DiTrace | null; records?: DiTransaction[]; usage?: Record<string, unknown> | null }
 interface KV { getItem(key: string, fallback: string): Promise<string | null>; setItem(key: string, value: string): Promise<boolean> }
 export interface AuditToken { ownerId: string; caseId: string; epoch: string; generation: number }
 
@@ -57,7 +58,7 @@ export function createInvestigationAudit(kv: KV, owner: () => Promise<string | n
         return { ...data, stages };
       });
     },
-    snapshot(t: AuditToken, trace: DiTrace | null, records: DiTransaction[]) { return update(t, (data) => ({ ...data, trace, records })); },
+    snapshot(t: AuditToken, trace: DiTrace | null, records: DiTransaction[], usage?: Record<string, unknown> | null) { return update(t, (data) => ({ ...data, trace, records, usage: usage ?? data.usage })); },
     async remove(caseId: string) { const t = await open(caseId); if (!t) return; await serial(async () => {
       await write(key(t), { ownerId: t.ownerId, caseId, deleted: true, stages: [] }); listeners.forEach((fn) => fn());
     }); },

@@ -487,7 +487,7 @@ async def get_di_transactions(case_id: str, request: Request):
     Magnum DI when needed → Higgins Luddish Findings) and each Magnum DI transaction described — whether it finished, live or the preview
     simulator, and what it was handed. Token counts, cost, the prompts, the full reply and rule-book codes stay in
     the Admin Portal. Evidence is untouched by this view."""
-    from services.higgins.di_record import decision_trace, get_di_records
+    from services.higgins.di_record import decision_trace, get_di_records, case_usage
     owner = owner_of(request)
     # Authorise against the case document itself: the DI record outlives the evidence retention
     # window, so an expired or cleaned-up case must still be able to show how it was processed.
@@ -497,7 +497,7 @@ async def get_di_transactions(case_id: str, request: Request):
     # own "SIMULATED" notice; withholding it would hide the fact that Gemini never answered, which is
     # exactly how production once ran on the simulator unnoticed.
     records = await get_di_records(owner, case_id)
-    return JSONResponse({"caseId": case_id, "transactions": records, "trace": await decision_trace(owner, case_id)}, headers=NO_STORE)
+    return JSONResponse({"caseId": case_id, "transactions": records, "trace": await decision_trace(owner, case_id), "usage": await case_usage(owner, case_id)}, headers=NO_STORE)
 
 
 @router.delete("/investigations/{case_id}")

@@ -1,3 +1,5 @@
+> Current implementation and qualification status: see [Higgins model qualification](HIGGINS_MODEL_QUALIFICATION.md). Ordinary chat now generates on-device from retrieved structured context. Descriptions below of optional chat rewriting or an inert SLM are historical and do not describe the current source.
+
 # Ask Higgins — shared on-device Luddish SLM (staged)
 
 Ask Higgins is the same existing screen and chat API. No second chat UI, backend chat engine or SLM model is introduced.

@@ -38,6 +38,12 @@ class ChatRequest(Wire):
     selected_scam_alert_url: str | None = Field(default=None, max_length=600)
 
 
+@router.post("/higgins/chat/context")
+async def higgins_chat_context(body: ChatRequest, request: Request):
+    from services.higgins.chat_context import retrieve
+    return JSONResponse(await retrieve(request.state.device["device_id"], body), headers=NO_STORE)
+
+
 @router.post("/higgins/chat", response_model=chat.ChatReply)
 async def higgins_chat(body: ChatRequest, request: Request):
     owner = request.state.device["device_id"]

@@ -2,7 +2,8 @@
  * Full-file SHA-256 was removed from startup and installation by product decision.
  * Native model loading remains required before the app starts.
  */
-export const CANDIDATE_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf";
+import { ACTIVE_MODEL, type ModelProfile } from "./modelProfiles.ts";
+export const CANDIDATE_FILE = ACTIVE_MODEL.filename;
 export const MIN_DEVICE_RAM_BYTES = 3 * 1024 * 1024 * 1024;
 const MIN_MODEL_BYTES = 100 * 1024 * 1024;
 const MAX_MODEL_BYTES = 1024 * 1024 * 1024;
@@ -20,13 +21,14 @@ export type ModelAdmission =
 export async function verifyPrivateGGUF(
   file: LocalModelReader,
   totalMemory: number | null,
+  profile: ModelProfile = ACTIVE_MODEL,
 ): Promise<ModelAdmission> {
   if (!file.exists) return { available: false, reason: "model_not_installed" };
-  if (!totalMemory || !Number.isFinite(totalMemory) || totalMemory < MIN_DEVICE_RAM_BYTES)
+  if (!totalMemory || !Number.isFinite(totalMemory) || totalMemory < profile.minimumTotalRamBytes)
     return { available: false, reason: "device_not_admitted" };
-  if (!/^file:\/\/\//i.test(file.uri) || !file.uri.endsWith("/" + CANDIDATE_FILE) ||
+  if (!/^file:\/\/\//i.test(file.uri) || !file.uri.endsWith("/" + profile.filename) ||
       !Number.isFinite(file.size) || file.size === null ||
-      file.size < MIN_MODEL_BYTES || file.size > MAX_MODEL_BYTES)
+      file.size < MIN_MODEL_BYTES || file.size > Math.max(MAX_MODEL_BYTES, profile.expectedBytes ?? 0) || (profile.qualification === "pending_physical_qualification" && profile.expectedBytes !== null && file.size !== profile.expectedBytes))
     return { available: false, reason: "invalid_model" };
   let handle: ReturnType<LocalModelReader["open"]> | null = null;
   try {
@@ -35,7 +37,7 @@ export async function verifyPrivateGGUF(
     if (header.length !== 4 || header[0] !== 0x47 || header[1] !== 0x47 ||
         header[2] !== 0x55 || header[3] !== 0x46)
       return { available: false, reason: "invalid_model" };
-    return { available: true, uri: file.uri, modelId: "Qwen2.5-0.5B-Instruct-Q4_K_M" };
+    return { available: true, uri: file.uri, modelId: profile.modelId };
   } catch {
     return { available: false, reason: "model_unreadable" };
   } finally {

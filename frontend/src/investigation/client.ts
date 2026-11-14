@@ -1,4 +1,5 @@
 // Case API client: idempotent create/turn, event stream with sequence-based reconnect, explicit terminal completion.
+import { cancelCaseSLM } from "../domain/slm/slmTransport";
 import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 
@@ -97,7 +98,7 @@ export function submitTurn(caseId: string, body: { expectedRevision: number; tur
   return postWithKey<{ job: Job | null; followUp?: FollowUpAnswer; caseRevision: number }>(`/investigations/${caseId}/turns`, body, key, signal);
 }
 export function resumeJob(caseId: string, jobId: string, expectedRevision: number) { return postWithKey<{ job: Job }>(`/investigations/${caseId}/jobs/${jobId}/resume`, { expectedRevision }, safeUUID()); }
-export function cancelJob(caseId: string, jobId: string, expectedRevision: number) { return apiPost<{ status: string; outcome: "cancelled" | "completed" | "failed" | "superseded"; cancelled: boolean; cleanupStatus: string; caseRevision: number; responseRevision: number | null }>(`/investigations/${caseId}/jobs/${jobId}/cancel`, "investigation", { expectedRevision }); }
+export function cancelJob(caseId: string, jobId: string, expectedRevision: number) { cancelCaseSLM(caseId); return apiPost<{ status: string; outcome: "cancelled" | "completed" | "failed" | "superseded"; cancelled: boolean; cleanupStatus: string; caseRevision: number; responseRevision: number | null }>(`/investigations/${caseId}/jobs/${jobId}/cancel`, "investigation", { expectedRevision }); }
 
 // ── Finding feedback (false-positive reporting) ──
 export interface FindingFeedbackItem { findingId: string; verdict: "incorrect" | "legitimate"; reason: string; createdAt: string }

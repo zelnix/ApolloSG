@@ -28,7 +28,7 @@ import { Body, Button, Card, DevTag, Pill } from "@/src/components/ui";
 import { clearHandoffTransfers, takeHandoff } from "@/src/domain/handoffTransfer";
 import { parseHigginsIssueContext, type HigginsIssueContext } from "@/src/domain/higginsHandoff";
 import { redactInvestigationSecrets as redactUserSecrets } from "@/src/domain/privacy";
-import { askHiggins, clearHigginsHistory, higginsHistory, isQuoted, rememberHigginsContext, type HigginsChatAction, type HigginsChatMessage } from "@/src/higgins/chatClient";
+import { askHiggins, cancelHigginsChat, clearHigginsHistory, higginsHistory, isQuoted, rememberHigginsContext, type HigginsChatAction, type HigginsChatMessage } from "@/src/higgins/chatClient";
 import { luddishChat } from "@/src/domain/luddish";
 import { resolveNavLinks } from "@/src/higgins/appMap";
 import { buildDeviceSnapshot, loadSnapshotExtras, type SnapshotExtras } from "@/src/higgins/deviceSnapshot";
@@ -37,11 +37,8 @@ import { useCallScreener } from "@/src/hooks/useCallScreener";
 import { clearLocalChat, loadLocalChat, saveLocalChat } from "@/src/higgins/chatMemory";
 import { clearStarterMemory, loadStarterMemory, recordStarter, topStarters } from "@/src/higgins/starterMemory";
 import { pickQuickQuestions } from "@/src/higgins/quickQuestions";
-import { classifyIntent } from "@/src/higgins/intentRouter";
 import { detectCheckIntent } from "@/src/higgins/checkIntent";
 import { explainIssue, INVESTIGATE_OFFER } from "@/src/higgins/issueExplanation";
-import { getProtectionStatus, getGateStatus, getCurrentIssues, getPermissionStatus, getVpnStatus, getNotificationDiagnostic } from "@/src/higgins/diagnosticCore";
-import { diagnosticToHigginsMessage, knowledgeToHigginsMessage, clarificationToHigginsMessage, termToHigginsMessage } from "@/src/higgins/localResponder";
 import { getNotificationHealth } from "@/src/push/notifications";
 import { useInvestigation } from "@/src/investigation/caseStore";
 import type { Gate } from "@/src/investigation/types";
@@ -55,7 +52,7 @@ import { HigginsAvatar } from "@/src/components/HigginsAvatar";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
 const WELCOME = "Hello! I'm Higgins.\n\nI'm here to help you understand ApolloSG, explain security alerts, and answer your cyber-safety questions.\n\nWhat can I help you with today?";
-const ABOUT = "Higgins is Apollo’s trusted handler, and the savant of this app. He knows every screen, check, protection, setting, flow and privacy rule in ApolloSG, and he knows how scams work. Ask him where something is and he'll take you straight there.\n\nHe answers about this phone from a live reading of what Apollo actually reports — your protections, permissions, threats, alerts and settings — so he never has to guess.\n\nWhat Higgins doesn't do is investigate. TC Hawkeye checks evidence quickly against official sources, ApolloSG's knowledge base and a targeted search, and Magnum DI looks deeper only when that could change the answer; Apollo detects and blocks on the device. Higgins explains, guides and hands off.\n\nChatting sends your question and that state reading. It never includes your messages, screenshots, files or secrets.";
+const ABOUT = "Higgins is ApolloSG’s on-device AI. He uses Luddish to explain recorded findings in plain Australian English. Higgins is Apollo’s trusted handler, and the savant of this app. He knows every screen, check, protection, setting, flow and privacy rule in ApolloSG, and he knows how scams work. Ask him where something is and he'll take you straight there.\n\nHe answers about this phone from a live reading of what Apollo actually reports — your protections, permissions, threats, alerts and settings — so he never has to guess.\n\nWhat Higgins doesn't do is investigate. TC Hawkeye checks evidence quickly against official sources, ApolloSG's knowledge base and a targeted search, and Magnum DI looks deeper only when that could change the answer; Apollo detects and blocks on the device. Higgins explains, guides and hands off.\n\nChatting sends your question and that state reading. It never includes your messages, screenshots, files or secrets.";
 
 const formatTime = (iso: string) => { try { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ""; } };
 
@@ -109,7 +106,7 @@ const useStyles = makeStyles((c) => ({
 
 export default function Ask() {
   const s = useStyles(); const { colors } = useTheme(); const insets = useSafeAreaInsets(); const router = useRouter();
-  const { deviceId, events, resolution, trust, adapterLabel, network, notificationStatus, quietHours, quietNow, lowPower } = useApollo();
+  const { deviceId, events, trust, adapterLabel, network, notificationStatus, quietHours, quietNow, lowPower } = useApollo();
   const health = useProtectionHealth();
   const callScreener = useCallScreener();
   const params = useLocalSearchParams<{ context?: string; prompt?: string; autoSend?: string; handoffId?: string; operationId?: string; resumeCaseId?: string; scamTitle?: string; scamSource?: string; scamUrl?: string; scamSummary?: string; screenshotUri?: string; screenshotName?: string; screenshotType?: string }>();
@@ -274,6 +271,7 @@ export default function Ask() {
     adapterLabel, network, callScreener: callScreener.state === "checking" ? null : `${callScreener.summary} — ${callScreener.detail}`,
     extras: snapshotExtras ?? undefined, capabilities: capabilityReading,
   }), [health, events, trust.length, notificationStatus, quietHours, quietNow, lowPower, adapterLabel, network, callScreener.state, callScreener.summary, callScreener.detail, snapshotExtras, capabilityReading]);
+  useEffect(() => () => { cancelHigginsChat(); }, [deviceId]);
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
 
@@ -282,112 +280,25 @@ export default function Ask() {
     const turnId = Crypto.randomUUID();
     const previousTurnIds = [...new Set(chatMessages.map((item) => item.turnId))].slice(-8);
     if (appendUser) {
-      const optimistic: HigginsChatMessage = { id: Crypto.randomUUID(), turnId, role: "user", content: message, createdAt: new Date().toISOString(), conversationId: conversationId.current };
+      const optimistic: HigginsChatMessage = { ownerId: deviceId ?? undefined, id: Crypto.randomUUID(), turnId, role: "user", content: message, createdAt: new Date().toISOString(), conversationId: conversationId.current };
       setChatMessages((current) => { const next = [...current, optimistic]; void saveLocalChat(next); return next; });
     }
-    void askHiggins(message, conversationId.current, turnId, previousTurnIds, snapshotRef.current).then((reply) => {
+    void askHiggins(message, conversationId.current, turnId, previousTurnIds, snapshotRef.current, chatMessages, state.caseData && state.response && deviceId ? { ownerId: deviceId, caseId: state.caseData.id } : undefined).then((reply) => {
       const links = resolveNavLinks(reply.navigation);
-      setChatMessages((current) => { const next = [...current, { id: Crypto.randomUUID(), turnId: reply.turnId, role: "higgins" as const, content: `${reply.answer}${reply.clarification ? `\n\n${reply.clarification}` : ""}`, createdAt: new Date().toISOString(), conversationId: reply.conversationId, links: links.length ? links : undefined, ...(isQuoted(reply) ? { quoted: true } : {}) }]; void saveLocalChat(next); return next; });
+      setChatMessages((current) => { const next = [...current, { id: Crypto.randomUUID(), turnId: reply.turnId, ownerId: deviceId ?? undefined, caseScopeId: reply.caseScopeId, role: "higgins" as const, content: `${reply.answer}${reply.clarification ? `\n\n${reply.clarification}` : ""}`, createdAt: new Date().toISOString(), conversationId: reply.conversationId, links: links.length ? links : undefined, grounding: reply.grounding, ...(isQuoted(reply) ? { quoted: true } : {}) }]; void saveLocalChat(next); return next; });
       setLastAction(reply.suggestedActions[0] ?? null);
-    }).catch(() => setChatError("Higgins couldn't answer right now. No investigation was started.")).finally(() => setChatBusy(false));
-  }, [chatMessages]);
-
-  // ── Local-first intent handler ──
-  // Handles local_diagnostic and local_knowledge intents entirely on-device.
-  // Returns true if the message was handled locally, false if it should go to the API.
-  const handleLocalIntent = useCallback((message: string): boolean => {
-    const decision = classifyIntent(
-      message,
-      chatMessages.map((m) => m.content).slice(-5),
-      investigationMode || !!state.caseData,
-    );
-
-    if (decision.route === "local_diagnostic" && decision.diagnosticIntent) {
-      // Handled entirely on-device — Magnum DI is never contacted
-      let result;
-      switch (decision.diagnosticIntent) {
-        case "protection_status":
-        case "device_health":
-          result = getProtectionStatus(health);
-          break;
-        case "site_gate_status":
-          result = getGateStatus(health, "site");
-          break;
-        case "call_gate_status":
-          result = getGateStatus(health, "call");
-          break;
-        case "text_gate_status":
-          result = getGateStatus(health, "text");
-          break;
-        case "app_gate_status":
-          result = getGateStatus(health, "app");
-          break;
-        case "vpn_status":
-          result = getVpnStatus(health);
-          break;
-        case "permission_status":
-          result = getPermissionStatus(health.permissions);
-          break;
-        case "notification_status":
-          // Async — need to fetch notification health first
-          void (async () => {
-            const nh = await getNotificationHealth();
-            const nr = getNotificationDiagnostic(nh);
-            const msg = diagnosticToHigginsMessage(nr, conversationId.current);
-            setChatMessages((current) => { const next = [...current, msg]; void saveLocalChat(next); return next; });
-          })();
-          return true;
-        case "current_issues":
-          result = getCurrentIssues(health, { events, resolution });
-          break;
-        case "last_check":
-          result = getProtectionStatus(health); // Last check time is part of protection status
-          break;
-        case "help_navigation":
-          // Use knowledge responder
-          const navMsg = knowledgeToHigginsMessage("help_navigation", conversationId.current);
-          setChatMessages((current) => { const next = [...current, navMsg]; void saveLocalChat(next); return next; });
-          return true;
-        default:
-          result = getProtectionStatus(health);
-      }
-
-      const higginsMsg = diagnosticToHigginsMessage(result, conversationId.current);
-      setChatMessages((current) => { const next = [...current, higginsMsg]; void saveLocalChat(next); return next; });
-      return true;
-    }
-
-    if (decision.route === "local_knowledge" && decision.knowledgeIntent) {
-      const higginsMsg = knowledgeToHigginsMessage(decision.knowledgeIntent, conversationId.current);
-      setChatMessages((current) => { const next = [...current, higginsMsg]; void saveLocalChat(next); return next; });
-      return true;
-    }
-
-    if (decision.route === "local_knowledge" && decision.termId) {
-      const termMsg = termToHigginsMessage(decision.termId, conversationId.current);
-      setChatMessages((current) => { const next = [...current, termMsg]; void saveLocalChat(next); return next; });
-      return true;
-    }
-
-    if (decision.route === "clarify" && decision.clarificationQuestion) {
-      const clarifyMsg = clarificationToHigginsMessage(decision.clarificationQuestion, conversationId.current);
-      setChatMessages((current) => { const next = [...current, clarifyMsg]; void saveLocalChat(next); return next; });
-      return true;
-    }
-
-    // route === "investigation" / "ask_higgins" or unhandled → send to the Higgins API
-    return false;
-  }, [chatMessages, health, investigationMode, state.caseData, events, resolution]);
+    }).catch(() => setChatError("Higgins couldn't produce a validated answer right now. Please retry.")).finally(() => setChatBusy(false));
+  }, [chatMessages, deviceId, state.caseData, state.response]);
 
   const submit = (message: string) => {
     const clean = redactUserSecrets(message).trim(); if (!clean || busy || !deviceId) return;
     stick.current = true; // sending means "follow the conversation", wherever it was scrolled to
     setIssueOffer(null);
     // Active investigation → route to investigation case directly
-    if (investigationMode || activeContext || state.caseData) { setText(""); if (state.caseData) void ask(clean); else startInvestigation(clean, activeContext); return; }
+    if ((investigationMode || activeContext || state.caseData) && !(state.caseData && state.response && !state.caseData.activeJobId)) { setText(""); if (state.caseData) void ask(clean); else startInvestigation(clean, activeContext); return; }
 
     // Add the user's message optimistically
-    const userMsg: HigginsChatMessage = { id: Crypto.randomUUID(), turnId: Crypto.randomUUID(), role: "user", content: clean, createdAt: new Date().toISOString(), conversationId: conversationId.current };
+    const userMsg: HigginsChatMessage = { ownerId: deviceId ?? undefined, id: Crypto.randomUUID(), turnId: Crypto.randomUUID(), role: "user", content: clean, createdAt: new Date().toISOString(), conversationId: conversationId.current };
     setChatMessages((current) => { const next = [...current, userMsg]; void saveLocalChat(next); return next; });
     setText("");
 
@@ -404,12 +315,8 @@ export default function Ask() {
       return;
     }
 
-    // Route through intent classifier — local-first
-    const handledLocally = handleLocalIntent(clean);
-    if (!handledLocally) {
-      // Send to Higgins API (which may escalate to Magnum DI)
-      sendToHiggins(clean, false); // false = don't re-append user message
-    }
+    // Ordinary conversation is grounded and generated on this device.
+    sendToHiggins(clean, false);
     void recordStarter(clean).then((entries) => setStarters(topStarters(entries))).catch(() => undefined);
   };
   const retryLast = () => { if (!deviceId || chatBusy || !latestUserMessage) return; sendToHiggins(latestUserMessage, false); };

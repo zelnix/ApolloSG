@@ -1,3 +1,5 @@
+> Current implementation and qualification status: see [Higgins model qualification](HIGGINS_MODEL_QUALIFICATION.md). Ordinary chat now generates on-device from retrieved structured context. Descriptions below of optional chat rewriting or an inert SLM are historical and do not describe the current source.
+
 # ApolloSG SLM — core native runtime integration
 
 Updated 13 November 2026. SLM is a required application capability. Historical

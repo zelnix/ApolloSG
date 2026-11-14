@@ -10,7 +10,7 @@ function harness(post) {
   const audit = createInvestigationAudit({ getItem: async (k, f) => data.get(k) ?? f, setItem: async (k, v) => { data.set(k, v); return true; } }, async () => 'device-A');
   const code = ts.transpileModule(fs.readFileSync('src/domain/slm/slmTransport.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const exports = {}, activity = [];
-  vm.runInNewContext(code, { exports, console, require(name) {
+  vm.runInNewContext(code, { exports, console, AbortController, require(name) {
     if (name.endsWith('/auditStore')) return { investigationAudit: audit };
     if (name.endsWith('/sharedRuntime.ts')) return { recordSuccessfulSLMInference: () => activity.push('completed'), recordFailedSLMInference: (_, status) => activity.push(status) };
     if (name.endsWith('/client.ts')) return { apiPost: post };

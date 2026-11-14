@@ -77,7 +77,8 @@ test("native decoding requires a JSON object and uses the answer channel, withou
   let calls = 0;
   const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local-test", async () => ({
     completion: async options => {
-      assert.deepEqual(options.response_format, { type: "json_object", schema: { type: "object" } });
+      assert.equal(options.response_format.schema.additionalProperties, false);
+      assert.ok(options.response_format.schema.required);
       assert.equal(options.enable_thinking, false);
       calls++;
       return { text: "Reasoning is not the answer {and is not JSON}.", content: result };
@@ -166,7 +167,7 @@ test("native escalation rejects fabricated citations", async () => {
   await runtime.release();
 });
 
-test("oversized native input fails closed before model initialization, without truncation", async () => {
+test("oversized native input fails closed before generation, without truncation", async () => {
   let initialized = 0;
   const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => {
     initialized++;
@@ -176,7 +177,7 @@ test("oversized native input fails closed before model initialization, without t
     ...base, evidence: [{ evidenceId: "current", text: "X".repeat(10000) }],
   }, runtime);
   assert.equal(response.status, "unavailable");
-  assert.equal(initialized, 0);
+  assert.equal(initialized, 1);
   await runtime.release();
 });
 
@@ -190,6 +191,35 @@ test("native context preflight accounts for system instructions as well as evide
     ...base, evidence: [{ evidenceId: "current", text: "X".repeat(3500) }],
   }, runtime);
   assert.equal(response.status, "unavailable");
-  assert.equal(invoked, 0);
+  assert.equal(invoked, 1);
+  await runtime.release();
+});
+
+test("native token accounting reserves output and rejects before generation", async () => {
+  let calls = 0;
+  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => ({ countFormattedTokens: async () => 4000, completion: async () => { calls++; return { text: result }; }, release: async () => undefined }));
+  await assert.rejects(runtime.infer({ ...base, evidence: [{ evidenceId: "current", text: "Claim" }] }), /context_budget_exceeded/); assert.equal(calls, 0); await runtime.release();
+});
+test("cancelled native work retains its serial slot until it settles", async () => {
+  let settle!: (r: { text: string }) => void; let stopped = 0; let calls = 0;
+  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => ({ completion: async () => { calls++; return new Promise<{ text: string }>(resolve => { settle = resolve; }); }, stopCompletion: async () => { stopped++; }, release: async () => undefined }));
+  const controller = new AbortController(); const first = runtime.infer({ ...base, evidence: [{ evidenceId: "current", text: "Claim" }], signal: controller.signal });
+  await new Promise(resolve => setImmediate(resolve)); controller.abort();
+  const second = runtime.infer({ ...base, evidence: [{ evidenceId: "current", text: "Claim" }], deadlineAt: Date.now() - 1 });
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(calls, 1); assert.equal(stopped, 1);
+  settle({ text: result }); await assert.rejects(first, /expired_or_cancelled/); await assert.rejects(second, /expired_or_cancelled/); await runtime.release();
+});
+
+test("bounded queue and background cancellation do not overlap native execution", async () => {
+  let settle!: (r: { text: string }) => void; let calls = 0;
+  const runtime = new LocalLlamaRuntime("file:///models/a.gguf", "local", async () => ({ completion: async () => { calls++; return new Promise<{ text: string }>(resolve => { settle = resolve; }); }, stopCompletion: async () => undefined, release: async () => undefined }));
+  const request = { ...base, evidence: [{ evidenceId: "current", text: "Claim" }] };
+  const work = Array.from({ length: 8 }, () => runtime.infer(request));
+  const settled = Promise.allSettled(work);
+  await assert.rejects(runtime.infer(request), /queue_full/);
+  await new Promise(resolve => setImmediate(resolve)); runtime.suspend(true);
+  await assert.rejects(runtime.infer(request), /queue_full|backgrounded/);
+  settle({ text: result }); const outcomes = await settled;
+  assert.equal(calls, 1); assert.ok(outcomes.every(r => r.status === "rejected"));
   await runtime.release();
 });

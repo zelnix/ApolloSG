@@ -52,13 +52,17 @@ const pendingReceipts = new Map<string, { expiresAt: number; payload: {
   execution: string; modelId: string; answer: unknown;
 } }>();
 
+const controllers = new Map<string, { caseId: string; controller: AbortController }>();
+export function cancelCaseSLM(caseId: string) { for (const item of controllers.values()) if (item.caseId === caseId) item.controller.abort(); }
 const inFlight = new Map<string, Promise<HandoffResult>>();
 const pendingFailures = new Map<string, { expiresAt: number; result: Extract<HandoffResult, { status: "unavailable" | "invalid_output" }> }>();
 export function submitIssuedAdvisory(caseId: string, issued: Issued, adapter: SLMAdapter | null): Promise<HandoffResult> {
   const key = JSON.stringify([caseId, issued.request.requestId]);
   const active = inFlight.get(key);
   if (active) return active;
-  const work = deliverIssuedAdvisory(caseId, issued, adapter).finally(() => inFlight.delete(key));
+  const controller = new AbortController();
+  controllers.set(key, { caseId, controller });
+  const work = deliverIssuedAdvisory(caseId, issued, adapter, controller.signal).finally(() => { inFlight.delete(key); controllers.delete(key); });
   inFlight.set(key, work);
   return work;
 }
@@ -67,6 +71,7 @@ async function deliverIssuedAdvisory(
   caseId: string,
   issued: Issued,
   adapter: SLMAdapter | null,
+  signal?: AbortSignal,
 ): Promise<HandoffResult> {
   if (!adapter) return { status: "unavailable", reason: "on_device_model_unavailable" };
   const caseRevision = issued.request.caseRevision;
@@ -103,11 +108,11 @@ async function deliverIssuedAdvisory(
   let payload = pendingReceipts.get(key)?.payload;
   if (!payload) {
     let invoked = false;
-    const observedAdapter: SLMAdapter = { modelId: adapter.modelId, canFit: adapter.canFit?.bind(adapter), infer: async (request) => {
+    const observedAdapter: SLMAdapter = { modelId: adapter.modelId, canFit: adapter.canFit?.bind(adapter), canFitAsync: adapter.canFitAsync?.bind(adapter), infer: async (request) => {
       if (!invoked) { invoked = true; await save({ status: "running", startedAt: new Date().toISOString(), modelId: adapter.modelId }); }
-      return adapter.infer(request);
+      return adapter.infer({ ...request, signal, deadlineAt: Math.min(request.deadlineAt ?? Infinity, Date.parse(issued.expiresAt)) });
     } };
-    const result = await reasonForCase(issued.request, observedAdapter);
+    const result = await reasonForCase({ ...issued.request, deadlineAt: Date.parse(issued.expiresAt), onProgress: (completedWindows, totalWindows) => { void save({ status: "running", completedWindows, totalWindows }); } }, observedAdapter);
     // The audit wrapper is not the registered runtime identity; preserve its contract-validated activity status.
     if (invoked) {
       if (result.status === "completed") recordSuccessfulSLMInference(adapter);

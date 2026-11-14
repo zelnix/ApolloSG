@@ -2,9 +2,10 @@
  * The model header and file location are checked before native inference admission.
  * The one instance services Ask Higgins and all investigation roles.
  */
+import { ACTIVE_MODEL, packageUrl } from "./modelProfiles.ts";
 import * as Device from "expo-device";
 import * as Network from "expo-network";
-import { Alert } from "react-native";
+import { Alert, AppState } from "react-native";
 import { File, FileMode, Paths } from "expo-file-system";
 import * as LegacyFileSystem from "expo-file-system/legacy";
 import { updateOnDeviceAIDownload } from "./downloadStatus.ts";
@@ -19,10 +20,11 @@ import { downloadWithNetworkConsent, ModelDownloadPaused } from "./downloadSessi
 let runtime: LocalLlamaRuntime | null = null;
 let startup: Promise<boolean> | null = null;
 let download: Promise<boolean> | null = null;
+let appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
 let startupFailure: NativeStartupFailure | null = null;
 // Immutable upstream revision, checked against public model metadata on 2026-11-13.
 // This pins provenance; lightweight admission is not a full-file checksum proof.
-const MODEL_DOWNLOAD_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/9217f5db79a29953eb74d5343926648285ec7e67/qwen2.5-0.5b-instruct-q4_k_m.gguf";
+const MODEL_DOWNLOAD_URL = packageUrl(ACTIVE_MODEL);
 
 export function startSharedLuddish(onStage?: (stage: "model_integrity" | "runtime_registration") => void): Promise<boolean> {
   if (runtime) return Promise.resolve(true);
@@ -39,6 +41,8 @@ export function startSharedLuddish(onStage?: (stage: "model_integrity" | "runtim
     }, onStage);
     if (!result.available) { startupFailure = result.code; return false; }
     runtime = result.runtime;
+    appStateSubscription?.remove();
+    appStateSubscription = AppState.addEventListener("change", state => runtime?.suspend(state !== "active"));
     setSharedSLM(result.runtime);
     return true;
   })().catch(() => { startupFailure = "runtime_registration_failed"; return false; }).finally(() => { startup = null; });
@@ -184,7 +188,7 @@ export async function checkRequiredSLMCompatibility(
   };
   try {
     mark("hardware");
-    if (!Device.totalMemory || Device.totalMemory < 3 * 1024 * 1024 * 1024) {
+    if (!Device.totalMemory || Device.totalMemory < ACTIVE_MODEL.minimumTotalRamBytes) {
       mark("failed");
       return { compatible: false, reason: "This device does not meet the required memory capacity." };
     }

@@ -14,6 +14,11 @@ import type { InitLlama, LocalLlamaRuntime } from "./llamaRnRuntime.ts";
 const nativeInit: InitLlama = async (params) => {
   const context = await initLlama(params);
   return {
+    countFormattedTokens: async (messages, schema) => {
+      const formatted = await context.getFormattedChat(messages, null, { jinja: true, enable_thinking: false, response_format: { type: "json_object", schema } });
+      return (await context.tokenize(formatted.prompt)).tokens.length;
+    },
+    stopCompletion: () => context.stopCompletion(),
     completion: async (options) => {
       const result = await context.completion(options);
       return {

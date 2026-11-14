@@ -1,5 +1,5 @@
 /**
- * Ask Higgins is the conversational surface of the same on-device Luddish
+ * Legacy rewrite helper (no longer used by ordinary chat). Ask Higgins is the conversational surface of the same on-device Luddish
  * runtime used by investigators. This is an optional language refinement,
  * never a new source of factual claims, device state or scam verdicts.
  */

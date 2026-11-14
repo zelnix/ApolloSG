@@ -9,7 +9,7 @@ import { validateWrightSemantic, type WrightSemanticResult } from "./wrightSeman
 import { recordFailedSLMInference, recordSuccessfulSLMInference } from "./sharedRuntime.ts";
 
 export type SLMRole = "wright_triage" | "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding" | "higgins_escalation_assessment";
-export type SLMOperation = "wright_semantic" | "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding" | "escalation_assessment";
+export type SLMOperation = "grounded_chat" | "wright_semantic" | "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding" | "escalation_assessment";
 
 export interface SLMReference {
   /** Only references supplied to this invocation may be cited by the model. */
@@ -18,6 +18,10 @@ export interface SLMReference {
 }
 
 export interface SLMRequest {
+  deadlineAt?: number;
+  onProgress?: (completed: number, total: number) => void;
+  signal?: AbortSignal;
+  chatContext?: unknown;
   role: SLMRole;
   operation: SLMOperation;
   /** Case-scoped only: must never include evidence from other devices. */
@@ -62,6 +66,7 @@ export interface SLMAnswer {
 
 export interface SLMAdapter {
   canFit?(request: SLMRequest): boolean;
+  canFitAsync?(request: SLMRequest): Promise<boolean>;
   readonly modelId: string;
   /** A native on-device model implementation, never Gemini or a silent network fallback. */
   infer(request: SLMRequest): Promise<unknown>;
@@ -190,7 +195,7 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
   }
   if (!adapter) return { status: "unavailable", execution: "none", reason: "on_device_model_unavailable" };
   if ((request.operation === "case_finding" || request.operation === "escalation_assessment") &&
-      adapter.canFit && !adapter.canFit(request)) {
+      (adapter.canFitAsync ? !await adapter.canFitAsync(request) : adapter.canFit && !adapter.canFit(request))) {
     const { reasonAcrossWindows } = await import("./reasoningWindows.ts");
     return reasonAcrossWindows(request, adapter);
   }
@@ -199,7 +204,7 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
   if (request.operation === "wright_semantic" &&
       request.question !== "Interpret this source window only. Do not infer what occurred outside this window.") {
     const { assessMandatoryWright } = await import("./wrightPhase6.ts");
-    const assessment = await assessMandatoryWright(request.evidence, adapter);
+    const assessment = await assessMandatoryWright(request.evidence, adapter, request.onProgress);
     if (assessment.status !== "complete")
       return { status: "unavailable", execution: "none", reason: assessment.reason };
     return { status: "completed", execution: "on_device", modelId: adapter.modelId,

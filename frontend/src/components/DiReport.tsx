@@ -143,7 +143,7 @@ function ScoreBreakdown({ breakdown }: { breakdown: FindingsRatingBreakdown }) {
   );
 }
 
-export type DiState = { stages: SlmStage[]; loading: boolean; error: string | null; records: DiTransaction[]; trace: DiTrace | null };
+export type DiState = { usage?: Record<string, unknown> | null; stages: SlmStage[]; loading: boolean; error: string | null; records: DiTransaction[]; trace: DiTrace | null };
 
 /** The Magnum DI record(s) and decision path for one case, as the server gives them to the app. */
 const emptyDiState = (caseId: string | null): DiState => ({ loading: !!caseId, error: null, records: [], trace: null, stages: [] });
@@ -160,6 +160,7 @@ export function useDiTransactions(caseId: string | null): DiState {
     const initialToken = investigationAudit.open(caseId).catch(() => null);
     let trace: DiTrace | null = null;
     let records: DiTransaction[] = [];
+    let usage: Record<string, unknown> | null = null;
     let error: string | null = null;
     const refreshLocal = async () => {
       const ownerToken = await initialToken;
@@ -167,7 +168,7 @@ export function useDiTransactions(caseId: string | null): DiState {
       const saved = await investigationAudit.get(caseId).catch(() => null);
       const shownTrace = trace ?? saved?.trace ?? null;
       publish({ loading: false, error: shownTrace || saved?.stages.length ? null : error,
-        trace: shownTrace, records: records.length ? records : saved?.records ?? [],
+        usage: usage ?? saved?.usage, trace: shownTrace, records: records.length ? records : saved?.records ?? [],
         stages: mergeSlmStages(shownTrace?.slmStages ?? [], saved?.stages ?? []) });
     };
     const refresh = async () => {
@@ -175,10 +176,10 @@ export function useDiTransactions(caseId: string | null): DiState {
       fetching = true;
       const token = await investigationAudit.open(caseId).catch(() => null);
       try {
-        const data = await apiGet<{ caseId: string; transactions: DiTransaction[]; trace?: DiTrace | null }>(`/investigations/${encodeURIComponent(caseId)}/di`);
+        const data = await apiGet<{ usage?: Record<string, unknown>; caseId: string; transactions: DiTransaction[]; trace?: DiTrace | null }>(`/investigations/${encodeURIComponent(caseId)}/di`);
         if (!alive || data.caseId !== caseId || !token || !await investigationAudit.isCurrent(token)) return;
-        trace = data.trace ?? null; records = data.transactions ?? []; error = null;
-        if (token) await investigationAudit.snapshot(token, trace, records).catch(() => undefined);
+        usage = data.usage ?? null; trace = data.trace ?? null; records = data.transactions ?? []; error = null;
+        if (token) await investigationAudit.snapshot(token, trace, records, usage).catch(() => undefined);
       } catch (cause) { error = cause instanceof Error ? cause.message : "The DI record could not be read."; }
       finally { fetching = false; if (alive) await refreshLocal(); }
     };
@@ -408,6 +409,9 @@ export function DiReport({ auditState, caseId, triage, settledReason, settledEve
         </View>
       ) : null)}
 
+      {state.usage ? <CollapsibleSection title="Magnum DI usage" testID="tc-di-usage">
+        <Text style={s.value} selectable>{JSON.stringify(state.usage, null, 2)}</Text>
+      </CollapsibleSection> : null}
       <DecisionTrace steps={steps} settled={settled} />
       <Card testID="tc-di-slm">
         <Text style={s.sectionTitle}>{HIGGINS_NAME}</Text>
@@ -417,6 +421,7 @@ export function DiReport({ auditState, caseId, triage, settledReason, settledEve
         {state.stages.map((stage) => <View key={stage.requestId} style={s.source}>
           <Text style={s.stepName}>{SLM_ROLES[stage.role] ?? stage.role} — {{ requested: "Requested", running: "Engaged", returned: "Output returned; awaiting receipt", accepted: "Output received by coordinator", failed: "Failed" }[stage.status]}</Text>
           {slmHistory([stage]).map((entry, i) => <Text key={i} style={s.stepDetail} selectable>{entry.title} · {formatDateTime(entry.at)}</Text>)}
+          {stage.totalWindows != null ? <Text style={s.note}>{stage.completedWindows ?? 0} of {stage.totalWindows} windows completed; {stage.totalWindows - (stage.completedWindows ?? 0)} remaining.</Text> : null}
           {stage.failure ? <Text style={s.value} selectable>Recorded failure: {stage.failure}</Text> : null}
           {stage.output !== undefined ? <CollapsibleSection title="Higgins output" testID={`tc-di-slm-output-${stage.requestId}`}>
             <Text style={s.value} selectable>{JSON.stringify(stage.output, null, 2)}</Text>

@@ -80,7 +80,7 @@ async def _wait_for_slm(owner: str, case: dict, job: dict, role: str,
         return None
     expiry = min(item for item in (request_expiry, case_expiry, job_expiry) if item is not None)
     loop = asyncio.get_running_loop()
-    deadline = loop.time() + min(90.0, max(0.0, (expiry - datetime.now(timezone.utc)).total_seconds()))
+    deadline = loop.time() + min(300.0, max(0.0, (expiry - datetime.now(timezone.utc)).total_seconds()))
     while True:
         # Never accept a response after the deadline, even if it arrived
         # between the previous poll and this iteration.

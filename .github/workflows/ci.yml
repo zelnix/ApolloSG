@@ -31,7 +31,7 @@ jobs:
         run: yarn tsc --noEmit
         working-directory: frontend
       - name: SLM, triage parity, evidence integrity and protection truth
-        run: node --test tests/slm*.test.ts tests/slmModelIntegrity.test.cjs tests/slmTransportAudit.test.cjs tests/wright*.test.ts tests/triage.test.ts tests/sourceSpecificFindings.test.ts tests/incompleteChecks.test.ts tests/caseOrigin.test.ts tests/mailboxOriginal.test.ts tests/emailFalsePositives.test.ts tests/emailPreviewRecovery.test.cjs tests/emailByteCodec.test.ts tests/inertEmail.test.ts tests/emailEvidence.test.ts tests/evidencePresentation.test.ts tests/requestSignals.test.ts tests/gate1.test.ts tests/triageRejudge.test.ts tests/caseAuditTrail.test.ts tests/evidenceArchive.test.ts tests/protectionTruth.test.ts tests/caseEvidence.test.ts tests/screenedCalls.test.ts tests/screenedCarrierVerification.test.ts tests/diTrace.test.ts tests/reportSections.test.ts tests/appReport.test.ts tests/nativeDependencyGuard.test.cjs tests/androidAbiConfig.test.cjs tests/phoneIdentity.test.ts tests/phoneIdentityExplanation.test.ts
+        run: node --test tests/slm*.test.ts tests/slmModelIntegrity.test.cjs tests/slmTransportAudit.test.cjs tests/slmChatClient.test.cjs tests/wright*.test.ts tests/triage.test.ts tests/sourceSpecificFindings.test.ts tests/incompleteChecks.test.ts tests/caseOrigin.test.ts tests/mailboxOriginal.test.ts tests/emailFalsePositives.test.ts tests/emailPreviewRecovery.test.cjs tests/emailByteCodec.test.ts tests/inertEmail.test.ts tests/emailEvidence.test.ts tests/evidencePresentation.test.ts tests/requestSignals.test.ts tests/gate1.test.ts tests/triageRejudge.test.ts tests/caseAuditTrail.test.ts tests/evidenceArchive.test.ts tests/protectionTruth.test.ts tests/caseEvidence.test.ts tests/screenedCalls.test.ts tests/screenedCarrierVerification.test.ts tests/diTrace.test.ts tests/reportSections.test.ts tests/appReport.test.ts tests/nativeDependencyGuard.test.cjs tests/androidAbiConfig.test.cjs tests/phoneIdentity.test.ts tests/phoneIdentityExplanation.test.ts
         working-directory: frontend
       - name: Android APK and AAB architecture admission regressions
         run: python3 -m unittest discover -s tests -p test_android_abis.py
@@ -83,7 +83,7 @@ jobs:
         working-directory: backend
         run: >-
           python -m pytest -q
-          tests/test_di_trace.py tests/test_incomplete_checks.py tests/test_check_service_presentation.py tests/test_gmail_selected_original.py tests/test_request_reading.py tests/test_review_repairs.py tests/test_device_pickup.py tests/test_recovery_fencing.py
+          tests/test_higgins_chat_retrieval.py tests/test_slm_timing_policy.py tests/test_magnum_usage_summary.py tests/test_di_trace.py tests/test_incomplete_checks.py tests/test_check_service_presentation.py tests/test_gmail_selected_original.py tests/test_request_reading.py tests/test_review_repairs.py tests/test_device_pickup.py tests/test_recovery_fencing.py
           tests/test_slm_contract.py tests/test_slm_advisory_stage.py tests/test_slm_wait_deadline.py
           tests/test_slm_replay.py tests/test_slm_evidence_coverage.py tests/test_slm_redundancy_regression.py
           tests/test_slm_mandatory_behaviour.py tests/test_previous_reports.py tests/test_magnum_continuation.py

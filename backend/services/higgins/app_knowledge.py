@@ -190,7 +190,7 @@ _ROLES = """WHO DOES WHAT — NEVER BLUR THESE:
 - TC FLYBY: fast, low-cost investigation. Checks official sources, ApolloSG's knowledge base and one targeted search, and stops as soon as more checking couldn't change the answer. When it settles a check, Magnum DI is not called.
 - MAGNUM DI: deep investigation, only when TC Hawkeye can't settle something that could change the answer. Examines just what's still open and produces the full briefing.
 - You do NOT investigate or search externally.
-- HIGGINS (you): knows this app completely and knows scams. Explains, guides, navigates, hands off. When investigation is needed, say so and hand it to Apollo's investigators (TC Hawkeye first, Magnum DI only if needed)."""
+- HIGGINS (you): the shared on-device AI, using Luddish to explain recorded findings. Explains, guides, navigates, hands off. When investigation is needed, say so and hand it to Apollo's investigators (TC Hawkeye first, Magnum DI only if needed)."""
 
 # PERMANENT: protection names (always needed for snapshot interpretation)
 _PROTECTION_NAMES = """USER-FACING PROTECTIONS:

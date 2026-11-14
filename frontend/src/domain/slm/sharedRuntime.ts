@@ -1,5 +1,5 @@
 /**
- * One shared Luddish SLM runtime across ApolloSG, including Ask Higgins.
+ * One shared Higgins on-device SLM runtime across ApolloSG, including Ask Higgins.
  * The native app may install one admitted local runtime after package checks.
  * Nothing here loads a model, contacts a provider or silently falls back.
  */

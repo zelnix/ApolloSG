@@ -1,3 +1,4 @@
+import { ACTIVE_MODEL } from "@/src/domain/slm/modelProfiles";
 import { HIGGINS_DESCRIPTION } from "@/src/domain/higginsIdentity";
 import * as Linking from "expo-linking";
 import * as DocumentPicker from "expo-document-picker";
@@ -516,9 +517,9 @@ export default function SettingsScreen() {
             <Text style={s.rowLabel}>Higgins</Text>
             <Text style={s.rowHint}>{HIGGINS_DESCRIPTION}</Text>
             <Text style={s.rowHint}>Higgins — on-device AI (local, required)</Text>
-            <Text style={s.rowHint}>Higgins version: ODAI-Q2.5-0.5B-Q4KM-v1</Text>
+            <Text style={s.rowHint}>Higgins version: {ACTIVE_MODEL.modelId}</Text>
             <Text style={s.rowHint} testID="settings-slm-status">Status: {slmActivityStatus(slmActivity, { available: slmDiagnosticsAvailable, settingUp: aiDownloadActive, testing: aiTesting })}</Text>
-            <Text style={s.rowHint}>Installed Higgins package: {slmActivity.registered ? "ODAI-Q2.5-0.5B-Q4KM-v1" : "None confirmed"}</Text>
+            <Text style={s.rowHint}>Installed Higgins package: {slmActivity.registered ? ACTIVE_MODEL.modelId : "None confirmed"}</Text>
             <Text style={s.rowHint}>Last successful local response: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
             <Text style={s.rowHint}>Status reflects the latest local response. An earlier successful response does not mean a later check passed. No test runs in the background.</Text>
           </View>

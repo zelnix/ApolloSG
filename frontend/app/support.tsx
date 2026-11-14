@@ -2,6 +2,7 @@
 // Device Checkup history, diagnostics export and support contact (spec: Support Screen Enhancement).
 // It DISPLAYS status; it never runs duplicate diagnostics — "Go to Check" sends manual diagnostics
 // (including Device Re-check) to the Check tab. Preview builds never show fabricated native data.
+import { ACTIVE_MODEL } from "@/src/domain/slm/modelProfiles";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
@@ -280,7 +281,7 @@ export default function SupportScreen() {
         <Body style={s.detail}>These are local runtime facts, not an inference benchmark. Installing an APK does not install a model. No cloud response proves Higgins inference.</Body>
         <InfoRow label="Native platform" value={Platform.OS === "android" || Platform.OS === "ios" ? (appDevice.data?.app.nativeBuild ? "Native app" : "Not verified") : "Not supported in this preview"} />
         <InfoRow label="Higgins startup policy" value={Platform.OS === "android" || Platform.OS === "ios" ? "Required on this device" : "Unavailable on this platform"} />
-        <InfoRow label="Higgins version" value="ODAI-Q2.5-0.5B-Q4KM-v1" />
+        <InfoRow label="Higgins version" value={ACTIVE_MODEL.modelId} />
         <InfoRow label="Model installed" value="Not verified" />
         <InfoRow label="Model SHA-256" value="Not verified" />
         <InfoRow label="Model loaded" value={getSharedSLM() ? "Runtime registered" : "No runtime registered"} />

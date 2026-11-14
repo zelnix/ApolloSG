@@ -12,13 +12,14 @@ export type WrightSemanticRun =
   | { status: "complete"; coverage: WrightCoverage; interpretations: { evidenceId: string; parentEvidenceId: string; start: number; end: number; result: WrightSemanticResult }[]; synthesis: WrightWindowSynthesis }
   | { status: "limited"; reason: string; coverage: WrightCoverage; examinedChunks: number };
 
-export async function runWrightSemanticSources(sources: readonly WrightSource[], adapter: SLMAdapter | null): Promise<WrightSemanticRun> {
+export async function runWrightSemanticSources(sources: readonly WrightSource[], adapter: SLMAdapter | null, onProgress?: (completed: number, total: number) => void): Promise<WrightSemanticRun> {
   let inventory: ReturnType<typeof chunkWrightSources>;
   try { inventory = chunkWrightSources(sources); }
   catch { return { status: "limited", reason: "invalid_source_inventory", coverage: { totalCharacters: 0, coveredCharacters: 0, complete: false, chunks: 0 }, examinedChunks: 0 }; }
   const interpretations: Extract<WrightSemanticRun, { status: "complete" }>["interpretations"] = [];
   if (!sources.length || inventory.chunks.length === 0)
     return { status: "limited", reason: "no_text_evidence", coverage: { ...inventory.coverage, complete: false, coveredCharacters: 0 }, examinedChunks: 0 };
+  onProgress?.(0, inventory.chunks.length);
   for (const chunk of inventory.chunks) {
     const run = await runSLM({
       role: "wright_triage", operation: "wright_semantic",
@@ -37,6 +38,7 @@ export async function runWrightSemanticSources(sources: readonly WrightSource[],
     }
     interpretations.push({ evidenceId: chunk.evidenceId, parentEvidenceId: chunk.parentEvidenceId,
       start: chunk.start, end: chunk.end, result: run.answer.wrightSemantic });
+    onProgress?.(interpretations.length, inventory.chunks.length);
   }
   const classifications = [...new Set(interpretations.map(i => i.result.classification))].sort();
   const contradictory = classifications.includes("scam_indicators") && classifications.includes("legitimate_context");

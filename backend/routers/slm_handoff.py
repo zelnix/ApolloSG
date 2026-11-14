@@ -176,7 +176,11 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
         role=role, operation=OPERATION[role], question=QUESTIONS[role],
         evidence=evidence,
     )
-    expires = min(repo.utc(case["expires_at"]), repo.utc(_job.get("deadline_at", case["expires_at"])), now_utc() + timedelta(minutes=5))
+    from services.higgins.slm_timing import stage_budget_seconds
+    import math
+    planned_windows = sum(max(1, math.ceil(len(item.text) / 1200)) for item in issued.evidence)
+    budget = stage_budget_seconds(planned_windows + (1 if planned_windows > 1 else 0))
+    expires = min(repo.utc(case["expires_at"]), repo.utc(_job.get("deadline_at", case["expires_at"])), now_utc() + timedelta(seconds=budget))
     if expires <= now_utc():
         return None
     issued_at = now_utc()

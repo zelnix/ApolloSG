@@ -93,6 +93,8 @@ def describe_request(system: str, contents: Any, web_search: bool) -> dict:
 
 def estimate_cost(usage: dict | None) -> dict:
     usage = usage or {}
+    if not all(isinstance(usage.get(key), (int, float)) for key in ("prompt_token_count", "candidates_token_count")):
+        return {"amountUsd": None, "basis": "unavailable", "note": "Provider token counts were not reported."}
     prompt = usage.get("prompt_token_count") or 0
     output = usage.get("candidates_token_count") or 0
     cost = (prompt / 1_000_000) * _EST_PRICE_PER_M["input"] + (output / 1_000_000) * _EST_PRICE_PER_M["output"]
@@ -125,6 +127,7 @@ async def save_di_record(*, correlation_id: str | None, owner: str | None, inves
             "promptTokens": usage.get("prompt_token_count"),
             "outputTokens": usage.get("candidates_token_count"),
             "totalTokens": usage.get("total_token_count"),
+            "reasoningTokens": usage.get("thoughts_token_count"),
             "cachedTokens": usage.get("cached_content_token_count"),
             "tokensAreEstimates": bool(usage.get("estimated")),
             "tokensAreSimulated": bool(usage.get("simulated")),
@@ -246,3 +249,26 @@ async def get_di_records(owner: str, case_id: str) -> list[dict]:
     authorised by the caller (it resolves the case for this device first)."""
     cursor = db.di_transactions.find({"correlation_id": f"case-{case_id}", "purpose": {"$ne": "tc_flyby_search"}}).sort("created_at", 1)
     return [wire(doc) async for doc in cursor]
+
+
+def aggregate_usage(records: list[dict], windows: list[dict]) -> dict:
+    """Aggregate reported counters only; unknown values remain unknown, not zero-cost."""
+    processing = [r.get("processing") or {} for r in records]
+    def total(key):
+        values = [p.get(key) for p in processing]
+        return sum(values) if values and all(isinstance(v, (int, float)) for v in values) else None
+    costs = [p.get("cost") or {} for p in processing]
+    return {"providerCalls": total("geminiCalls"), "windowClaims": len(windows),
+            "completedWindows": sum(1 for w in windows if w.get("status") == "completed"),
+            "inputTokens": total("promptTokens"), "outputTokens": total("outputTokens"),
+            "reasoningTokens": total("reasoningTokens"),
+            "searchEnabledTransactions": sum(bool((r.get("request") or {}).get("tools")) for r in records),
+            "cost": {"amountUsd": sum(c["amountUsd"] for c in costs) if costs and all(isinstance(c.get("amountUsd"), (int, float)) for c in costs) else None,
+                     "basis": "estimated" if costs and all(c.get("basis") == "estimated" for c in costs) else "mixed_or_unavailable"},
+            "note": "Counters cover retained transactions only. Search-enabled transactions are not search query counts. Equal input text does not imply equal cost."}
+
+
+async def case_usage(owner: str, case_id: str) -> dict:
+    records = await db.di_transactions.find({"owner": owner, "correlation_id": f"case-{case_id}", "purpose": {"$ne": "tc_flyby_search"}}, {"_id": 0, "processing": 1, "request.tools": 1}).to_list(1000)
+    windows = await db.magnum_di_window_calls.find({"owner_id": owner, "case_id": case_id}, {"_id": 0, "status": 1}).to_list(1000)
+    return aggregate_usage(records, windows)

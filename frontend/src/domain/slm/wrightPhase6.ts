@@ -11,11 +11,11 @@ export type WrightPhase6Result =
   | { status: "limited"; reason: string };
 
 export async function assessMandatoryWright(
-  evidence: readonly SLMReference[], adapter: SLMAdapter | null,
+  evidence: readonly SLMReference[], adapter: SLMAdapter | null, onProgress?: (completed: number, total: number) => void,
 ): Promise<WrightPhase6Result> {
   if (!evidence.length) return { status: "limited", reason: "no_source_evidence" };
   const run = await runWrightSemanticSources(
-    evidence.map(e => ({ evidenceId: e.evidenceId, text: e.text })), adapter);
+    evidence.map(e => ({ evidenceId: e.evidenceId, text: e.text })), adapter, onProgress);
   if (run.status !== "complete" || !run.coverage.complete)
     return { status: "limited", reason: run.status === "limited" ? run.reason : "incomplete_coverage" };
   const refs = [...new Set(run.interpretations.flatMap(i =>
