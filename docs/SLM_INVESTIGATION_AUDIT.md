@@ -1,4 +1,8 @@
-# Investigation history and on-device SLM records
+# Investigation history and Higgins records
+
+Higgins is ApolloSG’s on-device AI (the SLM). Higgins uses Luddish to explain the
+recorded findings in plain language. These product names do not change runtime
+identifiers, stage roles, verdict authority or evidence contracts.
 
 History and DI consume the same case-scoped audit state. History includes recorded
 triage, Hawkeye and Magnum stages as well as the case lifecycle and SLM handoffs.

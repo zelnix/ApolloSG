@@ -1,3 +1,4 @@
+import { HIGGINS_NAME } from "./higginsIdentity.ts";
 import type { DiTrace, DiTransaction } from "./diTransaction.ts";
 import type { TriageInvestigationRecord } from "./triage/contract.ts";
 import { plainServiceText } from "./checkServicePresentation.ts";
@@ -69,7 +70,7 @@ export function createInvestigationAudit(kv: KV, owner: () => Promise<string | n
   };
 }
 
-export const SLM_ROLES: Record<string, string> = { wright_triage: "Wright triage", higgins_triage: "Higgins triage", tc_hawkeye: "TC Hawkeye reasoning", magnum_di: "Magnum DI reasoning", higgins_escalation_assessment: "Higgins escalation assessment", case_finding: "Finding preparation", luddish: "Higgins explanation", ask_higgins: "Ask Higgins" };
+export const SLM_ROLES: Record<string, string> = { wright_triage: "Wright triage", higgins_triage: "Higgins triage", tc_hawkeye: "TC Hawkeye reasoning", magnum_di: "Magnum DI reasoning", higgins_escalation_assessment: "Higgins escalation assessment", case_finding: "Finding preparation", luddish: "Explanation using Luddish", ask_higgins: "Ask Higgins" };
 export function mergeSlmStages(remote: SlmStage[], local: SlmStage[]): SlmStage[] {
   const all = new Map<string, SlmStage>();
   for (const stage of [...remote, ...local]) {
@@ -85,12 +86,12 @@ export function mergeSlmStages(remote: SlmStage[], local: SlmStage[]): SlmStage[
 export function slmHistory(stages: SlmStage[]) {
   return stages.flatMap((s) => [
     [s.requestedAt, "requested", "A request was issued; this alone does not establish native execution."],
-    [s.observedAt, "received on this device", "The device received this case's SLM request."],
+    [s.observedAt, "received on this device", "The device received this case’s request for Higgins."],
     [s.startedAt, "engaged", "Native inference was invoked for this stage."],
     [s.returnedAt, "returned output", "The stage returned output; this is not independent verification."],
     [s.acceptedAt, "output received by coordinator", "The handoff receipt was accepted; final Finding approval is separate."],
     [s.failedAt, "failed", s.failure ?? "No failure cause was recorded."],
-  ].filter(([at]) => !!at).map(([at, action, body]) => ({ title: `On-device SLM — ${SLM_ROLES[s.role] ?? s.role} ${action}`, body: body!, at: at!, iconType: action === "failed" ? "failed" as const : "working" as const, entryKind: "process" as const })));
+  ].filter(([at]) => !!at).map(([at, action, body]) => ({ title: `${HIGGINS_NAME} — ${SLM_ROLES[s.role] ?? s.role} ${action}`, body: body!, at: at!, iconType: action === "failed" ? "failed" as const : "working" as const, entryKind: "process" as const })));
 }
 
 /** Actual engine records shared by case History and DI, including cases without a patrol event. */

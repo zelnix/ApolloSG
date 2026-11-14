@@ -52,8 +52,8 @@
    An invalid answer is never replaced with an invented one.
 6. Only Magnum DI asks the person a question or requests a fresh device reading.
 
-## Higgins — communicates, explains, guides
-1. Never investigates. It may change how something is presented, never what it means (`presenter.py`).
+## Higgins — on-device AI; communicates, explains, guides
+1. Higgins names the shared on-device AI (SLM) used for comprehension and reasoning within the existing investigation stages. Higgins uses Luddish to explain the recorded findings in plain language. In his explanation role, he may change how something is presented, never what it means (`presenter.py`). Investigation authority, evidence rules and verdict floors remain with the established workflow.
 2. Order before any AI is used:
    - a request to check something goes to the pipeline;
    - an existing result, scam alert, Patrol record, phone state or product knowledge is shown as is;

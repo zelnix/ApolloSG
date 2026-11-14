@@ -7,12 +7,12 @@ type AdmittedModel = Extract<ModelAdmission, { available: true }>;
 /** Model setup diagnostics contain no native exception text, paths or evidence. */
 export function describeStartupFailure(code: NativeStartupFailure): string {
   const messages: Record<NativeStartupFailure, string> = {
-    model_not_installed: "The required On-device AI model has not been installed.",
-    model_unreadable: "ApolloSG could not read the downloaded On-device AI model.",
-    invalid_model: "The downloaded On-device AI model is incomplete or invalid.",
+    model_not_installed: "The required Higgins model has not been installed.",
+    model_unreadable: "ApolloSG could not read the downloaded Higgins model.",
+    invalid_model: "The downloaded Higgins model is incomplete or invalid.",
     device_not_admitted: "This device does not meet the required memory capacity.",
-    native_binding_unavailable: "This APK could not load its native On-device AI runtime.",
-    runtime_registration_failed: "The On-device AI runtime could not be registered.",
+    native_binding_unavailable: "This APK could not load the native runtime for Higgins.",
+    runtime_registration_failed: "The runtime for Higgins could not be registered.",
   };
   return messages[code];
 }

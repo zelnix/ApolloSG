@@ -2,6 +2,8 @@
 // in plain English for the person using Apollo. Mirrors memory/OPERATING_RULES.md: keep the two in step.
 // Pure: no React, no native imports.
 
+import { HIGGINS_DESCRIPTION } from "./higginsIdentity.ts";
+
 export type CheckRoleId = "apollo" | "triage" | "tc_flyby" | "magnum" | "higgins";
 
 export interface CheckRole {
@@ -38,7 +40,7 @@ export const CHECK_ROLES: CheckRole[] = [
       "Reads everything you sent before any investigating starts: the text, the links, the words in a screenshot and the text inside a document.",
       "Picks out what needs checking — links, phone numbers, email addresses, company names, payment details, and anything asking you to act.",
       "Anything it couldn't read is noted, never guessed.",
-      "Uses the shared On-device AI to assess whether enough information is available for investigation. It does not decide whether something is a scam.",
+      "Uses the shared on-device AI, Higgins, to assess whether enough information is available for investigation. It does not decide whether something is a scam.",
     ],
   },
   {
@@ -46,7 +48,7 @@ export const CHECK_ROLES: CheckRole[] = [
     name: "TC Hawkeye",
     job: "Investigates quickly",
     rules: [
-      "Investigates using the shared On-device AI and applicable evidence-backed checks, including available official sources and threat intelligence.",
+      "Investigates using the shared on-device AI, Higgins, and applicable evidence-backed checks, including available official sources and threat intelligence.",
       "A search answer only counts when a real web page backs it up.",
       "Records findings and limitations; unresolved cases can proceed to Magnum DI for deeper investigation.",
       "A known scam only matches when the whole pattern is there — one word on its own never counts.",
@@ -61,18 +63,20 @@ export const CHECK_ROLES: CheckRole[] = [
     rules: [
       "Called only when TC Hawkeye can't settle something that could change the answer — a picture Apollo couldn't read, a request to send money or details somewhere nobody has verified, or findings that disagree.",
       "Investigates unresolved questions more deeply, using TC Hawkeye's findings and any additional evidence.",
-      "Uses the shared On-device AI for deeper investigation. Gemini may be used as an optional extension when deeper capability is warranted.",
+      "Uses the shared on-device AI, Higgins, for deeper investigation. Gemini may be used as an optional extension when deeper capability is warranted.",
       "If a check is unavailable or incomplete, ApolloSG records the limitation rather than presenting it as successful.",
-      "Evidence Lock retains findings, sources and limitations. Luddish assesses the full evidence from TC Hawkeye and Magnum DI to determine the final Finding.",
+      "Evidence Lock retains findings, sources and limitations. Higgins uses Luddish to explain the recorded findings.",
       "It's the only part of ApolloSG that may ask you a question or ask your device for a fresh reading.",
     ],
   },
   {
     id: "higgins",
     name: "Higgins",
-    job: "Explains and guides",
+    job: "On-device comprehension, reasoning and explanations",
     rules: [
-      "Explains what was found and takes you to the right screen. He never investigates, and never changes what a result means.",
+      HIGGINS_DESCRIPTION,
+      "Provides on-device comprehension and reasoning for the investigation stages, within their established evidence and decision rules.",
+      "Explains what was found and takes you to the right screen. His wording never changes what the recorded result means.",
       "Answers from what ApolloSG already knows first. Questions about a finished check are answered from its record — the check isn't reopened.",
       "Your device's live reading is the truth. He never guesses past it and never invents a worry.",
       "Talks only about scams, security and ApolloSG.",
@@ -80,7 +84,7 @@ export const CHECK_ROLES: CheckRole[] = [
   },
 ];
 
-/** The final Finding is determined by Luddish from the available investigation evidence. */
+/** Outcomes come from the established investigation workflow; Luddish explains the recorded Finding. */
 export const OUTCOME_GUIDE: { outcome: string; meaning: string }[] = [
   { outcome: "scam", meaning: "The investigation established this is a scam — through a known scam listing, a fake identity, established deception, or a complete corroborated scam pattern." },
   { outcome: "likely_scam", meaning: "Strong signs of a scam — impersonation indicators, a strong pattern match, or multiple independent scam indicators — but an important part of the evidence remains unverified." },
@@ -91,6 +95,6 @@ export const OUTCOME_GUIDE: { outcome: string; meaning: string }[] = [
 export const PROMISES: string[] = [
   "ApolloSG never tells you something is safe — only what its checks found.",
   "Anything Apollo couldn't check is listed, not hidden.",
-  "Every final Finding is grounded in evidence assessed by Luddish, with investigation sources and limitations retained.",
+  "Every final Finding is grounded in investigation evidence, with sources and limitations retained. Higgins uses Luddish to explain it.",
 ];
 

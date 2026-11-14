@@ -1,3 +1,4 @@
+import { HIGGINS_DESCRIPTION } from "@/src/domain/higginsIdentity";
 import * as Linking from "expo-linking";
 import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
@@ -137,7 +138,7 @@ export default function SettingsScreen() {
       if (selection.canceled || !selection.assets?.length) return;
       const selected = selection.assets[0];
       if (selected.name !== CANDIDATE_FILE) {
-        showToast("Select the approved On-device AI package.", "growling");
+        showToast("Select the approved Higgins package.", "growling");
         return;
       }
       const { installPrivateLuddishForTest } = await import("@/src/domain/slm/bootstrap");
@@ -512,24 +513,25 @@ export default function SettingsScreen() {
         <SwitchRow label="Show why each result was settled" hint="One line naming what settled it" value={showReasons} onValueChange={(value) => void setShowResultReasons(value)} testID="settings-result-reasons-switch" />
         <View testID="settings-slm-info" style={[s.rowItem, s.divider, { alignItems: "flex-start" }]}>
           <View style={{ flex: 1, gap: spacing.xs }}>
-            <Text style={s.rowLabel}>On-device AI</Text>
-            <Text style={s.rowHint}>Engine: On-device AI (local, required)</Text>
-            <Text style={s.rowHint}>On-device AI version: ODAI-Q2.5-0.5B-Q4KM-v1</Text>
+            <Text style={s.rowLabel}>Higgins</Text>
+            <Text style={s.rowHint}>{HIGGINS_DESCRIPTION}</Text>
+            <Text style={s.rowHint}>Higgins — on-device AI (local, required)</Text>
+            <Text style={s.rowHint}>Higgins version: ODAI-Q2.5-0.5B-Q4KM-v1</Text>
             <Text style={s.rowHint} testID="settings-slm-status">Status: {slmActivityStatus(slmActivity, { available: slmDiagnosticsAvailable, settingUp: aiDownloadActive, testing: aiTesting })}</Text>
-            <Text style={s.rowHint}>Installed On-device AI package: {slmActivity.registered ? "ODAI-Q2.5-0.5B-Q4KM-v1" : "None confirmed"}</Text>
+            <Text style={s.rowHint}>Installed Higgins package: {slmActivity.registered ? "ODAI-Q2.5-0.5B-Q4KM-v1" : "None confirmed"}</Text>
             <Text style={s.rowHint}>Last successful local response: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
             <Text style={s.rowHint}>Status reflects the latest local response. An earlier successful response does not mean a later check passed. No test runs in the background.</Text>
           </View>
         </View>
         {slmDiagnosticsAvailable && slmActivity.registered ? (
           <Pressable testID="settings-test-on-device-ai" accessibilityRole="button"
-            accessibilityLabel="Test On-device AI"
+            accessibilityLabel="Test Higgins"
             disabled={aiTesting || aiDownloadActive}
             onPress={() => { void testOnDeviceAI(); }}
             style={[s.rowItem, s.divider, { opacity: aiTesting ? 0.6 : 1 }]}>
             <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>{aiTesting ? "Testing On-device AI…" : "Test On-device AI"}</Text>
-              <Text style={s.rowHint}>Run a real On-device AI response test. No internet or case evidence is used.</Text>
+              <Text style={s.rowLabel}>{aiTesting ? "Testing Higgins…" : "Test Higgins"}</Text>
+              <Text style={s.rowHint}>Run a real response test from Higgins. No internet or case evidence is used.</Text>
               {aiTesting ? <ActivityIndicator size="small" style={{ alignSelf: "flex-start", marginTop: spacing.sm }} /> : null}
               {aiTestResult && aiTestResult.activity === slmActivity ? <Text style={s.rowHint} testID="settings-ai-test-result">{aiTestResult.status === "working" ? "Working — " : "Not working — "}{aiTestResult.reason}</Text> : null}
             </View>
@@ -538,27 +540,27 @@ export default function SettingsScreen() {
         ) : null}
         {slmTestAvailable && !slmActivity.registered ? (
           <Pressable testID="settings-download-slm" accessibilityRole="button"
-            accessibilityLabel="Download and install On-device AI model"
+            accessibilityLabel="Download and install Higgins model"
             disabled={slmInstalling || aiDownloadActive}
             onPress={() => {
               if (aiDownloadActive) return;
-              confirmDialog("Download On-device AI model?",
-                "Download approximately 491 MB from the official On-device AI package source and verify it on this device? Mobile data charges may apply.",
+              confirmDialog("Download Higgins model?",
+                "Download approximately 491 MB from the official Higgins package source and verify it on this device? Mobile data charges may apply.",
                 [{ text: "Cancel", style: "cancel" }, { text: "Download & Install", onPress: () => {
                   setSlmInstalling(true);
                   void import("@/src/domain/slm/bootstrap").then(m => m.downloadPrivateLuddishForTest())
-                    .then(ok => showToast(ok ? "On-device AI model verified and registered." :
+                    .then(ok => showToast(ok ? "Higgins model verified and registered." :
                       "Download or verification failed. Check storage, network and device compatibility.",
                       ok ? "neutral" : "growling"))
-                    .catch(() => showToast("On-device AI model download failed.", "growling"))
+                    .catch(() => showToast("Higgins model download failed.", "growling"))
                     .finally(() => setSlmInstalling(false));
                 } }]);
             }}
             style={[s.rowItem, s.divider]}>
             <View style={{ flex: 1 }}>
-              <Text style={s.rowLabel}>{aiDownloadActive ? "On-device AI setup in progress" : "Download On-device AI"}</Text>
+              <Text style={s.rowLabel}>{aiDownloadActive ? "Higgins setup in progress" : "Download Higgins"}</Text>
               <Text style={s.rowHint}>Approximately 491 MB. Downloads only with your permission.</Text>
-              {aiDownloadActive ? <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm }}><ActivityIndicator size="small" /><Text style={s.rowHint}>{aiDownload.phase === "downloading" ? (aiDownload.totalBytes > 0 ? `Downloading ${Math.min(100, Math.round(100 * aiDownload.receivedBytes / aiDownload.totalBytes))}% · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} of ${(aiDownload.totalBytes / 1048576).toFixed(0)} MB` : `Downloading · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} MB received`) : aiDownload.phase === "verifying" ? "Verifying download…" : "Setting up On-device AI…"}</Text></View> : null}
+              {aiDownloadActive ? <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm }}><ActivityIndicator size="small" /><Text style={s.rowHint}>{aiDownload.phase === "downloading" ? (aiDownload.totalBytes > 0 ? `Downloading ${Math.min(100, Math.round(100 * aiDownload.receivedBytes / aiDownload.totalBytes))}% · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} of ${(aiDownload.totalBytes / 1048576).toFixed(0)} MB` : `Downloading · ${(aiDownload.receivedBytes / 1048576).toFixed(0)} MB received`) : aiDownload.phase === "verifying" ? "Verifying download…" : "Setting up Higgins…"}</Text></View> : null}
               {aiDownload.phase === "failed" ? <Text style={s.rowHint}>Previous setup failed: {aiDownload.error ?? "Unknown error"}</Text> : null}
             </View>
             <ChevronRight size={20} color={colors.muted} />
@@ -566,13 +568,13 @@ export default function SettingsScreen() {
         ) : null}
         {slmTestAvailable ? (
           <Pressable testID="settings-install-slm" accessibilityRole="button"
-            accessibilityLabel="Install On-device AI from device"
+            accessibilityLabel="Install Higgins from device"
             disabled={slmInstalling || aiDownloadActive || slmActivity.registered}
             onPress={() => void installSlmModel()}
             style={[s.rowItem, s.divider, { opacity: slmInstalling || aiDownloadActive || slmActivity.registered ? 0.5 : 1 }]}>
             <View style={{ flex: 1 }}>
               <Text style={s.rowLabel}>{slmInstalling ? "Verifying model…" :
-                slmActivity.registered ? "Model runtime registered" : "Install On-device AI Model"}</Text>
+                slmActivity.registered ? "Model runtime registered" : "Install Higgins Model"}</Text>
               <Text style={s.rowHint}>Select the approved GGUF file on your phone. It is copied into private storage and verified.</Text>
             </View>
           </Pressable>

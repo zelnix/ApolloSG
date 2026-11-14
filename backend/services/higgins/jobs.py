@@ -275,7 +275,7 @@ async def run(owner: str, case_id: str, job_id: str) -> None:
             return
         if outcome.kind == "device_unavailable":
             stage_failure = job.get("slm_failure") or {}
-            diagnostic = DiagnosticDetail(component="on_device_ai", service="On-device AI",
+            diagnostic = DiagnosticDetail(component="on_device_ai", service="Higgins (on-device AI)",
                                           operation=stage_failure.get("stage", "investigation"),
                                           original_error_code=stage_failure.get("reason", "on_device_result_unavailable"),
                                           timestamp=now_utc().isoformat())

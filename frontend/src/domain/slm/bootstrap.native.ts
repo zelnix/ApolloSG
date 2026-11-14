@@ -1,4 +1,4 @@
-/** Native On-device AI startup for ApolloSG.
+/** Native Higgins startup for ApolloSG.
  * The model header and file location are checked before native inference admission.
  * The one instance services Ask Higgins and all investigation roles.
  */
@@ -86,14 +86,14 @@ async function confirmModelNetworkUse(): Promise<Network.NetworkStateType | null
   try { state = await Network.getNetworkStateAsync(); }
   catch { state = { type: Network.NetworkStateType.UNKNOWN, isConnected: undefined, isInternetReachable: undefined }; }
   if (state.isConnected === false || state.type === Network.NetworkStateType.NONE) {
-    Alert.alert("No internet connection", "Connect to Wi-Fi or mobile data to download ApolloSG's On-device AI model.");
+    Alert.alert("No internet connection", "Connect to Wi-Fi or mobile data to download ApolloSG's Higgins model.");
     return null;
   }
   if (state.type === Network.NetworkStateType.WIFI) return state.type;
   return new Promise<Network.NetworkStateType | null>((resolve) => {
     Alert.alert(
       "Download using mobile data?",
-      "ApolloSG needs to download its On-device AI model. You're not connected to Wi-Fi. Mobile data may use your allowance or incur charges.",
+      "ApolloSG needs to download its Higgins model. You're not connected to Wi-Fi. Mobile data may use your allowance or incur charges.",
       [
         { text: "Wait for Wi-Fi", style: "cancel", onPress: () => resolve(null) },
         { text: "Download using mobile data", onPress: () => resolve(state.type ?? Network.NetworkStateType.UNKNOWN) },
@@ -163,7 +163,7 @@ export function downloadPrivateLuddishForTest(): Promise<boolean> {
       // rejected by lightweight admission and can be explicitly reinstalled.
       updateOnDeviceAIDownload({ phase: "failed", error: startupFailure ? describeStartupFailure(startupFailure)
         : e instanceof ModelDownloadPaused ? "Download paused. Connect to Wi-Fi and retry."
-        : "The On-device AI download did not complete. Check your connection and retry." });
+        : "The Higgins download did not complete. Check your connection and retry." });
       return false;
     }
   })().finally(() => { download = null; });
@@ -200,13 +200,13 @@ export async function checkRequiredSLMCompatibility(
     mark("inference");
     await (getSharedSLM() as LocalLlamaRuntime).prepare();
     mark("complete");
-    return { compatible: true, reason: "On-device AI compatibility verified." };
+    return { compatible: true, reason: "Higgins compatibility verified." };
   } catch (error) {
     const failedStage = stage;
     mark("failed");
     return { compatible: false, reason: error instanceof LocalInferenceError && error.stage === "model_load"
-      ? "The model file passed initial checks, but the native On-device AI runtime could not load it."
-      : "The On-device AI failed during " + failedStage + ".",
+      ? "The model file passed initial checks, but Higgins’ native runtime could not load it."
+      : "Higgins failed during " + failedStage + ".",
       diagnosticCode: error instanceof LocalInferenceError ? error.stage + ":" + error.code : failedStage + "_failed" };
   }
 }

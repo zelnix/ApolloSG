@@ -1,7 +1,7 @@
 export type SLMAdmissionResult = { compatible: boolean; reason: string; diagnosticCode?: string };
 
 export class SLMCompatibilityTimeout extends Error {
-  constructor() { super("On-device AI verification timed out"); this.name = "SLMCompatibilityTimeout"; }
+  constructor() { super("Higgins verification timed out"); this.name = "SLMCompatibilityTimeout"; }
 }
 
 /** Installation is not a boot-time check. Only native verification gets a deadline.
@@ -18,7 +18,7 @@ export function createCompatibilityAttempt(options: {
   const timeout = new Promise<never>((_, reject) => { rejectTimeout = reject; });
   const work = (async (): Promise<SLMAdmissionResult> => {
     if (options.install && !await options.install()) {
-      return options.installFailure?.() ?? { compatible: false, reason: "On-device AI installation was not completed." };
+      return options.installFailure?.() ?? { compatible: false, reason: "Higgins installation was not completed." };
     }
     timer = setTimeout(() => rejectTimeout(new SLMCompatibilityTimeout()), options.verificationTimeoutMs ?? 45000);
     return options.check();

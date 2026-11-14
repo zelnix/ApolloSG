@@ -4,6 +4,7 @@
 // counts, cost, Magnum DI's prompts and full reply, and rule-book codes are in the Admin Portal. The provider and
 // model are never shown. On-device SLM execution and validated output are shown separately as advisory records. Shown on both the Threat Case screen and Ask Higgins. Evidence is never modified here.
 
+import { HIGGINS_DESCRIPTION, HIGGINS_NAME } from "@/src/domain/higginsIdentity";
 import { investigationAudit } from "@/src/investigation/auditStore";
 import { mergeSlmStages, SLM_ROLES, slmHistory, type SlmStage } from "@/src/domain/investigationAudit";
 import React, { useEffect, useState } from "react";
@@ -409,14 +410,15 @@ export function DiReport({ auditState, caseId, triage, settledReason, settledEve
 
       <DecisionTrace steps={steps} settled={settled} />
       <Card testID="tc-di-slm">
-        <Text style={s.sectionTitle}>On-device SLM</Text>
+        <Text style={s.sectionTitle}>{HIGGINS_NAME}</Text>
+        <Text style={s.sourceSub}>{HIGGINS_DESCRIPTION}</Text>
         <Text style={s.note}>Recorded model output is advisory. Receipt acceptance does not approve a final Finding or verify its claims.</Text>
-        {!state.stages.length ? <Text style={s.sourceSub}>No SLM request or execution record is available for this case. This does not establish that the SLM ran.</Text> : null}
+        {!state.stages.length ? <Text style={s.sourceSub}>No request or execution record for Higgins is available for this case. This does not establish that Higgins ran.</Text> : null}
         {state.stages.map((stage) => <View key={stage.requestId} style={s.source}>
           <Text style={s.stepName}>{SLM_ROLES[stage.role] ?? stage.role} — {{ requested: "Requested", running: "Engaged", returned: "Output returned; awaiting receipt", accepted: "Output received by coordinator", failed: "Failed" }[stage.status]}</Text>
           {slmHistory([stage]).map((entry, i) => <Text key={i} style={s.stepDetail} selectable>{entry.title} · {formatDateTime(entry.at)}</Text>)}
           {stage.failure ? <Text style={s.value} selectable>Recorded failure: {stage.failure}</Text> : null}
-          {stage.output !== undefined ? <CollapsibleSection title="SLM output" testID={`tc-di-slm-output-${stage.requestId}`}>
+          {stage.output !== undefined ? <CollapsibleSection title="Higgins output" testID={`tc-di-slm-output-${stage.requestId}`}>
             <Text style={s.value} selectable>{JSON.stringify(stage.output, null, 2)}</Text>
           </CollapsibleSection> : <Text style={s.note}>No returned output is retained on this device for this request.</Text>}
         </View>)}
