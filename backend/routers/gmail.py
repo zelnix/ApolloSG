@@ -12,7 +12,7 @@ from typing import Optional
 from urllib.parse import urlencode
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -248,14 +248,19 @@ class GmailMessageDetail(BaseModel):
     date: str = ""
     body: str = ""
     attachments: list[AttachmentInfo] = []
+    raw_base64url: str | None = None
+    original_unavailable_reason: str | None = None
 
     model_config = {"populate_by_name": True, "serialize_by_alias": True}
 
 
 @router.get("/gmail/message/{message_id}", response_model=GmailMessageDetail)
-async def gmail_message_detail(message_id: str, device_id: str = Query(min_length=8, max_length=64), email: Optional[str] = Query(default=None)):
+async def gmail_message_detail(message_id: str, response: Response, device_id: str = Query(min_length=8, max_length=64), email: Optional[str] = Query(default=None), include_original: bool = Query(default=False)):
     """Fetch a single message's full content for analysis."""
     import httpx
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Vary"] = "Authorization"
     access_token = await gmail_service._access_token_for(device_id, email)
     auth = {"Authorization": f"Bearer {access_token}"}
     async with httpx.AsyncClient(timeout=20) as http:
@@ -264,11 +269,15 @@ async def gmail_message_detail(message_id: str, device_id: str = Query(min_lengt
             raise HTTPException(401, "Gmail access was rejected; reconnect")
         got.raise_for_status()
         msg = got.json()
+        if msg.get("id") != message_id:
+            raise HTTPException(502, "Gmail returned a different message; nothing was checked")
         h = gmail_service._headers_of(msg)
         text, _ = gmail_service._extract_content(msg)
         # Extract full attachment metadata for the UI and investigation
         raw_attachments = gmail_service.get_attachment_ids(msg.get("payload", {}))
         attachments = [AttachmentInfo(filename=a["filename"], mime_type=a.get("mimeType", ""), size=a.get("size", 0)) for a in raw_attachments]
+        raw, unavailable = (await gmail_service.selected_message_original(http, auth, message_id, int(msg.get("sizeEstimate") or 0))
+                            if include_original else (None, None))
         return GmailMessageDetail(
             id=msg.get("id", ""),
             account=email or "",
@@ -277,4 +286,6 @@ async def gmail_message_detail(message_id: str, device_id: str = Query(min_lengt
             date=h.get("date", ""),
             body=text,
             attachments=attachments,
+            raw_base64url=raw,
+            original_unavailable_reason=unavailable,
         )

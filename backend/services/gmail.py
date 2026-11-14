@@ -25,6 +25,7 @@ AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me"
 SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+MAX_ORIGINAL_BYTES = 10 * 1024 * 1024
 OAUTH_STATE_TTL = timedelta(minutes=10)
 
 _fernet: Optional[Fernet] = Fernet(GMAIL_TOKEN_ENCRYPTION_KEY.encode()) if GMAIL_TOKEN_ENCRYPTION_KEY else None
@@ -151,6 +152,35 @@ async def _access_token_for(device_id: str, email: Optional[str] = None) -> str:
 
 def _b64url_decode(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+async def selected_message_original(http, auth: dict, message_id: str, size_estimate: int = 0) -> tuple[str | None, str | None]:
+    """Request-scoped transport of Gmail's exact RFC822 bytes to the owning device. Never persist or reconstruct."""
+    if size_estimate > MAX_ORIGINAL_BYTES:
+        return None, "original_too_large"
+    try:
+        got = await http.get(f"{GMAIL_API}/messages/{message_id}", params={"format": "raw"}, headers=auth)
+        if got.status_code != 200:
+            return None, "original_unavailable"
+        message = got.json()
+        if message.get("id") != message_id:
+            return None, "original_message_mismatch"
+        raw = message.get("raw")
+        if not isinstance(raw, str) or not raw:
+            return None, "original_unreadable"
+        if len(raw) > 4 * ((MAX_ORIGINAL_BYTES + 2) // 3):
+            return None, "original_too_large"
+        if not re.fullmatch(r"[A-Za-z0-9_-]+={0,2}", raw):
+            return None, "original_unreadable"
+        try:
+            original = base64.b64decode(raw + "=" * (-len(raw) % 4), altchars=b"-_", validate=True)
+        except ValueError:
+            return None, "original_unreadable"
+        if not original or len(original) > MAX_ORIGINAL_BYTES:
+            return None, "original_too_large" if original else "original_unreadable"
+        return raw, None
+    except (httpx.HTTPError, ValueError, TypeError):
+        return None, "original_unavailable"
 
 
 def _walk_parts(part: dict):

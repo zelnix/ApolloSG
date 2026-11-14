@@ -72,7 +72,7 @@ async function request<T>(path: string, init?: RequestInit, acceptUnavailable = 
   catch { markBackendFailure("malformed"); throw new ApiError(502, FAILURE_MESSAGE.malformed, "malformed"); }
 }
 
-export function apiGet<T>(path: string) { return request<T>(path); }
+export function apiGet<T>(path: string, timeoutMs?: number) { return request<T>(path, undefined, false, timeoutMs); }
 /** Preserve a bounded 503 readiness body instead of treating it as a healthy response. */
 export function apiGetReadiness<T>(path: string) { return request<T>(path, undefined, true); }
 /** No payload is ever sent to the server-owned synthetic check. */

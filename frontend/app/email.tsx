@@ -46,6 +46,7 @@ import { contextFromEvent, gateForCategory } from "@/src/domain/higginsHandoff";
 import { runProtectionHealthCheck } from "@/src/protection/healthCoordinator";
 import { type EmailOutcome, type MessageUrlResult, useApollo } from "@/src/store/ApolloContext";
 import { EMAIL_WORDS, upgradeSentence, type EmailEvidenceProfile, type EmailVia } from "@/src/domain/triage/emailEvidence";
+import { readMailboxOriginal, mailboxOriginalLimitation, type MailboxOriginalPayload } from "@/src/domain/triage/mailboxOriginal";
 import { looksLikeRawEmail } from "@/src/domain/triage/emailOriginal";
 import { pickOriginalEmail, readEmailFile, readOriginal, readOriginalText, type OriginalEmail } from "@/src/store/originalEmail";
 import { isOriginalEmailFile } from "@/src/share/classifyShare";
@@ -207,6 +208,9 @@ export default function CheckEmail() {
   const fromInbox = useRef(false);
   /** When the email picked from the inbox arrived, as the mailbox recorded it. */
   const inboxDate = useRef<string | null>(null);
+  const inboxOriginal = useRef<{ original: OriginalEmail; from: string; subject: string; raw: string } | null>(null);
+  const inboxLimitation = useRef<string | null>(null);
+  const inboxSelection = useRef(0);
   const { ready, setupDone, checkEmail, deviceId, showToast, scanGmailInbox } = useApollo();
 
   // ── Input state ──
@@ -458,32 +462,47 @@ export default function CheckEmail() {
 
   const selectInboxEmail = useCallback(async (msg: InboxPreview) => {
     if (!deviceId) return;
+    const selection = ++inboxSelection.current;
+    inboxOriginal.current = null;
+    inboxLimitation.current = null;
     setPickerFetchBusy(msg.id);
     try {
-      const detail = await apiGet<{ id: string; account: string; from: string; subject: string; date: string; body: string }>(
-        `/gmail/message/${msg.id}?device_id=${deviceId}${msg.account ? `&email=${encodeURIComponent(msg.account)}` : ""}`
+      const detail = await apiGet<{ id: string; account: string; from: string; subject: string; date: string; body: string } & MailboxOriginalPayload>(
+        `/gmail/message/${encodeURIComponent(msg.id)}?device_id=${deviceId}&include_original=true${msg.account ? `&email=${encodeURIComponent(msg.account)}` : ""}`,
+        60000,
       );
-      setFrom(detail.from || msg.from);
-      setSubject(detail.subject || msg.subject);
-      setRaw(detail.body || msg.snippet);
-      fromInbox.current = true;
-      inboxDate.current = detail.date || msg.date || null;
-      setPickerVisible(false);
-      // Auto-investigate the selected email
-      const body = detail.body || msg.snippet;
+      if (detail.id !== msg.id || (msg.account && detail.account && detail.account.toLowerCase() !== msg.account.toLowerCase()))
+        throw new Error("Mailbox message identity mismatch");
+      const loaded = await readMailboxOriginal(detail, readOriginal);
+      if (selection !== inboxSelection.current) return;
       const sender = detail.from || msg.from;
       const subj = detail.subject || msg.subject;
-      showToast("Email loaded \u2014 investigating\u2026", "neutral");
-      // Trigger investigation with the loaded content
-      setTimeout(() => {
-        setRaw(body);
-        setFrom(sender);
-        setSubject(subj);
-      }, 100);
+      const body = detail.body || msg.snippet;
+      inboxOriginal.current = loaded.original ? { original: loaded.original, from: sender, subject: subj, raw: body } : null;
+      inboxLimitation.current = mailboxOriginalLimitation(loaded.limitation);
+      setFrom(sender);
+      setSubject(subj);
+      setRaw(body);
+      fromInbox.current = true;
+      inboxDate.current = detail.date || msg.date || null;
+      if (detail.account || msg.account) setSelectedAccount(detail.account || msg.account);
+      setPickerVisible(false);
+      showToast(loaded.original ? "Original email loaded from your mailbox — ready to check." : "Email loaded without its original headers — this check will have limits.", "neutral");
     } catch {
-      showToast("Couldn\u2019t fetch that email.", "growling");
-    } finally { setPickerFetchBusy(null); }
+      if (selection === inboxSelection.current) showToast("Couldn’t fetch that email.", "growling");
+    } finally { if (selection === inboxSelection.current) setPickerFetchBusy(null); }
   }, [deviceId, showToast]);
+
+  const resetEmail = useCallback(() => {
+    setResult(null);
+    setRaw("");
+    setFrom("");
+    setSubject("");
+    fromInbox.current = false;
+    inboxOriginal.current = null;
+    inboxLimitation.current = null;
+    void refreshRecentChecks();
+  }, [refreshRecentChecks]);
 
   // ── Account management ──
   const handleAddAccount = async () => {
@@ -540,7 +559,7 @@ export default function CheckEmail() {
   /** Check an original message (an .eml file or pasted original source), read on this device from its real headers.
    *  With `upgradeEventId` it is added to that email's case and re-triaged there. */
   const checkOriginal = async (original: OriginalEmail, via: EmailVia, upgradeEventId?: string) => {
-    const outcome = await checkEmail({ from: "", subject: "", raw: "", via, original, upgradeEventId });
+    const outcome = await checkEmail({ from: "", subject: "", raw: "", via, original, upgradeEventId, receivedAt: via === "connected_mailbox" ? inboxDate.current : null });
     const sender = outcome.analysis.parsed.fromAddress ?? "";
     const subj = outcome.analysis.parsed.subject ?? "";
     setFrom(sender);
@@ -559,6 +578,11 @@ export default function CheckEmail() {
       const from = source?.from ?? fromState;
       const via: EmailVia = source?.via ?? (fromInbox.current ? "connected_mailbox" : "pasted");
       if (source?.original) { await checkOriginal(source.original, via); return; }
+      const selected = !source && fromInbox.current ? inboxOriginal.current : null;
+      if (selected && selected.from === from && selected.subject === subjectInput && selected.raw === rawInput) {
+        await checkOriginal(selected.original, "connected_mailbox");
+        return;
+      }
       // Pasted original source ("Show original") is read on this device from its real headers and parts.
       if (looksLikeRawEmail(rawInput.slice(0, 65536))) { await checkOriginal(await readOriginalText(rawInput), "raw_source"); return; }
       const safeRaw = redactUserSecrets(rawInput);
@@ -577,6 +601,7 @@ export default function CheckEmail() {
         sender: from.trim() || outcome.analysis.parsed.fromAddress || "",
         subject: safeSubject.trim() || outcome.analysis.parsed.subject || "",
         account: source?.simulated ? simulation.accountLabel : selectedAccount || undefined,
+        notice: via === "connected_mailbox" && !source?.simulated ? inboxLimitation.current : null,
       });
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Couldn\u2019t read that email.", "barking");
@@ -666,17 +691,7 @@ export default function CheckEmail() {
       emailActions.push({ testID: "email-attachment-limitation", variant: "ghost", label: "Note: the file itself was not transferred \u2014 only metadata is checked here", onPress: () => {} });
     }
     emailActions.push({
-      testID: "email-again",
-      variant: "ghost",
-      label: "Check another email",
-      onPress: () => {
-        setResult(null);
-        setRaw("");
-        setFrom("");
-        setSubject("");
-        fromInbox.current = false;
-        void refreshRecentChecks();
-      },
+      testID: "email-again", variant: "ghost", label: "Check another email", onPress: resetEmail,
     });
     const evidence = {
       onAddOriginal: () => void addOriginal(result.event.event_id),
@@ -753,7 +768,7 @@ export default function CheckEmail() {
     } catch { return ""; }
   };
 
-  // ── Select a recent inbox email → auto-investigate ──
+  // ── Select a recent inbox email → load its original for checking ──
   const selectRecentInboxEmail = (msg: InboxPreviewItem) => {
     void selectInboxEmail(msg);
   };
@@ -769,7 +784,7 @@ export default function CheckEmail() {
           info={{
             title: "About email checking",
             body: [
-              "Paste a forwarded email, paste its original source (\u201cShow original\u201d), or open the original email file (.eml). Apollo analyses the email for scam indicators, phishing patterns and suspicious links.",
+              "Pick an email from your connected Gmail mailbox to retrieve its original automatically, without exporting a file. You can also paste a forwarded email, paste its original source (\u201cShow original\u201d), or open the original email file (.eml). Apollo analyses the email for scam indicators, phishing patterns and suspicious links.",
               "With the original email, Higgins Triage also reads its full headers and the sender authentication (SPF, DKIM, DMARC) the receiving mail server recorded. ApolloSG reports those results as recorded and doesn\u2019t re-check them. The original is read and kept on this device \u2014 it isn\u2019t uploaded.",
               "A manual check works without connecting any email account. Account selection is for organising your checks across multiple email addresses.",
             ],
@@ -946,7 +961,7 @@ export default function CheckEmail() {
               testID="email-body"
               style={s.emailInput}
               value={raw}
-              onChangeText={(t) => { fromInbox.current = false; setRaw(t); }}
+              onChangeText={(t) => { fromInbox.current = false; inboxOriginal.current = null; inboxLimitation.current = null; setRaw(t); }}
               placeholder="Paste the email (sender, subject, message) or its original source (“Show original”)"
               placeholderTextColor={colors.muted}
               multiline
