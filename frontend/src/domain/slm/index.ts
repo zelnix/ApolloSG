@@ -6,7 +6,7 @@
  * their existing authoritative components.
  */
 import { validateWrightSemantic, type WrightSemanticResult } from "./wrightSemanticContract.ts";
-import { recordSuccessfulSLMInference } from "./sharedRuntime.ts";
+import { recordFailedSLMInference, recordSuccessfulSLMInference } from "./sharedRuntime.ts";
 
 export type SLMRole = "wright_triage" | "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding" | "higgins_escalation_assessment";
 export type SLMOperation = "wright_semantic" | "investigation_readiness" | "evidence_reasoning" | "explanation" | "chat_explanation" | "case_finding" | "escalation_assessment";
@@ -209,7 +209,10 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
   try {
     const candidate = await adapter.infer(request);
     const answer = validate(candidate, new Set(request.evidence.map((e) => e.evidenceId)), request.operation);
-    if (!answer) return { status: "invalid_output", execution: "none", reason: "response_contract_failed:" + contractFailure(candidate, new Set(request.evidence.map(e => e.evidenceId)), request.operation) };
+    if (!answer) {
+      recordFailedSLMInference(adapter, "invalid_output");
+      return { status: "invalid_output", execution: "none", reason: "response_contract_failed:" + contractFailure(candidate, new Set(request.evidence.map(e => e.evidenceId)), request.operation) };
+    }
     recordSuccessfulSLMInference(adapter);
     return { status: "completed", execution: "on_device", modelId: adapter.modelId, answer };
   } catch (error: unknown) {
@@ -219,6 +222,7 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
     const reason = error instanceof LocalInferenceError
       ? `on_device_inference_failed:${error.stage}:${error.code}`
       : "on_device_inference_failed:unknown:unclassified_exception";
+    recordFailedSLMInference(adapter, "unavailable");
     return { status: "unavailable", execution: "none", reason };
   }
 }

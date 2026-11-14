@@ -314,3 +314,30 @@ caller-list source-wording test in `callProtectionSetup.test.ts` still fails its
 pre-existing expectation that `ScreenedCallsList.tsx` contains "this is not your
 phone"; neither that test nor that component was changed here. The installed
 build 2 APK is unchanged, and the Fold6 has not run these source changes yet.
+
+## Latest on-device response status in Settings
+
+The next Fold6 screenshot showed the built-in response test failing with
+`json_parse:no_json_object` while Settings still reported Active from an earlier
+successful inference. Shared runtime activity now records the latest actual
+adapter response status, including contract rejection and inference failure,
+without retaining prompts, evidence or native exception text. An older success
+timestamp remains historical; it cannot keep the current status Active after a
+failure. A later validated response restores Active. Replacement/removal of the
+shared runtime clears status, and late responses from the old adapter cannot
+update it. Settings also hides a stale explicit test label after newer activity.
+
+Core Android response diagnostics are no longer described as disabled merely
+because the developer-only manual model-import controls are hidden. Settings
+describes local AI as required and removes the unconditional installation claim.
+No background probe, model reinstall, fallback, environment toggle or new build
+is introduced. The JSON-constrained decoding fix in `2f83d822` still needs an
+explicitly requested APK and physical-device verification.
+
+Validation: all 270 frontend regression-gate tests and full TypeScript checking
+pass. New activity regressions reproduce the screenshot's success → JSON parse
+failure → recovery, invalid citations, replacement-runtime fencing and activity
+notifications without background inference. Shared activity/status code and tests
+pass lint. Settings retains 31 pre-existing lint errors (primarily its nested
+render component definitions); a comparison with the previous source confirms
+no new lint diagnostics were introduced. No APK build was run.

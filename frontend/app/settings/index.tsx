@@ -31,7 +31,8 @@ import { CANDIDATE_FILE } from "@/src/domain/slm/modelAdmission";
 import { runSLM } from "@/src/domain/slm/index";
 import { getSharedSLM } from "@/src/domain/slm/sharedRuntime";
 import { getOnDeviceAIDownloadState, subscribeOnDeviceAIDownload } from "@/src/domain/slm/downloadStatus";
-import { getSLMActivitySnapshot, subscribeSLMActivity } from "@/src/domain/slm/sharedRuntime";
+import { getSLMActivitySnapshot, subscribeSLMActivity, type SLMActivitySnapshot } from "@/src/domain/slm/sharedRuntime";
+import { slmActivityStatus } from "@/src/domain/slm/activityStatus";
 import { openPrivacyPolicy } from "@/src/config/privacyPolicy";
 import { apiDelete, apiGet } from "@/src/api/client";
 import { confirmDialog } from "@/src/utils/confirmDialog";
@@ -104,18 +105,26 @@ export default function SettingsScreen() {
   const aiDownloadActive = ["downloading", "verifying", "registering"].includes(aiDownload.phase);
   const [slmInstalling, setSlmInstalling] = useState(false);
   const [aiTesting, setAiTesting] = useState(false);
-  const [aiTestResult, setAiTestResult] = useState<"working" | "failed" | null>(null);
-  const [aiTestReason, setAiTestReason] = useState("");
+  const [aiTestResult, setAiTestResult] = useState<{
+    status: "working" | "failed"; reason: string; activity: SLMActivitySnapshot;
+  } | null>(null);
   const testOnDeviceAI = useCallback(async () => {
-    if (aiTesting || !getSharedSLM()) return;
-    setAiTesting(true); setAiTestResult(null); setAiTestReason("");
+    const adapter = getSharedSLM();
+    if (aiTesting || !adapter) return;
+    setAiTesting(true); setAiTestResult(null);
     try {
-      const result = await runSLM({ role: "luddish", operation: "explanation", evidence: [], question: "This is a local inference health check. Return a short neutral explanation confirming the request was processed. Do not make a scam verdict." }, getSharedSLM());
-      if (result.status === "completed") { setAiTestResult("working"); setAiTestReason("A native on-device response passed the output validation checks."); }
-      else { setAiTestResult("failed"); setAiTestReason(result.reason); }
-    } catch { setAiTestResult("failed"); setAiTestReason("Local inference encountered an unexpected error."); }
+      const result = await runSLM({ role: "luddish", operation: "explanation", evidence: [], question: "This is a local inference health check. Return a short neutral explanation confirming the request was processed. Do not make a scam verdict." }, adapter);
+      const activity = getSLMActivitySnapshot();
+      // A replaced runtime or a newer response must not inherit this test's label.
+      if (getSharedSLM() === adapter && activity.latestInference?.status === result.status) {
+        setAiTestResult({ status: result.status === "completed" ? "working" : "failed",
+          reason: result.status === "completed" ? "A native on-device response passed the output validation checks." : result.reason,
+          activity });
+      }
+    } catch { showToast("The local response test could not finish. Try again.", "growling"); }
     finally { setAiTesting(false); }
-  }, [aiTesting]);
+  }, [aiTesting, showToast]);
+  const slmDiagnosticsAvailable = Platform.OS === "android";
   const slmTestAvailable = Platform.OS === "android" &&
     (__DEV__ || process.env.EXPO_PUBLIC_SLM_TEST_MODE === "true");
   const installSlmModel = useCallback(async () => {
@@ -504,16 +513,15 @@ export default function SettingsScreen() {
         <View testID="settings-slm-info" style={[s.rowItem, s.divider, { alignItems: "flex-start" }]}>
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text style={s.rowLabel}>On-device AI</Text>
-            <Text style={s.rowHint}>Engine: On-device AI (local, optional)</Text>
+            <Text style={s.rowHint}>Engine: On-device AI (local, required)</Text>
             <Text style={s.rowHint}>On-device AI version: ODAI-Q2.5-0.5B-Q4KM-v1</Text>
-            <Text style={s.rowHint}>On-device AI package: verified local installation</Text>
-            <Text style={s.rowHint} testID="settings-slm-status">Status: {aiDownloadActive ? "Setup in progress" : !slmTestAvailable ? "Disabled in this build" : slmActivity.lastSuccessfulInferenceAt ? "Active — local inference confirmed" : slmActivity.registered ? "Runtime registered — inference not yet confirmed" : "Inactive — no runtime registered"}</Text>
+            <Text style={s.rowHint} testID="settings-slm-status">Status: {slmActivityStatus(slmActivity, { available: slmDiagnosticsAvailable, settingUp: aiDownloadActive, testing: aiTesting })}</Text>
             <Text style={s.rowHint}>Installed On-device AI package: {slmActivity.registered ? "ODAI-Q2.5-0.5B-Q4KM-v1" : "None confirmed"}</Text>
-            <Text style={s.rowHint}>Last verified local inference: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
-            <Text style={s.rowHint}>Activity is confirmed only after a native model response passes the On-device AI output contract. This does not establish that Higgins displayed the model's wording. No background inference test is performed.</Text>
+            <Text style={s.rowHint}>Last successful local response: {slmActivity.lastSuccessfulInferenceAt ? new Date(slmActivity.lastSuccessfulInferenceAt).toLocaleString() : "Never in this app session"}</Text>
+            <Text style={s.rowHint}>Status reflects the latest local response. An earlier successful response does not mean a later check passed. No test runs in the background.</Text>
           </View>
         </View>
-        {slmTestAvailable && slmActivity.registered ? (
+        {slmDiagnosticsAvailable && slmActivity.registered ? (
           <Pressable testID="settings-test-on-device-ai" accessibilityRole="button"
             accessibilityLabel="Test On-device AI"
             disabled={aiTesting || aiDownloadActive}
@@ -523,7 +531,7 @@ export default function SettingsScreen() {
               <Text style={s.rowLabel}>{aiTesting ? "Testing On-device AI…" : "Test On-device AI"}</Text>
               <Text style={s.rowHint}>Run a real On-device AI response test. No internet or case evidence is used.</Text>
               {aiTesting ? <ActivityIndicator size="small" style={{ alignSelf: "flex-start", marginTop: spacing.sm }} /> : null}
-              {aiTestResult ? <Text style={s.rowHint} testID="settings-ai-test-result">{aiTestResult === "working" ? "Working — " : "Not working — "}{aiTestReason}</Text> : null}
+              {aiTestResult && aiTestResult.activity === slmActivity ? <Text style={s.rowHint} testID="settings-ai-test-result">{aiTestResult.status === "working" ? "Working — " : "Not working — "}{aiTestResult.reason}</Text> : null}
             </View>
             {!aiTesting ? <ChevronRight size={20} color={colors.muted} /> : null}
           </Pressable>
