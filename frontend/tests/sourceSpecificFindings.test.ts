@@ -100,3 +100,12 @@ test("two failed phone checks keep their respective numbers", () => {
   assert.deepEqual(checks.map((c) => c.subject), ["+61400000001", "+61400000002"]);
   assert.equal(serviceSubject("1800123"), "1800123", "a number must not be reformatted as a website address");
 });
+
+
+test("a retained email is still an email when a legacy event used the generic message category", () => {
+  const legacy = { ...event(), category: "message" as const, source_metadata: { type: "text" as const } };
+  const report = gateCheckResult(legacy, source)!.report;
+  assert.match(report.answer.join(" "), /the email “Account access notification”/);
+  assert.match(report.found.map((f) => f.text).join(" "), /The email says:/);
+  assert.doesNotMatch(report.found.map((f) => f.text).join(" "), /The message says:/);
+});
