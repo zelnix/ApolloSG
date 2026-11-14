@@ -14,6 +14,7 @@ import type { IncompleteCheck } from "./triage/completeness.ts";
 import { evidenceModel, hasServerFindings } from "./evidenceModel.ts";
 import { investigatorName } from "./messageVoice.ts";
 import type { PatrolEvent } from "./types";
+import { plainServiceText, serviceFunction, serviceSubject } from "./checkServicePresentation.ts";
 
 const WORDS = (catalogue as unknown as {
   completeness: {
@@ -113,6 +114,7 @@ export interface Shortfall {
   /** What couldn't be verified because of it ("where the link finally leads"). */
   unverified: string;
   at: string | null;
+  subject?: string | null;
 }
 
 /** "Couldn't verify where the link finally leads." */
@@ -123,7 +125,7 @@ export function unverifiedSentence(row: Pick<Shortfall, "unverified">): string {
 /** The full row in one line: "Final destination — couldn't be verified: The website's address doesn't exist.
  *  Couldn't verify where the link finally leads." */
 export function shortfallLine(row: Shortfall): string {
-  return `${row.name} — ${row.status}: ${row.reason} ${unverifiedSentence(row)}`;
+  return plainServiceText(`${row.name}${row.subject ? ` for ${row.subject}` : ""} — ${row.status}: ${row.reason} ${unverifiedSentence(row)}`);
 }
 
 function sentence(text: string): string {
@@ -189,11 +191,12 @@ function gapUnverified(ruleId: string | undefined, code: string): string {
 function incompleteRow(c: IncompleteCheck, id: string, at: string | null): Shortfall {
   return {
     id,
-    name: WORDS.checkNames[c.check] ?? sentence(WORDS.checks[c.check] ?? c.check.replace(/_/g, " ")).replace(/\.$/, ""),
+    name: c.source || c.subject ? serviceFunction(c.source, c.check) : WORDS.checkNames[c.check] ?? sentence(WORDS.checks[c.check] ?? c.check.replace(/_/g, " ")).replace(/\.$/, ""),
     status: WORDS.statusLabels[c.status] ?? WORDS.statusLabels.unavailable,
-    reason: incompleteReason(c),
+    reason: plainServiceText(incompleteReason(c)),
     unverified: WORDS.unverified[c.check] ?? WORDS.unrecorded.unverified,
     at: c.at ?? at,
+    ...(c.subject ? { subject: serviceSubject(c.subject) } : {}),
   };
 }
 
@@ -204,11 +207,11 @@ export function triageShortfalls(record: TriageInvestigationRecord | null | unde
   const out: Shortfall[] = [];
   const seen = new Set<string>();
   const add = (row: Shortfall) => {
-    const key = `${row.name}|${row.reason}`;
+    const key = `${row.name}|${row.subject ?? ""}|${row.reason}`;
     if (!seen.has(key)) { seen.add(key); out.push(row); }
   };
   (record.incompleteChecks ?? []).forEach((c, i) => add(incompleteRow(c, `incomplete:${c.check}:${i}`, record.evaluatedAt)));
-  const covered = new Set(out.map((row) => row.name));
+  const covered = new Set([...out.map((row) => row.name), ...(record.incompleteChecks ?? []).map((c) => WORDS.checkNames[c.check])]);
   const gapRules = (record.rules ?? []).filter((r) => r.result === "coverage_gap");
   const rows = gapRules.length
     ? gapRules.map((r) => ({ ruleId: r.ruleId, code: r.coverageGap ?? "", reason: r.evidence[0] ? recordedReason(r.evidence[0]) : "", detail: "" }))

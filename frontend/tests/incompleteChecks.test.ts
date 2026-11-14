@@ -29,7 +29,7 @@ test("Safe Browsing down with the blocklist answering: No threat found by availa
   assert.equal(record.outcome, "NO_THREAT_IDENTIFIED");
   assert.equal(outcomeLabel(record), AVAILABLE_CHECKS);
   assert.equal(record.coverage, "incomplete");
-  assert.match(record.reason, /^No threat found by available checks\. Not completed: A reputation check didn't complete \(its lookup allowance is used up for now\)\./);
+  assert.match(record.reason, /^No threat found by available checks\. Not completed: Website threat checking: A reputation check didn't complete \(its lookup allowance is used up for now\)\./);
   assert.doesNotMatch(record.reason, /Google|Safe Browsing/);
   assert.deepEqual(incompleteCodes(record), ["reputation_quota_exhausted"]);
 });

@@ -87,8 +87,8 @@ export function phoneIncompleteChecks(results: EvidencePhoneResult[]): Incomplet
     const stale = r.decision !== "unknown" && r.freshness === "stale";
     if (r.decision !== "unknown" && !stale) continue;
     const status = stale ? "stale" : "unavailable";
-    if (checks.some((c) => c.status === status && c.failure === (r.lookupFailure ?? null))) continue;
-    checks.push(incompleteCheck("number_reputation", r.lookupFailure, { status, source: "ipqs", ...(stale ? { at: r.checked_at } : {}) }));
+    if (checks.some((c) => c.status === status && c.failure === (r.lookupFailure ?? null) && c.subject === r.number)) continue;
+    checks.push({ ...incompleteCheck("number_reputation", r.lookupFailure, { status, source: "ipqs", ...(stale ? { at: r.checked_at } : {}) }), subject: r.number });
   }
   return checks;
 }

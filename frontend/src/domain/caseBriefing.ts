@@ -161,7 +161,8 @@ export function needsYou(event: PatrolEvent): boolean {
   if (b) return b.userActionRequired && !!clean(b.actionReason);
   const investigation = event.investigation_case_id ?? event.patrol_record?.investigationCaseId;
   if (investigation) return false; // still investigating, or answered without a recorded decision
-  if (gateCheckResult(event)) return false;
+  const gate = gateCheckResult(event);
+  if (gate && gate.admission !== "investigate") return false;
   const model = evidenceModel(event);
   const serverHeld = model.representation === "privacy_summary" || model.representation === "privacy_protected_copy";
   return BARKING(event) && !serverHeld && model.completeness !== "partial"

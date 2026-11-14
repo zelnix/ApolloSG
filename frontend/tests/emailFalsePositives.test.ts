@@ -57,13 +57,13 @@ test("recorded clean checks govern Findings and attention without authenticating
   const e = event();
   const result = gateCheckResult(e);
   assert.ok(result);
-  assert.match(result.label, /available checks/);
+  assert.equal(result.label, "Not fully checked");
   assert.match(result.report.found[0].text, /none matched/);
   assert.match(result.report.uncertain.join(" "), /do not establish authenticity/);
   assert.doesNotMatch(JSON.stringify(result.report), /Real account alerts never|why this is a scam/);
   assert.equal(caseCardText(e, "Old scam title").title, result.label);
   assert.equal(needsYou(e), false);
-  assert.equal(threatCaseStatus(e), "no_threat");
+  assert.equal(threatCaseStatus(e), "not_fully_checked");
   const trail = caseAuditTrail({ event: e, investigation: null, trace: null, records: [], verdict: null });
   assert.deepEqual(trail.map((entry) => entry.title), ["Case created", "Higgins Triage completed"]);
   assert.equal(trail[0].at, e.occurred_at);
@@ -74,7 +74,7 @@ test("committed investigations, matched Gate rules and recorded malicious links 
   assert.equal(gateCheckResult(event({ investigation_case_id: "committed-case" })), null);
   assert.equal(gateCheckResult(event({ patrol_record: { investigationCaseId: "case" } as PatrolEvent["patrol_record"] })), null);
   assert.equal(gateCheckResult(event({ verified_block: true })), null);
-  assert.equal(gateCheckResult(event({ triage_investigation: { ...record(), rulesMet: ["EMAIL-01"] } })), null);
+  assert.equal(gateCheckResult(event({ triage_investigation: { ...record(), rulesMet: ["EMAIL-01"] } }))?.admission, "investigate");
   assert.equal(gateCheckResult(event({ why: ["evil.example is a known malicious destination — confirmed."] })), null);
   assert.equal(gateCheckResult(event({ why: ["Displayed link says google.com but goes to evil.example"] })), null);
 });

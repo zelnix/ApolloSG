@@ -82,7 +82,7 @@ export async function fetchMessageUrlIntel(
       final_url: parsed?.final_url ?? null,
       domain_info: parsed?.domain_info ?? null,
       failure,
-      incomplete: failure || !parsed || parsed.coverage === "none" ? [] : fromSources(parsed.sources),
+      incomplete: failure || !parsed || parsed.coverage === "none" ? [] : fromSources(parsed.sources, rawUrl),
     });
   }
   return results;

@@ -30,6 +30,7 @@ import { getDeviceToken } from "@/src/auth/deviceIdentity";
 import { EvidencePopup } from "@/src/components/EvidencePopup";
 import { EvidenceArtefactCard } from "@/src/components/evidence/EvidenceArtefactCard";
 import { DiReport, Research, CollapsibleSection } from "@/src/components/DiReport";
+import { gateCheckResult } from "@/src/domain/gateCheckResult";
 import { caseAuditTrail } from "@/src/domain/caseAuditTrail";
 import { outsideResearch } from "@/src/domain/diTrace";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
@@ -687,7 +688,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
       alreadySaid: [caseData?.settledReason?.sentence], evidence: evidenceItems,
     });
   }, [response, sources, caseData?.settledReason, evidenceItems]);
-  const report = overrideReport ?? computedReport;
+
 
   // ── Categorised evidence items ──
   const originalEvidence = useMemo(() => evidenceItems.filter((e) => e.origin === "user_submission" || e.origin === "device_observation"), [evidenceItems]);
@@ -727,15 +728,21 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   // ── Phone number for identity resolution ──
   // When a case started from a call/number check, extract it so the identity card appears alongside the investigation.
   // Also detect when a phone number appears in the submitted text/message content.
-  const [originalSource, setOriginalSource] = useState<OriginalSource | null>(null);
+  const originalKey = `${eventId ?? ""}|${caseData?.id ?? ""}`;
+  const [originalEntry, setOriginalEntry] = useState<{ key: string; source: OriginalSource | null } | null>(null);
+  const originalSource = originalEntry?.key === originalKey ? originalEntry.source : null;
   useEffect(() => {
     const keys = [eventId, caseData?.id].filter((k): k is string => !!k);
     if (!keys.length) return;
     let live = true;
-    void getCaseOriginal(keys).then((found) => { if (live) setOriginalSource(found); }).catch(() => {});
-    const off = subscribeOriginalSource(() => void getCaseOriginal(keys).then((found) => { if (live) setOriginalSource(found); }).catch(() => {}));
+    void getCaseOriginal(keys).then((found) => { if (live) setOriginalEntry({ key: originalKey, source: found }); }).catch(() => {});
+    const off = subscribeOriginalSource(() => void getCaseOriginal(keys).then((found) => { if (live) setOriginalEntry({ key: originalKey, source: found }); }).catch(() => {}));
     return () => { live = false; off(); };
-  }, [eventId, caseData?.id]);
+  }, [eventId, caseData?.id, originalKey]);
+
+  // Use this case's retained source to explain its recorded screening result. Never recompute a verdict.
+  const report = useMemo(() => (!response && !caseData && event ? gateCheckResult(event, originalSource)?.report : null)
+    ?? overrideReport ?? computedReport, [response, caseData, event, originalSource, overrideReport, computedReport]);
 
   // What the case recorded as its material (an email, a text, a link, a call): the Findings Brief's "what to do next"
   // words follow it. The kept original knows its kind even when the event and the case's Gates don't say.

@@ -44,22 +44,24 @@ test("the path runs Higgins Triage → TC Hawkeye → Magnum DI → Evidence Loc
   assert.deepEqual(steps.map((s) => s.name), ["Higgins Triage", "TC Hawkeye", "Magnum DI", "Evidence Lock"]);
 });
 
-test("a Triage-only Limited case: stops at Triage, Magnum DI not engaged, never shown as safe, no codes", () => {
+test("a limited screening record keeps Gate limits separate and does not claim an investigation Finding", () => {
   const steps = buildDecisionTrace({ trace: null, records: [], triage: limited, hasCase: false, presented: { verdict: "Unable to determine", risk: null } });
-  assert.equal(steps[0].status, "ran");
-  assert.match(steps[0].summary, /It stopped here, so Magnum DI was not engaged\.$/);
-  assert.equal(steps[1].status, "not_engaged");
-  assert.equal(steps[2].summary, "Magnum DI was not engaged because Higgins Triage did not open an investigation.");
-  assert.match(steps[3].summary, /^The Evidence Lock preserves Higgins Triage's original decision/);
-  assert.ok(steps[3].details.some((d) => /never shown as safe/.test(d)));
+  const intake = steps.find((step) => step.id === "triage")!;
+  assert.equal(intake.status, "ran");
+  assert.equal(intake.label, "Not fully checked");
+  assert.match(intake.summary, /No TC Hawkeye investigation was opened/);
+  assert.equal(steps.find((step) => step.id === "gate")?.status, "failed");
+  assert.equal(steps.find((step) => step.id === "flyby")?.status, "not_engaged");
+  assert.equal(steps.find((step) => step.id === "magnum")?.summary, "Magnum DI was not engaged because Higgins Triage did not open an investigation.");
+  assert.equal(steps.find((step) => step.id === "lock")?.status, "not_engaged");
   for (const line of everyLine(steps)) assert.doesNotMatch(line, CODES, line);
 });
 
-test("TC Hawkeye settled: Triage read from TC Hawkeye's record, its checks in plain words, Magnum DI not engaged", () => {
+test("TC Hawkeye settled: its checks are shown and a missing triage intake remains unrecorded", () => {
   const steps = buildDecisionTrace({ trace: flybyTrace(true), records: [], triage: null, hasCase: true });
-  assert.equal(steps[0].label, "Ran with TC Hawkeye");
-  assert.equal(steps[0].summary, "Higgins Triage prepared what was sent and planned 1 check for TC Hawkeye.");
-  assert.deepEqual(steps[0].details, ["Planned to check: the website."]);
+  assert.equal(steps[0].label, "No intake record");
+  assert.match(steps[0].summary, /no separate triage intake record is available/);
+  assert.deepEqual(steps[0].details, []);
   assert.equal(steps[1].label, "Settled · This is likely a scam");
   assert.match(steps[1].summary, /^Settled by TC Hawkeye/);
   assert.deepEqual(steps[1].details, ["This is an administrative determination from rule-based checks, not a deep investigation by Magnum DI.", "The website: checked with official sources"]);

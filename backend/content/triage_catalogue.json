@@ -150,7 +150,71 @@
       "status": "not recorded with this case",
       "reason": "No reason was recorded.",
       "unverified": "the content that was checked"
-    }
+    },
+    "serviceFunctions": [
+      {
+        "name": "Internet address validation",
+        "aliases": [
+          "spamhaus_drop",
+          "Spamhaus DROP",
+          "Spamhaus"
+        ]
+      },
+      {
+        "name": "Website threat checking",
+        "aliases": [
+          "google_web_risk",
+          "Google Web Risk",
+          "google_safe_browsing",
+          "Google Safe Browsing",
+          "Safe Browsing"
+        ]
+      },
+      {
+        "name": "Phishing website checking",
+        "aliases": [
+          "PhishTank",
+          "OpenPhish"
+        ]
+      },
+      {
+        "name": "Phone number validation",
+        "aliases": [
+          "IPQualityScore",
+          "ipqualityscore",
+          "ipqs"
+        ]
+      },
+      {
+        "name": "File and link threat checking",
+        "aliases": [
+          "VirusTotal",
+          "virustotal"
+        ]
+      },
+      {
+        "name": "Website registration checking",
+        "aliases": [
+          "RDAP",
+          "WHOIS"
+        ]
+      },
+      {
+        "name": "Exposed account checking",
+        "aliases": [
+          "Have I Been Pwned",
+          "HaveIBeenPwned",
+          "HIBP"
+        ]
+      },
+      {
+        "name": "Website inspection",
+        "aliases": [
+          "urlscan.io",
+          "urlscan"
+        ]
+      }
+    ]
   },
   "evidenceProfiles": {
     "version": 1,

@@ -11,6 +11,8 @@ import type { PatrolEvent } from "./types";
 import { toneForState, buildEvidenceRows, appendEventContext } from "./checkResultFramework";
 import { ACTION_LINKS } from "./actionRegistry";
 import { GATE_REGISTRY } from "./gateRegistry";
+import { incompleteReason } from "./caseFacts";
+import { plainServiceText, serviceFunction } from "./checkServicePresentation";
 
 const SOURCE_NAME: Record<string, string> = {
   google_safe_browsing: "Google Safe Browsing",
@@ -65,11 +67,11 @@ export function buildLinkCheckResult(args: {
         : src.status === "clear"
           ? `${sourceLabel(src.name)} found no known threat matches.`
           : src.status === "not_configured"
-            ? `${sourceLabel(src.name)} isn't configured on this build.`
-            : `${sourceLabel(src.name)} couldn't respond right now.`;
+            ? `${serviceFunction(src.name, src.check ?? "reputation")} isn't configured on this build.`
+            : `${serviceFunction(src.name, src.check ?? "reputation")} couldn't complete the check for ${host}. ${plainServiceText(incompleteReason({ status: "unavailable", failure: src.failure ?? null, detail: src.detail ?? "" }))}`;
       items.push({
         id: `src:${src.name}`,
-        name: sourceLabel(src.name),
+        name: src.status === "unavailable" || src.status === "not_configured" ? serviceFunction(src.name, src.check ?? "reputation") : sourceLabel(src.name),
         status,
         finding,
         raw: { threat_types: src.threat_types, detail: src.detail },

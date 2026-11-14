@@ -14,6 +14,7 @@ import { deviceCheckEvent } from "../src/domain/deviceCheckCase.ts";
 import { mergeLocalAndRemoteEvents } from "../src/domain/eventMerge.ts";
 import { EVIDENCE_SOURCES, evidenceModel } from "../src/domain/evidenceModel.ts";
 import { buildEvidencePack } from "../src/domain/evidencePack.ts";
+import { presentEvent } from "../src/domain/luddish/present.ts";
 import { projectedEventVoice } from "../src/domain/messageVoice.ts";
 import { normalizeHistoricalEvent } from "../src/domain/packetEvidence.ts";
 import { patrolPayload } from "../src/domain/patrolPayload.ts";
@@ -71,7 +72,7 @@ function caseText(event: PatrolEvent): string[] {
   return [
     caseOrigin(event).label, evidenceSourceLabel(event), ...processingLabels(event), completenessLabel(event), privacyNote(event) ?? "",
     ...sources.flatMap((s) => [sourceHeading(s), s.returned]),
-    ...narrateEvent(event).map((c) => c.text),
+    presentEvent(event).title, presentEvent(event).summary, ...presentEvent(event).why, presentEvent(event).whatToDo,
     buildEvidencePack({ event, facts, sources }),
   ];
 }
@@ -213,8 +214,8 @@ test("incomplete checks show the actual check and their exact recorded failure",
   });
   const rows = triageShortfalls(record).map((r) => `${r.name} — ${r.status}: ${r.reason}`);
   assert.deepEqual(rows, [
-    "Final destination — couldn't be verified: The website's address doesn't exist.",
-    "Reputation check — didn't answer: The service timed out.",
+    "Link destination checking — couldn't be verified: The website's address doesn't exist.",
+    "Website threat checking — didn't answer: The service timed out.",
     "Sender authentication — didn't answer: ApolloSG didn't receive the full email headers.",
     "Phone number reputation — didn't answer: Carrier lookup returned 503.",
     "Domain registration age — couldn't be checked: Domain registration age unavailable.",
@@ -226,7 +227,7 @@ test("incomplete checks show the actual check and their exact recorded failure",
     assert.ok(!generic.has(s.returned), `generic gap wording replaced a recorded reason: ${s.returned}`);
     assert.doesNotMatch(s.name, /browser session/i);
   }
-  assert.ok(sources.some((s) => s.name === "Final destination" && s.returned === "The website's address doesn't exist." && !s.answered
+  assert.ok(sources.some((s) => s.name === "Link destination checking" && s.returned === "The website's address doesn't exist." && !s.answered
     && s.unverified === "where the link finally leads"));
   // Each row reads: what was checked → what happened → why it failed → what couldn't be verified.
   assert.deepEqual(triageShortfalls(record).map((r) => r.unverified), [

@@ -92,6 +92,8 @@ export type ThreatCaseStatus =
   | "monitoring";
 
 export function threatCaseStatus(event: PatrolEvent): ThreatCaseStatus {
+  const gate = gateCheckResult(event);
+  if (gate?.status === "not_fully_checked") return "not_fully_checked";
   // Checks that couldn't run, or an investigation that couldn't decide with nothing concrete to act on, are a case
   // not fully checked: never a threat and never "no threat".
   if (notFullyChecked(event) && !event.verified_block) return "not_fully_checked";
@@ -107,7 +109,7 @@ export function threatCaseStatus(event: PatrolEvent): ThreatCaseStatus {
   if (hasInvestigation && !event.investigation_completed_at) return "investigating";
   // "Needs you" only when the case owes the person a decision with a concrete reason (caseBriefing.needsYou) —
   // never from a Barking, review or keeping-watch state on its own.
-  if (gateCheckResult(event)) return "no_threat";
+  if (gate) return gate.status;
   if (needsYou(event)) return "attention";
   return "monitoring";
 }

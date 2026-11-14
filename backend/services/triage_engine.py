@@ -820,13 +820,13 @@ def _link_evidence_from_providers(evidence: dict, provider_evidence: dict) -> di
         reputation = {"status": "ok", "verdict": "clean"}
 
     incomplete: list[dict] = []
-    for info in sb.values():
+    for url, info in sb.items():
         if info.get("status") == "ok" and info.get("coverage") != "none":
-            incomplete += from_sources(info.get("sources") or [])
+            incomplete += from_sources(info.get("sources") or [], subject=url)
     for url, info in redirects.items():
         if info.get("status") in ("incomplete", "unavailable"):
             incomplete.append(incomplete_check("final_destination", info.get("failure") or "redirect_failure", status="unresolved",
-                                               detail=info.get("detail") or "", source="redirect_expansion"))
+                                               detail=info.get("detail") or "", source="redirect_expansion", subject=url))
 
     redirect: dict = {}
     for url, info in redirects.items():

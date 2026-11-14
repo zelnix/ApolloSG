@@ -7,6 +7,7 @@
 // "No threat identified". The wording follows the kind of check and how it failed, never the provider.
 
 import catalogue from "./catalogue.ts";
+import { plainServiceText, serviceFunction, serviceSubject } from "../checkServicePresentation.ts";
 
 export type IncompleteStatus = "unavailable" | "unresolved" | "stale";
 
@@ -20,6 +21,8 @@ export interface IncompleteCheck {
   detail: string;
   source: string | null;
   at: string | null;
+  /** Website host or phone number being checked. No URL credentials/query values; never inferred for old records. */
+  subject?: string | null;
 }
 
 const WORDS = (catalogue as unknown as {
@@ -34,11 +37,12 @@ export function incompleteCheck(check: string, failure: string | null | undefine
 }
 
 /** "Apollo couldn't verify where this link finally leads (the website's address doesn't exist)." */
-export function incompletePlain(c: Pick<IncompleteCheck, "check" | "status" | "failure">): string {
+export function incompletePlain(c: Pick<IncompleteCheck, "check" | "status" | "failure"> & Partial<Pick<IncompleteCheck, "source" | "subject">>): string {
   const what = WORDS.checks[c.check] ?? "A check didn't complete";
   const why = WORDS.failures[c.failure ?? ""] ?? "";
-  if (c.status === "stale") return `${what}: ${WORDS.stale.replace("{failure}", why || "no answer")}.`;
-  return why ? `${what} (${why}).` : `${what}.`;
+  const result = c.status === "stale" ? `${what}: ${WORDS.stale.replace("{failure}", why || "no answer")}.`
+    : why ? `${what} (${why}).` : `${what}.`;
+  return c.source || c.subject ? `${serviceFunction(c.source, c.check)}${c.subject ? ` for ${serviceSubject(c.subject)}` : ""}: ${plainServiceText(result)}` : plainServiceText(result);
 }
 
 export interface SourceLike {
@@ -50,24 +54,24 @@ export interface SourceLike {
 }
 
 /** Every source of a reputation answer that didn't complete (status unavailable / not_configured). */
-export function fromSources(sources: SourceLike[] | null | undefined): IncompleteCheck[] {
+export function fromSources(sources: SourceLike[] | null | undefined, subject?: string): IncompleteCheck[] {
   return (sources ?? [])
     .filter((s) => s.status === "unavailable" || s.status === "not_configured")
-    .map((s) => incompleteCheck(s.check || "reputation", s.failure, {
+    .map((s) => ({ ...incompleteCheck(s.check || "reputation", s.failure, {
       status: s.check === "final_destination" ? "unresolved" : "unavailable", detail: s.detail ?? "", source: s.name,
-    }));
+    }), ...(subject ? { subject: serviceSubject(subject) } : {}) }));
 }
 
 /** The link reputation checks a message needed that didn't complete: a lookup that failed outright, and any
  *  source or final destination that didn't answer inside one that worked. */
-export function urlIncompleteChecks(urls: { coverage: string; failure?: string | null; incomplete?: IncompleteCheck[] }[]): IncompleteCheck[] {
+export function urlIncompleteChecks(urls: { url?: string; coverage: string; failure?: string | null; incomplete?: IncompleteCheck[] }[]): IncompleteCheck[] {
   const checks: IncompleteCheck[] = [];
   for (const u of urls) {
     const found = u.coverage === "unavailable" || u.coverage === "none"
-      ? [incompleteCheck("reputation", u.failure ?? null)]
+      ? [{ ...incompleteCheck("reputation", u.failure ?? null), ...(u.url ? { subject: serviceSubject(u.url) } : {}) }]
       : u.incomplete ?? [];
     for (const c of found) {
-      if (!checks.some((x) => x.check === c.check && x.status === c.status && x.failure === c.failure)) checks.push(c);
+      if (!checks.some((x) => x.check === c.check && x.status === c.status && x.failure === c.failure && x.source === c.source && x.subject === c.subject)) checks.push(c);
     }
   }
   return checks;

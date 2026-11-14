@@ -9,13 +9,15 @@ import type { EvidenceFact, HigginsResponse, SourceReference } from "../investig
 import { caseFindings } from "./caseBriefing.ts";
 import { shortfallLine, triageShortfalls } from "./caseFacts.ts";
 import type { DiTrace, DiTransaction } from "./diTransaction.ts";
+import { triageAdmission } from "./triage/admission.ts";
+import { plainServiceText } from "./checkServicePresentation.ts";
 import { investigatorName, outcomeLabel } from "./messageVoice.ts";
-import { outcomeLabel as triageOutcomeLabel, plainTriageText, type TriageInvestigationRecord } from "./triage/contract.ts";
+import { type TriageInvestigationRecord } from "./triage/contract.ts";
 
 export type TraceStatus = "ran" | "settled" | "escalated" | "not_engaged" | "failed" | "simulated" | "pending" | "not_recorded";
 
 export interface TraceStep {
-  id: "triage" | "flyby" | "magnum" | "lock";
+  id: "gate" | "triage" | "flyby" | "magnum" | "lock";
   name: string;
   status: TraceStatus;
   label: string;
@@ -23,7 +25,7 @@ export interface TraceStep {
   details: string[];
 }
 
-export const TRACE_ORDER = "Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock";
+export const TRACE_ORDER = "Protection Gates → Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock";
 
 const plural = (n: number, word: string, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 
@@ -66,33 +68,28 @@ function searchLine(flyby: NonNullable<DiTrace["flyby"]>): string | null {
 
 // ── The steps ────────────────────────────────────────────────────────────────
 
-/** On the server, Higgins Triage runs at the start of TC Hawkeye (it prepares what was sent and plans TC Hawkeye's
- *  checks), so a case with no Triage record of its own has its Triage in TC Hawkeye's record. */
-function triageInFlyby(flyby: NonNullable<DiTrace["flyby"]>): TraceStep {
-  const rulesMet = flyby.checks.some((c) => c.kind === "triage_rules");
-  const planned = [...new Set(flyby.checks.filter((c) => c.kind !== "triage_rules").map((c) => checkLabel(c.kind).toLowerCase()))];
+/** A Hawkeye record cannot establish what a separate, missing intake stage did. */
+function missingTriageRecord(): TraceStep {
   return {
-    id: "triage", name: "Higgins Triage", status: "ran", label: rulesMet ? "Warning signs found" : "Ran with TC Hawkeye",
-    summary: `Higgins Triage prepared what was sent and planned ${plural(planned.length, "check")} for TC Hawkeye`
-      + (rulesMet ? "; its rules found warning signs in it." : "."),
-    details: planned.length ? [`Planned to check: ${planned.join(", ")}.`] : [],
+    id: "triage", name: "Higgins Triage", status: "not_recorded", label: "No intake record",
+    summary: "TC Hawkeye's investigation is recorded, but no separate triage intake record is available.",
+    details: [],
   };
 }
 
 function triageStep(triage: TriageInvestigationRecord | null, hasCase: boolean, flyby: DiTrace["flyby"] | null): TraceStep {
   const name = "Higgins Triage";
-  if (!triage && flyby) return triageInFlyby(flyby);
+  if (!triage && flyby) return missingTriageRecord();
   if (!triage) return { id: "triage", name, status: "not_recorded", label: "No record", summary: "No Higgins Triage record is stored for this case.", details: [] };
-  const met = triage.rules.filter((r) => r.result === "met");
+  const admission = triageAdmission(triage);
   return {
-    id: "triage", name, status: "ran", label: triageOutcomeLabel(triage),
-    summary: `Checked ${triage.rulesChecked.length} of the ${plural(triage.rulesApplicable.length, "warning-sign rule")} that apply; `
-      + `${met.length ? `${met.length} matched` : "none matched"}. `
-      + (hasCase ? "It opened an investigation." : "It stopped here, so Magnum DI was not engaged."),
+    id: "triage", name, status: "ran", label: admission.label,
+    summary: `${admission.reason} ${hasCase ? "An investigation record exists for TC Hawkeye." : "No TC Hawkeye investigation was opened for this record."}`,
     details: [
-      ...(triage.reason ? [plainTriageText(triage.reason)] : []),
-      ...met.map((r) => `Warning sign: ${r.title}`),
-      ...triageShortfalls(triage).map(shortfallLine),
+      `Evidence supplied: ${triage.sourceType.replace(/_/g, " ")}.`,
+      `Screened ${triage.rulesChecked.length} of ${triage.rulesApplicable.length} applicable warning-sign rules; ${admission.flags.length ? `${admission.flags.length} matched` : "none matched"}.`,
+      ...admission.flags.map((title) => `Warning flag for Hawkeye: ${title}`),
+      "Triage identifies available evidence and whether flags warrant investigation; it does not author an investigation Finding.",
     ],
   };
 }
@@ -182,6 +179,10 @@ function lockStep(trace: DiTrace | null, triage: TriageInvestigationRecord | nul
   // A failure outcome or a routing engine name is not a committed Finding.
   const recordedResult = trace?.completion === "complete" &&
     (!!outcomeLabel(trace?.outcome) || trace?.outcome === "unlikely_scam");
+  if (!hasCase && !response && !recordedResult) {
+    return { id: "lock", name, status: "not_engaged", label: "No investigation Finding",
+      summary: "No investigation Finding was committed. The source and screening record remain retained in Evidence and History.", details: [] };
+  }
   if (!presented?.verdict && !response && !recordedResult) {
     return { id: "lock", name, status: "pending", label: "Not yet", summary: "There's no result to lock yet.", details: [] };
   }
@@ -214,8 +215,13 @@ export function buildDecisionTrace(input: {
   presented?: PresentedResult | null; response?: HigginsResponse | null;
 }): TraceStep[] {
   const { trace, records, triage, hasCase, presented = null, response = null } = input;
-  return [triageStep(triage, hasCase, trace?.flyby ?? null), flybyStep(trace, hasCase), magnumStep(trace, records, hasCase),
-    lockStep(trace, triage, hasCase, presented, response)];
+  const limits = triageShortfalls(triage);
+  const gates: TraceStep[] = limits.length ? [{ id: "gate", name: "Evidence and protection Gate limits", status: "failed", label: "Checks incomplete",
+    summary: "These recorded source limitations and automatic protection checks are separate from triage's routing decision and TC Hawkeye's investigation.",
+    details: limits.map(shortfallLine) }] : [];
+  return [...gates, triageStep(triage, hasCase, trace?.flyby ?? null), flybyStep(trace, hasCase), magnumStep(trace, records, hasCase),
+    lockStep(trace, triage, hasCase, presented, response)].map((step) => ({ ...step,
+      summary: plainServiceText(step.summary), details: step.details.map(plainServiceText) }));
 }
 
 // ── Outside research ────────────────────────────────────────────────────────
