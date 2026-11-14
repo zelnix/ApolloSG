@@ -30,7 +30,7 @@ NO_STORE = {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
 CAPABILITY = "apollo.slm.advisory.v1"
 ACTIVE_JOB = frozenset(("queued", "investigating"))
 QUESTIONS = {
-    "wright_triage": "Check only which source evidence is available and readable for an investigation. Do not assess scam indicators, legitimacy, risk, exposure or a Finding. Inventory-only originals are not examined content. Preserve each supplied evidence ID and its readability status.",
+    "wright_triage": "Interpret this evidence for scam indicators and legitimate explanations, preserving uncertainty. Never issue a verdict.",
     "higgins_triage": "Identify what information is missing for investigation. Do not make a scam verdict.",
     "tc_hawkeye": "Identify contradictions, alternative explanations and specific corroboration to pursue. Do not invent facts.",
     "magnum_di": "Analyse unresolved evidence gaps and propose independent verification. Do not decide a verdict.",
@@ -39,7 +39,7 @@ QUESTIONS = {
     "case_finding": "Process TC Hawkeye evidence and, when escalated, Magnum DI evidence without altering source responses. Explain corroboration, contradictions and gaps using recorded status, codes and messages; do not invent missing technical reasons. When evidence could not be obtained, say Evidence could not be discovered and explain the recorded cause where available. Cite evidence IDs, preserve provenance and uncertainty, and never invent checks, sources or verification.",
 }
 OPERATION = {
-    "wright_triage": "investigation_readiness",
+    "wright_triage": "wright_semantic",
     "higgins_triage": "investigation_readiness",
     "tc_hawkeye": "evidence_reasoning",
     "magnum_di": "evidence_reasoning",
@@ -107,12 +107,10 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
     # The current SLM wire format accepts text only. Never pretend that an
     # unrepresented original image/document/audio was examined by Luddish.
     texts = {}
-    inventory_only = set()
     for row in rows:
         readable = row.get("kind") in ("text", "url", "observation", "source_snapshot")
         investigative = row.get("origin") in ("apollo_inference", "external_source")
         if row.get("kind") in ("image", "document", "audio", "attachment") or row.get("availability") != "available":
-            inventory_only.add(row["evidence_id"])
             import json
             texts[row["evidence_id"]] = json.dumps({
                 "representation": "inventory_only_not_original_content",
@@ -143,9 +141,7 @@ async def _source_evidence(owner: str, case_id: str, *, include_checks: bool = F
         total += len(text)
         if total > 120000 or len(gathered) >= 64:
             raise http(413, "budget_exhausted", "The on-device evidence limit was exceeded; nothing has been shortened or silently omitted.")
-        representation = ("inventory_only" if row["evidence_id"] in inventory_only else
-                          "derived_text" if parent and parent.get("kind") in ("image", "document", "audio", "attachment") else "source_text")
-        gathered.append(SLMReference(evidence_id=row["evidence_id"], text=text, representation=representation))
+        gathered.append(SLMReference(evidence_id=row["evidence_id"], text=text))
     return gathered
 
 

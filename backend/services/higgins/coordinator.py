@@ -1,6 +1,6 @@
 """ApolloSG case coordinator: Apollo/user → Wright Triage → TC Hawkeye → Higgins.
 
-Wright Triage checks source availability/readability before TC Hawkeye investigates.
+Wright Triage requests on-device SLM support before TC Hawkeye investigates.
 TC Hawkeye returns evidence-backed investigation material; its hypotheses do not
 become verified facts merely because they were generated or repeated by an SLM.
 Higgins then requires an on-device SLM escalation assessment. If escalation is
@@ -40,7 +40,6 @@ from services.higgins.contracts import Coverage, HigginsResponse, ProviderResult
 from services.higgins.response_schema import response_schema
 from services.higgins.tools import grounding_sources
 from services.higgins.validation import validate
-from services.higgins.wright_readiness_contract import WrightReadinessResult
 
 log = logging.getLogger("apollo.coordinator")
 
@@ -122,12 +121,6 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> dict | Non
             return None
         counts = {key: len(advice.get(key, [])) for key in
                   ("observations", "contradictions", "alternativeExplanations", "verificationSuggestions")}
-        readiness_counts = None
-        if role == "wright_triage" and advice.get("wrightReadiness"):
-            readiness = WrightReadinessResult.model_validate(advice["wrightReadiness"])
-            readiness_counts = {"readable": sum(item.availability == "readable" for item in readiness.evidence),
-                                "unreadable": sum(item.availability == "unreadable" for item in readiness.evidence),
-                                "inventoryOnly": sum(item.availability == "inventory_only" for item in readiness.evidence)}
         await db.investigation_cases.update_one(
             {"owner_id": owner, "case_id": case["case_id"],
              "active_job_id": job["job_id"], "epoch": case.get("epoch"),
@@ -135,7 +128,6 @@ async def _slm_stage(owner: str, case: dict, job: dict, role: str) -> dict | Non
             {"$set": {f"routing.slmAdvisory.{role}": {
                 "status": "accepted_for_review", "counts": counts,
                 "advisoryOnly": True, "at": now_utc(),
-                **({"readiness": readiness_counts} if readiness_counts is not None else {}),
             }}},
         )
         return advice
@@ -568,7 +560,7 @@ def decision_requires_independent_review(hawkeye_result) -> bool:
 
 
 async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
-    """Run Wright evidence readiness, TC Hawkeye, mandatory SLM escalation assessment,
+    """Run Wright Triage, TC Hawkeye, mandatory SLM escalation assessment,
     optional Magnum DI external investigation, and mandatory SLM Finding commit.
 
     Magnum DI contributes independent evidence only when escalation is required;
@@ -596,26 +588,20 @@ async def run_turn(owner: str, case: dict, job: dict, progress) -> Outcome:
         # A follow-up is answered from the case's stored Findings (routers/investigations._follow_up), never by
         # another investigation: this turn sends nothing.
         return Outcome("call_limit_reached", errors=["a follow-up is answered from the case's findings, not by another investigation"])
-    # Wright admits source material only. Readiness is never a scam judgement,
-    # an independent verification, or an input to Hawkeye's Finding/score.
-    readiness_advice = await _slm_stage(owner, case, job, "wright_triage")
-    if not readiness_advice or not readiness_advice.get("wrightReadiness"):
-        if (job.get("slm_failure") or {}).get("reason") == "no_readable_source_evidence":
-            return Outcome("evidence_unavailable", errors=[
-                "Wright could not find readable source evidence. Supply readable text or an accessible original to begin an investigation. No Finding was made."
-            ])
+    # Phase 6: Wright's on-device semantic assessment is mandatory for every
+    # first-turn investigation. Never silently fall back to deterministic-only
+    # or external-model triage if the native model cannot provide valid output.
+    semantic_advice = await _slm_stage(owner, case, job, "wright_triage")
+    if not semantic_advice or not semantic_advice.get("wrightSemantic"):
         return Outcome("device_unavailable", errors=[
-            "Wright could not complete its required on-device evidence-readiness check. "
-            "No investigation Finding was authorised."
+            "Wright Triage could not complete its required on-device semantic assessment. "
+            "The result is Limited / Unable to Determine; no clear or scam verdict was authorised."
         ])
-    readiness = WrightReadinessResult.model_validate(readiness_advice["wrightReadiness"])
-    if not readiness.has_readable_evidence:
-        return Outcome("evidence_unavailable", errors=[
-            "Wright found no readable source evidence to investigate. Supply readable text or an accessible original. No Finding was made."
-        ])
+    triage_advice = semantic_advice
     # TC Hawkeye investigates using the prepared case and its own evidence-backed
     # checks; it does not need a second pre-investigation SLM advisory request.
-    hawkeye_result = await tc_hawkeye.investigate(owner, case, job, payload["message"], rows, progress)
+    hawkeye_result = await tc_hawkeye.investigate(owner, case, job, payload["message"], rows, progress,
+                                       triage_advice=triage_advice)
     assessment = await _await_escalation_assessment(owner, case, job, progress)
     if assessment is None:
         # Neither Hawkeye's resolved flag nor a cloud provider may substitute for

@@ -12,8 +12,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from services.higgins.contracts import Wire
-from services.higgins.wright_semantic_contract import WrightSemanticResult
-from services.higgins.wright_readiness_contract import WrightReadinessResult, validate_wright_readiness
+from services.higgins.wright_semantic_contract import WrightSemanticResult, validate_wright_semantic
 
 SLMRole = Literal["wright_triage", "higgins_triage", "tc_hawkeye", "magnum_di", "luddish", "ask_higgins", "case_finding", "higgins_escalation_assessment"]
 SLMOperation = Literal["wright_semantic", "investigation_readiness", "evidence_reasoning", "explanation", "chat_explanation", "case_finding", "escalation_assessment"]
@@ -22,7 +21,6 @@ SLMOperation = Literal["wright_semantic", "investigation_readiness", "evidence_r
 class SLMReference(Wire):
     evidence_id: str = Field(min_length=1, max_length=80)
     text: str = Field(min_length=1, max_length=120000)
-    representation: Literal["source_text", "derived_text", "inventory_only"] = "source_text"
 
 
 class SLMReasoningRequest(Wire):
@@ -73,7 +71,6 @@ class SLMReasoningAnswer(Wire):
     case_finding: SLMCaseFinding | None = None
     escalation_assessment: SLMEscalationAssessment | None = None
     wright_semantic: WrightSemanticResult | None = None
-    wright_readiness: WrightReadinessResult | None = None
 
 
 class SLMReasoningResult(Wire):
@@ -99,22 +96,6 @@ def accept_advisory_reasoning(
     ):
         raise ValueError("slm_request_mismatch")
     permitted = {row.evidence_id for row in request.evidence}
-    if request.operation == "wright_semantic":
-        raise ValueError("obsolete_wright_operation")
-    if result.answer.wright_semantic is not None:
-        raise ValueError("obsolete_wright_output")
-    if request.role == "wright_triage":
-        if request.operation != "investigation_readiness" or result.answer.wright_readiness is None:
-            raise ValueError("missing_wright_readiness")
-        if any((result.answer.observations, result.answer.contradictions,
-                result.answer.alternative_explanations, result.answer.verification_suggestions,
-                result.answer.draft_explanation is not None, result.answer.wright_semantic is not None,
-                result.answer.case_finding is not None, result.answer.escalation_assessment is not None)):
-            raise ValueError("wright_readiness_only")
-        validate_wright_readiness(result.answer.wright_readiness.wire(),
-                                 {row.evidence_id: row.representation for row in request.evidence})
-    elif result.answer.wright_readiness is not None:
-        raise ValueError("unexpected_wright_readiness")
     if request.operation != "case_finding" and result.answer.case_finding is not None:
         raise ValueError("unexpected_case_finding")
     if request.operation != "escalation_assessment" and result.answer.escalation_assessment is not None:
@@ -131,6 +112,13 @@ def accept_advisory_reasoning(
                 raise ValueError("duplicate_slm_citation")
             if any(evidence_id not in permitted for evidence_id in observation.evidence_ids):
                 raise ValueError("unrecognised_slm_evidence")
+    if request.operation == "wright_semantic":
+        if request.role != "wright_triage" or result.answer.wright_semantic is None:
+            raise ValueError("missing_wright_semantic")
+        if any((result.answer.observations, result.answer.contradictions,
+                result.answer.alternative_explanations, result.answer.verification_suggestions)) or result.answer.case_finding or result.answer.escalation_assessment:
+            raise ValueError("wright_semantic_must_not_author_verdict")
+        validate_wright_semantic(result.answer.wright_semantic.model_dump(by_alias=False), permitted)
     if request.operation == "escalation_assessment":
         assessment = result.answer.escalation_assessment
         if assessment is None or any(eid not in permitted for eid in assessment.evidence_ids):

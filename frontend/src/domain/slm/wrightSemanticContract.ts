@@ -1,4 +1,4 @@
-/** Legacy Wright semantic decoder, retained for historical fixtures only.
+/** Wright Phase 4: versioned, evidence-cited semantic interpretation.
  * Pure validation only. No verdict authority, network access, persistence or model invocation.
  * Phase 6 will connect this to mandatory initial triage after native qualification.
  */

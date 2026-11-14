@@ -6,27 +6,17 @@ a web-preview bypass. The historical pilot text is retained in Git history.
 
 ## Current investigation contract
 
-Every first-turn investigation requires on-device Wright evidence-readiness triage,
+Every first-turn investigation requires on-device Wright semantic triage,
 TC Hawkeye investigation, on-device Higgins escalation assessment, optional
 Magnum DI when warranted, and a validated on-device Finding/presentation.
+Wright again uses the source-cited `wright_semantic` / `wrightSemantic` contract;
+the readiness-only replacement was reversed. Its interpretation can focus
+Hawkeye verification but cannot author a final Finding. Native app and backend
+must use the matching contract.
 There is one shared admitted native runtime. Model hypotheses do not become
 source facts, numeric ratings or independently verified evidence. Hawkeye's
 deterministic evidence classification, reconciliation and retained floors remain
 authoritative at the existing acceptance boundary.
-
-Wright answers only whether submitted source evidence is available/readable.
-Its `wright.readiness.v1` result records each source ID with `readable`,
-`unreadable` or `inventory_only`. It cannot supply scam/legitimacy labels,
-intent, coercion, exposure, risk, scores, advice, escalation or a Finding.
-At least one readable source is needed to start TC Hawkeye. Partial originals
-remain explicit gaps; readable extracted text does not prove its parent binary
-was examined. Gate threat prechecks are separate from Wright readiness.
-
-Active Wright handoffs now use `investigation_readiness` and `wrightReadiness`.
-The old semantic operation/output is rejected on live requests; historical
-records and their pure legacy decoders remain unchanged. Native app and backend
-must be released together for this contract update. Older APKs cannot satisfy
-the new stage and must not be silently treated as compatible or bypassed.
 
 The authenticated device identity, case/job ownership, revision, epoch, work
 epoch, cancellation and lease fences continue to govern every request/result.

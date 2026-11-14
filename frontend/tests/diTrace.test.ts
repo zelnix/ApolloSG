@@ -122,18 +122,6 @@ test("check lines are plain words for every recorded status", () => {
   assert.equal(checkLine({ kind: "message_analysis", status: "needs_reasoning", route: null }), "The message as a whole: left for Magnum DI");
 });
 
-test("recorded Wright readiness is availability only, even when Gate warnings exist", () => {
-  const trace = { ...flybyTrace(false), wrightReadiness: { readable: 1, unreadable: 1, inventoryOnly: 1 } };
-  const stage = buildDecisionTrace({ trace, records: [], triage: limited, hasCase: true })[0];
-  assert.equal(stage.name, "Wright Triage");
-  assert.equal(stage.label, "Evidence available");
-  assert.match(stage.summary, /did not assess whether it was a scam/);
-  assert.ok(stage.details.includes("1 unreadable item"));
-  assert.doesNotMatch(stage.label, /scam|safe|threat/i);
-  trace.wrightReadiness.readable = 0;
-  assert.equal(buildDecisionTrace({ trace, records: [], triage: null, hasCase: true })[0].label, "Readable evidence needed");
-});
-
 test("outside research lists each source with the facts it supports or points against", () => {
   const sources: SourceReference[] = [
     { id: "s1", url: "https://www.scamwatch.gov.au/alert", title: "Scamwatch alert", retrievedAt: "2026-06-10T09:00:00Z", retrieval: "fetched", authority: "official", authorityBasis: "" },

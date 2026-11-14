@@ -28,7 +28,7 @@ Protection state and packet-backed Biting rules were not relaxed.
 | F5 evidence pickup | A pickup contains an encrypted byte copy separate from working-copy expiry. The client transfers every manifest item to durable platform storage, verifies SHA-256 and readback, saves the source-linked manifest, then confirms the exact snapshot. Saved evidence views read verified local bytes first. Failed checks also retain their manifests. |
 | F6 deletion | Continuation checkpoints, pickup chunks and DI processing payloads are included in deletion lifecycles. Case expiry removes processing payloads while the explicitly held pickup waits for the device. Late writes are fenced/reconciled. Account deletion keeps the identity available for retry if deletion fails. |
 | F7 context/modalities | Later local stages can read source windows before bounded synthesis. If the complete synthesis still exceeds native capacity, the case stops explicitly. Binary originals are represented as inventory gaps, never fabricated text; their derived text and external examination remain separately identifiable. |
-| F8 Wright role boundary | Superseded by the 14 November readiness-only correction below. Wright no longer produces semantic scam/legitimacy/exposure assessments or influences verification-check priority. |
+| F8 semantic integration | Wright's semantic interpretation now focuses existing verification checks. It does not satisfy checks, add verified facts, or overwrite evidence. Its synthesized intent and narrative are retained rather than replaced by generic wording. |
 | F9 naming | Historical imports alias the exact canonical Hawkeye modules. Compatibility readers handle old and new persisted record names; current writes use Hawkeye names. |
 | F10 Magnum continuation | Each external window and checkpoint checks the live job/epoch/fence. Failure status, diagnostic message, finish reason and returned text are retained. Grounding sources, simulation provenance and successful examination coverage propagate. Image labels travel with their bytes. |
 | F11 consistency/CI | Regenerated the frontend triage catalogue from its backend source. Replaced unrelated general CI configuration with Apollo-specific isolated regression checks on `slm`, main and master. Removed test collection pollution that replaced real database modules globally. |
@@ -342,50 +342,6 @@ pass lint. Settings retains 31 pre-existing lint errors (primarily its nested
 render component definitions); a comparison with the previous source confirms
 no new lint diagnostics were introduced. No APK build was run.
 
-## Wright Triage responsibility review — 14 November
-
-Confirmed scope drift: the live Wright prompt/contract requested scam versus
-legitimate context, scam types, coercion and exposure; window synthesis combined
-those interpretations. Although this path did not itself commit a final Finding,
-its advice could reorder Hawkeye checks. Some deterministic protection Gate
-warnings were also labelled as Wright's own message-rule findings.
-
-P1 — enforce the readiness boundary: the native and backend validators now
-accept only a version and an exact, source-scoped list of evidence IDs with
-readability statuses. Extra verdicts, classifications, scores, advice, exposure
-or escalation fields are rejected, including attempts to place them in generic
-SLM observation/draft fields. Wright cannot invoke another SLM decision
-operation. Its output cannot enter Hawkeye's check-priority or Finding inputs.
-
-P1 — preserve source integrity: every text window is checked, references map
-back to original sources, and every original source is retained in the readiness
-inventory. Representation comes from server-owned evidence records, not from
-words in user content. Inventory-only binary metadata cannot become examined
-content. Available derived text may proceed while the original's gap remains.
-An absence of readable source evidence returns `evidence_unavailable`, with no
-scam verdict, device-failure claim, or repeated resubmission of unchanged inputs.
-
-P2 — show the correct role: DI reads recorded Wright readability counts, never
-reconstructs a Wright assessment from threat-rule matches, and labels its stage
-as evidence availability. New protection Gate precheck descriptions no longer
-attribute their warning decisions to Wright. Gate rules, enforcement, evidence
-classification/scoring, reconciliation, Magnum floors and final case acceptance
-are preserved. Historical stored findings are not rewritten.
-
-The live protocol is `investigation_readiness` / `wrightReadiness` with
-`wright.readiness.v1`. Legacy semantic decoders remain for historical fixtures;
-the live boundary rejects legacy semantic requests/results. Backend and APK must
-be updated together. No deployment or APK build was initiated for this review.
-
-Validation: the frontend regression gate passes all 292 tests; TypeScript and
-lint on changed frontend files pass. The full configured backend regression
-gate passes 444 tests plus 12 subtests, with its 25 pre-existing skips. Coverage
-includes readiness-only contracts in both languages, wrong-role/operation and
-cross-device rejection, exact source inventory, binary/derived provenance, all
-source windows, no Wright check-priority influence, evidence-only admission to
-Hawkeye, explicit evidence-unavailable jobs, Gate parity and retained verdict
-floors. Physical-device acceptance awaits an explicitly requested new APK.
-
 ## Account-notification false positives and report consistency (14 November 2026)
 
 A synthetic Google account-access notification reproduced a contradiction: automatic Gate checks recorded no matching rules while Findings repeated an older scam warning; Evidence and History were empty because no investigation case existed.
@@ -398,6 +354,16 @@ A synthetic Google account-access notification reproduced a contradiction: autom
 - Load the device's existing original into Evidence using the event ID as well as an optional investigation ID. Use the existing case audit trail for Gate-only History; do not invent investigation stages or timestamps.
 - Re-read eligible local email cases under the updated reader version from their retained originals. Keep prior check records, user closures, source bytes and investigated cases intact.
 
-These changes do not add the separate SLM comprehension stage discussed after Wright readiness. That stage should identify the claimed sender, actual requested action and each URL's role using evidence references; its hypotheses require verification before they can change a finding. Established evidence floors remain in force.
+The reporting and domain fixes do not grant model hypotheses authority to change an established Finding. Sender relationships and legitimate explanations still require evidence-based verification; established evidence floors remain in force.
 
 Regression coverage includes a synthetic account-access notice, third-party links, recipient addresses, appended password/code theft, preserved historical records, lookalike-domain scam cases and malicious shared-service destinations. Source changes require a later APK and backend deployment; automatic APK builds remain paused.
+
+## Restore Wright semantic triage — 14 November 2026
+
+The readiness-only change from commit `145196c9` was reversed at the user's request. The Google notification's DI record showed automatic Gate checks with no matches; the incorrect scam wording came from the Findings presentation. That reporting problem did not justify replacing Wright's existing semantic triage.
+
+Wright again uses the mandatory on-device `wright_semantic` / `wrightSemantic` (`wright.semantic.v1`) contract. Its source-cited interpretation covers scam indicators, legitimate context, intent, coercion, exposure and uncertainty. Hawkeye may use it to focus verification; it does not satisfy checks, create verified facts, issue a final Finding, or bypass the existing evidence classification and verdict floors. The native runtime, JSON output checks, device ownership and evidence fences remain mandatory.
+
+The reporting, retained-original Evidence view, recorded History, latest inference status and corroboration fixes from later commits are preserved. No production data or historical case records are migrated or rewritten. No APK build or deployment was initiated. Native app and backend must use the same Wright contract.
+
+Validation of the restoration: 328 frontend regression tests pass; TypeScript passes. The configured backend regression gate passes 438 tests plus 12 subtests, with 25 existing skips. An exact source comparison confirms all non-documentation files changed by the readiness-only commit match their pre-change versions, and all later reporting/false-positive source fixes remain byte-for-byte unchanged.

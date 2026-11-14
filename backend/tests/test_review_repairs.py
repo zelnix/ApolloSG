@@ -74,13 +74,13 @@ def test_missing_original_prevents_a_clear_finding():
     assert response is None and any("coverage gaps" in error for error in errors)
 
 
-def test_wright_readiness_and_legacy_semantics_cannot_reorder_checks():
+def test_wright_interpretation_focuses_checks_without_creating_facts():
     from services.higgins.slm_advisory import prioritise_existing_checks
     first = SimpleNamespace(subject="bank domain", question="verify identity", status="open", facts=[])
     second = SimpleNamespace(subject="password reset", question="verify request", status="open", facts=[])
     checks = [first, second]
     prioritise_existing_checks(checks, {"wrightSemantic": {"intent": "A password reset request", "narrative": "Check the password reset route"}})
-    assert checks == [first, second]
+    assert checks == [second, first]
     assert all(check.status == "open" and check.facts == [] for check in checks)
 
 
@@ -125,7 +125,7 @@ async def test_required_native_stages_ignore_obsolete_off_setting(owner, monkeyp
     from routers import slm_handoff
     monkeypatch.setenv("APOLLO_SLM_HANDOFF", "off")
     case, job, _item = await leased_job(owner)
-    advice = {"wrightReadiness": {"version": "wright.readiness.v1", "evidence": [{"evidenceId": "source", "availability": "readable"}]},
+    advice = {"wrightSemantic": {"intent": "Verify the submitted source"},
               "escalationAssessment": {"decision": "proceed_local"},
               "caseFinding": {"outcome": "unlikely_scam"}}
     waiter = AsyncMock(return_value=advice)
@@ -219,17 +219,6 @@ async def test_unavailable_slm_preserves_original_failure(owner, monkeypatch):
     assert saved["failure"]["code"] == "device_unavailable"
     assert "context budget" in saved["failure"]["message"]
     assert "TypeError" not in saved["failure"]["message"]
-
-
-async def test_missing_evidence_is_recorded_without_a_scam_or_device_failure(owner, monkeypatch):
-    case, job = await active_job(owner)
-    monkeypatch.setattr(coordinator, "run_turn", AsyncMock(return_value=coordinator.Outcome(
-        "evidence_unavailable", errors=["Supply readable source evidence. No Finding was made."])))
-    await jobs.run(owner, case["case_id"], job["job_id"])
-    saved = await repo.get_job(owner, case["case_id"], job["job_id"])
-    assert saved["failure"]["code"] == "evidence_unavailable"
-    assert saved["failure"]["retryable"] is False
-    assert not (await repo.get_case(owner, case["case_id"])).get("response_ciphertext")
 
 
 async def test_cancelled_worker_cannot_claim_or_complete_a_window(owner):

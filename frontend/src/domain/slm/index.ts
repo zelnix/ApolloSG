@@ -5,7 +5,7 @@
  * advisory: investigation, scoring, Evidence Lock and user-visible verdicts stay in
  * their existing authoritative components.
  */
-import { validateWrightReadiness, WRIGHT_WINDOW_QUESTION, type WrightReadinessResult } from "./wrightReadinessContract.ts";
+import { validateWrightSemantic, type WrightSemanticResult } from "./wrightSemanticContract.ts";
 import { recordFailedSLMInference, recordSuccessfulSLMInference } from "./sharedRuntime.ts";
 
 export type SLMRole = "wright_triage" | "higgins_triage" | "tc_hawkeye" | "magnum_di" | "luddish" | "ask_higgins" | "case_finding" | "higgins_escalation_assessment";
@@ -15,8 +15,6 @@ export interface SLMReference {
   /** Only references supplied to this invocation may be cited by the model. */
   evidenceId: string;
   text: string;
-  /** Server-owned provenance, never guessed from source text. */
-  representation?: "source_text" | "derived_text" | "inventory_only";
 }
 
 export interface SLMRequest {
@@ -59,7 +57,7 @@ export interface SLMAnswer {
   draftExplanation: string | null;
   caseFinding?: SLMCaseFinding | null;
   escalationAssessment?: SLMEscalationAssessment | null;
-  wrightReadiness?: WrightReadinessResult;
+  wrightSemantic?: WrightSemanticResult;
 }
 
 export interface SLMAdapter {
@@ -116,12 +114,11 @@ function validEscalation(value: unknown, refs: Set<string>): value is SLMEscalat
     (a.decision !== "proceed_local" || a.materialGaps.length === 0);
 }
 
-function validate(value: unknown, evidence: readonly SLMReference[], operation: SLMOperation, role: SLMRole): SLMAnswer | null {
-  const refs = new Set(evidence.map(e => e.evidenceId));
+function validate(value: unknown, refs: Set<string>, operation: SLMOperation): SLMAnswer | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-  if (role === "wright_triage" && operation === "investigation_readiness") {
-    const readiness = validateWrightReadiness(value, evidence);
-    return readiness ? { observations: [], contradictions: [], alternativeExplanations: [], verificationSuggestions: [], draftExplanation: null, wrightReadiness: readiness } : null;
+  if (operation === "wright_semantic") {
+    const semantic = validateWrightSemantic(value, [...refs]);
+    return semantic ? { observations: [], contradictions: [], alternativeExplanations: [], verificationSuggestions: [], draftExplanation: null, wrightSemantic: semantic } : null;
   }
   const a = value as Record<string, unknown>;
   // Unexpected fields (including a model-authored verdict or score) must not leak downstream.
@@ -182,13 +179,11 @@ function contractFailure(value: unknown, refs: Set<string>, operation: SLMOperat
  */
 export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): Promise<SLMRun> {
   if (!ROLES.includes(request.role) || !OPERATIONS.includes(request.operation) ||
-      request.operation === "wright_semantic" ||
-      (request.role === "wright_triage" && request.operation !== "investigation_readiness") ||
+      (request.operation === "wright_semantic" && request.role !== "wright_triage") ||
       !Array.isArray(request.evidence) || request.evidence.length > MAX_EVIDENCE ||
       typeof request.question !== "string" || request.question.length > MAX_TEXT ||
       request.evidence.some((e) => !e || typeof e.evidenceId !== "string" ||
-        !e.evidenceId || typeof e.text !== "string" || (e.representation !== undefined &&
-          !["source_text", "derived_text", "inventory_only"].includes(e.representation))) ||
+        !e.evidenceId || typeof e.text !== "string") ||
       request.evidence.reduce((sum, e) => sum + e.text.length, 0) > MAX_CHARS ||
       new Set(request.evidence.map((e) => e.evidenceId)).size !== request.evidence.length) {
     return { status: "invalid_output", execution: "none", reason: "invalid_request" };
@@ -199,19 +194,21 @@ export async function runSLM(request: SLMRequest, adapter: SLMAdapter | null): P
     const { reasonAcrossWindows } = await import("./reasoningWindows.ts");
     return reasonAcrossWindows(request, adapter);
   }
-  // Examine every text source window for readiness, never scam merit.
-  if (request.role === "wright_triage" && request.question !== WRIGHT_WINDOW_QUESTION) {
+  // Server-issued Wright stage must examine every bounded source window. Internal
+  // window requests use the exact marker below to avoid recursive dispatch.
+  if (request.operation === "wright_semantic" &&
+      request.question !== "Interpret this source window only. Do not infer what occurred outside this window.") {
     const { assessMandatoryWright } = await import("./wrightPhase6.ts");
     const assessment = await assessMandatoryWright(request.evidence, adapter);
     if (assessment.status !== "complete")
       return { status: "unavailable", execution: "none", reason: assessment.reason };
     return { status: "completed", execution: "on_device", modelId: adapter.modelId,
       answer: { observations: [], contradictions: [], alternativeExplanations: [],
-        verificationSuggestions: [], draftExplanation: null, wrightReadiness: assessment.readiness } };
+        verificationSuggestions: [], draftExplanation: null, wrightSemantic: assessment.semantic } };
   }
   try {
     const candidate = await adapter.infer(request);
-    const answer = validate(candidate, request.evidence, request.operation, request.role);
+    const answer = validate(candidate, new Set(request.evidence.map((e) => e.evidenceId)), request.operation);
     if (!answer) {
       recordFailedSLMInference(adapter, "invalid_output");
       return { status: "invalid_output", execution: "none", reason: "response_contract_failed:" + contractFailure(candidate, new Set(request.evidence.map(e => e.evidenceId)), request.operation) };

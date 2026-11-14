@@ -1,7 +1,4 @@
-"""Apollo protection Gate prechecks — legacy triage API, zero Gemini calls.
-
-These deterministic protection checks are separate from Wright's evidence-readiness
-stage. Their warnings are investigated by TC Hawkeye; they are not Wright Findings.
+"""Wright Triage — Tier 1 server-side entry point. ZERO Gemini calls, always.
 
 Tier 1 (here): deterministic catalogue rules (services/triage) over normalised
     evidence plus specialist provider results. Outcome is one of
@@ -11,8 +8,8 @@ Tier 2 (the investigation): started by the caller ONLY for POSSIBLE THREAT — o
     when a deeper look could change the answer.
 
 DESIGN PRINCIPLES:
-    • These protection prechecks do not invoke an AI model. They do not spend
-      tokens on uncertainty, errors, timeouts or missing evidence.
+    • No AI triage tier exists. There is no fallback that spends tokens on
+      uncertainty, errors, timeouts or missing evidence.
     • Missing evidence is recorded as a Coverage Gap. It can prevent NO THREAT but
       can never create POSSIBLE THREAT, and never downgrades real threat evidence.
     • Cache uses risk-aware expiry (30d possible-threat, 7d no-threat). LIMITED is
@@ -88,7 +85,7 @@ def compact_evidence_for_magnum_di(provider_evidence: dict) -> str:
     """Standalone version of TriageResult.compact_evidence_for_magnum_di.
     Produces a compact provenance-attributed summary from a raw provider_evidence dict.
     Used by manual Check pre-gathering where there is no TriageResult."""
-    lines = ["Pre-gathered specialist intelligence (Apollo protection Gates):"]
+    lines = ["Pre-gathered specialist intelligence (Wright Triage):"]
     pe = provider_evidence
 
     for domain, info in pe.get("rdap", {}).get("domains", {}).items():

@@ -1,4 +1,4 @@
-"""Legacy semantic decoder for historical records; not accepted by active Wright stages.
+"""Phase 4 Wright semantic contract. Pure, advisory, evidence-cited; not a verdict.
 No endpoint, model invocation, persistence, or new investigator is created.
 """
 from __future__ import annotations
