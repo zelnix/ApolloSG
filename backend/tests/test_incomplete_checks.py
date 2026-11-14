@@ -35,7 +35,7 @@ def test_no_threat_with_an_incomplete_check_is_no_threat_found_by_available_chec
     wire = record.wire()
     assert wire["outcome"] == "NO_THREAT_IDENTIFIED"
     assert wire["reason"].startswith(AVAILABLE_CHECKS)
-    assert "A reputation check didn't complete (its lookup allowance is used up for now)." in wire["reason"]
+    assert "Website threat checking could not be checked (its lookup allowance is used up for now)." in wire["reason"]
     assert wire["coverage"] == "incomplete" and wire["incompleteChecks"][0]["failure"] == "quota_exhausted"
     # The wording follows the kind of check, never the provider.
     assert "Google" not in wire["reason"] and "Safe Browsing" not in wire["reason"]

@@ -215,7 +215,7 @@ test("incomplete checks show the actual check and their exact recorded failure",
   const rows = triageShortfalls(record).map((r) => `${r.name} — ${r.status}: ${r.reason}`);
   assert.deepEqual(rows, [
     "Link destination checking — couldn't be verified: The website's address doesn't exist.",
-    "Website threat checking — didn't answer: The service timed out.",
+    "Website threat checking — could not be checked: The service timed out.",
     "Sender authentication — didn't answer: ApolloSG didn't receive the full email headers.",
     "Phone number reputation — didn't answer: Carrier lookup returned 503.",
     "Domain registration age — couldn't be checked: Domain registration age unavailable.",

@@ -527,7 +527,7 @@
             },
             {
               "heading": "Case labels",
-              "text": "Each case shows its status: Needs you, Investigating, Blocked, Keeping watch, Not fully checked, Handled or No threat."
+              "text": "Each case shows its status: Needs you, Investigating, Blocked, Keeping watch, Not Fully Investigated, Handled or No threat."
             },
             {
               "heading": "Also on Threats",

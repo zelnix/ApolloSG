@@ -42,6 +42,7 @@ export function incompletePlain(c: Pick<IncompleteCheck, "check" | "status" | "f
   const why = WORDS.failures[c.failure ?? ""] ?? "";
   const result = c.status === "stale" ? `${what}: ${WORDS.stale.replace("{failure}", why || "no answer")}.`
     : why ? `${what} (${why}).` : `${what}.`;
+  if ((c.source || c.subject) && c.status === "unavailable") return `${serviceFunction(c.source, c.check)}${c.subject ? ` for ${serviceSubject(c.subject)}` : ""} could not be checked${why ? ` (${why})` : ""}.`;
   return c.source || c.subject ? `${serviceFunction(c.source, c.check)}${c.subject ? ` for ${serviceSubject(c.subject)}` : ""}: ${plainServiceText(result)}` : plainServiceText(result);
 }
 

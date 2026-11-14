@@ -125,7 +125,7 @@ export function unverifiedSentence(row: Pick<Shortfall, "unverified">): string {
 /** The full row in one line: "Final destination — couldn't be verified: The website's address doesn't exist.
  *  Couldn't verify where the link finally leads." */
 export function shortfallLine(row: Shortfall): string {
-  return plainServiceText(`${row.name}${row.subject ? ` for ${row.subject}` : ""} — ${row.status}: ${row.reason} ${unverifiedSentence(row)}`);
+  return plainServiceText(`${row.name}${row.subject ? ` for ${row.subject}` : ""}${row.status === "could not be checked" ? " " : " — "}${row.status}: ${row.reason} ${unverifiedSentence(row)}`);
 }
 
 function sentence(text: string): string {
@@ -192,7 +192,7 @@ function incompleteRow(c: IncompleteCheck, id: string, at: string | null): Short
   return {
     id,
     name: c.source || c.subject ? serviceFunction(c.source, c.check) : WORDS.checkNames[c.check] ?? sentence(WORDS.checks[c.check] ?? c.check.replace(/_/g, " ")).replace(/\.$/, ""),
-    status: WORDS.statusLabels[c.status] ?? WORDS.statusLabels.unavailable,
+    status: c.status === "unavailable" && (c.source || c.subject) ? "could not be checked" : WORDS.statusLabels[c.status] ?? WORDS.statusLabels.unavailable,
     reason: plainServiceText(incompleteReason(c)),
     unverified: WORDS.unverified[c.check] ?? WORDS.unrecorded.unverified,
     at: c.at ?? at,

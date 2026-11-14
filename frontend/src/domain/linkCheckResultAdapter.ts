@@ -68,7 +68,7 @@ export function buildLinkCheckResult(args: {
           ? `${sourceLabel(src.name)} found no known threat matches.`
           : src.status === "not_configured"
             ? `${serviceFunction(src.name, src.check ?? "reputation")} isn't configured on this build.`
-            : `${serviceFunction(src.name, src.check ?? "reputation")} couldn't complete the check for ${host}. ${plainServiceText(incompleteReason({ status: "unavailable", failure: src.failure ?? null, detail: src.detail ?? "" }))}`;
+            : `${serviceFunction(src.name, src.check ?? "reputation")} for ${host} could not be checked. ${plainServiceText(incompleteReason({ status: "unavailable", failure: src.failure ?? null, detail: src.detail ?? "" }))}`;
       items.push({
         id: `src:${src.name}`,
         name: src.status === "unavailable" || src.status === "not_configured" ? serviceFunction(src.name, src.check ?? "reputation") : sourceLabel(src.name),

@@ -57,7 +57,7 @@ test("recorded clean checks govern Findings and attention without authenticating
   const e = event();
   const result = gateCheckResult(e);
   assert.ok(result);
-  assert.equal(result.label, "Not fully checked");
+  assert.equal(result.label, "Not Fully Investigated");
   assert.match(result.report.found[0].text, /none matched/);
   assert.match(result.report.uncertain.join(" "), /do not establish authenticity/);
   assert.doesNotMatch(JSON.stringify(result.report), /Real account alerts never|why this is a scam/);

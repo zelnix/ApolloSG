@@ -35,7 +35,7 @@ test("Findings describes the retained email and its exact unavailable check with
   assert.match(report, /allowed account-tools.example access/);
   assert.match(report, /Internet address validation for mail-link.example/);
   assert.doesNotMatch(report, /Spamhaus|IP address|old-summary|Delete this scam|token=private/);
-  assert.equal(result.label, "Not fully checked");
+  assert.equal(result.label, "Not Fully Investigated");
   assert.equal(result.status, "not_fully_checked");
   assert.equal(JSON.stringify({ t, source }), before);
 });

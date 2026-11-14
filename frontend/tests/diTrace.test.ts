@@ -48,7 +48,7 @@ test("a limited screening record keeps Gate limits separate and does not claim a
   const steps = buildDecisionTrace({ trace: null, records: [], triage: limited, hasCase: false, presented: { verdict: "Unable to determine", risk: null } });
   const intake = steps.find((step) => step.id === "triage")!;
   assert.equal(intake.status, "ran");
-  assert.equal(intake.label, "Not fully checked");
+  assert.equal(intake.label, "Not Fully Investigated");
   assert.match(intake.summary, /No TC Hawkeye investigation was opened/);
   assert.equal(steps.find((step) => step.id === "gate")?.status, "failed");
   assert.equal(steps.find((step) => step.id === "flyby")?.status, "not_engaged");

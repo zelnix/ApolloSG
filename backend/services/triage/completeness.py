@@ -62,6 +62,8 @@ def incomplete_plain(check: dict) -> str:
                 subject = urlsplit(subject if "://" in subject else "https://" + subject).hostname or subject
             except ValueError:
                 pass
+        if check.get("status") == "unavailable":
+            return f"{service_function(check.get('source'), check.get('check', ''))}{' for ' + subject if subject else ''} could not be checked{' (' + why + ')' if why else ''}."
         return f"{service_function(check.get('source'), check.get('check', ''))}{' for ' + subject if subject else ''}: {result}"
     return result
 

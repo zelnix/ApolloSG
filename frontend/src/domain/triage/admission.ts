@@ -8,7 +8,7 @@ export function triageAdmission(record: TriageInvestigationRecord) {
   const decision = flags.length ? "investigate" : incomplete ? "insufficient_evidence" : "no_flags";
   return {
     decision, flags, incomplete,
-    label: flags.length ? "Investigation warranted" : incomplete ? "Not fully checked" : "No warning flags found",
+    label: flags.length ? "Investigation warranted" : incomplete ? "Not Fully Investigated" : "No warning flags found",
     reason: flags.length ? `${flags.length} recorded warning flag${flags.length === 1 ? " warrants" : "s warrant"} an investigation by TC Hawkeye.`
       : incomplete ? "No warning flags were recorded, but missing evidence or unfinished checks prevent a complete assessment."
       : "No warning flags were recorded in the supplied material, so this screening did not request an investigation.",

@@ -120,7 +120,7 @@ export const STATUS_LABELS: Record<ThreatCaseStatus, string> = {
   attention: "Needs you",
   resolved: "Handled",
   no_threat: "No threat",
-  not_fully_checked: "Not fully checked",
+  not_fully_checked: "Not Fully Investigated",
   monitoring: "Keeping watch",
 };
 
