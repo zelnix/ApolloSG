@@ -29,8 +29,9 @@ import { API_BASE } from "@/src/api/client";
 import { getDeviceToken } from "@/src/auth/deviceIdentity";
 import { EvidencePopup } from "@/src/components/EvidencePopup";
 import { EvidenceArtefactCard } from "@/src/components/evidence/EvidenceArtefactCard";
-import { DiReport, Research, CollapsibleSection } from "@/src/components/DiReport";
+import { DiReport, Research, CollapsibleSection, useDiTransactions } from "@/src/components/DiReport";
 import { gateCheckResult } from "@/src/domain/gateCheckResult";
+import { engineHistory, slmHistory } from "@/src/domain/investigationAudit";
 import { caseAuditTrail } from "@/src/domain/caseAuditTrail";
 import { outsideResearch } from "@/src/domain/diTrace";
 import { FindingsBrief, type BriefStep } from "@/src/components/report/FindingsBrief";
@@ -694,15 +695,20 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
   const originalEvidence = useMemo(() => evidenceItems.filter((e) => e.origin === "user_submission" || e.origin === "device_observation"), [evidenceItems]);
   const derivedEvidence = useMemo(() => evidenceItems.filter((e) => e.origin !== "user_submission" && e.origin !== "device_observation"), [evidenceItems]);
 
+  const auditState = useDiTransactions(caseData?.id ?? null);
   const timeline = useMemo<TimelineEntry[]>(() => {
-    if (caseData || !event) return buildTimeline(state);
-    // Gate-only checks have an event record even though no investigation was opened.
-    return caseAuditTrail({ event, investigation: null, trace: null, records: [], verdict: null }).map((entry) => ({
-      title: entry.title, body: entry.description, at: entry.at ?? "",
-      iconType: entry.tone === "start" ? "create" : entry.tone === "warning" ? "failed" : "complete",
-      entryKind: entry.tone === "closed" ? "administrative_closure" : "process",
-    }));
-  }, [state, caseData, event]);
+    const entries: TimelineEntry[] = caseData || !event ? buildTimeline(state) : [];
+    if (event && !caseData) {
+      for (const entry of caseAuditTrail({ event, investigation: null, trace: auditState.trace, records: auditState.records, verdict: null })) {
+        entries.push({ title: entry.title, body: entry.description, at: entry.at ?? "",
+          iconType: entry.tone === "start" ? "create" : entry.tone === "warning" ? "failed" : "complete",
+          entryKind: entry.tone === "closed" ? "administrative_closure" : "process" });
+      }
+    }
+    if (caseData) entries.push(...engineHistory(auditState.trace, auditState.records));
+    entries.push(...slmHistory(auditState.stages));
+    return entries.sort((a, b) => (a.at || "9999").localeCompare(b.at || "9999"));
+  }, [state, caseData, event, auditState]);
 
   // The Findings Brief's verdict and how serious it is, from the Case Briefing — read the same way on a threat.
   const computedVerdict = useMemo(() => (response ? investigationVerdict(response) : null), [response]);
@@ -1030,7 +1036,7 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
     {/* ── DI tab: the Magnum DI processing record (evidence is untouched by this view) ── */}
     {activeTab === "di" && showTabs ? (
       <View style={{ gap: spacing.md }} testID="inv-tab-di-content">
-        <DiReport caseId={caseData?.id ?? null} triage={event?.triage_investigation ?? null} settledReason={response ? caseData?.settledReason : null} how={report ? luddishReport(report).how : []}
+        <DiReport auditState={auditState} caseId={caseData?.id ?? null} triage={event?.triage_investigation ?? null} settledReason={response ? caseData?.settledReason : null} how={report ? luddishReport(report).how : []}
           presented={verdict ? { verdict: verdict.label, risk: verdict.risk?.label ?? null } : null} history={response?.history}
           response={response ?? null} sources={sources} />
       </View>

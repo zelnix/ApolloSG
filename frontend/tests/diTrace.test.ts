@@ -169,3 +169,10 @@ test("a Limited Triage reason is written in plain English; the codes stay on the
   assert.equal(record.outcome, "LIMITED_UNABLE_TO_DETERMINE");
   assert.doesNotMatch(record.reason, /[A-Z]+_[A-Z]+/);
 });
+
+
+test("a generic status headline cannot establish an Evidence Lock without a committed Finding", () => {
+  const steps = buildDecisionTrace({ trace: null, records: [], triage: null, hasCase: true, presented: { verdict: "Keeping watch", risk: "Possible concern" } });
+  assert.equal(steps.at(-1)?.label, "Not yet");
+  assert.equal(steps.at(-1)?.status, "pending");
+});

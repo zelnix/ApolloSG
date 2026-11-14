@@ -183,7 +183,7 @@ function lockStep(trace: DiTrace | null, triage: TriageInvestigationRecord | nul
     return { id: "lock", name, status: "not_engaged", label: "No investigation Finding",
       summary: "No investigation Finding was committed. The source and screening record remain retained in Evidence and History.", details: [] };
   }
-  if (!presented?.verdict && !response && !recordedResult) {
+  if (!response && !recordedResult) {
     return { id: "lock", name, status: "pending", label: "Not yet", summary: "There's no result to lock yet.", details: [] };
   }
   const facts = factCount(response);

@@ -40,6 +40,30 @@ def _routing(resolved: bool) -> dict:
     return routing
 
 
+class _Stages:
+    def __init__(self, rows=()):
+        self.rows = rows
+        self.query = self.projection = None
+
+    def find(self, query, projection):
+        self.query, self.projection = query, projection
+        return self
+
+    def sort(self, *_args):
+        return self
+
+    def __aiter__(self):
+        async def rows():
+            for row in self.rows:
+                yield row
+        return rows()
+
+
+@pytest.fixture(autouse=True)
+def empty_slm_stages(monkeypatch):
+    monkeypatch.setattr(di_record.db, "investigation_device_requests", _Stages(), raising=False)
+
+
 @pytest.fixture
 def cases(monkeypatch):
     def setup(routing: dict, triage: dict | None = None):
@@ -164,3 +188,30 @@ def test_plain_codes_translates_lists_of_gap_codes():
     assert plain_codes("Coverage gap: EMAIL_HEADERS_UNAVAILABLE, BROWSER_VISIBILITY_UNAVAILABLE") == (
         "Couldn't check: The technical sender information wasn't available. ApolloSG can't observe the page itself: its content, or the website an installed web app or notification came from.")
     assert plain_codes("Nothing coded here.") == "Nothing coded here."
+
+
+@pytest.mark.anyio
+async def test_slm_stage_audit_is_owner_case_scoped_and_never_invents_native_execution(monkeypatch):
+    stages = _Stages([{"request_id": "request-1", "role": "case_finding", "created_at": AT,
+                       "submission": {"state": "advisory_received", "received_at": AT}},
+                      {"request_id": "request-2", "role": "tc_hawkeye", "created_at": AT,
+                       "slm_failed_at": AT, "submission": {"state": "advisory_failed", "reason": "json_parse:no_json_object"}}])
+    monkeypatch.setattr(di_record.db, "investigation_device_requests", stages, raising=False)
+    result = await di_record.slm_stage_records("owner-A", "case-A")
+    assert stages.query == {"owner_id": "owner-A", "case_id": "case-A", "kind": "slm_advisory"}
+    assert not {"request_ciphertext", "submission.result_ciphertext"} & stages.projection.keys()
+    assert result[0]["status"] == "accepted"
+    assert result[0]["acceptedAt"] == AT.isoformat()
+    assert result[1]["failedAt"] == AT.isoformat()
+    assert result[1]["failure"] == "json_parse:no_json_object"
+    assert all("startedAt" not in row and "output" not in row for row in result)
+
+
+@pytest.mark.anyio
+async def test_missing_slm_failure_time_is_not_fabricated(monkeypatch):
+    monkeypatch.setattr(di_record.db, "investigation_device_requests", _Stages([
+        {"request_id": "request-1", "role": "tc_hawkeye", "submission": {"state": "advisory_failed"}}
+    ]), raising=False)
+    result = await di_record.slm_stage_records("owner-A", "case-A")
+    assert result[0]["failedAt"] is None
+    assert result[0]["requestedAt"] is None

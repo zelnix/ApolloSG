@@ -2,8 +2,10 @@
 // Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock — then the outside research behind it, each source with the
 // fact it supports or points against, how Apollo checked and the related history it had. Plain words only: token
 // counts, cost, Magnum DI's prompts and full reply, and rule-book codes are in the Admin Portal. The provider and
-// model are never shown. Shown on both the Threat Case screen and Ask Higgins. Evidence is never modified here.
+// model are never shown. On-device SLM execution and validated output are shown separately as advisory records. Shown on both the Threat Case screen and Ask Higgins. Evidence is never modified here.
 
+import { investigationAudit } from "@/src/investigation/auditStore";
+import { mergeSlmStages, SLM_ROLES, slmHistory, type SlmStage } from "@/src/domain/investigationAudit";
 import React, { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
@@ -140,24 +142,51 @@ function ScoreBreakdown({ breakdown }: { breakdown: FindingsRatingBreakdown }) {
   );
 }
 
-type DiState = { loading: boolean; error: string | null; records: DiTransaction[]; trace: DiTrace | null };
+export type DiState = { stages: SlmStage[]; loading: boolean; error: string | null; records: DiTransaction[]; trace: DiTrace | null };
 
 /** The Magnum DI record(s) and decision path for one case, as the server gives them to the app. */
+const emptyDiState = (caseId: string | null): DiState => ({ loading: !!caseId, error: null, records: [], trace: null, stages: [] });
 export function useDiTransactions(caseId: string | null): DiState {
-  const [state, setState] = useState<DiState>({ loading: !!caseId, error: null, records: [], trace: null });
-
+  const empty = emptyDiState(caseId);
+  const [scoped, setScoped] = useState<{ caseId: string | null; state: DiState }>({ caseId, state: empty });
   useEffect(() => {
-    if (!caseId) return;
+    const empty = emptyDiState(caseId);
     let alive = true;
-    apiGet<{ transactions: DiTransaction[]; trace?: DiTrace | null }>(`/investigations/${encodeURIComponent(caseId)}/di`)
-      .then((data) => { if (alive) setState({ loading: false, error: null, records: data.transactions ?? [], trace: data.trace ?? null }); })
-      .catch((error: unknown) => {
-        if (alive) setState({ loading: false, error: error instanceof Error ? error.message : "The DI record could not be read.", records: [], trace: null });
-      });
-    return () => { alive = false; };
+    let fetching = false;
+    const publish = (state: DiState) => { if (alive) setScoped({ caseId, state }); };
+    publish(empty);
+    if (!caseId) return () => { alive = false; };
+    const initialToken = investigationAudit.open(caseId).catch(() => null);
+    let trace: DiTrace | null = null;
+    let records: DiTransaction[] = [];
+    let error: string | null = null;
+    const refreshLocal = async () => {
+      const ownerToken = await initialToken;
+      if (!ownerToken || !await investigationAudit.isCurrent(ownerToken)) { publish({ ...empty, loading: false }); return; }
+      const saved = await investigationAudit.get(caseId).catch(() => null);
+      const shownTrace = trace ?? saved?.trace ?? null;
+      publish({ loading: false, error: shownTrace || saved?.stages.length ? null : error,
+        trace: shownTrace, records: records.length ? records : saved?.records ?? [],
+        stages: mergeSlmStages(shownTrace?.slmStages ?? [], saved?.stages ?? []) });
+    };
+    const refresh = async () => {
+      if (fetching) return;
+      fetching = true;
+      const token = await investigationAudit.open(caseId).catch(() => null);
+      try {
+        const data = await apiGet<{ caseId: string; transactions: DiTransaction[]; trace?: DiTrace | null }>(`/investigations/${encodeURIComponent(caseId)}/di`);
+        if (!alive || data.caseId !== caseId || !token || !await investigationAudit.isCurrent(token)) return;
+        trace = data.trace ?? null; records = data.transactions ?? []; error = null;
+        if (token) await investigationAudit.snapshot(token, trace, records).catch(() => undefined);
+      } catch (cause) { error = cause instanceof Error ? cause.message : "The DI record could not be read."; }
+      finally { fetching = false; if (alive) await refreshLocal(); }
+    };
+    void refreshLocal(); void refresh();
+    const unsubscribe = investigationAudit.subscribe(() => { void refreshLocal(); });
+    const timer = setInterval(() => { void refresh(); }, 10000);
+    return () => { alive = false; clearInterval(timer); unsubscribe(); };
   }, [caseId]);
-
-  return state;
+  return scoped.caseId === caseId ? scoped.state : empty;
 }
 
 // ── Decision path ───────────────────────────────────────────────────────────
@@ -317,7 +346,8 @@ export function CollapsibleSection({ title, subtitle, children, testID, defaultO
 
 // ── The DI tab ──────────────────────────────────────────────────────────────
 
-export function DiReport({ caseId, triage, settledReason, settledEvent, how, presented, history, response, sources }: {
+export function DiReport({ auditState, caseId, triage, settledReason, settledEvent, how, presented, history, response, sources }: {
+  auditState?: DiState;
   caseId: string | null;
   /** The verdict and severity Higgins presented — the case result the Findings Brief shows. */
   presented?: PresentedResult | null;
@@ -336,7 +366,8 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
   sources?: SourceReference[];
 }) {
   const s = useStyles();
-  const state = useDiTransactions(caseId);
+  const fetchedState = useDiTransactions(auditState ? null : caseId);
+  const state = auditState ?? fetchedState;
 
   if (!caseId && !triage) {
     return (
@@ -377,6 +408,19 @@ export function DiReport({ caseId, triage, settledReason, settledEvent, how, pre
       ) : null)}
 
       <DecisionTrace steps={steps} settled={settled} />
+      <Card testID="tc-di-slm">
+        <Text style={s.sectionTitle}>On-device SLM</Text>
+        <Text style={s.note}>Recorded model output is advisory. Receipt acceptance does not approve a final Finding or verify its claims.</Text>
+        {!state.stages.length ? <Text style={s.sourceSub}>No SLM request or execution record is available for this case. This does not establish that the SLM ran.</Text> : null}
+        {state.stages.map((stage) => <View key={stage.requestId} style={s.source}>
+          <Text style={s.stepName}>{SLM_ROLES[stage.role] ?? stage.role} — {{ requested: "Requested", running: "Engaged", returned: "Output returned; awaiting receipt", accepted: "Output received by coordinator", failed: "Failed" }[stage.status]}</Text>
+          {slmHistory([stage]).map((entry, i) => <Text key={i} style={s.stepDetail} selectable>{entry.title} · {formatDateTime(entry.at)}</Text>)}
+          {stage.failure ? <Text style={s.value} selectable>Recorded failure: {stage.failure}</Text> : null}
+          {stage.output !== undefined ? <CollapsibleSection title="SLM output" testID={`tc-di-slm-output-${stage.requestId}`}>
+            <Text style={s.value} selectable>{JSON.stringify(stage.output, null, 2)}</Text>
+          </CollapsibleSection> : <Text style={s.note}>No returned output is retained on this device for this request.</Text>}
+        </View>)}
+      </Card>
 
       {response?.findingsRatingBreakdown ? <ScoreBreakdown breakdown={response.findingsRatingBreakdown} /> : null}
     </View>

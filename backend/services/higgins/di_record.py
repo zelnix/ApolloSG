@@ -186,6 +186,29 @@ def _iso(value: Any) -> Any:
     return value.isoformat() if hasattr(value, "isoformat") else value
 
 
+async def slm_stage_records(owner: str, case_id: str) -> list[dict]:
+    """Case-scoped request/receipt metadata only. Native execution and output stay on the device.
+
+    A server receipt does not prove when inference started. Never decrypt expired
+    requests or copy submitted evidence/model replies into this audit projection.
+    """
+    cursor = db.investigation_device_requests.find(
+        {"owner_id": owner, "case_id": case_id, "kind": "slm_advisory"},
+        {"_id": 0, "request_id": 1, "role": 1, "created_at": 1, "slm_failed_at": 1,
+         "submission.state": 1, "submission.received_at": 1, "submission.reason": 1},
+    ).sort("created_at", 1)
+    stages = []
+    async for row in cursor:
+        submission = row.get("submission") or {}
+        state = submission.get("state")
+        stages.append({"caseId": case_id, "requestId": row["request_id"],
+                       "role": row.get("role") or "unknown", "requestedAt": _iso(row.get("created_at")),
+                       "acceptedAt": _iso(submission.get("received_at")),
+                       "failedAt": _iso(row.get("slm_failed_at")), "failure": submission.get("reason"),
+                       "status": "accepted" if state == "advisory_received" else "failed" if state == "advisory_failed" else "requested"})
+    return stages
+
+
 async def decision_trace(owner: str, case_id: str) -> dict:
     """The recorded decision path for one case: the deterministic Triage record, what TC Hawkeye checked and
     decided, whether Magnum DI was engaged, and how Higgins presented the result. Recorded data only —
@@ -202,6 +225,7 @@ async def decision_trace(owner: str, case_id: str) -> dict:
         flyby["ranAt"] = _iso(recorded.get("ranAt"))
         flyby["checks"] = [{**c, "route": _TOOL_NAMES.get(c.get("route"), c.get("route"))} for c in recorded.get("checks") or []]
     return {
+        "slmStages": await slm_stage_records(owner, case_id),
         "triage": (triage or {}).get("record"),
         "flyby": flyby,
         "magnum": {"webSearch": bool(magnum.get("search")), "searchQueries": magnum.get("searchQueries") or 0,

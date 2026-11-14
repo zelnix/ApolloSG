@@ -137,7 +137,7 @@ export function caseAuditTrail(input: {
 }): AuditEntry[] {
   const { event, investigation, trace, records, verdict } = input;
   const caseId = event.investigation_case_id ?? event.patrol_record?.investigationCaseId ?? null;
-  const triage = triageEntries(event);
+  const triage = triageEntries(trace?.triage ? { ...event, triage_investigation: trace.triage } : event);
   const entries: AuditEntry[] = [created(event), ...triage, ...evidenceAdded(event, investigation)];
   if (caseId) entries.push(...investigationEntries(event, investigation, trace, records));
 

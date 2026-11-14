@@ -1,3 +1,4 @@
+import { investigationAudit } from "@/src/investigation/auditStore";
 /**
  * Device-permanent investigation store.
  *
@@ -200,6 +201,7 @@ export async function listInvestigations(): Promise<DeviceInvestigationMeta[]> {
  */
 export async function deleteInvestigation(caseId: string): Promise<boolean> {
   return serialise(async () => {
+  await investigationAudit.remove(caseId);
   const identity = await getDeviceIdentity();
   if (identity) await deleteArchivedEvidence(identity.deviceId, caseId);
   if (!await storage.removeItem(manifestKey(caseId))) throw new Error("Evidence manifest removal failed.");

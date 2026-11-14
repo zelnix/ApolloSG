@@ -79,7 +79,7 @@ async def advisory_failure(case_id: str, body: AdvisoryFailure, request: Request
     result = await db.investigation_device_requests.update_one({
         "owner_id": owner, "case_id": case_id, "request_id": body.request_id,
         "submission": None, "expires_at": {"$gt": now_utc()},
-    }, {"$set": {"fulfilled": True, "submission": {"state": "advisory_failed", "status": body.status, "reason": body.reason}}})
+    }, {"$set": {"fulfilled": True, "slm_failed_at": now_utc(), "submission": {"state": "advisory_failed", "status": body.status, "reason": body.reason}}})
     if result.matched_count != 1 and (pending.get("submission") or {}) != {"state": "advisory_failed", "status": body.status, "reason": body.reason}:
         raise http(409, "conflict", "The on-device request was already answered.")
     return JSONResponse({"accepted": True}, status_code=202, headers=NO_STORE)
@@ -161,12 +161,13 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
     existing = await db.investigation_device_requests.find_one({
         "owner_id": owner, "case_id": case_id, "job_id": job_id,
         "kind": "slm_advisory", "role": role, "epoch": case.get("epoch"),
-    }, {"_id": 0, "request_ciphertext": 1, "expires_at": 1})
+    }, {"_id": 0, "request_ciphertext": 1, "expires_at": 1, "created_at": 1})
     if existing:
         if repo.utc(existing["expires_at"]) <= now_utc():
             return None
         return {"request": repo.dec_json(existing["request_ciphertext"]),
-                "expiresAt": repo.utc(existing["expires_at"]).isoformat()}
+                "expiresAt": repo.utc(existing["expires_at"]).isoformat(),
+                "issuedAt": repo.utc(existing["created_at"]).isoformat() if existing.get("created_at") else None}
     evidence = await _source_evidence(owner, case_id, include_checks=(role in ("case_finding", "higgins_escalation_assessment")))
     if not evidence:
         return None
@@ -178,15 +179,16 @@ async def issue_stage_request(owner: str, case_id: str, job_id: str, revision: i
     expires = min(repo.utc(case["expires_at"]), repo.utc(_job.get("deadline_at", case["expires_at"])), now_utc() + timedelta(minutes=5))
     if expires <= now_utc():
         return None
+    issued_at = now_utc()
     await db.investigation_device_requests.insert_one({
         "owner_id": owner, "case_id": case_id, "job_id": job_id,
         "request_id": issued.request_id, "kind": "slm_advisory", "role": role,
         "request": {"capabilityId": CAPABILITY, "expiresAt": expires.isoformat()},
         "request_ciphertext": repo.enc_json(issued.wire()),
         "expires_at": expires, "submission": None, "fulfilled": False,
-        "created_at": now_utc(), "epoch": case.get("epoch"), "work_epoch": case.get("work_epoch"),
+        "created_at": issued_at, "epoch": case.get("epoch"), "work_epoch": case.get("work_epoch"),
     })
-    return {"request": issued.wire(), "expiresAt": expires.isoformat()}
+    return {"request": issued.wire(), "expiresAt": expires.isoformat(), "issuedAt": issued_at.isoformat()}
 
 
 @router.get("/investigations/slm/pending")
@@ -205,7 +207,8 @@ async def pending_advisories(request: Request):
         except Exception:
             continue
         if pending.get("epoch") == case.get("epoch") and pending.get("work_epoch", job.get("work_epoch")) == job.get("work_epoch"):
-            items.append({"request": original, "expiresAt": repo.utc(pending["expires_at"]).isoformat()})
+            items.append({"request": original, "expiresAt": repo.utc(pending["expires_at"]).isoformat(),
+                          "issuedAt": repo.utc(pending["created_at"]).isoformat() if pending.get("created_at") else None})
     return JSONResponse({"items": items}, headers=NO_STORE)
 
 

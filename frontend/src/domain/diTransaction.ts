@@ -1,7 +1,8 @@
 // The Deep Investigation (DI) record as the app receives it: whether Magnum DI ran, live or on the preview
 // simulator, and what it was handed — plus the recorded decision path. It is NOT evidence: evidence stays the
 // original source Apollo received. Token counts, cost, timings, the prompts, the full reply, rule-book codes, the
-// provider and the model are Apollo's own diagnostics: they stay in the Admin Portal and never reach the device.
+// provider and the model are Apollo's own diagnostics: they stay in the Admin Portal.
+// On-device SLM stage timestamps and validated output are retained separately on the owning device.
 
 import type { TriageInvestigationRecord } from "./triage/contract.ts";
 
@@ -50,6 +51,7 @@ export interface FlybyTrace {
 /** The recorded decision path: Higgins Triage → TC Hawkeye → Magnum DI → Evidence Lock. A stage with no
  *  record is null — never inferred. */
 export interface DiTrace {
+  slmStages?: import("./investigationAudit.ts").SlmStage[];
   triage: TriageInvestigationRecord | null;
   flyby: FlybyTrace | null;
   magnum: { webSearch: boolean; searchQueries: number; itemsSent: number; simulated: boolean; at: string | null } | null;
