@@ -1,0 +1,63 @@
+name: Publish the single owner-approved Qwen3 test APK
+# One-time approval: this exact existing APK only. Not a future build signing policy.
+# This workflow is removed after delivery. No workflow_dispatch, reusable call or inputs.
+on:
+  push:
+    branches: [slm]
+    paths: ['.github/workflows/publish-approved-qwen3-apk.yml']
+permissions:
+  contents: read
+jobs:
+  publish-approved-artifact:
+    if: ${{ contains(github.event.head_commit.message, '[publish-approved-test-apk]') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: apollosg-slm-android-standalone-test
+          run-id: 43598231594
+          github-token: ${{ github.token }}
+          path: approved-input
+      - name: Verify the exact approved artifact before one-time signing
+        run: |
+          echo 'c9b2002daab5be4d658d10383648999a4654164e2d7f82942010dd21171cd1dd  approved-input/app-release.apk' | sha256sum -c -
+          python3 - <<'PY'
+          import json, zipfile
+          with zipfile.ZipFile('approved-input/app-release.apk') as archive:
+              profile=json.loads(archive.read('assets/higgins-model-profile.json'))
+          assert profile['sourceCommit']=='2ef6517cebaa50b1754d4f7f561d56d1b8e60c20'
+          assert profile['modelId']=='Qwen3-1.7B-Q4_K_M' and profile['contextTokens']==8192
+          PY
+      - name: Sign only this owner-approved internal test APK
+        run: |
+          # Public React Native TEST key matching the owner's existing GitHub APK.
+          # Owner explicitly approved its known risk for THIS APK only; do not reuse for future builds.
+          curl --fail --location --silent --show-error https://raw.githubusercontent.com/react-native-community/template/3c1a5b216a2bc570ae1de4ed0aee33c85c407a9a/template/android/app/debug.keystore --output /tmp/approved-test-key.keystore
+          echo '221e0a3106aa4c3ccc154e0a418b55020b3f9ea6e84f92e8749cd9e2f39f5e58  /tmp/approved-test-key.keystore' | sha256sum -c -
+          APK_SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$APK_SIGNER" sign --ks /tmp/approved-test-key.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out ApolloSG-1.1.0-build3-qwen3-arm64.apk approved-input/app-release.apk
+          rm /tmp/approved-test-key.keystore
+          "$APK_SIGNER" verify --print-certs ApolloSG-1.1.0-build3-qwen3-arm64.apk > /tmp/approved-apk-cert.txt
+          grep -Fx 'Signer #1 certificate SHA-256 digest: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c' /tmp/approved-apk-cert.txt
+          python3 frontend/scripts/verify_android_abis.py ApolloSG-1.1.0-build3-qwen3-arm64.apk --expected-abi arm64-v8a
+          sha256sum ApolloSG-1.1.0-build3-qwen3-arm64.apk > ApolloSG-1.1.0-build3-qwen3-arm64.apk.sha256
+      - name: Publish the approved APK and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/approved-apk-notes.md <<'NOTES'
+          Owner-approved internal TEST APK only. Uses the same publicly known test signing identity as the existing GitHub APK to permit an in-place update. This does not establish a signing policy for future builds or store releases.
+          Version 1.1.0 build 3; ARM64 only. Source: 2ef6517cebaa50b1754d4f7f561d56d1b8e60c20.
+          Higgins uses Qwen3-1.7B Q4_K_M, 8192 tokens, non-thinking, CPU execution. The model downloads separately (approximately 1.11 GB).
+          The old installed app-private Qwen2.5 model is removed only after Qwen3 loads successfully. Investigations and evidence are not removed by this migration.
+          Physical-device qualification remains pending. Backend deployment is separate.
+          NOTES
+          gh release create slm-qwen3-build3-2ef6517 ApolloSG-1.1.0-build3-qwen3-arm64.apk ApolloSG-1.1.0-build3-qwen3-arm64.apk.sha256 --repo "$GITHUB_REPOSITORY" --target 2ef6517cebaa50b1754d4f7f561d56d1b8e60c20 --prerelease --title 'ApolloSG 1.1.0 build 3 — Higgins Qwen3 (ARM64 test)' --notes-file /tmp/approved-apk-notes.md
