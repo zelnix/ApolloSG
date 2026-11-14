@@ -1,4 +1,6 @@
 import type { DiTrace, DiTransaction } from "./diTransaction.ts";
+import type { TriageInvestigationRecord } from "./triage/contract.ts";
+import { plainServiceText } from "./checkServicePresentation.ts";
 
 export interface SlmStage {
   caseId: string; caseRevision?: number; requestId: string; role: string; operation?: string;
@@ -92,11 +94,17 @@ export function slmHistory(stages: SlmStage[]) {
 }
 
 /** Actual engine records shared by case History and DI, including cases without a patrol event. */
-export function engineHistory(trace: DiTrace | null, records: DiTransaction[]) {
+export function engineHistory(trace: DiTrace | null, records: DiTransaction[], retainedTriage: TriageInvestigationRecord[] = []) {
   const entries: { title: string; body: string; at: string; iconType: "complete" | "failed"; entryKind: "process" }[] = [];
   const add = (title: string, body: string, at: string | null, failed = false) => entries.push({ title, body, at: at ?? "", iconType: failed ? "failed" : "complete", entryKind: "process" });
   if (trace?.flyby) add("TC Hawkeye checks recorded", trace.flyby.resolved ? "TC Hawkeye recorded a resolved result." : "TC Hawkeye's checks did not settle the case.", trace.flyby.ranAt);
-  if (trace?.triage) add("Triage assessment recorded", trace.triage.reason, trace.triage.evaluatedAt);
+  const seenTriage = new Set<string>();
+  for (const triage of [...retainedTriage, ...(trace?.triage ? [trace.triage] : [])]) {
+    const key = `${triage.investigationId}:${triage.evaluatedAt}`;
+    if (seenTriage.has(key)) continue;
+    seenTriage.add(key);
+    add("Triage assessment recorded", plainServiceText(triage.reason), triage.evaluatedAt);
+  }
   for (const record of records) {
     const failed = !!record.failureCode || (record.status ?? "success") !== "success";
     add(failed ? "Magnum DI did not finish" : "Magnum DI response recorded", record.failureCode ?? "The recorded transaction is available in DI.", record.occurredAt, failed);

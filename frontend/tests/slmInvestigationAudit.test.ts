@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { TriageInvestigationRecord } from "../src/domain/triage/contract.ts";
 import { createInvestigationAudit, engineHistory, mergeSlmStages, slmHistory, type SlmStage } from "../src/domain/investigationAudit.ts";
 function harness() {
   const data = new Map<string, string>(); let owner: string | null = "device-A";
@@ -47,4 +48,13 @@ test("live cases without a patrol event still expose recorded engine history", (
   const entries = engineHistory(null, [{ investigationId: "case-A", engine: "Magnum DI", environment: "test", mode: "Live", simulated: false, status: "failed", failureCode: "provider_timeout", occurredAt: "2026-11-14T10:00:00Z", request: {}, notice: null }]);
   assert.equal(entries[0].title, "Magnum DI did not finish");
   assert.equal(entries[0].at, "2026-11-14T10:00:00Z");
+});
+
+
+test("retained triage remains in case history when the server trace is missing and is not duplicated on refresh", () => {
+  const triage = { investigationId: "triage-A", evaluatedAt: "2026-11-14T10:00:00Z", reason: "One recorded warning sign warranted investigation." } as TriageInvestigationRecord;
+  assert.equal(engineHistory(null, [], [triage]).length, 1);
+  const trace = { triage } as import("../src/domain/diTransaction.ts").DiTrace;
+  assert.equal(engineHistory(trace, [], [triage]).length, 1);
+  assert.equal(engineHistory(null, [], [triage])[0].body, triage.reason);
 });

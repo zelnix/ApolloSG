@@ -705,7 +705,8 @@ export function InvestigationView({ state, onAnswer, onRetry, onCancel, onAction
           entryKind: entry.tone === "closed" ? "administrative_closure" : "process" });
       }
     }
-    if (caseData) entries.push(...engineHistory(auditState.trace, auditState.records));
+    const linkedEvent = caseData && (event?.investigation_case_id === caseData.id || event?.patrol_record?.investigationCaseId === caseData.id) ? event : null;
+    if (caseData) entries.push(...engineHistory(auditState.trace, auditState.records, [...(linkedEvent?.triage_history ?? []), ...(linkedEvent?.triage_investigation ? [linkedEvent.triage_investigation] : [])]));
     entries.push(...slmHistory(auditState.stages));
     return entries.sort((a, b) => (a.at || "9999").localeCompare(b.at || "9999"));
   }, [state, caseData, event, auditState]);
