@@ -209,7 +209,7 @@ export function EmailArtefact({ view, body, images, email, onViewImage, tab, s }
         <Text style={s.subject} selectable>{view.subject ?? `Subject: ${NOT_PROVIDED}`}</Text>
         {/* The email as it appeared (its HTML, inert). Its text only when the kept original has no HTML part. */}
         {email ? <>
-          <InertEmailView email={email} style={s.emailView} testID="evidence-artefact-email-html" />
+          <InertEmailView email={email} fallbackText={body} style={s.emailView} testID="evidence-artefact-email-html" />
           <Text style={s.inertNote} testID="evidence-artefact-email-inert-note">{inertEmailNote(email)}</Text>
         </> : body ? <InertText text={body} style={s.bodyText} s={s} testID="evidence-artefact-body" /> : <Text style={s.empty}>No message body was captured.</Text>}
         {images.map((img) => (

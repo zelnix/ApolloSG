@@ -161,6 +161,7 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [full, setFull] = useState<ArtefactImage | null>(null);
   const [email, setEmail] = useState<InertEmail | null>(null);
+  const [emailLoaded, setEmailLoaded] = useState(false);
   const [emailFull, setEmailFull] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -200,10 +201,13 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
   // one (no HTML part, or only the text was kept) the email's text is shown instead.
   useEffect(() => {
     let live = true;
+    setEmail(null);
+    setEmailLoaded(false);
+    setEmailFull(false);
     void readKeptOriginalEmail(keyList ? keyList.split("|") : [])
-      .then((raw) => (raw ? inertEmail(readEmailBody(raw)) : null))
+      .then((raw) => (live && raw ? inertEmail(readEmailBody(raw)) : null))
       .catch(() => null)
-      .then((found) => { if (live) setEmail(found); });
+      .then((found) => { if (live) { setEmail(found); setEmailLoaded(true); } });
     return () => { live = false; };
   }, [keyList]);
 
@@ -230,11 +234,11 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
   // When the kept .eml has HTML → use it. Otherwise, wrap the captured text in styled HTML so the evidence tab
   // NEVER falls back to flat text with [link] artefacts.
   const shownEmail = useMemo(() => {
-    if (view?.layout !== "email") return null;
+    if (!emailLoaded || view?.layout !== "email") return null;
     const base = email ?? (view.body ? textToInertEmail(view.body) : null);
     if (!base) return null;
     return mode === "redacted" ? redactInertEmail(base, redactInvestigationSecrets) : base;
-  }, [view?.layout, view?.body, email, mode]);
+  }, [view, email, emailLoaded, mode]);
 
   const copyText = useCallback(() => {
     const parts = [shown?.subject, shown?.body, mode === "redacted" && source?.url ? purposeLimitedUrl(source.url) : source?.url].filter(Boolean);
@@ -352,7 +356,7 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
       ) : null}
 
       {/* ── The artefact ── */}
-      {view.layout === "email" ? <EmailArtefact {...layoutProps} tab={tab} />
+      {view.layout === "email" ? (emailFull ? null : <EmailArtefact {...layoutProps} tab={tab} />)
         : view.layout === "screenshot" ? <ScreenshotArtefact {...layoutProps} />
           : view.layout === "post" ? <PostArtefact {...layoutProps} />
             : <ConversationArtefact {...layoutProps} />}
@@ -437,15 +441,15 @@ export function EvidenceArtefactCard({ caseKeys, packTitle, packDate, packSummar
       </Modal>
 
       {/* ── The email as it appeared, full screen (still inert) ── */}
-      <Modal visible={emailFull && !!shownEmail} animationType="slide" onRequestClose={() => setEmailFull(false)} statusBarTranslucent>
+      {emailFull && shownEmail ? <Modal visible animationType="slide" onRequestClose={() => setEmailFull(false)} statusBarTranslucent>
         <View style={[s.emailViewer, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID={`${testID}-email-viewer`}>
           <View style={s.viewerBar}>
             <Text style={s.emailViewerTitle} numberOfLines={1}>{shown.subject ?? "Original email"}</Text>
             <Pressable onPress={() => setEmailFull(false)} accessibilityRole="button" accessibilityLabel="Close full screen" hitSlop={12} style={s.viewerClose} testID={`${testID}-email-viewer-close`}><X size={22} color={colors.onSurface} /></Pressable>
           </View>
-          {shownEmail ? <InertEmailView email={shownEmail} style={Platform.OS === "android" ? { height: winH - insets.top - insets.bottom - 56 } : { flex: 1 }} /> : null}
+          <InertEmailView email={shownEmail} fallbackText={shown.body} style={Platform.OS === "android" ? { height: winH - insets.top - insets.bottom - 56 } : { flex: 1 }} />
         </View>
-      </Modal>
+      </Modal> : null}
     </View>
   );
 }

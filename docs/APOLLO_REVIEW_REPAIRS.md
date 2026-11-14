@@ -367,3 +367,17 @@ Wright again uses the mandatory on-device `wright_semantic` / `wrightSemantic` (
 The reporting, retained-original Evidence view, recorded History, latest inference status and corroboration fixes from later commits are preserved. No production data or historical case records are migrated or rewritten. No APK build or deployment was initiated. Native app and backend must use the same Wright contract.
 
 Validation of the restoration: 328 frontend regression tests pass; TypeScript passes. The configured backend regression gate passes 438 tests plus 12 subtests, with 25 existing skips. An exact source comparison confirms all non-documentation files changed by the readiness-only commit match their pre-change versions, and all later reporting/false-positive source fixes remain byte-for-byte unchanged.
+
+## Email Evidence preview crash mitigation — 14 November 2026
+
+The owner reports that opening Evidence for some emails closes ApolloSG to the Android home screen on a Galaxy Z Fold6. That is consistent with a native failure, but no device crash log is available; the exact Fold6 cause is not established.
+
+A confirmed memory failure was reproduced independently: encoding a synthetic 2 MiB embedded image with the old byte helper exhausted a 48 MiB Node heap. The replacement completed under the same limit and produced identical base64. Encoding now collects bounded string chunks, and decoding uses a byte array rather than one JavaScript array entry per decoded byte. Original bytes and hashes are not rewritten.
+
+The native email viewer now handles load errors, Android renderer loss and iOS content-process termination by removing the failed view and showing captured text, with an explicit notice that the original is unchanged. It does not automatically reload a failed document. The rendered HTML copy is limited to one million characters before crossing the native bridge; larger copies use captured text without truncating or deleting the stored original. The Android static preview uses software composition to avoid the GPU layer during tab/modal transitions. This is a mitigation, not proof of the reported native crash's cause.
+
+Only one email WebView is mounted at a time: the inline viewer is removed while full screen is open, and the full-screen Modal is created only on request. The initial preview waits for the retained-email lookup before selecting HTML or text, and cancelled loads stop before parsing. Script, network, cookie, file, navigation and form restrictions remain in place. The fallback receives the current Original/Redacted mode's text; diagnostic messages contain no email content.
+
+Validation: all 390 configured frontend tests pass, including new real-viewer callback tests with native hosts substituted, byte-boundary/large-image round trips, and existing MIME/HTML/evidence presentation tests. TypeScript passes; changed-file lint has no errors and one pre-existing screenshot-effect dependency warning. The byte codec test suite checks all byte values and chunk boundaries against Node's independent base64 implementation. The callback tests do not simulate Android's renderer or verify the Fold6 itself. One stale email-profile test expectation was updated to match the previously restored Wright naming; no Wright or Findings logic changed here.
+
+APK builds remain paused. No deployment or new APK was initiated; physical-device acceptance requires a later explicitly requested build.

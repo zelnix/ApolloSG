@@ -125,7 +125,7 @@ test("L3 profile: recorded results with attribution, statuses, and investigation
   const profile = buildEmailProfile({ via: "eml_file", original: parsed, analysis: analyseEmail(raw, fields, headerEvidenceFor(parsed)), keptOnDevice: true });
   assert.equal(profile.level, "L3");
   assert.equal(profile.label, "L3 — Original Message");
-  assert.equal(profile.classifiedBy, "Higgins Triage");
+  assert.equal(profile.classifiedBy, "Wright Triage");
   const row = (id: string) => profile.capabilities.find((c) => c.id === id)!;
   assert.equal(row("spf").status, "recorded");
   assert.match(row("spf").value ?? "", /^fail \(mailer-x\.ru\)$/);

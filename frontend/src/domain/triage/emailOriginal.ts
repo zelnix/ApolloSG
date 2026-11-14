@@ -54,23 +54,28 @@ const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 export function b64ToBinary(text: string): string {
   const clean = text.replace(/-/g, "+").replace(/_/g, "/").replace(/[^A-Za-z0-9+/]/g, "");
-  const out: string[] = [];
-  let buffer = 0, bits = 0;
+  // A byte array avoids millions of JS array entries for an embedded image or attachment.
+  const out = new Uint8Array(Math.floor(clean.length * 6 / 8));
+  let buffer = 0, bits = 0, size = 0;
   for (let i = 0; i < clean.length; i++) {
     buffer = ((buffer << 6) | B64.indexOf(clean[i])) & 0xffffff;
     bits += 6;
-    if (bits >= 8) { bits -= 8; out.push(String.fromCharCode((buffer >> bits) & 0xff)); }
+    if (bits >= 8) { bits -= 8; out[size++] = (buffer >> bits) & 0xff; }
   }
-  return out.join("");
+  return bytesToBinary(out.subarray(0, size));
 }
 
 export function binaryToBase64(bin: string): string {
   const out: string[] = [];
+  let chunk = "";
   for (let i = 0; i < bin.length; i += 3) {
     const a = bin.charCodeAt(i), b = bin.charCodeAt(i + 1), c = bin.charCodeAt(i + 2);
     const n = (a << 16) | ((b || 0) << 8) | (c || 0);
-    out.push(B64[(n >> 18) & 63], B64[(n >> 12) & 63], i + 1 < bin.length ? B64[(n >> 6) & 63] : "=", i + 2 < bin.length ? B64[n & 63] : "=");
+    chunk += B64[(n >> 18) & 63] + B64[(n >> 12) & 63]
+      + (i + 1 < bin.length ? B64[(n >> 6) & 63] : "=") + (i + 2 < bin.length ? B64[n & 63] : "=");
+    if (chunk.length >= 0x8000) { out.push(chunk); chunk = ""; }
   }
+  if (chunk) out.push(chunk);
   return out.join("");
 }
 
